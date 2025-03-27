@@ -1,33 +1,24 @@
 package xiaozhi.modules.model.controller;
 
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
-import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.springframework.http.HttpHeaders;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import xiaozhi.common.controller.BaseController;
 import xiaozhi.common.redis.RedisUtils;
-import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.Result;
-import xiaozhi.modules.device.constant.DeviceConstant;
-import xiaozhi.modules.device.domain.Device;
-import xiaozhi.modules.device.service.DeviceService;
-import xiaozhi.modules.device.utils.CodeGeneratorUtil;
-import xiaozhi.modules.device.vo.DeviceOtaVO;
-import xiaozhi.modules.ota.domain.Ota;
-import xiaozhi.modules.ota.service.OtaService;
-import xiaozhi.modules.security.user.SecurityUser;
+import xiaozhi.modules.model.domain.ModelConfig;
+import xiaozhi.modules.model.domain.TtsVoice;
+import xiaozhi.modules.model.service.ModelConfigService;
+import xiaozhi.modules.model.service.TtsVoiceService;
 
-import java.util.Date;
+import java.util.List;
 
 @Slf4j
 @Tag(name = "模型数据管理")
@@ -35,112 +26,99 @@ import java.util.Date;
 @RestController
 @RequestMapping("/model/")
 public class ModelController extends BaseController {
-    private final DeviceService deviceService;
-    private final OtaService otaService;
-    @Resource
-    private RedisUtils redisUtils;
-
-    @CrossOrigin(originPatterns = "*", methods = {RequestMethod.GET, RequestMethod.POST})
-    @RequestMapping(path = "/", method = {RequestMethod.POST, RequestMethod.GET}, produces = "application/json")
-    @Operation(summary = "设备OTA升级")
-    public String ota(@RequestHeader(required = false) HttpHeaders headers, @RequestBody(required = false) JSONObject jsonObject) {
-        log.info("OTA升级请求：header:{}，body:{}", headers, jsonObject);
-        if (ObjectUtils.isNull(headers) || StringUtils.isBlank(headers.getFirst("device-id"))) {
-            log.error("设备ID不能为空");
-            return "{\"error\": \"Device ID is required\"}";
-        }
-
-        DeviceOtaVO otaVO = new DeviceOtaVO();
-        Device device = deviceService.getOne(new UpdateWrapper<Device>().eq("mac_address", headers.getFirst("device-id").toUpperCase()).eq("id", headers.getFirst("client-Id").replace("-", "")));
-        if (ObjectUtils.isNull(device)) {
-            // 从 Redis 中获取设备信息
-            Object redisValue = redisUtils.hGet(DeviceConstant.REDIS_KEY_PREFIX_DEVICE_ACTIVATION_MAC, headers.getFirst("device-id").toUpperCase());
-            if (ObjectUtils.isNull(redisValue)) {
-                String code = CodeGeneratorUtil.generateCode(6);
-                log.info("[gen]授权码已广播:{}", code);
-                otaVO.setActivation(new DeviceOtaVO.Activation(code, "youxlife.com\n" + code));
-                redisUtils.hSet(DeviceConstant.REDIS_KEY_PREFIX_DEVICE_ACTIVATION_MAC, headers.getFirst("device-id").toUpperCase(), code, RedisUtils.HOUR_ONE_EXPIRE);
-                redisUtils.hSet(DeviceConstant.REDIS_KEY_PREFIX_DEVICE_ACTIVATION_CODE, code, jsonObject, RedisUtils.HOUR_ONE_EXPIRE);
-            } else {
-                log.warn("[get]授权码已广播:{}", redisValue);
-                otaVO.setActivation(new DeviceOtaVO.Activation(redisValue.toString(), "youxlife.com\n" + redisValue));
-            }
-        }
+    private final TtsVoiceService ttsVoiceService;
+    private final ModelConfigService modelConfigService;
 
 
-        if (ObjectUtils.isNull(device) || device.getAutoUpdate() == 1) {
-            //{"version":"1.0.0","url":"http://https://youxlife.oss-cn-zhangjiakou.aliyuncs.com/v1.4.5.bin"}
-            String board = ObjectUtils.isNull(device)?headers.getFirst("user-agent").split("/")[0]:device.getBoard();
-            Ota ota = otaService.getOne(new UpdateWrapper<Ota>().eq("board", board).eq("is_enabled", 1));
-            if (ObjectUtils.isNull(ota)) {
-                log.warn("OTA升级信息未配置");
-            } else {
-                otaVO.setFirmware(new DeviceOtaVO.Firmware(ota.getAppVersion(), ota.getUrl()));
-            }
-        }
-
-        otaVO.setServer_time(new DeviceOtaVO.ServerTime(new Date().getTime(), 8 * 60));
-        return JSONUtil.toJsonStr(otaVO);
+    @GetMapping("/list")
+    @Operation(summary = "模型配置列表")
+    @RequiresPermissions("sys:role:normal")
+    public Result<List<ModelConfig>> getModelList() {
+        List<ModelConfig> list = modelConfigService.list(new QueryWrapper<ModelConfig>().eq("is_enabled", 1));
+        return new Result<List<ModelConfig>>().ok(list);
     }
 
-    @GetMapping("/sys/getOtalist")
-    @Operation(summary = "设备OTA列表")
-    @RequiresPermissions("sys:role:superAdmin")
-    public Result<Page<Ota>> getOtalist(@RequestParam Integer pageNo, @RequestParam Integer pageSize) {
-        UserDetail user = SecurityUser.getUser();
-        Page page = new Page<Ota>(pageNo, pageSize);
-        page = otaService.page(page);
-        return new Result<Page<Ota>>().ok(page);
-    }
 
-    @PostMapping("/sys/save")
-    @Operation(summary = "添加设备OTA")
-    @RequiresPermissions("sys:role:superAdmin")
-    public Result<Ota> save(@RequestBody Ota ota) {
-        UserDetail user = SecurityUser.getUser();
-        ota.setCreator(user.getId());
-        ota.setCreateDate(new Date());
-        boolean bool = otaService.save(ota);
-        if (!bool) {
-            return new Result().error("设备OTA添加失败");
-        }
-        return new Result<Ota>().ok(null);
-    }
-
-    @PostMapping("/sys/update")
-    @Operation(summary = "更新设备OTA")
-    @RequiresPermissions("sys:role:superAdmin")
-    public Result<Ota> update(@RequestBody Ota ota) {
-        UserDetail user = SecurityUser.getUser();
-        boolean bool = otaService.update(
-                new UpdateWrapper<Ota>().eq("id", ota.getId())
-                        .set("board", ota.getBoard().trim().toLowerCase())
-                        .set("app_version", ota.getAppVersion())
-                        .set("url", ota.getUrl())
-                        .set("is_enabled", ota.getIsEnabled())
-                        .set("updater", user.getId())
-                        .set("update_date", new Date())
-        );
-        if (!bool) {
-            return new Result().error("设备OTA更新失败");
-        }
-        return new Result<Ota>().ok(null);
-    }
-
-    @PostMapping("/sys/toggleEnabled")
-    @Operation(summary = "切换设备OTA可用状态")
-    @RequiresPermissions("sys:role:superAdmin")
-    public Result<Ota> toggleEnabled(@RequestBody Ota ota) {
-        UserDetail user = SecurityUser.getUser();
-        boolean bool = otaService.update(
-                new UpdateWrapper<Ota>().eq("id", ota.getId())
-                        .set("is_enabled", ota.getIsEnabled())
-                        .set("updater", user.getId())
-                        .set("update_date", new Date())
-        );
-        if (!bool) {
-            return new Result().error("切换设备OTA可用状态失败");
-        }
-        return new Result<Ota>().ok(null);
-    }
+//    private final ModelProviderService modelProviderService;
+//
+//    private final ModelConfigService modelConfigService;
+//
+//    @GetMapping("/models/names")
+//    @Operation(summary = "获取所有模型名称")
+//    @RequiresPermissions("sys:role:superAdmin")
+//    public Result<List<String>> getModelNames(@RequestParam String modelType,
+//                                              @RequestParam(required = false) String modelName) {
+//        List<String> modelNameList = modelConfigService.getModelCodeList(modelType, modelName);
+//        return new Result<List<String>>().ok(modelNameList);
+//    }
+//
+//    @GetMapping("/{modelType}/provideTypes")
+//    @Operation(summary = "获取模型供应器列表")
+//    @RequiresPermissions("sys:role:superAdmin")
+//    public Result<List<ModelProviderDTO>> getModelProviderList(@PathVariable String modelType) {
+//        List<ModelProviderDTO> modelProviderDTOS = modelProviderService.getListByModelType(modelType);
+//        return new Result<List<ModelProviderDTO>>().ok(modelProviderDTOS);
+//    }
+//
+//    @GetMapping("/{modelType}/{provideCode}/fields")
+//    @Operation(summary = "获取模型供应器字段")
+//    @RequiresPermissions("sys:role:superAdmin")
+//    public Result<List<String>> getModelProviderFields(@PathVariable String modelType, @PathVariable String provideCode) {
+//        List<String> fieldList = modelProviderService.getFieldList(modelType, provideCode);
+//        return new Result<List<String>>().ok(fieldList);
+//    }
+//
+//
+//    @GetMapping("/models/list")
+//    @Operation(summary = "获取模型配置列表")
+//    @RequiresPermissions("sys:role:superAdmin")
+//    public Result<PageData<ModelConfigDTO>> getModelConfigList(@RequestParam String modelType,
+//                                                               @RequestParam(required = false) String modelName,
+//                                                               @RequestParam(required = false, defaultValue = "0") Integer page,
+//                                                               @RequestParam(required = false,defaultValue = "10") Integer limit) {
+//        PageData<ModelConfigDTO> pageList = modelConfigService.getPageList(modelType, modelName, page, limit);
+//        return new Result<PageData<ModelConfigDTO>>().ok(pageList);
+//    }
+//
+//
+//    @PostMapping("/models/{modelType}/{provideCode}")
+//    @Operation(summary = "新增模型配置")
+//    @RequiresPermissions("sys:role:superAdmin")
+//    public Result<ModelConfigDTO> addModelConfig(@PathVariable String modelType,
+//                                                 @PathVariable String provideCode,
+//                                                 @RequestBody ModelConfigBodyDTO modelConfigBodyDTO) {
+//        ModelConfigDTO modelConfigDTO = modelConfigService.add(modelType, provideCode, modelConfigBodyDTO);
+//        return new Result<ModelConfigDTO>().ok(modelConfigDTO);
+//    }
+//
+//
+//    @PutMapping("/models/{modelType}/{provideCode}/{id}")
+//    @Operation(summary = "编辑模型配置")
+//    @RequiresPermissions("sys:role:superAdmin")
+//    public Result<ModelConfigDTO> editModelConfig(@PathVariable String modelType,
+//                                                  @PathVariable String provideCode,
+//                                                  @PathVariable String id,
+//                                                  @RequestBody ModelConfigBodyDTO modelConfigBodyDTO) {
+//        ModelConfigDTO modelConfigDTO = modelConfigService.edit(modelType, provideCode, id, modelConfigBodyDTO);
+//        return new Result<ModelConfigDTO>().ok(modelConfigDTO);
+//    }
+//
+//
+//    @DeleteMapping("/models/{modelType}/{provideCode}/{id}")
+//    @Operation(summary = "删除模型配置")
+//    @RequiresPermissions("sys:role:superAdmin")
+//    public Result<Void> deleteModelConfig(@PathVariable String modelType, @PathVariable String provideCode, @PathVariable String id) {
+//        modelConfigService.delete(modelType, provideCode, id);
+//        return new Result<>();
+//    }
+//
+//    @GetMapping("/models/{modelName}/voices")
+//    @Operation(summary = "获取模型音色")
+//    @RequiresPermissions("sys:role:normal")
+//    public Result<List<String>> getVoiceList(@PathVariable String modelName,
+//                                             @RequestParam(required = false) String voiceName) {
+//
+//        List<String> voiceList = modelConfigService.getVoiceList(modelName, voiceName);
+//        return new Result<List<String>>().ok(voiceList);
+//    }
 }
