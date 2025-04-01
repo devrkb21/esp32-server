@@ -138,8 +138,8 @@ export default {
             .url(`${getServiceUrl()}/api/v1/user/change-***REDACTED***`)
             .method('PUT')
             .data({
-                old_***REDACTED***: oldPassword,
-                new_***REDACTED***: newPassword,
+                ***REDACTED***: oldPassword,
+                newPassword: newPassword,
             })
             .success((res) => {
                 RequestService.clearRequestTime();
