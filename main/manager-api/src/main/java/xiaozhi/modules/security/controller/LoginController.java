@@ -19,6 +19,7 @@ import xiaozhi.common.page.TokenDTO;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.Result;
 import xiaozhi.common.validator.AssertUtils;
+import xiaozhi.common.validator.ValidatorUtils;
 import xiaozhi.modules.security.dto.LoginDTO;
 import xiaozhi.modules.security.***REDACTED***.PasswordUtils;
 import xiaozhi.modules.security.service.CaptchaService;
@@ -104,6 +105,8 @@ public class LoginController {
     @PutMapping("/change-***REDACTED***")
     @Operation(summary = "修改用户密码")
     public Result<?> changePassword(@RequestBody PasswordDTO ***REDACTED***DTO) {
+        // 判断非空
+        ValidatorUtils.validateEntity(***REDACTED***DTO);
         Long userId = SecurityUser.getUserId();
         sysUserTokenService.changePassword(userId, ***REDACTED***DTO);
         return new Result<>();
