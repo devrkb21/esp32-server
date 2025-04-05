@@ -189,10 +189,20 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
      */
     private String generatePassword() {
         StringBuilder ***REDACTED*** = new StringBuilder();
-        for (int i = 0; i < 10; i++) {
-            int randomIndex = random.nextInt(CHARACTERS.length());
-            ***REDACTED***.append(CHARACTERS.charAt(randomIndex));
+        for (int i = 0; i < 12; i++) {
+            ***REDACTED***.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
         }
         return ***REDACTED***.toString();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeStatus(Integer status, Long[] userIds) {
+        for (Long userId : userIds) {
+            SysUserEntity entity = new SysUserEntity();
+            entity.setId(userId);
+            entity.setStatus(status);
+            updateById(entity);
+        }
     }
 }
