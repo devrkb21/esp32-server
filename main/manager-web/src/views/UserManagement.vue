@@ -69,6 +69,7 @@
         </div>
       </div>
     </div>
+
     <view-***REDACTED***-dialog :visible.sync="showViewPassword" :***REDACTED***="currentPassword" />
   </div>
 </template>
