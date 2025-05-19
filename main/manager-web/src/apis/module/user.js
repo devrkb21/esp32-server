@@ -169,4 +169,28 @@ export default {
                 });
             }).send();
     },
+    // 找回用户密码
+    retrievePassword(***REDACTED***Data, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/user/retrieve-***REDACTED***`)
+            .method('PUT')
+            .data({
+                phone: ***REDACTED***Data.phone,
+                code: ***REDACTED***Data.code,
+                ***REDACTED***: ***REDACTED***Data.***REDACTED***
+            })
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                failCallback(err);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.retrievePassword(***REDACTED***Data, callback, failCallback);
+                });
+            }).send()
+    }
 }
