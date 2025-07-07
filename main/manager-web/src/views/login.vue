@@ -43,7 +43,7 @@
 
             <div class="input-box">
               <img loading="lazy" alt="" class="input-icon" src="@/assets/login/***REDACTED***.png" />
-              <el-input v-model="form.***REDACTED***" placeholder="请输入密码" type="***REDACTED***" />
+              <el-input v-model="form.***REDACTED***" placeholder="请输入密码" type="***REDACTED***" show-***REDACTED*** />
             </div>
             <div style="display: flex; align-items: center; margin-top: 20px; width: 100%; gap: 10px;">
               <div class="input-box" style="width: calc(100% - 130px); margin-top: 0;">
