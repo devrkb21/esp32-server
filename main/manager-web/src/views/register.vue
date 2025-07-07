@@ -70,13 +70,13 @@
               <!-- 密码输入框 -->
               <div class="input-box">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/***REDACTED***.png" />
-                <el-input v-model="form.***REDACTED***" placeholder="请输入密码" type="***REDACTED***" />
+                <el-input v-model="form.***REDACTED***" placeholder="请输入密码" type="***REDACTED***" show-***REDACTED*** />
               </div>
 
               <!-- 新增确认密码 -->
               <div class="input-box">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/***REDACTED***.png" />
-                <el-input v-model="form.confirmPassword" placeholder="请确认密码" type="***REDACTED***" />
+                <el-input v-model="form.confirmPassword" placeholder="请确认密码" type="***REDACTED***" show-***REDACTED*** />
               </div>
 
               <!-- 验证码部分保持相同 -->
