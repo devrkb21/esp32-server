@@ -61,13 +61,13 @@
               <!-- 新密码 -->
               <div class="input-box">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/***REDACTED***.png" />
-                <el-input v-model="form.newPassword" placeholder="请输入新密码" type="***REDACTED***" />
+                <el-input v-model="form.newPassword" placeholder="请输入新密码" type="***REDACTED***" show-***REDACTED*** />
               </div>
 
               <!-- 确认新密码 -->
               <div class="input-box">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/***REDACTED***.png" />
-                <el-input v-model="form.confirmPassword" placeholder="请确认新密码" type="***REDACTED***" />
+                <el-input v-model="form.confirmPassword" placeholder="请确认新密码" type="***REDACTED***" show-***REDACTED*** />
               </div>
 
               <!-- 修改底部链接 -->
