@@ -384,6 +384,7 @@ export default {
   'register.registerSuccess': 'Registration successful!',
   'register.registerFailed': 'Registration failed',
   'register.***REDACTED***sNotMatch': 'The two ***REDACTED***s do not match',
+  'register.secondsLater': 'seconds later',
 
   // Retrieve ***REDACTED*** page text
   'retrievePassword.title': 'Reset Password',
