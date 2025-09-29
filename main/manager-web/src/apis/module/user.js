@@ -183,7 +183,8 @@ export default {
             .data({
                 phone: ***REDACTED***Data.phone,
                 code: ***REDACTED***Data.code,
-                ***REDACTED***: ***REDACTED***Data.***REDACTED***
+                ***REDACTED***: ***REDACTED***Data.***REDACTED***,
+                captchaId: ***REDACTED***Data.captchaId
             })
             .success((res) => {
                 RequestService.clearRequestTime();
