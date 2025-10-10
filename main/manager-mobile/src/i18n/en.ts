@@ -19,8 +19,7 @@ export default {
   'login.enterCaptcha': 'Please enter verification code',
   'login.loginButton': 'Login',
   'login.loggingIn': 'Logging in...',
-  'login.noAccount': 'did not have an account?',
-  'login.registerNow': 'Register Now',
+  'login.noAccount': 'Sign Up',
   'login.enterPhone': 'Please enter phone number',
   'login.selectCountry': 'Select Country/Region',
   'login.confirm': 'Confirm',
@@ -30,6 +29,7 @@ export default {
   'login.requiredCaptcha': 'Verification code cannot be empty',
   'login.requiredMobile': 'Please enter a valid phone number',
   'login.captchaError': 'Graphic verification code error',
+  'login.forgotPassword': 'Forgot Password',
 
   // Register page
   'register.pageTitle': 'Register',
@@ -188,6 +188,27 @@ export default {
   'common.pleaseSelect': 'Please select',
   'common.unknownError': 'Unknown error',
   'common.networkError': 'Network error',
+
+  // Retrieve Password page
+  'retrievePassword.title': 'Reset Password',
+  'retrievePassword.subtitle': 'Recover your account ***REDACTED*** via mobile number',
+  'retrievePassword.mobileRequired': 'Please enter mobile number',
+  'retrievePassword.inputCorrectMobile': 'Please enter a valid mobile number',
+  'retrievePassword.captchaRequired': 'Please enter graphic verification code',
+  'retrievePassword.mobileCaptchaRequired': 'Please enter SMS verification code',
+  'retrievePassword.newPasswordRequired': 'Please enter new ***REDACTED***',
+  'retrievePassword.confirmNewPasswordRequired': 'Please confirm new ***REDACTED***',
+  'retrievePassword.***REDACTED***sNotMatch': 'Passwords do not match',
+  'retrievePassword.mobilePlaceholder': 'Please enter mobile number',
+  'retrievePassword.captchaPlaceholder': 'Please enter graphic verification code',
+  'retrievePassword.mobileCaptchaPlaceholder': 'Please enter SMS verification code',
+  'retrievePassword.newPasswordPlaceholder': 'Please enter new ***REDACTED***',
+  'retrievePassword.confirmNewPasswordPlaceholder': 'Please confirm new ***REDACTED***',
+  'retrievePassword.getMobileCaptcha': 'Get Code',
+  'retrievePassword.captchaSendSuccess': 'Verification code sent successfully',
+  'retrievePassword.***REDACTED***UpdateSuccess': 'Password reset successfully',
+  'retrievePassword.resetButton': 'Reset Password',
+  'retrievePassword.goToLogin': 'Back to Login',
 
   // SM2 encryption related error messages
   'sm2.publicKeyNotConfigured': 'SM2 public key not configured, please contact administrator',
