@@ -40,7 +40,7 @@ class TTSProvider(TTSProviderBase):
         try:
             response = requests.request(
                 "POST", self.api_url, json=request_json, headers=headers,
-                timeout=15,
+                timeout=self.tts_timeout,
             )
             if response.status_code != 200:
                 raise Exception(
