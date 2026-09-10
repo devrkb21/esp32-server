@@ -1,7 +1,7 @@
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { createSSRApp } from 'vue'
 import App from './App.vue'
-// Import i18n-related functionality
+// Internationalization helpers
 import { initI18n } from './i18n'
 
 import { routeInterceptor } from './router/interceptor'
@@ -16,7 +16,7 @@ export function createApp() {
   app.use(routeInterceptor)
   app.use(VueQueryPlugin)
 
-  // Initialize i18n
+  // Initialize internationalization
   initI18n()
 
   return {
