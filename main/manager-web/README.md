@@ -1,24 +1,24 @@
-本文档是开发类文档，如需部署小智服务端，[点击这里查看部署教程](../../README.md#%E9%83%A8%E7%BD%B2%E6%96%87%E6%A1%A3)
+This is a developer-oriented document. If you want to deploy the Xiaozhi server, [click here to view the deployment guide](../../README.md#deployment-documentation).
 
 # xiaozhi
 
 ## Project setup
 
-开发使用代码编辑器，导入项目时，选择`manager-web`文件夹作为项目目录
+Use your code editor to import the project, and choose the `manager-web` folder as the project directory.
 
-```
+```bash
 npm install
 ```
 
-### Compiles and hot-reloads for development
+### Compile and hot-reload for development
 
-```
+```bash
 npm run serve
 ```
 
-### Compiles and minifies for production
+### Compile and minify for production
 
-```
+```bash
 npm run build
 ```
 
