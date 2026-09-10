@@ -1,66 +1,66 @@
-# 联网搜索插件使用指南
+# Web Search Plugin Guide
 
-## 功能简介
+## Overview
 
-联网搜索插件 `web_search` 支持在对话过程中实时联网搜索信息并返回结果。插件支持两个搜索源：秘塔（Metaso）和Tavily，用户可根据需要选择其中一个。
+The `web_search` plugin supports searching the web in real time during conversations and returning results. It supports two search providers: Metaso and Tavily. You can choose either one based on your needs.
 
-## API Key申请指南
+## API Key Guide
 
-目前我们适配了`秘塔搜索`和`Tavily搜索`。
-- Tavily搜索：每个月1000次免费额度。
-- 秘塔搜索：拥有较为优质的国内数据源。
+We currently support `Metaso Search` and `Tavily Search`.
+- Tavily Search: 1,000 free requests per month.
+- Metaso Search: provides high-quality domestic data sources.
 
-## API Key申请指南
+## How to get an API key
 
-### 方式一：使用秘塔搜索
+### Option 1: Metaso Search
 
-- 访问 [秘塔搜索API](https://metaso.cn/search-api/api-keys)，注册并登录账号
-- 在API密钥管理页面，点击"创建新的Key"
-- 复制生成的API Key（以 `mk-` 为前缀），这是配置所需的关键信息
+- Visit [Metaso Search API](https://metaso.cn/search-api/api-keys), register, and sign in
+- On the API key management page, click "Create new Key"
+- Copy the generated API key (it starts with `mk-`); this is the required configuration value
 
-### 方式二：使用Tavily搜索
+### Option 2: Tavily Search
 
-- 访问 [Tavily控制台](https://app.tavily.com/home)，注册并登录账号
-- 在控制台中创建API Key
-- 复制生成的API Key（以 `tvly-` 为前缀），这是配置所需的关键信息
+- Visit [Tavily Console](https://app.tavily.com/home), register, and sign in
+- Create an API key in the console
+- Copy the generated API key (it starts with `tvly-`); this is the required configuration value
 
-## 配置方式
+## Configuration
 
-### 方式1. 使用智控台部署（推荐）
+### Option 1. Use the control panel deployment (recommended)
 
-- 登录智控台
-- 进入"配置角色"页面，选择要配置的智能体
-- 点击"编辑功能"按钮，在右侧参数配置区域找到"联网搜索"插件
-- 勾选"联网搜索"
-- 填入搜索源（`metaso`或`tavily`），并将对应的`API Key`填入配置项
-- 保存配置，再保存智能体配置
+- Log in to the control panel
+- Open the "Role Configuration" page and select the agent you want to configure
+- Click the "Edit Features" button, then find the "Web Search" plugin in the parameter configuration area on the right
+- Enable "Web Search"
+- Set the search provider (`metaso` or `tavily`) and fill in the corresponding API key
+- Save the configuration, then save the agent configuration
 
-### 方式2. 单模块xiaozhi-server部署
+### Option 2. Single-module xiaozhi-server deployment
 
-在 `data/.config.yaml` 中配置：
+Configure the following in `data/.config.yaml`:
 
-- 将搜索源填入 `provider`，可选值为 `metaso` 或 `tavily`
-- 将申请到的API Key填入 `api_key`
+- Set the search provider in `provider`; valid values are `metaso` or `tavily`
+- Put the obtained API key in `api_key`
 
 ```yaml
 plugins:
   web_search:
     provider: "metaso"
-    api_key: "你的API Key"
+    api_key: "your-api-key"
 ```
 
-如需自定义返回结果数量和工具描述，可额外配置 `max_results` 和 `description`：
+If you want to customize the number of returned results and the tool description, you can also set `max_results` and `description`:
 
 ```yaml
 plugins:
   web_search:
     provider: "metaso"
-    description: "联网搜索工具。当用户明确需要联网搜索问题时使用此工具。"
+    description: "A web search tool. Use this tool when the user explicitly needs web search.
     max_results: 5
-    api_key: "你的API Key"
+    api_key: "your-api-key"
 ```
 
-同时在 `functions` 列表中确保已启用 `web_search`：
+Also make sure `web_search` is enabled in the `functions` list:
 
 ```yaml
 plugins:
@@ -68,4 +68,4 @@ plugins:
     - web_search
 ```
 
-配置完成后重启服务即可生效。
+After the configuration is complete, restart the service for it to take effect.
