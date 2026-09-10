@@ -1,65 +1,70 @@
-# 全模块源码部署自动升级方法
+# Full-module source deployment auto-update method
 
-本教程是方便全模块源码部署的爱好者，如何通过自动命令，自动拉取源码，自动编译，自动启动端口运行。实现最高效率的升级系统。
+This guide is for users who run the project from source in full-module mode and want an automatic workflow to pull source code, compile it, and restart the services on the right ports with the highest possible update efficiency.
 
-本项目的测试平台`https://2662r3426b.vicp.fun`，从开放以来就使用了该方法，效果良好。
+The project's test platform, `https://2662r3426b.vicp.fun`, has used this method since launch and it has worked well.
 
-教程可参考B站博主`毕乐labs`发布的视频教程：[《开源小智服务器xiaozhi-server自动更新以及最新版本MCP接入点配置保姆教程》](https://www.bilibili.com/video/BV15H37zHE7Q)
+You can also refer to the video tutorial by the Bilibili creator `毕乐labs`: ["Open-source Xiaozhi server xiaozhi-server automatic updates and latest-version MCP endpoint configuration complete guide"](https://www.bilibili.com/video/BV15H37zHE7Q).
 
-# 开始条件
-- 你的电脑/服务器是linux操作系统
-- 你已经跑通了整个流程
-- 你喜欢跟进最新功能，但是觉得每次手动部署有点麻烦，期待有一个自动更新的方法
+# Prerequisites
 
-第二个条件必须满足，因为本教程所涉及的某些文件，JDK、Node.js环境、Conda环境等，是需要你跑通整个流程才有的，如果你没有跑通，当我讲到某个文件的时候，你可能就不知道什么意思。
+- Your computer or server runs Linux.
+- You have already completed the full setup successfully.
+- You like keeping up with the latest features, but find manual deployment updates annoying and want an automatic update method.
 
-# 教程效果
-- 解决国内不能拉取最新项目源码问题
-- 自动拉取代码编译前端文件
-- 自动拉取代码编译java文件，自动杀掉8002端口，自动启动8002端口
-- 自动拉取python代码，自动杀掉8000端口，自动启动8000端口
+The second condition is mandatory because some files mentioned in this guide, such as JDK, Node.js, and Conda environments, only exist after you have completed the full setup. If you have not done that yet, some file references here may not make sense.
 
-# 第一步 选好你的项目目录
+# What this workflow does
 
-例如，我规划了我的项目目录是，这是一个新建的空白的目录，如果你不想出错，可以和我一样
-```
+- Solves the problem of not being able to pull the latest source code in some regions.
+- Automatically pulls code and builds the frontend.
+- Automatically pulls code and builds the Java backend, kills the process on port 8002, and restarts it on port 8002.
+- Automatically pulls the Python code, kills the process on port 8000, and restarts it on port 8000.
+
+# Step 1: Choose your project directory
+
+For example, I use the following fresh empty directory. If you want to avoid mistakes, you can use the same one:
+
+```text
 /home/system/xiaozhi
 ```
 
-# 第二步 克隆本项目
-此刻，先要执行第一句话，拉取源码，这句命令适用于国内网络的服务器和电脑，无需翻墙
+# Step 2: Clone the repository
 
-```
+First, run the following command to pull the source code. This command works on servers and computers with domestic network access and does not require a VPN:
+
+```bash
 cd /home/system/xiaozhi
 git clone https://ghproxy.net/https://github.com/xinnan-tech/xiaozhi-esp32-server.git
 ```
 
-执行完后，你的项目目录会多了一个文件夹`xiaozhi-esp32-server`，这个就是项目的源码
+After it finishes, a new folder named `xiaozhi-esp32-server` will appear in your project directory. That folder contains the source code.
 
-# 第三步 复制基础的文件
+# Step 3: Copy the base files
 
-如果你之前已经跑通了整个流程，对funasr的模型文件`xiaozhi-server/models/SenseVoiceSmall/model.pt`和你的私有配置文件`xiaozhi-server/data/.config.yaml`这两个文件不会陌生。
+If you have already completed the full setup, the FunASR model file `xiaozhi-server/models/SenseVoiceSmall/model.pt` and your private config file `xiaozhi-server/data/.config.yaml` should already be familiar.
 
-此刻你需要把`model.pt`文件复制到新的目录去，你可以这样
-```
-# 创建需要的目录
+Now you need to copy the `model.pt` file into the new directory. You can do it like this:
+
+```bash
+# Create the required directories
 mkdir -p /home/system/xiaozhi/xiaozhi-esp32-server/main/xiaozhi-server/data/
 
-cp 你原来的.config.yaml完整路径 /home/system/xiaozhi/xiaozhi-esp32-server/main/xiaozhi-server/data/.config.yaml
-cp 你原来的model.pt完整路径 /home/system/xiaozhi/xiaozhi-esp32-server/main/xiaozhi-server/models/SenseVoiceSmall/model.pt
+cp /path/to/your/original/.config.yaml /home/system/xiaozhi/xiaozhi-esp32-server/main/xiaozhi-server/data/.config.yaml
+cp /path/to/your/original/model.pt /home/system/xiaozhi/xiaozhi-esp32-server/main/xiaozhi-server/models/SenseVoiceSmall/model.pt
 ```
 
-# 第四步 建立三个自动编译文件
+# Step 4: Create three auto-build scripts
 
-## 4.1 自动编译manager-web模块
-在`/home/system/xiaozhi/`目录下，创建名字为`update_8001.sh`的文件，内容如下
+## 4.1 Auto-build the manager-web module
 
-```
+In `/home/system/xiaozhi/`, create a file named `update_8001.sh` with the following content:
+
+```bash
 cd /home/system/xiaozhi/xiaozhi-esp32-server
 git fetch --all
 git reset --hard
 git pull origin main
-
 
 cd /home/system/xiaozhi/xiaozhi-esp32-server/main/manager-web
 npm install
@@ -68,40 +73,42 @@ rm -rf /home/system/xiaozhi/manager-web
 mv /home/system/xiaozhi/xiaozhi-esp32-server/main/manager-web/dist /home/system/xiaozhi/manager-web
 ```
 
-保存好后执行赋权命令
-```
+Then make it executable:
+
+```bash
 chmod 777 update_8001.sh
 ```
-执行完后，继续往下
 
-## 4.2 自动编译运行manager-api模块
-在`/home/system/xiaozhi/`目录下，创建名字为`update_8002.sh`的文件，内容如下
+Continue to the next step after that.
 
-```
+## 4.2 Auto-build and run the manager-api module
+
+In `/home/system/xiaozhi/`, create a file named `update_8002.sh` with the following content:
+
+```bash
 cd /home/system/xiaozhi/xiaozhi-esp32-server
 git pull origin main
-
 
 cd /home/system/xiaozhi/xiaozhi-esp32-server/main/manager-api
 rm -rf target
 mvn clean package -Dmaven.test.skip=true
 cd /home/system/xiaozhi/
 
-# 查找占用8002端口的进程号
+# Find the process ID using port 8002
 PID=$(sudo netstat -tulnp | grep 8002 | awk '{print $7}' | cut -d'/' -f1)
 
 rm -rf /home/system/xiaozhi/xiaozhi-esp32-api.jar
 mv /home/system/xiaozhi/xiaozhi-esp32-server/main/manager-api/target/xiaozhi-esp32-api.jar /home/system/xiaozhi/xiaozhi-esp32-api.jar
 
-# 检查是否找到进程号
+# Check whether a process was found
 if [ -z "$PID" ]; then
-  echo "没有找到占用8002端口的进程"
+  echo "No process found on port 8002"
 else
-  echo "找到占用8002端口的进程，进程号为: $PID"
-  # 杀掉进程
+  echo "Found process on port 8002: $PID"
+  # Kill the process
   kill -9 $PID
   kill -9 $PID
-  echo "已杀掉进程 $PID"
+  echo "Killed process $PID"
 fi
 
 nohup java -jar xiaozhi-esp32-api.jar --spring.profiles.active=dev &
@@ -109,34 +116,38 @@ nohup java -jar xiaozhi-esp32-api.jar --spring.profiles.active=dev &
 tail -f nohup.out
 ```
 
-保存好后执行赋权命令
-```
+Then make it executable:
+
+```bash
 chmod 777 update_8002.sh
 ```
-执行完后，继续往下
 
-## 4.3 自动编译运行Python项目
-在`/home/system/xiaozhi/`目录下，创建名字为`update_8000.sh`的文件，内容如下
+Continue to the next step after that.
 
-```
+## 4.3 Auto-build and run the Python project
+
+In `/home/system/xiaozhi/`, create a file named `update_8000.sh` with the following content:
+
+```bash
 cd /home/system/xiaozhi/xiaozhi-esp32-server
 git pull origin main
 
-# 查找占用8000端口的进程号
+# Find the process ID using port 8000
 PID=$(sudo netstat -tulnp | grep 8000 | awk '{print $7}' | cut -d'/' -f1)
 
-# 检查是否找到进程号
+# Check whether a process was found
 if [ -z "$PID" ]; then
-  echo "没有找到占用8000端口的进程"
+  echo "No process found on port 8000"
 else
-  echo "找到占用8000端口的进程，进程号为: $PID"
-  # 杀掉进程
+  echo "Found process on port 8000: $PID"
+  # Kill the process
   kill -9 $PID
   kill -9 $PID
-  echo "已杀掉进程 $PID"
+  echo "Killed process $PID"
 fi
+
 cd main/xiaozhi-server
-# 初始化conda环境
+# Initialize the conda environment
 source ~/.bashrc
 conda activate xiaozhi-esp32-server
 pip install -r requirements.txt
@@ -144,39 +155,44 @@ nohup python app.py >/dev/null &
 tail -f /home/system/xiaozhi/xiaozhi-esp32-server/main/xiaozhi-server/tmp/server.log
 ```
 
-保存好后执行赋权命令
-```
+Then make it executable:
+
+```bash
 chmod 777 update_8000.sh
 ```
-执行完后，继续往下
 
-# 日常更新
+Continue to the next step after that.
 
-以上的脚本都建立好后，日常更新，我们只要依次执行以下命令就可以做到自动更新和启动
+# Daily updates
 
-```
+After those scripts are created, daily updates are just a matter of running the following commands:
+
+```bash
 cd /home/system/xiaozhi
-# 更新并启动Java程序
+# Update and start the Java program
 ./update_8001.sh
-# 更新web程序
+# Update the web program
 ./update_8002.sh
-# 更新并启动python程序
+# Update and start the Python program
 ./update_8000.sh
 
+# Check the Java log later
 
-# 后期想查看java日志，执行以下命令
 tail -f nohup.out
-# 后期想查看python日志，执行以下命令
+# Check the Python log later
 tail -f /home/system/xiaozhi/xiaozhi-esp32-server/main/xiaozhi-server/tmp/server.log
 ```
 
-# 注意事项
-测试平台`https://2662r3426b.vicp.fun`，是使用nginx做了反向代理。nginx.conf详细配置可以[参考这里](https://github.com/xinnan-tech/xiaozhi-esp32-server/issues/791)
+# Notes
 
-## 常见问题
+The test platform `https://2662r3426b.vicp.fun` uses Nginx as a reverse proxy. You can [refer to this Nginx configuration](https://github.com/xinnan-tech/xiaozhi-esp32-server/issues/791).
 
-### 1、为什么没有见到8001端口？
-回答：8001是开发环境使用的，用于运行前端的端口。如果你是服务器部署，不建议使用`npm run serve`启动8001端口运行前端，而是像本教程一样编译成html文件，然后使用nginx来管理访问。
+## FAQ
 
-### 2、每次更新需要更新手动SQL语句吗？
-回答：不需要，因为项目使用**Liquibase**管理数据库版本，会自动执行新的sql脚本。
+### 1. Why don't I see port 8001?
+
+Answer: 8001 is used for the development environment and is the port for running the frontend locally. If you are deploying to a server, it is not recommended to use `npm run serve` to run the frontend on port 8001. Instead, compile it into static HTML files like this guide describes, and let Nginx handle access.
+
+### 2. Do I need to manually update SQL statements every time?
+
+Answer: No. The project uses **Liquibase** to manage database versions, so new SQL scripts are executed automatically.
