@@ -1,32 +1,35 @@
-# ragflow 集成指南
+# RAGFlow Integration Guide
 
-本教程主要是两部分
+This guide has two parts:
 
-- 一、如何部署ragflow
-- 二、如何在智控台配置ragflow接口
+- 1. How to deploy RAGFlow
+- 2. How to configure the RAGFlow interface in the control console
 
-如果您对ragflow很熟悉，且已经部署了ragflow，可直接跳过第一部分，直接进入第二部分。但是如果你希望有人指导你部署ragflow，让它能够和`xiaozhi-esp32-server`共同使用`mysql`、`redis`基础服务，以减少资源成本，你需要从第一部分开始。
+If you are already familiar with RAGFlow and have it deployed, you can skip Part 1 and go directly to Part 2. If you want step-by-step guidance for deploying RAGFlow so it can share the same MySQL and Redis services with `xiaozhi-esp32-server` to reduce resource usage, start from Part 1.
 
-# 第一部分 如何部署ragflow
-## 第一步， 确认mysql、redis是否可用
+# Part 1. How to deploy RAGFlow
 
-ragflow需要依赖`mysql`数据库。如果你之前已经部署`智控台`，说明你已经安装了`mysql`。你可以共用它。
+## Step 1. Make sure MySQL and Redis are available
 
-你可以试一下在宿主机使用`telnet`命令，看看能不能正常访问`mysql`的`3306`端口。
+RAGFlow depends on a `mysql` database. If you have already deployed the control console, then MySQL is already installed and you can reuse it.
+
+You can test from the host machine with `telnet` to see whether ports `3306` and `6379` are reachable:
+
 ``` shell
 telnet 127.0.0.1 3306
 
 telnet 127.0.0.1 6379
 ```
-如果能访问到`3306`端口和`6379`端口，请忽略以下的内容，直接进入第二步。
 
-如果不能访问，你需要回忆一下，你的`mysql`是怎么安装的。
+If both ports are reachable, skip the rest of this section and go directly to Step 2.
 
-如果你的mysql是通过自己使用安装包安装的，说明你的`mysql`做了网络隔离。你可能先解决访问`mysql`的`3306`端口这个问题。
+If not, check how your MySQL instance was installed.
 
-如果你`mysql`是通过本项目的`docker-compose_all.yml`安装的。你需要找一下你当时创建数据库的`docker-compose_all.yml`文件，修改以下的内容
+If MySQL was installed using a package installer, it may be isolated from the network. You may need to fix access to port `3306` first.
 
-修改前
+If MySQL was installed through this project's `docker-compose_all.yml`, locate the `docker-compose_all.yml` file you used to create it and change the following.
+
+Before:
 ``` yaml
   xiaozhi-esp32-server-db:
     ...
@@ -40,7 +43,7 @@ telnet 127.0.0.1 6379
       - 6379
 ```
 
-修改后
+After:
 ``` yaml
   xiaozhi-esp32-server-db:
     ...
@@ -54,55 +57,62 @@ telnet 127.0.0.1 6379
       - "6379:6379"
 ```
 
-注意是将`xiaozhi-esp32-server-db`和`xiaozhi-esp32-server-redis`下面的`expose`改成`ports`。改完后，需要重新启动。以下是重启mysql的命令：
+Note that you should change `expose` to `ports` under both `xiaozhi-esp32-server-db` and `xiaozhi-esp32-server-redis`. After that, restart the stack with:
 
 ``` shell
-# 进入你docker-compose_all.yml所在的文件夹，例如我的是xiaozhi-server
+# Go to the folder containing docker-compose_all.yml, for example xiaozhi-server
 cd xiaozhi-server
 docker compose -f docker-compose_all.yml down
 docker compose -f docker-compose.yml up -d
 ```
 
-启动完后，在宿主机再使用`telnet`命令，看看能不能正常访问`mysql`的`3306`端口。
+After startup, test again with `telnet`:
+
 ``` shell
 telnet 127.0.0.1 3306
 
 telnet 127.0.0.1 6379
 ```
-正常来说这样就可以访问的了。
 
-## 第二步， 创建数据库和表
-如果你的宿主机，能正常访问mysql数据库，那就在mysql上创建一个名字为`rag_flow`的数据库和`rag_flow`用户，密码为`infini_rag_flow`。
+If everything is correct, the ports should be reachable.
+
+## Step 2. Create the database and tables
+
+If your host machine can reach MySQL, create a database named `rag_flow` and a user named `rag_flow` with password `infini_rag_flow`.
 
 ``` sql
--- 创建数据库
+-- Create database
 CREATE DATABASE IF NOT EXISTS rag_flow CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- 创建用户并授权
+-- Create user and grant permissions
 CREATE USER IF NOT EXISTS 'rag_flow'@'%' IDENTIFIED BY 'infini_rag_flow';
 GRANT ALL PRIVILEGES ON rag_flow.* TO 'rag_flow'@'%';
 
--- 刷新权限
+-- Refresh privileges
 FLUSH PRIVILEGES;
 ```
 
-## 第三步， 下载ragflow项目
+## Step 3. Download the RAGFlow project
 
-你需要在你电脑找一个文件夹，用来存放ragflow项目。例如我在`/home/system/xiaozhi`文件夹。
+Find a folder on your machine to store the RAGFlow project. For example, I use `/home/system/xiaozhi`.
 
-你可以使用`git`命令，将ragflow项目下载到这个文件夹，本教程使用的是`v0.22.0`版本进行安装部署。
-```
+You can use `git` to clone the project. This guide uses version `v0.22.0`.
+
+``` 
 git clone https://ghfast.top/https://github.com/infiniflow/ragflow.git
 cd ragflow
 git checkout v0.22.0
 ```
-下载完后，进入`docker`文件夹。
+
+After that, enter the `docker` folder:
+
 ``` shell
 cd docker
 ```
-修改`ragflow/docker`文件夹下的`docker-compose.yml`文件，将`ragflow-cpu`和`ragflow-gpu`服务的`depends_on`配置去掉，用于解除`ragflow-cpu`服务对`mysql`的依赖。
 
-这是修改前：
+Edit `ragflow/docker/docker-compose.yml` and remove the `depends_on` settings from the `ragflow-cpu` and `ragflow-gpu` services so that `ragflow-cpu` no longer depends on MySQL.
+
+Before:
 ``` yaml
   ragflow-cpu:
     depends_on:
@@ -118,7 +128,8 @@ cd docker
     profiles:
       - gpu
 ```
-这是修改后：
+
+After:
 ``` yaml
   ragflow-cpu:
     profiles:
@@ -129,9 +140,9 @@ cd docker
       - gpu
 ```
 
-接着，修改`ragflow/docker`文件夹下的`docker-compose-base.yml`文件，去掉`mysql`和`redis`的配置。
+Next, edit `ragflow/docker/docker-compose-base.yml` and remove the `mysql` and `redis` service definitions.
 
-例如，删除前：
+For example, before deleting:
 ``` yaml
 services:
   minio:
@@ -145,52 +156,52 @@ services:
     ...
 ```
 
-删除后
+After deleting:
 ``` yaml
 services:
   minio:
     image: quay.io/minio/minio:RELEASE.2025-06-13T11-33-47Z
     ...
 ```
-## 第四步，修改环境变量配置
 
-编辑`ragflow/docker`文件夹下的`.env`文件,找到以下配置，逐个搜索，逐个修改！逐个搜索，逐个修改！
+## Step 4. Update environment variables
 
-下面对于`.env`文件的修改，60%的人会忽略`MYSQL_USER`配置导致ragflow启动不成功，因此，需要强调三次：
+Edit the `.env` file in `ragflow/docker` and search for the following settings one by one. Search and edit each one carefully.
 
-强调第一次：如果你的`.env`文件如果没有`MYSQL_USER`配置，请在配置文件增加这项！
+A common mistake is forgetting `MYSQL_USER`, which causes RAGFlow to fail to start. This is important, so I will repeat it three times:
 
-强调第二次：如果你的`.env`文件如果没有`MYSQL_USER`配置，请在配置文件增加这项！
-
-强调第三次：如果你的`.env`文件如果没有`MYSQL_USER`配置，请在配置文件增加这项！
+- First reminder: if your `.env` file does not contain `MYSQL_USER`, add it.
+- Second reminder: if your `.env` file does not contain `MYSQL_USER`, add it.
+- Third reminder: if your `.env` file does not contain `MYSQL_USER`, add it.
 
 ``` env
-# 端口设置
-SVR_WEB_HTTP_PORT=8008           # HTTP端口
-SVR_WEB_HTTPS_PORT=8009          # HTTPS端口
-# MySQL配置 - 修改为您本地MySQL的信息
-MYSQL_HOST=host.docker.internal  # 使用host.docker.internal让容器访问主机服务
-MYSQL_PORT=3306                  # 本地MySQL端口
-MYSQL_USER=rag_flow              # 上面创建的用户名，如果没有这项就增加这一项
-MYSQL_PASSWORD=infini_rag_flow   # 上面设置的密码
-MYSQL_DBNAME=rag_flow            # 数据库名称
+# Port settings
+SVR_WEB_HTTP_PORT=8008           # HTTP port
+SVR_WEB_HTTPS_PORT=8009          # HTTPS port
+# MySQL settings - change to your local MySQL information
+MYSQL_HOST=host.docker.internal  # Use host.docker.internal so the container can access host services
+MYSQL_PORT=3306                  # Local MySQL port
+MYSQL_USER=rag_flow              # The username you created above; add it if missing
+MYSQL_PASSWORD=infini_rag_flow   # The password you set above
+MYSQL_DBNAME=rag_flow            # Database name
 
-# Redis配置 - 修改为您本地Redis的信息
-REDIS_HOST=host.docker.internal  # 使用host.docker.internal让容器访问主机服务
-REDIS_PORT=6379                  # 本地Redis端口
-REDIS_PASSWORD=                  # 如果你的Redis没有设置密码，就按这样子填写，否则填写密码
+# Redis settings - change to your local Redis information
+REDIS_HOST=host.docker.internal  # Use host.docker.internal so the container can access host services
+REDIS_PORT=6379                  # Local Redis port
+REDIS_PASSWORD=                  # Leave blank if your Redis has no password; otherwise fill in the password
 ```
 
-注意，如果你的Redis没有设置密码，还要修改`ragflow/docker`文件夹下`service_conf.yaml.template`，将`infini_rag_flow`替换成空字符串。
+If your Redis does not have a password, also edit `ragflow/docker/service_conf.yaml.template` and replace `infini_rag_flow` with an empty string.
 
-修改前
+Before:
 ``` shell
 redis:
   db: 1
   password: '${REDIS_PASSWORD:-infini_rag_flow}'
   host: '${REDIS_HOST:-redis}:6379'
 ```
-修改后
+
+After:
 ``` shell
 redis:
   db: 1
@@ -198,72 +209,78 @@ redis:
   host: '${REDIS_HOST:-redis}:6379'
 ```
 
-## 第五步，启动ragflow服务
-执行命令：
+## Step 5. Start the RAGFlow service
+
+Run:
 ``` shell
 docker-compose -f docker-compose.yml up -d
 ```
-执行成功后，你可以使用`docker logs -n 20 -f docker-ragflow-cpu-1`命令，查看`docker-ragflow-cpu-1`服务的日志。
 
-如果日志中没有报错，说明ragflow服务启动成功。
+After a successful start, you can view the logs with:
 
-# 第五步，注册账号
-你可以在浏览器中访问`http://127.0.0.1:8008`，点击`Sign Up`，注册一个账号。
+``` shell
+docker logs -n 20 -f docker-ragflow-cpu-1
+```
 
-注册成功后，你可以点击`Sign In`，登录到ragflow服务。如果你想关闭ragflow服务的注册服务，不想让其他人注册账号，你可以在`ragflow/docker`文件夹下的`.env`文件中，将`REGISTER_ENABLED`配置项设置为`0`。
+If there are no errors in the logs, RAGFlow has started successfully.
+
+## Step 6. Register an account
+
+You can open `http://127.0.0.1:8008` in a browser and click `Sign Up` to create an account.
+
+After registration, click `Sign In` to log in. If you want to disable registration, set `REGISTER_ENABLED` to `0` in `ragflow/docker/.env`.
 
 ``` dotenv
 REGISTER_ENABLED=0
 ```
-修改后，重启启动ragflow服务。
+
+Then restart the service:
+
 ``` shell
 docker-compose -f docker-compose.yml down
 docker-compose -f docker-compose.yml up -d
 ```
 
-# 第六步，配置ragflow服务的模型
-你可以在浏览器中访问`http://127.0.0.1:8008`，点击`Sign In`，登录到ragflow服务。点击页面右上角的`头像`，进入设置页面。
-首先，在左侧导航栏中，点击`模型供应商`，进入到模型配置页面。在右侧的`可选模型`搜索框下，选择`LLM`，在列表选择你使用的模型供应商，点击`添加`，输入你的密钥；
-然后，选择`TEXT EMBEDDING`，在列表选择你使用的模型供应商，点击`添加`，输入你的密钥。
-最后，刷新一下页面，分别点击`设置默认模型`列表的LLM和Embedding，选择你使用的模型即可。请确认你的密钥开通了相应的服务，比如我是用的Embedding模型是xxx供应商的，需要去这个供应商官网查看这个模型是否需要购买资源包才能使用。
+## Step 7. Configure the RAGFlow models
 
+Open `http://127.0.0.1:8008` in a browser, click `Sign In`, and log in. Then click the avatar in the top-right corner to open the settings page.
 
-# 第二部分 配置ragflow服务
+In the left sidebar, click `Model Providers` to open the model configuration page. In the `Available Models` search box on the right, choose `LLM`, select your provider from the list, click `Add`, and enter your API key.
 
-# 第一步 登录ragflow服务
-你可以在浏览器中访问`http://127.0.0.1:8008`，点击`Sign In`，登录到ragflow服务。
+Then choose `TEXT EMBEDDING`, select your provider from the list, click `Add`, and enter your API key.
 
-然后点击右上角的`头像`，进入设置页面。在左侧导航栏中，点击`API`功能，然后点击"API Key"按钮。出现一个弹框，
+Finally, refresh the page and set the default LLM and Embedding models to the ones you want to use. Make sure the API key has access to the corresponding service. For example, if your Embedding model comes from provider `xxx`, check whether that provider requires you to purchase a resource package before use.
 
-在弹框中，点击"Create new Key"按钮，生成一个API Key。复制这个`API Key`，你稍后会用到。
+# Part 2. Configure RAGFlow in the control console
 
-# 第二步 配置到智控台
-确保你的智控台版本是`0.8.7`或以上。使用超级管理员账号登录到智控台。
+## Step 1. Log in to RAGFlow
 
-首先，你要先开启知识库功能。在顶部导航栏中，点击`参数字典`，在下拉菜单中，点击`系统功能配置`页面。在页面上勾选`知识库`，点击`保存配置`。即可在导航栏看到`知识库`功能。
+Open `http://127.0.0.1:8008` in a browser, click `Sign In`, and log in to RAGFlow.
 
-在顶部导航栏中，点击`模型配置`，在左侧导航栏中，点击`知识库`。在列表中找到`RAG_RAGFlow`，点击`编辑`按钮。
+Then click the avatar in the top-right corner to open the settings page. In the left sidebar, click `API`, then click the `API Key` button. A dialog will appear.
 
-在`服务地址`中，填写`http://你的ragflow服务的局域网IP:8008`，例如我的ragflow服务的局域网IP是`192.168.1.100`，那么我就填写`http://192.168.1.100:8008`。
+In the dialog, click `Create new Key` to generate an API key. Copy this `API Key`; you will need it later.
 
-在`API密钥`中，填写之前复制的`API Key`。
+## Step 2. Configure the control console
 
-最后点击保存按钮。
+Make sure your control console version is `0.8.7` or later. Log in with the super administrator account.
 
-# 第二步 创建一个知识库
-使用超级管理员账号登录到智控台。在顶部导航栏中，点击`知识库`，在列表左下脚，点击`新增`按钮。填写一个知识库的名字和描述。点击保存。
+First, enable the knowledge base feature. In the top navigation bar, click `Parameter Dictionary`, then open `System Function Configuration`. Check `Knowledge Base` on the page and click `Save Configuration`. The `Knowledge Base` item will then appear in the navigation bar.
 
-为了提高大模型对知识库的理解和召回能力，建议在创建知识库时，填写一个有意义的名字和描述。例如，如果你要创建一个关于`公司介绍`的知识库，那么知识库的名字可以是`公司介绍`，描述可以是`关于公司的相关信息例如公司基本信息、服务项目、联系电话、地址等。`。
+In the top navigation bar, click `Model Configuration`, then click `Knowledge Base` in the left sidebar. Find `RAG_RAGFlow` in the list and click `Edit`.
 
-保存后，你可以在知识库列表中看到这个知识库。点击刚才创建的知识库的`查看`按钮，进入知识库详情页面。
+In `Service Address`, enter `http://your-ragflow-server-lan-ip:8008`. For example, if my RAGFlow server LAN IP is `192.168.1.100`, I would enter `http://192.168.1.100:8008`.
 
-在知识库详情页面中，左下角点击`新增`按钮，可以上传文档到知识库。
+In `API Key`, paste the `API Key` you copied earlier.
 
-上传后，你可以在知识库详情页面中，看到上传的文档。此时可以点击文档的`解析`按钮，解析文档。
+Finally, click `Save`.
 
-解析完成后，你可以查看解析后的切片信息。你可以在知识库详情页面中，点击`召回测试`按钮，可以测试知识库的召回/检索功能。
+## Step 3. Create a knowledge base
 
-# 第三步 让小智使用ragflow知识库
-登录到智控台。在顶部导航栏中，点击`智能体`，找到你要配置的智能体，点击`配置角色`按钮。
+Log in to the control console with the super administrator account. In the top navigation bar, click `Knowledge Base`, then click `New` in the lower-left corner of the list. Enter a name and description for the knowledge base, then click `Save`.
 
-在意图识别左侧，点击`编辑功能`按钮，弹出一个弹框。在弹框中选择你要添加的知识库。保存即可。
+To improve retrieval quality and the model's understanding, use a meaningful name and description. For example, if you are creating a knowledge base for company information, the name could be `Company Overview`, and the description could be `Basic company information, services, contact numbers, addresses, and related details.`
+
+After saving, you will see the knowledge base in the list. Click `View` on the newly created knowledge base to open its detail page.
+
+On the knowledge base detail page, click `New` in the lower-left corner to upload documents into the knowledge base.
