@@ -1,10 +1,10 @@
-This is a developer-oriented document. If you want to deploy the Xiaozhi server, [click here to view the deployment guide](../../README.md#deployment-documentation).
+This document is intended for developers. If you want to deploy the Xiaozhi server, [click here to view the deployment guide](../../README.md#deployment-documentation).
 
 # xiaozhi
 
 ## Project setup
 
-Use your code editor to import the project, and choose the `manager-web` folder as the project directory.
+Open the project in your code editor and choose the `manager-web` folder as the project directory.
 
 ```bash
 npm install
