@@ -55,7 +55,7 @@ If you want to customize the number of returned results and the tool description
 plugins:
   web_search:
     provider: "metaso"
-    description: "A web search tool. Use this tool when the user explicitly needs web search.
+    description: "A web search tool. Use this tool when the user explicitly needs web search."
     max_results: 5
     api_key: "your-api-key"
 ```
