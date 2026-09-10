@@ -1,26 +1,29 @@
-# 视觉模型使用指南
-本教程分为两部分：
-- 第一部分：单模块运行xiaozhi-server开启视觉模型
-- 第二部分：全模块运行时，如何开启视觉模型
+# Vision Model Guide
 
-开启视觉模型前，你需要准备三件事：
-- 你需要准备一台带摄像头的设备，而且这台设备已经在虾哥仓库里，实现了调用摄像头功能。例如`立创·实战派ESP32-S3开发板`
-- 你设备固件的版本升级到1.6.6及以上
-- 你已经成功跑通基础对话模块
+This tutorial has two parts:
+- Part 1: Enable the vision model when running `xiaozhi-server` in single-module mode
+- Part 2: Enable the vision model when running in full-module mode
 
-## 单模块运行xiaozhi-server开启视觉模型
+Before enabling the vision model, prepare these three things:
+- A device with a camera, and the device firmware must already support camera access in Xiaoge's repository. For example: `Lichuang · Practical ESP32-S3 Development Board`
+- Your device firmware must be upgraded to version `1.6.6` or later
+- You must already have the basic chat module working successfully
 
-### 第一步确认网络
-由于视觉模型会默认启动8003端口。
+## Enabling the vision model in single-module mode
 
-如果你是docker运行，请确认一下你的`docker-compose.yml`是否放了`8003`端口，如果没有就更新最新的`docker-compose.yml`文件
+### Step 1: Check the network
 
-如果你是源码运行，确认防火墙是否放行`8003`端口
+The vision model uses port `8003` by default.
 
-### 第二步选择你的视觉模型
-打开你的`data/.config.yaml`文件，设置你的`selected_module.VLLM`设置为某个视觉模型。目前我们已经支持`openai`类型接口的视觉模型。`ChatGLMVLLM`就是其中一款兼容`openai`的模型。
+If you are using Docker, make sure your `docker-compose.yml` exposes port `8003`. If not, update to the latest `docker-compose.yml`.
 
-```
+If you are running from source, make sure your firewall allows port `8003`.
+
+### Step 2: Choose your vision model
+
+Open `data/.config.yaml` and set `selected_module.VLLM` to a vision model. We currently support vision models that use `openai`-compatible APIs. `ChatGLMVLLM` is one such compatible model.
+
+```yaml
 selected_module:
   VAD: ..
   ASR: ..
@@ -31,141 +34,142 @@ selected_module:
   Intent: ..
 ```
 
-假设我们使用`ChatGLMVLLM`作为视觉模型，那我们需要先登录[智谱AI](https://bigmodel.cn/usercenter/proj-mgmt/apikeys)网站，申请密钥。如果你之前已经申请过了密钥，可以复用这个密钥。
+If we use `ChatGLMVLLM` as the vision model, first log in to [Zhipu AI](https://bigmodel.cn/usercenter/proj-mgmt/apikeys) and apply for an API key. If you already have one, you can reuse it.
 
-在你的配置文件中，增加这个配置，如果已经有了这个配置，就设置好你的api_key。
+Add the following config to your file, or fill in `api_key` if it already exists:
 
-```
+```yaml
 VLLM:
   ChatGLMVLLM:
-    api_key: 你的api_key
+    api_key: your_api_key
 ```
 
-### 第三步启动xiaozhi-server服务
-如果你是源码，就输入命令启动
-```
+### Step 3: Start the `xiaozhi-server` service
+
+If you are running from source, start it with:
+```bash
 python app.py
 ```
-如果你是docker运行，就重启容器
-```
+If you are using Docker, restart the container:
+```bash
 docker restart xiaozhi-esp32-server
 ```
 
-启动后会输出以下内容的日志。
+After startup, you should see logs like this:
 
-```
-2025-06-01 **** - OTA接口是           http://192.168.4.7:8003/xiaozhi/ota/
-2025-06-01 **** - 视觉分析接口是        http://192.168.4.7:8003/mcp/vision/explain
-2025-06-01 **** - Websocket地址是       ws://192.168.4.7:8000/xiaozhi/v1/
-2025-06-01 **** - =======上面的地址是websocket协议地址，请勿用浏览器访问=======
-2025-06-01 **** - 如想测试websocket请启动digital-human模块，打开浏览器交互测试
+```text
+2025-06-01 **** - OTA interface:           http://192.168.4.7:8003/xiaozhi/ota/
+2025-06-01 **** - Vision analysis interface: http://192.168.4.7:8003/mcp/vision/explain
+2025-06-01 **** - WebSocket address:       ws://192.168.4.7:8000/xiaozhi/v1/
+2025-06-01 **** - =======The above address is a WebSocket URL; do not open it in a browser=======
+2025-06-01 **** - If you want to test WebSocket, start the digital-human module and open the browser interaction test
 2025-06-01 **** - =============================================================
 ```
 
-启动后，使用使用浏览器打开日志里`视觉分析接口`连接。看看输出了什么？如果你是linux,没有浏览器，你可以执行这个命令：
-```
-curl -i 你的视觉分析接口
-```
-
-正常来说会这样显示
-```
-MCP Vision 接口运行正常，视觉解释接口地址是：http://xxxx:8003/mcp/vision/explain
+After startup, open the `vision analysis interface` URL from the logs in a browser and see what it returns. If you are on Linux and do not have a browser, you can run:
+```bash
+curl -i your_vision_analysis_interface
 ```
 
-请注意，如果你是公网部署，或者docker部署，一定要改一下你的`data/.config.yaml`里这个配置
+Normally it should look like this:
+```text
+MCP Vision interface is running normally, and the vision explanation interface address is: http://xxxx:8003/mcp/vision/explain
 ```
+
+Note: if you are deploying publicly, or using Docker, you must update this config in `data/.config.yaml`:
+```yaml
 server:
-  vision_explain: http://你的ip或者域名:端口号/mcp/vision/explain
+  vision_explain: http://your_ip_or_domain:port/mcp/vision/explain
 ```
 
-为什么呢？因为视觉解释接口需要下发到设备，如果你的地址是局域网地址，或者是docker内部地址，设备是无法访问的。
+Why? Because the vision explanation interface is sent to the device, and if the address is a LAN address or a Docker-internal address, the device cannot access it.
 
-假设你的公网地址是`111.111.111.111`，那么`vision_explain`应该这么配
+If your public address is `111.111.111.111`, then `vision_explain` should be configured like this:
 
-```
+```yaml
 server:
   vision_explain: http://111.111.111.111:8003/mcp/vision/explain
 ```
 
-如果你的MCP Vision 接口运行正常，且你也试着用浏览器访问正常打开下发的`视觉解释接口地址`，请继续下一步
+If the MCP Vision interface is working normally, and you can also open the delivered `vision explanation interface address` in a browser successfully, continue to the next step.
 
-### 第四步 设备唤醒开启
+### Step 4: Wake up the device
 
-对设备说“请打开摄像头，说你你看到了什么”
+Say to the device: “Please turn on the camera and tell me what you see.”
 
-留意xiaozhi-server的日志输出，看看有没有报错。
+Watch the `xiaozhi-server` logs for any errors.
 
+## Enabling the vision model in full-module mode
 
-## 全模块运行时，如何开启视觉模型
+### Step 1: Check the network
 
-### 第一步 确认网络
-由于视觉模型会默认启动8003端口。
+The vision model uses port `8003` by default.
 
-如果你是docker运行，请确认一下你的`docker-compose_all.yml`是否映射了`8003`端口，如果没有就更新最新的`docker-compose_all.yml`文件
+If you are using Docker, make sure your `docker-compose_all.yml` exposes port `8003`. If not, update to the latest `docker-compose_all.yml`.
 
-如果你是源码运行，确认防火墙是否放行`8003`端口
+If you are running from source, make sure your firewall allows port `8003`.
 
-### 第二步 确认你配置文件
+### Step 2: Check your configuration file
 
-打开你的`data/.config.yaml`文件，确认一下你的配置文件的结构，是否和`data/config_from_api.yaml`一样。如果不一样，或缺少某项，请补齐。
+Open `data/.config.yaml` and confirm that its structure matches `data/config_from_api.yaml`. If it does not, or if anything is missing, fill it in.
 
-### 第三步 配置视觉模型密钥
+### Step 3: Configure the vision model API key
 
-那我们需要先登录[智谱AI](https://bigmodel.cn/usercenter/proj-mgmt/apikeys)网站，申请密钥。如果你之前已经申请过了密钥，可以复用这个密钥。
+First, log in to [Zhipu AI](https://bigmodel.cn/usercenter/proj-mgmt/apikeys) and apply for an API key. If you already have one, you can reuse it.
 
-登录`智控台`，顶部菜单点击`模型配置`，在左侧栏点击`视觉大语言模型`，找到`VLLM_ChatGLMVLLM`，点击修改按钮，在弹框中，在`API密钥`输入你密钥，点击保存。
+Log in to the control panel, click `Model Configuration` in the top menu, then click `Vision Large Language Model` in the left sidebar. Find `VLLM_ChatGLMVLLM`, click the edit button, enter your API key in the `API Key` field, and save.
 
-保存成功后，去到你需要测试的智能体哪里，点击`配置角色`，在打开的内容里，查看`视觉大语言模型(VLLM)`是否选择了刚才的视觉模型。点击保存。
+After saving successfully, go to the agent you want to test, click `Configure Role`, and check whether `Vision Large Language Model (VLLM)` is set to the vision model you just configured. Click save.
 
-### 第三步 启动xiaozhi-server模块
-如果你是源码，就输入命令启动
-```
+### Step 4: Start the `xiaozhi-server` module
+
+If you are using source code, run:
+```bash
 python app.py
 ```
-如果你是docker运行，就重启容器
-```
+If you are using Docker, restart the container:
+```bash
 docker restart xiaozhi-esp32-server
 ```
 
-启动后会输出以下内容的日志。
-
-```
-2025-06-01 **** - 视觉分析接口是        http://192.168.4.7:8003/mcp/vision/explain
-2025-06-01 **** - Websocket地址是       ws://192.168.4.7:8000/xiaozhi/v1/
-2025-06-01 **** - =======上面的地址是websocket协议地址，请勿用浏览器访问=======
-2025-06-01 **** - 如想测试websocket请启动digital-human模块，打开浏览器交互测试
+After startup, you should see logs like this:
+```text
+2025-06-01 **** - Vision analysis interface: http://192.168.4.7:8003/mcp/vision/explain
+2025-06-01 **** - WebSocket address:       ws://192.168.4.7:8000/xiaozhi/v1/
+2025-06-01 **** - =======The above address is a WebSocket URL; do not open it in a browser=======
+2025-06-01 **** - If you want to test WebSocket, start the digital-human module and open the browser interaction test
 2025-06-01 **** - =============================================================
 ```
 
-启动后，使用使用浏览器打开日志里`视觉分析接口`连接。看看输出了什么？如果你是linux,没有浏览器，你可以执行这个命令：
-```
-curl -i 你的视觉分析接口
-```
-
-正常来说会这样显示
-```
-MCP Vision 接口运行正常，视觉解释接口地址是：http://xxxx:8003/mcp/vision/explain
+After startup, use a browser to open the `vision analysis interface` URL from the logs. If you are on Linux and do not have a browser, you can run:
+```bash
+curl -i your_vision_analysis_interface
 ```
 
-请注意，如果你是公网部署，或者docker部署，一定要改一下你的`data/.config.yaml`里这个配置
+Normally it should look like this:
+```text
+MCP Vision interface is running normally, and the vision explanation interface address is: http://xxxx:8003/mcp/vision/explain
 ```
+
+Please note: if you are deploying on a public server or using Docker, be sure to update this config in `data/.config.yaml`:
+```yaml
 server:
-  vision_explain: http://你的ip或者域名:端口号/mcp/vision/explain
+  vision_explain: http://your_ip_or_domain:port/mcp/vision/explain
 ```
 
-为什么呢？因为视觉解释接口需要下发到设备，如果你的地址是局域网地址，或者是docker内部地址，设备是无法访问的。
+Why? Because the vision explanation interface is delivered to the device, and if the address is a LAN address or Docker-internal address, the device cannot access it.
 
-假设你的公网地址是`111.111.111.111`，那么`vision_explain`应该这么配
+If your public address is `111.111.111.111`, then `vision_explain` should be configured like this:
 
-```
+```yaml
 server:
   vision_explain: http://111.111.111.111:8003/mcp/vision/explain
 ```
 
-如果你的MCP Vision 接口运行正常，且你也试着用浏览器访问正常打开下发的`视觉解释接口地址`，请继续下一步
+If the MCP Vision interface is working correctly and you can successfully open the delivered `vision explanation interface address` in a browser, continue to the next step.
 
-### 第四步 设备唤醒开启
+### Step 5: Wake up the device
 
-对设备说“请打开摄像头，说你你看到了什么”
+Say to the device: “Please open the camera and tell me what you see.”
 
-留意xiaozhi-server的日志输出，看看有没有报错。
+Watch the `xiaozhi-server` logs for any errors.
