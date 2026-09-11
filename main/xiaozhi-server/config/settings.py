@@ -21,13 +21,12 @@ def check_config_file():
     custom_config_file = os.path.join(data_dir, "." + default_config_file)
     if not os.path.exists(custom_config_file):
         template_file = os.path.join(project_dir, "config_from_api.yaml")
+        template_content = ""
         if os.path.exists(template_file):
-            import shutil
-            shutil.copyfile(template_file, custom_config_file)
-            print(f"Auto-generated default {custom_config_file} from config_from_api.yaml")
+            with open(template_file, "r", encoding="utf-8") as f:
+                template_content = f.read()
         else:
-            with open(custom_config_file, "w", encoding="utf-8") as f:
-                f.write("""server:
+            template_content = """server:
   ip: 0.0.0.0
   port: 8000
   http_port: 8003
@@ -36,8 +35,17 @@ manager-api:
   url: http://xiaozhi-esp32-server-web:8002/xiaozhi
   secret: your_server_secret_value
 prompt_template: agent-base-prompt.txt
-""")
-            print(f"Auto-generated template {custom_config_file}")
+"""
+        env_secret = os.getenv("MANAGER_API_SECRET") or os.getenv("SERVER_SECRET")
+        env_url = os.getenv("MANAGER_API_URL")
+        if env_secret:
+            template_content = template_content.replace("your_server_secret_value", env_secret)
+        if env_url:
+            template_content = template_content.replace("http://xiaozhi-esp32-server-web:8002/xiaozhi", env_url)
+
+        with open(custom_config_file, "w", encoding="utf-8") as f:
+            f.write(template_content)
+        print(f"Auto-initialized {custom_config_file} from config_from_api.yaml")
 
     # Check if configuration is read from API
     config = asyncio.run(load_config())
