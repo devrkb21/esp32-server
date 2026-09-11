@@ -20,7 +20,7 @@ server:
 manager-api:
   # manager-api address, preferably local network IP
   # If deploying with Docker, use http://xiaozhi-esp32-server-web:8002/xiaozhi
-  url: http://127.0.0.1:8002/xiaozhi
+  url: http://xiaozhi-esp32-server-web:8002/xiaozhi
   # manager-api token, which is the server.secret copied earlier
   secret: your_server_secret_value
 # Default system prompt template file
