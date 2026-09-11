@@ -1,0 +1,21 @@
+# ==========================================================
+# Xiaozhi Server Configuration (.config.yaml)
+# Reads dynamically from .env or environment variables
+# ==========================================================
+
+server:
+  ip: 0.0.0.0
+  port: ${WS_PORT:-8000}
+  # HTTP service port, used for vision analysis interface
+  http_port: ${VISION_PORT:-8003}
+  # Vision analysis interface address
+  vision_explain: ${VISION_EXPLAIN_URL:-http://127.0.0.1:18003/mcp/vision/explain}
+
+manager-api:
+  # manager-api internal communication endpoint
+  url: ${MANAGER_API_URL:-http://xiaozhi-esp32-server-web:8002/xiaozhi}
+  # manager-api token (copied from Web UI -> Parameter Management -> ***REDACTED*** or set in .env)
+  secret: ${MANAGER_API_SECRET:***REDACTED***}
+
+# Default system prompt template file
+prompt_template: agent-base-prompt.txt
