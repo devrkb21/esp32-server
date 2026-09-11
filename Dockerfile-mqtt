@@ -16,4 +16,4 @@ RUN chmod +x /docker-entrypoint-mqtt.sh
 EXPOSE 1883 8884/udp 8007
 
 ENTRYPOINT ["/docker-entrypoint-mqtt.sh"]
-CMD ["node", "index.js"]
+CMD ["node", "app.js"]
