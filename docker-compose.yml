@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Database Service
+  xiaozhi-esp32-server-db:
+    image: mysql:8.0
+    container_name: xiaozhi-esp32-server-db
+    restart: always
+    environment:
+      - TZ=UTC
+      - MYSQL_ROOT_PASSWORD=rootuser
+      - MYSQL_DATABASE=xiaozhi_esp32_server
+      - MYSQL_INITDB_ARGS=--character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootuser"]
+      timeout: 20s
+      interval: 10s
+      retries: 10
+    networks:
+      - xiaozhi-net
+
+  # Redis Cache Service
+  xiaozhi-esp32-server-redis:
+    image: redis:7-alpine
+    container_name: xiaozhi-esp32-server-redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - redis_data:/data
+    networks:
+      - xiaozhi-net
+
+  # Web Management Console & Java API (Port 8002)
+  xiaozhi-esp32-server-web:
+    build:
+      context: .
+      dockerfile: Dockerfile-web
+    container_name: xiaozhi-esp32-server-web
+    restart: always
+    depends_on:
+      xiaozhi-esp32-server-db:
+        condition: service_healthy
+      xiaozhi-esp32-server-redis:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-18002}:8002"
+    environment:
+      - TZ=UTC
+      - SPRING_DATASOURCE_DRUID_URL=jdbc:mysql://xiaozhi-esp32-server-db:3306/xiaozhi_esp32_server?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&nullCatalogMeansCurrent=true&autoReconnect=true
+      - SPRING_DATASOURCE_DRUID_USERNAME=root
+      - SPRING_DATASOURCE_DRUID_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootuser}
+      - SPRING_DATA_REDIS_HOST=xiaozhi-esp32-server-redis
+      - SPRING_DATA_REDIS_PASSWORD=
+      - SPRING_DATA_REDIS_PORT=6379
+    volumes:
+      - ./uploadfile:/uploadfile
+    networks:
+      - xiaozhi-net
+
+  # Python AI WebSocket Server (Custom Port)
+  xiaozhi-esp32-server:
+    build:
+      context: .
+      dockerfile: Dockerfile-server
+    container_name: xiaozhi-esp32-server
+    restart: always
+    depends_on:
+      - xiaozhi-esp32-server-db
+      - xiaozhi-esp32-server-web
+    ports:
+      - "${WS_PORT:-18000}:8000"
+      - "${VISION_PORT:-18003}:8003"
+    environment:
+      - TZ=UTC
+    volumes:
+      - ./main/xiaozhi-server/data:/opt/xiaozhi-esp32-server/data
+      - ./main/xiaozhi-server/models:/opt/xiaozhi-esp32-server/models
+    networks:
+      - xiaozhi-net
+
+networks:
+  xiaozhi-net:
+    driver: bridge
+
+volumes:
+  db_data:
+  redis_data:
