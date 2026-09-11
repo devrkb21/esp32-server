@@ -51,5 +51,5 @@ INSERT INTO `ai_model_config` VALUES ('Memory_mem0ai', 'Memory', 'mem0ai', 'Mem0
 
 -- Intent model configuration
 INSERT INTO `ai_model_config` VALUES ('Intent_nointent', 'Intent', 'nointent', 'No Intent Recognition', 1, 0, '{\"type\": \"nointent\"}', NULL, NULL, 1, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_model_config` VALUES ('Intent_intent_llm', 'Intent', 'intent_llm', 'LLMIntent Recognition', 0, 1, '{\"type\": \"intent_llm\", \"llm\": \"ChatGLMLLM\"}', NULL, NULL, 2, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_model_config` VALUES ('Intent_intent_llm', 'Intent', 'intent_llm', 'LLMIntent Recognition', 0, 1, '{\"type\": \"intent_llm\", \"llm\": \"LLM_GeminiLLM\"}', NULL, NULL, 2, NULL, NULL, NULL, NULL);
 INSERT INTO `ai_model_config` VALUES ('Intent_function_call', 'Intent', 'function_call', 'Function call intent recognition', 0, 1, '{\"type\": \"function_call\", \"functions\": [\"change_role\", \"get_weather\", \"get_news\", \"play_music\"]}', NULL, NULL, 3, NULL, NULL, NULL, NULL);

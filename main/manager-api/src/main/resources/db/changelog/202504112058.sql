@@ -36,7 +36,7 @@ INSERT INTO `sys_params` (id, param_code, param_value, value_type, param_type, r
 INSERT INTO `sys_params` (id, param_code, param_value, value_type, param_type, remark) VALUES (305, 'enable_greeting', 'true', 'boolean', 1, 'Whether to enable greeting response');
 INSERT INTO `sys_params` (id, param_code, param_value, value_type, param_type, remark) VALUES (306, 'enable_stop_tts_notify', 'false', 'boolean', 1, 'Whether to enable ending prompt sound');
 INSERT INTO `sys_params` (id, param_code, param_value, value_type, param_type, remark) VALUES (307, 'stop_tts_notify_voice', 'config/assets/tts_notify.mp3', 'string', 1, 'Ending prompt audio file path');
-INSERT INTO `sys_params` (id, param_code, param_value, value_type, param_type, remark) VALUES (308, 'exit_commands', 'Exit;Close', 'array', 1, 'Exit command list');
+INSERT INTO `sys_params` (id, param_code, param_value, value_type, param_type, remark) VALUES (308, 'exit_commands', 'Stop;Cancel;Bye;Goodbye;Quiet;Shut down;Exit;Close', 'array', 1, 'Exit command list');
 INSERT INTO `sys_params` (id, param_code, param_value, value_type, param_type, remark) VALUES (309, 'xiaozhi', '{
 "type": "hello",
 "version": 1,

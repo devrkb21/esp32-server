@@ -23,4 +23,4 @@ UPDATE `ai_model_config` SET
 
 -- Delete old voices and add default voices
 DELETE FROM `ai_tts_voice` WHERE tts_model_id = 'TTS_PaddleSpeechTTS';
-INSERT INTO `ai_tts_voice` VALUES ('TTS_PaddleSpeechTTS_0000', 'TTS_PaddleSpeechTTS', 'Default', '0', 'Chinese', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_PaddleSpeechTTS_0000', 'TTS_PaddleSpeechTTS', 'Default', '0', 'English', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);

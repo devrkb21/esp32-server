@@ -684,7 +684,7 @@ TTS:
   EdgeTTS:
     # Define TTS API type
     type: edge
-    voice: zh-CN-XiaoxiaoNeural
+    voice: en-US-JennyNeural
     output_dir: tmp/
     # language: "en_us"  # Output language code
   DoubaoTTS:

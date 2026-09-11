@@ -17,4 +17,4 @@ UPDATE `ai_model_config` SET
 
 
 delete from `ai_tts_voice` where tts_model_id = 'TTS_LinkeraiTTS';
-INSERT INTO `ai_tts_voice` VALUES ('TTS_LinkeraiTTS_0001', 'TTS_LinkeraiTTS', 'Zhiruo', 'OUeAo1mhq6IBExi', 'Chinese', NULL, NULL, 1, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_LinkeraiTTS_0001', 'TTS_LinkeraiTTS', 'Zhiruo', 'OUeAo1mhq6IBExi', 'English', NULL, NULL, 1, NULL, NULL, NULL, NULL);

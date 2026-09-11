@@ -59,7 +59,7 @@ sort, creator, create_date, updater, update_date)
 VALUES ('SYSTEM_PLUGIN_NEWS_CHINANEWS',
 'Plugin',
 'get_news_from_chinanews',
-'China News Service',
+'Bangladesh & World News RSS',
 JSON_ARRAY(
 JSON_OBJECT(
 'key', 'default_rss_url',
@@ -73,21 +73,21 @@ JSON_OBJECT(
 'type', 'string',
 'label', 'Social News RSS Address',
 'default',
-'https://www.chinanews.com.cn/rss/society.xml'
+'https://www.thedailystar.net/news/bangladesh/rss.xml'
 ),
 JSON_OBJECT(
 'key', 'world_rss_url',
 'type', 'string',
 'label', 'International News RSS Address',
 'default',
-'https://www.chinanews.com.cn/rss/world.xml'
+'https://www.thedailystar.net/news/world/rss.xml'
 ),
 JSON_OBJECT(
 'key', 'finance_rss_url',
 'type', 'string',
 'label', 'Financial News RSS Address',
 'default',
-'https://www.chinanews.com.cn/rss/finance.xml'
+'https://www.thedailystar.net/business/rss.xml'
 )
 ),
 30, 0, NOW(), 0, NOW());
