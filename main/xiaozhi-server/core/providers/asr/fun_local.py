@@ -60,15 +60,49 @@ class ASRProvider(ASRProviderBase):
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # Ensure model.pt exists if using local SenseVoiceSmall directory
-        if self.model_dir and os.path.exists(self.model_dir):
+        # Ensure model.pt exists and is valid (> 900MB)
+        if self.model_dir:
+            os.makedirs(self.model_dir, exist_ok=True)
             model_pt = os.path.join(self.model_dir, "model.pt")
+
+            # Check if existing file is incomplete (< 900 MB)
+            if os.path.exists(model_pt) and os.path.getsize(model_pt) < 900 * 1024 * 1024:
+                logger.bind(tag=TAG).warning(
+                    f"Corrupted or incomplete SenseVoiceSmall model.pt ({os.path.getsize(model_pt)} bytes). Removing and redownloading..."
+                )
+                try:
+                    os.remove(model_pt)
+                except Exception as rm_err:
+                    logger.bind(tag=TAG).error(f"Error removing corrupted model: {rm_err}")
+
             if not os.path.exists(model_pt):
-                logger.bind(tag=TAG).info(f"SenseVoiceSmall model.pt not found in {self.model_dir}. Downloading automatically...")
+                logger.bind(tag=TAG).info(
+                    f"SenseVoiceSmall model.pt not found in {self.model_dir}. Downloading (~936 MB)..."
+                )
                 try:
                     import urllib.request
                     url = "https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt"
-                    urllib.request.urlretrieve(url, model_pt)
+                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                    tmp_pt = model_pt + ".tmp"
+                    if os.path.exists(tmp_pt):
+                        os.remove(tmp_pt)
+
+                    with urllib.request.urlopen(req, timeout=600) as response, open(tmp_pt, "wb") as out_file:
+                        chunk_size = 1024 * 1024
+                        downloaded = 0
+                        total_size = int(response.headers.get("Content-Length", 936291369))
+                        while True:
+                            chunk = response.read(chunk_size)
+                            if not chunk:
+                                break
+                            out_file.write(chunk)
+                            downloaded += len(chunk)
+                            if downloaded % (50 * 1024 * 1024) < chunk_size:
+                                logger.bind(tag=TAG).info(
+                                    f"Downloading SenseVoiceSmall: {downloaded // (1024*1024)}MB / {total_size // (1024*1024)}MB..."
+                                )
+
+                    os.replace(tmp_pt, model_pt)
                     logger.bind(tag=TAG).info("Successfully downloaded SenseVoiceSmall model.pt")
                 except Exception as e:
                     logger.bind(tag=TAG).error(f"Failed to auto-download SenseVoiceSmall model.pt: {e}")
