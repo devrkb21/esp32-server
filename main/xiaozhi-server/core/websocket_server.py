@@ -149,7 +149,7 @@ class WebSocketServer:
 
     async def _http_response(self, websocket, request_headers):
         # Check if WebSocket upgrade request
-        if request_headers.headers.get("connection", "").lower() == "upgrade":
+        if "upgrade" in request_headers.headers.get("connection", "").lower():
             # If WebSocket request, return None to allow handshake to continue
             return None
         else:
