@@ -1,5 +1,5 @@
 # Stage 1: Build Vue frontend
-FROM node:18 AS web-builder
+FROM node:24 AS web-builder
 WORKDIR /app
 COPY main/manager-web/package*.json ./
 RUN npm install
@@ -7,7 +7,7 @@ COPY main/manager-web .
 RUN npm run build
 
 # Stage 2: Build Java backend
-FROM maven:3.9.4-eclipse-temurin-21 AS api-builder
+FROM maven:3.9-eclipse-temurin-21 AS api-builder
 WORKDIR /app
 COPY main/manager-api/pom.xml .
 COPY main/manager-api/src ./src

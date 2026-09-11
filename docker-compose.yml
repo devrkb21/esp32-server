@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Database Service
   xiaozhi-esp32-server-db:
@@ -8,10 +6,8 @@ services:
     restart: always
     environment:
       - TZ=Asia/Dhaka
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootuser}
-      - MYSQL_DATABASE=${DB_NAME:-xiaozhi_esp32_server}
-      - MYSQL_USER=${DB_USER:-}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-}
+      - MYSQL_ROOT_PASSWORD=xiaozhi_internal_pass
+      - MYSQL_DATABASE=xiaozhi_esp32_server
       - MYSQL_INITDB_ARGS=--character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     command:
       - --character-set-server=utf8mb4
@@ -20,7 +16,7 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootuser}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pxiaozhi_internal_pass"]
       timeout: 20s
       interval: 10s
       retries: 10
@@ -29,9 +25,11 @@ services:
 
   # Redis Cache Service
   xiaozhi-esp32-server-redis:
-    image: redis:7-alpine
+    image: redis:alpine
     container_name: xiaozhi-esp32-server-redis
     restart: always
+    environment:
+      - TZ=Asia/Dhaka
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -58,9 +56,9 @@ services:
       - "${WEB_PORT:-18002}:8002"
     environment:
       - TZ=Asia/Dhaka
-      - SPRING_DATASOURCE_DRUID_URL=jdbc:mysql://xiaozhi-esp32-server-db:3306/${DB_NAME:-xiaozhi_esp32_server}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&nullCatalogMeansCurrent=true&connectTimeout=30000&socketTimeout=30000&autoReconnect=true&failOverReadOnly=false&maxReconnects=10
-      - SPRING_DATASOURCE_DRUID_USERNAME=${DB_USER:-root}
-      - SPRING_DATASOURCE_DRUID_PASSWORD=${DB_PASSWORD:-${MYSQL_ROOT_PASSWORD:-rootuser}}
+      - SPRING_DATASOURCE_DRUID_URL=jdbc:mysql://xiaozhi-esp32-server-db:3306/xiaozhi_esp32_server?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Dhaka&nullCatalogMeansCurrent=true&connectTimeout=30000&socketTimeout=30000&autoReconnect=true&failOverReadOnly=false&maxReconnects=10
+      - SPRING_DATASOURCE_DRUID_USERNAME=root
+      - SPRING_DATASOURCE_DRUID_PASSWORD=xiaozhi_internal_pass
       - SPRING_DATA_REDIS_HOST=xiaozhi-esp32-server-redis
       - SPRING_DATA_REDIS_PASSWORD=
       - SPRING_DATA_REDIS_PORT=6379

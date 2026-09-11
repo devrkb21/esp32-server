@@ -24,7 +24,7 @@ server:
   # For public deployment, set vision_explain to public domain/IP address
   vision_explain: http://YOUR_IP_OR_DOMAIN:PORT/mcp/vision/explain
   # OTA response timezone offset
-  timezone_offset: +8
+  timezone_offset: +6
   # Authentication configuration
   auth:
     # Whether authentication is enabled

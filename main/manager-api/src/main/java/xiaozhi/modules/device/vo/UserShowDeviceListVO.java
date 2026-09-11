@@ -45,7 +45,7 @@ public class UserShowDeviceListVO {
     private Long createDateTimestamp;
 
     @Schema(description = "Binding time（Compatible fields，pleaseUse createDateTimestamp）", deprecated = true)
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "UTC")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Dhaka")
     private Date createDate;
 
 }
