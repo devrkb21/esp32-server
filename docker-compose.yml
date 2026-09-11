@@ -15,6 +15,7 @@ services:
       - --default-authentication-plugin=mysql_native_password
     volumes:
       - db_data:/var/lib/mysql
+      - ./main/voiceprint/init.sql:/docker-entrypoint-initdb.d/init-voiceprint.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pxiaozhi_internal_pass"]
       timeout: 20s
@@ -117,6 +118,25 @@ services:
       - SERVER_SECRET=${MANAGER_API_SECRET:-}
     volumes:
       - ./main/mqtt-gateway/config:/app/config
+    networks:
+      - xiaozhi-net
+
+  # Voiceprint Recognition Service (3D-Speaker API)
+  xiaozhi-esp32-server-voiceprint:
+    image: ${VOICEPRINT_IMAGE:-ghcr.nju.edu.cn/xinnan-tech/voiceprint-api:latest}
+    container_name: xiaozhi-esp32-server-voiceprint
+    restart: always
+    depends_on:
+      xiaozhi-esp32-server-db:
+        condition: service_healthy
+      xiaozhi-esp32-server-web:
+        condition: service_started
+    ports:
+      - "${VOICEPRINT_PORT:-18005}:8005"
+    volumes:
+      - ./main/voiceprint/data:/app/data
+    security_opt:
+      - seccomp:unconfined
     networks:
       - xiaozhi-net
 
