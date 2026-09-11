@@ -749,3 +749,14 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202609111200.sql
+  - changeSet:
+      id: 202609112000
+      author: antigravity
+      runOnChange: true
+      validCheckSum:
+        - ANY
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609112000.sql
+
