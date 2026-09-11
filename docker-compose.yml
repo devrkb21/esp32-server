@@ -84,6 +84,8 @@ services:
       - "${VISION_PORT:-18003}:8003"
     environment:
       - TZ=Asia/Dhaka
+      - MANAGER_API_SECRET=${MANAGER_API_SECRET:-}
+      - MANAGER_API_URL=${MANAGER_API_URL:-http://xiaozhi-esp32-server-web:8002/xiaozhi}
     volumes:
       - ./main/xiaozhi-server/data:/opt/xiaozhi-esp32-server/data
       - ./main/xiaozhi-server/models:/opt/xiaozhi-esp32-server/models

@@ -37,9 +37,23 @@ async def load_config():
 
     # Load default configuration
     default_config = read_config(default_config_path)
-    custom_config = read_config(custom_config_path)
+    custom_config = read_config(custom_config_path) if os.path.exists(custom_config_path) else {}
+    if not isinstance(custom_config, dict):
+        custom_config = {}
 
-    if custom_config.get("manager-api", {}).get("url"):
+    # Support environment variable override for manager-api
+    env_secret = os.getenv("MANAGER_API_SECRET") or os.getenv("SERVER_SECRET")
+    env_url = os.getenv("MANAGER_API_URL")
+    if env_secret or env_url:
+        if "manager-api" not in custom_config:
+            custom_config["manager-api"] = {}
+        if env_secret:
+            custom_config["manager-api"]["secret"] = env_secret
+        if env_url:
+            custom_config["manager-api"]["url"] = env_url
+
+    api_secret = custom_config.get("manager-api", {}).get("secret", "")
+    if custom_config.get("manager-api", {}).get("url") and api_secret and api_secret != "YOUR_SERVER_SECRET_HERE":
         config = await get_config_from_api_async(custom_config)
     else:
         # Merge configurations
