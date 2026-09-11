@@ -75,13 +75,13 @@ UPDATE `ai_tts_voice` SET `name` = 'Ana (US Child)', `tts_voice` = 'en-US-AnaNeu
 UPDATE `ai_tts_voice` SET `name` = 'Eric (US Male)', `tts_voice` = 'en-US-EricNeural', `languages` = 'English', `voice_demo` = '/voice-demos/en-US-EricNeural.mp3', `sort` = 8 WHERE `id` = 'TTS_EdgeTTS0008';
 UPDATE `ai_tts_voice` SET `name` = 'Michelle (US)', `tts_voice` = 'en-US-MichelleNeural', `languages` = 'English', `voice_demo` = '/voice-demos/en-US-MichelleNeural.mp3', `sort` = 9 WHERE `id` = 'TTS_EdgeTTS0009';
 
--- Insert Bangla (Bengali) voices for Edge TTS (prioritized right after English)
-INSERT INTO `ai_tts_voice` (`id`, `tts_model_id`, `name`, `tts_voice`, `languages`, `sort`) VALUES
-('TTS_EdgeTTS_bn_001', 'TTS_EdgeTTS', 'Nabanita (BD Female)', 'bn-BD-NabanitaNeural', 'Bengali', 10),
-('TTS_EdgeTTS_bn_002', 'TTS_EdgeTTS', 'Pradeep (BD Male)', 'bn-BD-PradeepNeural', 'Bengali', 11),
-('TTS_EdgeTTS_bn_003', 'TTS_EdgeTTS', 'Tanishaa (IN Female)', 'bn-IN-TanishaaNeural', 'Bengali', 12),
-('TTS_EdgeTTS_bn_004', 'TTS_EdgeTTS', 'Bashkar (IN Male)', 'bn-IN-BashkarNeural', 'Bengali', 13)
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `tts_voice` = VALUES(`tts_voice`), `languages` = VALUES(`languages`), `sort` = VALUES(`sort`);
+UPDATE `ai_tts_voice` SET `name` = 'Nabanita (BD Female)', `tts_voice` = 'bn-BD-NabanitaNeural', `languages` = 'Bengali', `voice_demo` = '/voice-demos/bn-BD-NabanitaNeural.mp3', `sort` = 10 WHERE `id` = 'TTS_EdgeTTS0010';
+UPDATE `ai_tts_voice` SET `name` = 'Pradeep (BD Male)', `tts_voice` = 'bn-BD-PradeepNeural', `languages` = 'Bengali', `voice_demo` = '/voice-demos/bn-BD-PradeepNeural.mp3', `sort` = 11 WHERE `id` = 'TTS_EdgeTTS0011';
+UPDATE `ai_tts_voice` SET `name` = 'Tanishaa (IN Female)', `tts_voice` = 'bn-IN-TanishaaNeural', `languages` = 'Bengali', `voice_demo` = '/voice-demos/bn-IN-TanishaaNeural.mp3', `sort` = 12 WHERE `id` = 'TTS_EdgeTTS0012';
+UPDATE `ai_tts_voice` SET `name` = 'Bashkar (IN Male)', `tts_voice` = 'bn-IN-BashkarNeural', `languages` = 'Bengali', `voice_demo` = '/voice-demos/bn-IN-BashkarNeural.mp3', `sort` = 13 WHERE `id` = 'TTS_EdgeTTS0013';
+
+-- Delete duplicate second insertion of Bengali voices if previously inserted with separate IDs
+DELETE FROM `ai_tts_voice` WHERE `id` IN ('TTS_EdgeTTS_bn_001', 'TTS_EdgeTTS_bn_002', 'TTS_EdgeTTS_bn_003', 'TTS_EdgeTTS_bn_004');
 
 -- 3. ai_agent_template: English personas with Bengali/South Asian contextual awareness
 UPDATE `ai_agent_template` SET
