@@ -1,7 +1,21 @@
-# Production image containing only application code
-FROM ghcr.io/xinnan-tech/xiaozhi-esp32-server:server-base
+FROM python:3.10-slim
 
+# Install system audio and build tools
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libopus0 ffmpeg curl git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/xiaozhi-esp32-server
+
+# Install Python requirements
+COPY main/xiaozhi-server/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir pymysql onnxruntime edge-tts
+
+# Copy server application code
 COPY main/xiaozhi-server .
 
-# Start application
-CMD ["python", "app.py"]
+EXPOSE 8000 8003
+CMD ["python", "app.py"]
