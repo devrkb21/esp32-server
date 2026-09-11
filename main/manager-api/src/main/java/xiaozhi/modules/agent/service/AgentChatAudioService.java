@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.extension.repository.IRepository;
 import xiaozhi.modules.agent.entity.AgentChatAudioEntity;
 
 /**
- * 智能体聊天音频数据表处理service
+ * Agent chat audio data table handlingservice
  *
  * @author Goody
  * @version 1.0, 2025/5/8
@@ -13,18 +13,18 @@ import xiaozhi.modules.agent.entity.AgentChatAudioEntity;
  */
 public interface AgentChatAudioService extends IRepository<AgentChatAudioEntity> {
     /**
-     * 保存音频数据
+     * SaveAudioData
      *
-     * @param audioData 音频数据
-     * @return 音频ID
+     * @param audioData AudioData
+     * @return AudioID
      */
     String saveAudio(byte[] audioData);
 
     /**
-     * 获取音频数据
+     * GetAudioData
      *
-     * @param audioId 音频ID
-     * @return 音频数据
+     * @param audioId AudioID
+     * @return AudioData
      */
     byte[] getAudio(String audioId);
 }

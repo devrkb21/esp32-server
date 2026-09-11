@@ -97,7 +97,7 @@
     },
     "permission": {
       "scope.userLocation": {
-        "desc": "The Wi-Fi provisioning feature requires location permission"
+        "desc": "WiFi provisioning requires location permission"
       }
     },
     "requiredPrivateInfos": [

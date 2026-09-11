@@ -37,14 +37,14 @@ public class ALiYunSmsService implements SmsService {
                     .setPhoneNumbers(phone)
                     .setTemplateParam(String.format("{\"code\":\"%s\"}", VerificationCode));
             RuntimeOptions runtime = new RuntimeOptions();
-            // 复制代码运行请自行打印 API 的返回值
+            // Copy code to run, please print yourself API return value of
             SendSmsResponse sendSmsResponse = client.sendSmsWithOptions(sendSmsRequest, runtime);
-            log.info("发送短信响应的requestID: {}", sendSmsResponse.getBody().getRequestId());
+            log.info("Send SMSResponserequestID: {}", sendSmsResponse.getBody().getRequestId());
         } catch (Exception e) {
-            // 如果发送失败了退还这次发送数
+            // If sending fails, refund this send count
             String todayCountKey = RedisKeys.getSMSTodayCountKey(phone);
             redisUtils.delete(todayCountKey);
-            // 错误 message
+            // Error message
             log.error(e.getMessage());
             throw new RenException(ErrorCode.SMS_SEND_FAILED);
         }
@@ -53,8 +53,8 @@ public class ALiYunSmsService implements SmsService {
 
 
     /**
-     * 创建阿里云连接
-     * @return 返回连接对象
+     * Create Alibaba Cloud connection
+     * @return Returns connection object
      */
     private Client createClient(){
         String ACCESS_KEY_ID = sysParamsService.getValue(Constant.SysMSMParam
@@ -65,11 +65,11 @@ public class ALiYunSmsService implements SmsService {
             Config config = new Config()
                     .setAccessKeyId(ACCESS_KEY_ID)
                     .setAccessKeySecret(ACCESS_KEY_SECRET);
-            // 配置 Endpoint。中国站请使用dysmsapi.aliyuncs.com
+            // Configuration Endpoint。China station please usedysmsapi.aliyuncs.com
             config.endpoint = "dysmsapi.aliyuncs.com";
             return new Client(config);
         }catch (Exception e){
-            // 错误 message
+            // Error message
             log.error(e.getMessage());
             throw new RenException(ErrorCode.SMS_CONNECTION_FAILED);
         }

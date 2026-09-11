@@ -1,45 +1,45 @@
--- VLLM模型供应器
+-- VLLM model provider
 delete from `ai_model_provider` where id = 'SYSTEM_ASR_DoubaoStreamASR';
 INSERT INTO `ai_model_provider` (`id`, `model_type`, `provider_code`, `name`, `fields`, `sort`, `creator`, `create_date`, `updater`, `update_date`) VALUES
-('SYSTEM_ASR_DoubaoStreamASR', 'ASR', 'doubao_stream', '火山引擎语音识别(流式)', '[{"key":"appid","label":"应用ID","type":"string"},{"key":"access_token","label":"访问令牌","type":"string"},{"key":"cluster","label":"集群","type":"string"},{"key":"boosting_table_name","label":"热词文件名称","type":"string"},{"key":"correct_table_name","label":"替换词文件名称","type":"string"},{"key":"output_dir","label":"输出目录","type":"string"}]', 3, 1, NOW(), 1, NOW());
+('SYSTEM_ASR_DoubaoStreamASR', 'ASR', 'doubao_stream', 'Volcengine Speech Recognition(Streaming)', '[{"key":"appid","label":"App ID","type":"string"},{"key":"access_token","label":"Access Token","type":"string"},{"key":"cluster","label":"Cluster","type":"string"},{"key":"boosting_table_name","label":"Hotwords file name","type":"string"},{"key":"correct_table_name","label":"Replacement word fileName","type":"string"},{"key":"output_dir","label":"Output directory","type":"string"}]', 3, 1, NOW(), 1, NOW());
 
 
--- VLLM模型配置
+-- VLLM model configuration
 delete from `ai_model_config` where id = 'ASR_DoubaoStreamASR';
-INSERT INTO `ai_model_config` VALUES ('ASR_DoubaoStreamASR', 'ASR', 'DoubaoStreamASR', '豆包语音识别(流式)', 0, 1, '{\"type\": \"doubao_stream\", \"appid\": \"\", \"access_token\": \"\", \"cluster\": \"volcengine_input_common\", \"output_dir\": \"tmp/\"}', NULL, NULL, 3, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_model_config` VALUES ('ASR_DoubaoStreamASR', 'ASR', 'DoubaoStreamASR', 'Doubao Speech Recognition (Streaming)', 0, 1, '{\"type\": \"doubao_stream\", \"appid\": \"\", \"access_token\": \"\", \"cluster\": \"volcengine_input_common\", \"output_dir\": \"tmp/\"}', NULL, NULL, 3, NULL, NULL, NULL, NULL);
 
 
--- 更新豆包ASR配置说明
+-- Update Doubao ASR configuration instructions
 UPDATE `ai_model_config` SET 
 `doc_link` = 'https://console.volcengine.com/speech/app',
-`remark` = '豆包ASR配置说明：
-1. 豆包ASR和豆包(流式)ASR的区别是：豆包ASR是按次收费，豆包(流式)ASR是按时收费
-2. 一般来说按次收费的更便宜，但是豆包(流式)ASR使用了大模型技术，效果更好
-3. 需要在火山引擎控制台创建应用并获取appid和access_token
-4. 支持中文语音识别
-5. 需要网络连接
-6. 输出文件保存在tmp/目录
-申请步骤：
-1. 访问 https://console.volcengine.com/speech/app
-2. 创建新应用
-3. 获取appid和access_token
-4. 填入配置文件中
-如需设置热词，请参考：https://www.volcengine.com/docs/6561/155738
+`remark` = 'DoubaoASRConfiguration Instructions:
+1. DoubaoASRand Doubao(Streaming)ASRThe difference is: DoubaoASRis billed per request, Doubao(Streaming)ASRis billed per duration
+2. Generally, per-request billing is cheaper, But Doubao(Streaming)ASRuses large language model technology, Better Effect
+3. Need to create an application in Volcengine console and obtain appid and access_token
+4. Supports Chinese speech recognition
+5. Requires network connection
+6. Output files are saved in tmp/ directory
+Application Steps:
+1. Visit https://console.volcengine.com/speech/app
+2. Create new application
+3. Obtain appid and access_token
+4. Fill into the configuration file
+For custom hotwords, refer to: https://www.volcengine.com/docs/6561/155738
 ' WHERE `id` = 'ASR_DoubaoASR';
 
 UPDATE `ai_model_config` SET 
 `doc_link` = 'https://console.volcengine.com/speech/app',
-`remark` = '豆包ASR配置说明：
-1. 豆包ASR和豆包(流式)ASR的区别是：豆包ASR是按次收费，豆包(流式)ASR是按时收费
-2. 一般来说按次收费的更便宜，但是豆包(流式)ASR使用了大模型技术，效果更好
-3. 需要在火山引擎控制台创建应用并获取appid和access_token
-4. 支持中文语音识别
-5. 需要网络连接
-6. 输出文件保存在tmp/目录
-申请步骤：
-1. 访问 https://console.volcengine.com/speech/app
-2. 创建新应用
-3. 获取appid和access_token
-4. 填入配置文件中
-如需设置热词，请参考：https://www.volcengine.com/docs/6561/155738
+`remark` = 'DoubaoASRConfiguration Instructions:
+1. DoubaoASRand Doubao(Streaming)ASRThe difference is: DoubaoASRis billed per request, Doubao(Streaming)ASRis billed per duration
+2. Generally, per-request billing is cheaper, But Doubao(Streaming)ASRuses large language model technology, Better Effect
+3. Need to create an application in Volcengine console and obtain appid and access_token
+4. Supports Chinese speech recognition
+5. Requires network connection
+6. Output files are saved in tmp/ directory
+Application Steps:
+1. Visit https://console.volcengine.com/speech/app
+2. Create new application
+3. Obtain appid and access_token
+4. Fill into the configuration file
+For custom hotwords, refer to: https://www.volcengine.com/docs/6561/155738
 ' WHERE `id` = 'ASR_DoubaoStreamASR';

@@ -121,7 +121,7 @@ export default {
             isFirstLoad: true,
             playingAudioId: null,
             audioElement: null,
-            expandedToolResults: {} // 跟踪工具结果的展开状态
+            expandedToolResults: {} // Track expansion state of tool results
         };
     },
     components: {
@@ -151,9 +151,9 @@ export default {
             if (!this.messages || this.messages.length === 0) return [];
 
             const result = [];
-            const TIME_INTERVAL = 60 * 1000; // 1分钟的时间间隔（毫秒）
+            const TIME_INTERVAL = 60 * 1000; // 1 minute time interval (ms)
 
-            // 添加第一条消息的时间标记
+            // Add time tag for the first message
             if (this.messages[0]) {
                 result.push({
                     type: 'time',
@@ -162,12 +162,12 @@ export default {
                 });
             }
 
-            // 处理消息列表
+            // Process message list
             for (let i = 0; i < this.messages.length; i++) {
                 const currentMessage = this.messages[i];
                 result.push(currentMessage);
 
-                // 检查是否需要添加时间标记
+                // Check if time tag needs to be added
                 if (i < this.messages.length - 1) {
                     const currentTime = new Date(currentMessage.createdAt).getTime();
                     const nextTime = new Date(this.messages[i + 1].createdAt).getTime();
@@ -187,50 +187,50 @@ export default {
     },
     methods: {
         /**
-         * 从 content 字段中提取聊天内容
-         * 如果 content 是 JSON 格式（如 {"speaker": "未知说话人", "content": "现在几点了。"}），则提取 content 字段
-         * 如果 content 是普通字符串，则直接返回
+         * Extract chat content from content field
+         * If content is JSON format (e.g. {"speaker": "Unknown Speaker", "content": "What time is it?"}), extract content field
+         * If content is plain string, return directly
          * 
-         * @param {string} content 原始内容
-         * @returns {string} 提取的聊天内容
+         * @param {string} content Original content
+         * @returns {string} Extracted chat content
          */
         extractContentFromString(content) {
             if (!content || content.trim() === '') {
                 return content;
             }
 
-            // 尝试解析为 JSON
+            // Try parsing as JSON
             try {
                 const jsonObj = JSON.parse(content);
 
-                // 如果是数组格式（包含 text 和 tool）
+                // If array format (contains text and tool)
                 if (Array.isArray(jsonObj)) {
                     return jsonObj;
                 }
 
-                // 如果是对象且有 content 字段
+                // If object and has content field
                 if (jsonObj && typeof jsonObj === 'object' && jsonObj.content) {
                     return jsonObj.content;
                 }
             } catch (e) {
-                // 如果不是有效的 JSON，直接返回原内容
+                // If not valid JSON, return original content directly
             }
 
-            // 如果不是 JSON 格式或没有 content 字段，直接返回原内容
+            // If not JSON format or no content field, return original content
             return content;
         },
-        // 切换工具结果的展开/折叠状态
+        // Toggle tool result expanded/collapsed state
         toggleToolResult(messageIndex, itemIndex) {
             const key = `${messageIndex}-${itemIndex}`;
             this.$set(this.expandedToolResults, key, !this.expandedToolResults[key]);
         },
-        // 判断工具结果是否处于折叠状态
+        // Check if tool result is in collapsed state
         isToolResultCollapsed(messageIndex, itemIndex) {
             const key = `${messageIndex}-${itemIndex}`;
-            // 默认折叠（true表示折叠）
+            // Default collapsed (true means collapsed)
             return !this.expandedToolResults[key];
         },
-        // 获取截断的文本（只显示第一行）
+        // Get truncated text (show only first line)
         getFirstLineText(text) {
             if (!text) return '';
             const firstLine = text.split('\n')[0];
@@ -282,7 +282,7 @@ export default {
                     if (this.messages.length > 0 && this.messages[0].macAddress) {
                         this.currentMacAddress = this.messages[0].macAddress;
                     }
-                    // 更新会话列表中的聊天记录数量
+                    // Update chat record count in session list
                     this.sessions = this.sessions.map(item => {
                         if (item.sessionId === session.sessionId) {
                             item.chatCount = this.messages.length;
@@ -299,7 +299,7 @@ export default {
 
             this.scrollTimer = setTimeout(() => {
                 const { scrollTop, scrollHeight, clientHeight } = e.target;
-                // 当滚动到底部时加载更多
+                // Load more when scrolled to bottom
                 if (scrollHeight - scrollTop <= clientHeight + 50) {
                     this.loadSessions();
                 }
@@ -334,7 +334,7 @@ export default {
         },
         playAudio: debounce(function(message) {
             if (this.playingAudioId === message.audioId) {
-                // 如果正在播放当前音频，则停止播放
+                // If current audio is playing, stop playing
                 if (this.audioElement) {
                     this.audioElement.pause();
                     this.audioElement = null;
@@ -343,13 +343,13 @@ export default {
                 return;
             }
 
-            // 停止当前正在播放的音频
+            // Stop currently playing audio
             if (this.audioElement) {
                 this.audioElement.pause();
                 this.audioElement = null;
             }
 
-            // 先获取音频下载ID
+            // First get audio download ID
             this.playingAudioId = message.audioId;
             Api.agent.getAudioId(message.audioId, (res) => {
                 if (res.data && res.data.data) {
@@ -357,7 +357,7 @@ export default {
                         this.audioElement = new Audio();
                     }
                     
-                    // 使用获取到的下载ID播放音频
+                    // Play audio using retrieved download ID
                     this.audioElement.src = Api.getServiceUrl() + `/agent/play/${res.data.data}`;
                     this.audioElement.onended = () => {
                         this.playingAudioId = null;
@@ -369,21 +369,21 @@ export default {
             });
         }, 300),
         getUserAvatar(sessionId) {
-            // 从 sessionId 中提取所有数字
+            // Extract all digits from sessionId
             const numbers = sessionId.match(/\d+/g);
             if (!numbers) return require('@/assets/user-avatar1.png');
 
-            // 将所有数字相加
+            // Sum all digits
             const sum = numbers.reduce((acc, num) => acc + parseInt(num), 0);
 
-            // 计算模5并加1，得到1-5之间的数字
+            // Compute mod 5 plus 1 to get number between 1-5
             const avatarIndex = (sum % 5) + 1;
 
-            // 返回对应的头像图片
+            // Return corresponding avatar image
             return require(`@/assets/user-avatar${avatarIndex}.png`);
         },
 
-        // 下载本会话聊天记录
+        // Download this session chat history
         downloadCurrentSession() {
             Api.agent.getDownloadUrl(this.agentId, this.currentSessionId, (res) => {
                 if (res && res.data && res.data.code === 0 && res.data.data) {
@@ -395,7 +395,7 @@ export default {
             });
         },
 
-        // 下载本会话及前20条会话聊天记录
+        // Download this session and previous 20 sessions chat history
         downloadCurrentSessionWithPrevious() {
             Api.agent.getDownloadUrl(this.agentId, this.currentSessionId, (res) => {
                 if (res && res.data && res.data.code === 0 && res.data.data) {
@@ -458,7 +458,7 @@ export default {
     height: 30px;
     line-height: 30px;
     width: calc(100% - 30px);
-    /* 为消息数量留出空间 */
+    /* Leave space for message count */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -642,6 +642,6 @@ export default {
     padding: 0;
     overflow: hidden;
     height: calc(90vh - 54px);
-    /* 减去标题栏的高度 */
+    /* Subtract header bar height */
 }
 </style>

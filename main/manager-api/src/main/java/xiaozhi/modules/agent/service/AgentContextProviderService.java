@@ -5,21 +5,21 @@ import xiaozhi.modules.agent.entity.AgentContextProviderEntity;
 
 public interface AgentContextProviderService extends BaseService<AgentContextProviderEntity> {
     /**
-     * 根据智能体ID获取上下文源配置
-     * @param agentId 智能体ID
-     * @return 上下文源配置实体
+     * According toAgentIDGet context source configuration
+     * @param agentId AgentID
+     * @return Context providerConfigurationEntity
      */
     AgentContextProviderEntity getByAgentId(String agentId);
 
     /**
-     * 保存或更新上下文源配置
-     * @param entity 实体
+     * Save or update context source configuration
+     * @param entity Entity
      */
     void saveOrUpdateByAgentId(AgentContextProviderEntity entity);
 
     /**
-     * 根据智能体ID删除上下文源配置
-     * @param agentId 智能体ID
+     * According toAgentIDDeleteContext providerConfiguration
+     * @param agentId AgentID
      */
     void deleteByAgentId(String agentId);
 }

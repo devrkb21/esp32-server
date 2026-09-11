@@ -35,7 +35,7 @@ import xiaozhi.modules.sys.service.SysUserService;
 import xiaozhi.modules.sys.vo.AdminPageUserVO;
 
 /**
- * 系统用户
+ * System user
  */
 @AllArgsConstructor
 @Service
@@ -72,16 +72,16 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
     public void save(SysUserDTO dto) {
         SysUserEntity entity = ConvertUtils.sourceToTarget(dto, SysUserEntity.class);
 
-        // 密码强度
+        // PasswordStrength
         if (!isStrongPassword(entity.getPassword())) {
             throw new RenException(ErrorCode.PASSWORD_WEAK_ERROR);
         }
 
-        // 密码加密
+        // PasswordEncrypt
         String password = PasswordUtils.encode(entity.getPassword());
         entity.setPassword(password);
 
-        // 保存用户
+        // SaveUser
         Long userCount = getUserCount();
         if (userCount == 0) {
             entity.setSuperAdmin(SuperAdminEnum.YES.value());
@@ -96,11 +96,11 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
-        // 删除用户
+        // DeleteUser
         baseDao.deleteById(id);
-        // 删除设备
+        // DeleteDevice
         deviceService.deleteByUserId(id);
-        // 删除智能体
+        // DeleteAgent
         agentService.deleteAgentByUserId(id);
     }
 
@@ -113,17 +113,17 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
             throw new RenException(ErrorCode.TOKEN_INVALID);
         }
 
-        // 判断旧密码是否正确
+        // Check oldPasswordWhether correct
         if (!PasswordUtils.matches(passwordDTO.getPassword(), sysUserEntity.getPassword())) {
             throw new RenException(ErrorCode.OLD_PASSWORD_ERROR);
         }
 
-        // 新密码强度
+        // NewPasswordStrength
         if (!isStrongPassword(passwordDTO.getNewPassword())) {
             throw new RenException(ErrorCode.PASSWORD_WEAK_ERROR);
         }
 
-        // 密码加密
+        // PasswordEncrypt
         String password = PasswordUtils.encode(passwordDTO.getNewPassword());
         sysUserEntity.setPassword(password);
 
@@ -133,7 +133,7 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changePasswordDirectly(Long userId, String password) {
-        // 新密码强度
+        // NewPasswordStrength
         if (!isStrongPassword(password)) {
             throw new RenException(ErrorCode.PASSWORD_WEAK_ERROR);
         }
@@ -165,7 +165,7 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
                 getPage(params, "id", true),
                 new QueryWrapper<SysUserEntity>().like(StringUtils.isNotBlank(dto.getMobile()), "username",
                         dto.getMobile()));
-        // 循环处理page获取回来的数据，返回需要的字段
+        // Loop processingpageRetrieved data，Return required fields
         List<AdminPageUserVO> list = page.getRecords().stream().map(user -> {
             AdminPageUserVO adminPageUserVO = new AdminPageUserVO();
             adminPageUserVO.setUserid(user.getId().toString());
@@ -180,7 +180,7 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
     }
 
     private boolean isStrongPassword(String password) {
-        // 弱密码的正则表达式
+        // weakPasswordregular expression for
         String weakPasswordRegex = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).+$";
         Pattern pattern = Pattern.compile(weakPasswordRegex);
         Matcher matcher = pattern.matcher(password);
@@ -191,28 +191,28 @@ public class SysUserServiceImpl extends BaseServiceImpl<SysUserDao, SysUserEntit
     private static final Random random = new Random();
 
     /**
-     * 生成随机密码
+     * Generate randomPassword
      * 
-     * @return 随机生成的密码
+     * @return Randomly generatedPassword
      */
     private String generatePassword() {
         StringBuilder password = new StringBuilder();
 
-        // 确保包含至少一个数字
+        // Ensure it contains at least one digit
         password.append("0123456789".charAt(random.nextInt(10)));
-        // 确保包含至少一个小写字母
+        // Ensure it contains at least one lowercase letter
         password.append("abcdefghijklmnopqrstuvwxyz".charAt(random.nextInt(26)));
-        // 确保包含至少一个大写字母
+        // Ensure it contains at least one uppercase letter
         password.append("ABCDEFGHIJKLMNOPQRSTUVWXYZ".charAt(random.nextInt(26)));
-        // 确保包含至少一个特殊符号
+        // Ensure it contains at least one special character
         password.append("!@#$%^&*()".charAt(random.nextInt(10)));
 
-        // 生成剩余的8个字符
+        // Generate remaining8characters
         for (int i = 4; i < 12; i++) {
             password.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
         }
 
-        // 打乱密码中字符的顺序
+        // ShufflePasswordorder of characters in
         char[] passwordChars = password.toString().toCharArray();
         for (int i = 0; i < passwordChars.length; i++) {
             int randomIndex = random.nextInt(passwordChars.length);

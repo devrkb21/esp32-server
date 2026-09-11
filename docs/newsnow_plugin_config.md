@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `get_news_from_newsnow` plugin now supports dynamic news source configuration through the web admin interface, so you no longer need to modify code. You can configure different news sources for each agent in the control panel.
+The `get_news_from_newsnow` plugin supports dynamic news source configuration through the web admin interface, so you do not need to modify code. You can configure different news sources for each agent in the control panel.
 
 ## Configuration Methods
 
@@ -13,7 +13,7 @@ The `get_news_from_newsnow` plugin now supports dynamic news source configuratio
 3. Select the agent you want to configure.
 4. Click **Edit Functions**.
 5. In the parameter section on the right, find the **NewsNow news aggregation** plugin.
-6. Enter a semicolon-separated list of Chinese news source names in the **News Source Configuration** field.
+6. Enter a semicolon-separated list of news source IDs in the **News Source Configuration** field (for example: `thepaper;baidu;cls`).
 
 ### 2. Configure in the config file
 
@@ -23,83 +23,85 @@ Add the following to `config.yaml`:
 plugins:
   get_news_from_newsnow:
     url: "https://newsnow.busiyi.world/api/s?id="
-    news_sources: "澎湃新闻;百度热搜;财联社;微博;抖音"
+    news_sources: "thepaper;baidu;cls;weibo;douyin"
 ```
 
 ## News Source Format
 
-News sources use Chinese names separated by semicolons:
+News sources use lowercase IDs separated by semicolons:
 
 ```text
-ChineseName1;ChineseName2;ChineseName3
+source_id1;source_id2;source_id3
 ```
 
 ### Example
 
 ```text
-澎湃新闻;百度热搜;财联社;微博;抖音;知乎;36氪
+thepaper;baidu;cls;weibo;douyin;zhihu;36kr
 ```
 
 ## Supported News Sources
 
-The plugin supports the following Chinese news source names:
+The plugin supports the following news source IDs:
 
-- 澎湃新闻
-- 百度热搜
-- 财联社
-- 微博
-- 抖音
-- 知乎
-- 36氪
-- 华尔街见闻
-- IT之家
-- 今日头条
-- 虎扑
-- 哔哩哔哩
-- 快手
-- 雪球
-- 格隆汇
-- 法布财经
-- 金十数据
-- 牛客
-- 少数派
-- 稀土掘金
-- 凤凰网
-- 虫部落
-- 联合早报
-- 酷安
-- 远景论坛
-- 参考消息
-- 卫星通讯社
-- 百度贴吧
-- 靠谱新闻
-- And more...
+- `thepaper` (The Paper)
+- `baidu` (Baidu Hot Search)
+- `cls` (Cailian Press)
+- `weibo` (Weibo Hot Search)
+- `douyin` (Douyin)
+- `zhihu` (Zhihu Hot Topics)
+- `36kr` (36Kr)
+- `wallstreetcn` (Wallstreet CN)
+- `ithome` (IT Home)
+- `toutiao` (Toutiao)
+- `hupu` (Hupu)
+- `bilibili` (Bilibili Hot Search)
+- `kuaishou` (Kuaishou)
+- `xueqiu` (Xueqiu)
+- `gelonghui` (Gelonghui)
+- `fastbull` (FastBull)
+- `jin10` (Jin10)
+- `nowcoder` (NowCoder)
+- `sspai` (SSPAI)
+- `juejin` (Juejin)
+- `ifeng` (iFeng)
+- `chongbuluo` (Chongbuluo)
+- `zaobao` (Lianhe Zaobao)
+- `coolapk` (Coolapk)
+- `pcbeta` (PCBETA)
+- `cankaoxiaoxi` (Reference News)
+- `sputnik` (Sputnik News)
+- `tieba` (Baidu Tieba)
+- `kaopu` (Kaopu News)
+- `hackernews` (Hacker News)
+- `github` (GitHub Trending)
+- `producthunt` (Product Hunt)
 
 ## Default Configuration
 
 If no news sources are configured, the plugin uses the following default value:
 
 ```text
-澎湃新闻;百度热搜;财联社
+thepaper;hackernews;github
 ```
 
 ## Usage
 
-1. **Configure news sources**: Set the Chinese source names in the web UI or config file, separated by semicolons.
+1. **Configure news sources**: Set source IDs in the web UI or config file, separated by semicolons.
 2. **Call the plugin**: Users can say "read the news" or "get news".
-3. **Specify a source**: Users can say "read Pengpai News" or "get Baidu Hot Search".
+3. **Specify a source**: Users can say "read The Paper news" or "get Baidu Hot Search".
 4. **Get details**: Users can say "explain this news in detail".
 
 ## How It Works
 
-1. The plugin accepts Chinese source names as input (for example, `澎湃新闻`).
-2. It converts the configured Chinese name to the matching English ID (for example, `thepaper`).
-3. It calls the API with that English ID to fetch news data.
-4. It returns the news content to the user.
+1. The plugin accepts the configured news source IDs (for example, `thepaper`).
+2. It maps the ID to the remote channel endpoint defined in `CHANNEL_MAP`.
+3. It calls the API with that channel ID to fetch real-time news data.
+4. It returns the formatted news content to the LLM.
 
 ## Notes
 
-1. The configured Chinese name must exactly match the name defined in `CHANNEL_MAP`.
-2. After changing the configuration, restart the service or reload the configuration.
-3. If a configured source is invalid, the plugin automatically falls back to the default sources.
-4. Separate multiple sources with an English semicolon (`;`), not a Chinese semicolon (`；`).
+1. The configured source ID must match an ID in `CHANNEL_MAP`.
+2. After changing the configuration in `config.yaml`, restart the service.
+3. If an invalid source is provided, the plugin falls back to `thepaper`.
+4. Separate multiple sources with an ASCII semicolon (`;`).

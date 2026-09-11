@@ -62,12 +62,12 @@
         "mockResponse": {
             "success": true,
             "volume": "${volume}",
-            "message": "音量已设置为 ${volume}"
+            "message": "Volume set to ${volume}"
         }
     },
     {
         "name": "self.screen.set_brightness",
-        "description": "Set the brightness of the screen.",
+        "description": "Set the brightness of the screen. If the current brightness is unknown, you must call `self.get_device_status` tool first and then call this tool.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -84,7 +84,7 @@
         "mockResponse": {
             "success": true,
             "brightness": "${brightness}",
-            "message": "亮度已设置为 ${brightness}"
+            "message": "Brightness set to ${brightness}"
         }
     }
 ]

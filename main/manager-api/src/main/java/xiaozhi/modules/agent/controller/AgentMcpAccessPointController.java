@@ -18,7 +18,7 @@ import xiaozhi.modules.agent.service.AgentMcpAccessPointService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.security.user.SecurityUser;
 
-@Tag(name = "智能体Mcp接入点管理")
+@Tag(name = "AgentMcpAccess pointManagement")
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/agent/mcp")
@@ -27,19 +27,19 @@ public class AgentMcpAccessPointController {
     private final AgentService agentService;
 
     /**
-     * 获取智能体的Mcp接入点地址
+     * Get agentMcpEndpoint address
      * 
-     * @param agentId 智能体id
-     * @return 返回错误提醒或者Mcp接入点地址
+     * @param agentId Agentid
+     * @return ReturnErrorReminderorMcpEndpoint address
      */
-    @Operation(summary = "获取智能体的Mcp接入点地址")
+    @Operation(summary = "Get agentMcpEndpoint address")
     @GetMapping("/address/{agentId}")
     @RequiresPermissions("sys:role:normal")
     public Result<String> getAgentMcpAccessAddress(@PathVariable("agentId") String agentId) {
-        // 获取当前用户
+        // GetCurrentUser
         UserDetail user = SecurityUser.getUser();
 
-        // 检查权限
+        // CheckPermission
         if (!agentService.checkAgentPermission(agentId, user.getId())) {
             return new Result<String>().error(ErrorCode.MCP_ACCESS_POINT_ADDRESS_NO_PERMISSION);
         }
@@ -50,14 +50,14 @@ public class AgentMcpAccessPointController {
         return new Result<String>().ok(agentMcpAccessAddress);
     }
 
-    @Operation(summary = "获取智能体的Mcp工具列表")
+    @Operation(summary = "Get agentMcpTool list")
     @GetMapping("/tools/{agentId}")
     @RequiresPermissions("sys:role:normal")
     public Result<List<String>> getAgentMcpToolsList(@PathVariable("agentId") String agentId) {
-        // 获取当前用户
+        // GetCurrentUser
         UserDetail user = SecurityUser.getUser();
 
-        // 检查权限
+        // CheckPermission
         if (!agentService.checkAgentPermission(agentId, user.getId())) {
             return new Result<List<String>>().error(ErrorCode.MCP_ACCESS_POINT_TOOLS_LIST_NO_PERMISSION);
         }

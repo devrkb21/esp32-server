@@ -21,7 +21,7 @@ const messages = {
 }
 
 // Current active language
-const currentLang = ref<Language>('zh_CN')
+const currentLang = ref<Language>('en')
 
 // Initialize language
 export function initI18n() {

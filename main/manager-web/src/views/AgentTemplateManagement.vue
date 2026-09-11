@@ -68,7 +68,7 @@
       </div>
     </div>
 
-    <!-- 新增/编辑模板弹窗 -->
+    <!-- Add/Edit Template Dialog -->
     <CustomDialog
       :title="dialogTitle"
       :visible.sync="dialogVisible"
@@ -149,7 +149,7 @@ export default {
       confirmLoading: false,
       form: {
         id: null,
-        agentCode: "小智",
+        agentCode: "Xiaozhi",
         agentName: "",
         systemPrompt: "",
         sort: 0,
@@ -157,10 +157,10 @@ export default {
       },
       formRules: {
         agentName: [
-          { required: true, message: "请输入助手昵称", trigger: "blur" }
+          { required: true, message: "Please enter assistant nickname", trigger: "blur" }
         ],
         systemPrompt: [
-          { required: true, message: "请输入角色介绍", trigger: "blur" }
+          { required: true, message: "Please enter role introduction", trigger: "blur" }
         ]
       },
       originalForm: null
@@ -230,7 +230,7 @@ export default {
       this.dialogTitle = this.$t("templateQuickConfig.addTemplate");
       this.form = {
         id: null,
-        agentCode: "小智",
+        agentCode: "Xiaozhi",
         agentName: this.$t("templateQuickConfig.newTemplate"),
         systemPrompt: "",
         sort: 1,
@@ -249,7 +249,7 @@ export default {
           const template = res.data.data;
           this.form = {
             id: template.id,
-            agentCode: template.agentCode || "小智",
+            agentCode: template.agentCode || "Xiaozhi",
             agentName: template.agentName || "",
             systemPrompt: template.systemPrompt || "",
             sort: template.sort || 0,

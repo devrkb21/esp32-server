@@ -59,27 +59,27 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
         Map<String, Map<String, String>> allBooks = getAllAddressBooks();
 
         if (isAnswer) {
-            return postToMqtt("/api/call/accept", Map.of("mac", callerMac), "接听");
+            return postToMqtt("/api/call/accept", Map.of("mac", callerMac), "Answer");
         }
 
-        // 主动呼叫模式
+        // Active callMode
         Map<String, String> callerBook = allBooks.get(callerMac.toLowerCase());
         if (callerBook == null) {
-            return errorResult("未找到备注为'" + nickname + "'的设备");
+            return errorResult("Not foundRemarkas'" + nickname + "'Device");
         }
         String targetMacWithPerm = callerBook.get(nickname);
         if (targetMacWithPerm == null) {
-            return errorResult("未找到备注为'" + nickname + "'的设备");
+            return errorResult("Not foundRemarkas'" + nickname + "'Device");
         }
         String[] parts = targetMacWithPerm.split("\\|");
         String targetMac = parts[0];
         boolean hasPermission = parts.length > 1 && "1".equals(parts[1]);
 
         if (!hasPermission) {
-            return errorResult("呼叫失败，您没有权限呼叫该设备");
+            return errorResult("CallFail，You do not have permission to call this device");
         }
 
-        // 获取目标设备如何称呼主叫方
+        // Get how target device addresses the caller
         Map<String, String> targetBook = allBooks.get(targetMac.toLowerCase());
         String callerNickname = null;
         if (targetBook != null) {
@@ -94,7 +94,7 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
 
         return postToMqtt("/api/call/request",
                 Map.of("caller_mac", callerMac, "target_mac", targetMac, "caller_nickname", callerNickname),
-                "呼叫");
+                "Call");
     }
 
     @Override
@@ -109,20 +109,20 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             String alias = entity.getAlias();
             Boolean hasPermission = entity.getHasPermission();
 
-            // 构建正向映射: A对B的映射 nickname -> macB|permission
+            // BuildForward mapping: AforBMapping nickname -> macB|permission
             if (alias != null && !alias.isEmpty()) {
                 result.computeIfAbsent(macA, k -> new HashMap<>());
                 String permStr = (hasPermission != null && hasPermission) ? "1" : "0";
                 result.get(macA).put(alias, macB + "|" + permStr);
             }
 
-            // 构建反向记录用于查找B对A的称呼
+            // Construct reverse record for lookupBforAAddress name
             if (alias != null && !alias.isEmpty()) {
                 reverseMap.put(macB + ":" + macA, alias);
             }
         }
 
-        // 构建反向映射: B对A的映射 macA -> nickname
+        // BuildReverse mapping: BforAMapping macA -> nickname
         for (DeviceAddressBookEntity entity : allRecords) {
             String macA = entity.getMacAddress().toLowerCase();
             String macB = entity.getTargetMac().toLowerCase();
@@ -159,11 +159,11 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             DeviceAddressBookEntity entity = new DeviceAddressBookEntity();
             entity.setMacAddress(macAddress);
             entity.setTargetMac(targetMac);
-            // 如果 alias 为空，就默认使用设备名称
+            // If alias is empty，then default to device name
             if (StringUtils.isBlank(alias)) {
                 alias = deviceService.getDeviceByMacAddress(targetMac).getAlias();
             }
-            // 检查重名
+            // CheckDuplicate name
             alias = generateUniqueAlias(macAddress, targetMac, alias);
             entity.setAlias(alias);
             entity.setHasPermission(hasPermission);
@@ -204,7 +204,7 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
 
         if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)
                 || MqttGatewayAuthorization.isMissingSignatureKey(mqttSignatureKey)) {
-            result.put("message", action + "失败，网关配置缺失");
+            result.put("message", action + "Fail，GatewayConfigurationMissing");
             return result;
         }
 
@@ -224,7 +224,7 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             }
             return result;
         } catch (Exception e) {
-            result.put("message", action + "失败，请稍后再试");
+            result.put("message", action + "Fail，Please waitthentry");
             return result;
         }
     }
@@ -234,7 +234,7 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             return mac;
         }
         String lastTwo = mac.substring(mac.length() - 2);
-        return "尾号为" + lastTwo + "的设备";
+        return "Trailing digitsas" + lastTwo + "Device";
     }
 
     private String generateUniqueAlias(String macAddress, String targetMac, String alias) {

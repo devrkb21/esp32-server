@@ -267,7 +267,7 @@ export default {
           });
       }).catch(() => {
         this.$message.info({
-          message: '已取消删除',
+          message: 'Deletion canceled',
           showClose: true
         });
       });

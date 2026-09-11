@@ -17,7 +17,7 @@ Unterstützt MQTT+UDP-Protokoll, Websocket-Protokoll, MCP-Endpunkte und Stimmabd
 </p>
 
 <p align="center">
-  <a href="../../README.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/简体中文-DFE0E5"></a>
+  <a href="../../README.md"><img alt="Chinese README" src="https://img.shields.io/badge/Chinese-DFE0E5"></a>
   <a href="./README_en.md"><img alt="README in English" src="https://img.shields.io/badge/English-DFE0E5"></a>
   <a href="./README_vi.md"><img alt="Tiếng Việt" src="https://img.shields.io/badge/Tiếng Việt-DFE0E5"></a>
   <a href="./README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-DBEDFA"></a>
@@ -36,7 +36,7 @@ Unterstützt MQTT+UDP-Protokoll, Websocket-Protokoll, MCP-Endpunkte und Stimmabd
 <p align="center">
 Geleitet vom Team von Professor Siyuan Liu (South China University of Technology)
 </br>
-刘思源教授团队主导研发(华南理工大学)
+Led by Prof. Siyuan Liu's team (South China University of Technology)
 </br>
 <img src="../images/hnlg.jpg" alt="South China University of Technology" width="50%">
 </p>
@@ -54,31 +54,31 @@ Möchten Sie die Nutzungseffekte sehen? Klicken Sie auf die Videos unten 🎥
     <td>
       <a href="https://www.bilibili.com/video/BV1FMFyejExX" target="_blank">
         <picture>
-          <img alt="响应速度感受" src="docs/images/demo9.png" /></picture>
+          <img alt="Response speed demo" src="docs/images/demo9.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1vchQzaEse" target="_blank">
         <picture>
-          <img alt="速度优化秘诀" src="docs/images/demo6.png" /></picture>
+          <img alt="Speed optimization secret" src="docs/images/demo6.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1WEcxzFEAT" target="_blank">
         <picture>
-          <img alt="小智数字人 支持语音唤醒" src="docs/images/demo8.png" /></picture>
+          <img alt="Xiaozhi Digital Human voice wakeup" src="docs/images/demo8.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1CKVz6UEuB" target="_blank">
         <picture>
-          <img alt="设备呼叫设备，打电话" src="docs/images/demo0.png" /></picture>
+          <img alt="Device calls device, making a call" src="docs/images/demo0.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1C1tCzUEZh" target="_blank">
         <picture>
-          <img alt="复杂医疗场景" src="docs/images/demo1.png" /></picture>
+          <img alt="Complex medical scenario" src="docs/images/demo1.png" /></picture>
       </a>
     </td>
   </tr>
@@ -86,31 +86,31 @@ Möchten Sie die Nutzungseffekte sehen? Klicken Sie auf die Videos unten 🎥
     <td>
       <a href="https://www.bilibili.com/video/BV1VC96Y5EMH" target="_blank">
         <picture>
-          <img alt="播放音乐查询天气播报新闻" src="docs/images/demo7.png" /></picture>
+          <img alt="Play music, check the weather, and read the news" src="docs/images/demo7.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV12J7WzBEaH" target="_blank">
         <picture>
-          <img alt="实时打断" src="docs/images/demo10.png" /></picture>
+          <img alt="Real-time interruption" src="docs/images/demo10.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1Co76z7EvK" target="_blank">
         <picture>
-          <img alt="拍照识物品" src="docs/images/demo12.png" /></picture>
+          <img alt="Take a photo to recognize objects" src="docs/images/demo12.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1pNXWYGEx1" target="_blank">
         <picture>
-          <img alt="控制家电开关" src="docs/images/demo5.png" /></picture>
+          <img alt="Control home appliance switches" src="docs/images/demo5.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1TJ7WzzEo6" target="_blank">
         <picture>
-          <img alt="多指令任务" src="docs/images/demo11.png" /></picture>
+          <img alt="Multi-command tasks" src="docs/images/demo11.png" /></picture>
       </a>
     </td>
   </tr>
@@ -118,31 +118,31 @@ Möchten Sie die Nutzungseffekte sehen? Klicken Sie auf die Videos unten 🎥
     <td>
       <a href="https://www.bilibili.com/video/BV1ZQKUzYExM" target="_blank">
         <picture>
-          <img alt="MCP接入点" src="docs/images/demo13.png" /></picture>
+          <img alt="MCP access point" src="docs/images/demo13.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1zUW5zJEkq" target="_blank">
         <picture>
-          <img alt="MQTT指令下发" src="docs/images/demo4.png" /></picture>
+          <img alt="MQTT command delivery" src="docs/images/demo4.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1Exu3zqEDe" target="_blank">
         <picture>
-          <img alt="声纹识别" src="docs/images/demo14.png" /></picture>
+          <img alt="Voiceprint recognition" src="docs/images/demo14.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1CDKWemEU6" target="_blank">
         <picture>
-          <img alt="自定义音色" src="docs/images/demo2.png" /></picture>
+          <img alt="Custom voice style" src="docs/images/demo2.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV12yA2egEaC" target="_blank">
         <picture>
-          <img alt="使用粤语交流" src="docs/images/demo3.png" /></picture>
+          <img alt="Use Cantonese to communicate" src="docs/images/demo3.png" /></picture>
       </a>
     </td>
   </tr>
@@ -217,7 +217,7 @@ Dieses Projekt bietet die folgenden Testwerkzeuge, um Ihnen bei der Überprüfun
 ---
 ## Funktionsliste ✨
 ### Implementiert ✅
-![请参考-全模块安装架构图](../images/deploy2.png)
+![Architecture diagram for full-module deployment](../images/deploy2.png)
 | Funktionsmodul | Beschreibung |
 |:---:|:---|
 | Kernarchitektur | Basierend auf [MQTT+UDP-Gateway](https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mqtt-gateway-integration.md), WebSocket und HTTP-Servern, bietet vollständiges Konsolenverwaltungs- und Authentifizierungssystem |

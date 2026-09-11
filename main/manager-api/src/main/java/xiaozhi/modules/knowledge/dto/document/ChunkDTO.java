@@ -9,174 +9,174 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.*;
 
 /**
- * 切片管理聚合 DTO
+ * Chunk managementAggregate DTO
  */
-@Schema(description = "切片管理聚合 DTO")
+@Schema(description = "Chunk managementAggregate DTO")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ChunkDTO {
 
     /**
-     * 新增切片请求参数
+     * NewaddChunkRequestParameter
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Schema(description = "新增切片请求参数")
+    @Schema(description = "NewaddChunkRequestParameter")
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AddReq implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        @Schema(description = "切片内容", requiredMode = Schema.RequiredMode.REQUIRED)
-        @NotBlank(message = "切片内容不能为空")
+        @Schema(description = "Chunk content", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotBlank(message = "Chunk content cannot be empty")
         private String content;
 
-        @Schema(description = "重要关键词列表")
+        @Schema(description = "reneedKeywordList")
         @JsonProperty("important_keywords")
         private List<String> importantKeywords;
 
-        @Schema(description = "预设问题列表")
+        @Schema(description = "Preset question list")
         private List<String> questions;
     }
 
     /**
-     * 更新切片请求参数
+     * UpdateChunkRequestParameter
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Schema(description = "更新切片请求参数")
+    @Schema(description = "UpdateChunkRequestParameter")
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class UpdateReq implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        @Schema(description = "新的切片内容")
+        @Schema(description = "NewChunk content")
         private String content;
 
-        @Schema(description = "更新关键词列表 (覆盖原有列表)")
+        @Schema(description = "UpdateKeywordList (CoveroriginalHaveList)")
         @JsonProperty("important_keywords")
         private List<String> importantKeywords;
 
-        @Schema(description = "启用/禁用 (true: 启用, false: 禁用)")
+        @Schema(description = "Enabled/Disabled (true: Enabled, false: Disabled)")
         private Boolean available;
     }
 
     /**
-     * 获取切片列表请求参数
+     * Get chunk list request parameters
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Schema(description = "获取切片列表请求参数")
+    @Schema(description = "Get chunk list request parameters")
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ListReq implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        @Schema(description = "页码 (默认 1)")
+        @Schema(description = "PageCode (Default 1)")
         private Integer page;
 
-        @Schema(description = "每页数量 (默认 30)")
+        @Schema(description = "eachPagesamount (Default 30)")
         @JsonProperty("page_size")
         private Integer pageSize;
 
-        @Schema(description = "搜索关键词 (全文检索)")
+        @Schema(description = "SearchKeyword (AlldocRetrieval)")
         private String keywords;
 
-        @Schema(description = "精确切片 ID")
+        @Schema(description = "ExactChunk ID")
         private String id;
     }
 
     /**
-     * 批量删除切片请求参数
+     * Batch deleteChunkRequestParameter
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Schema(description = "批量删除切片请求参数")
+    @Schema(description = "Batch deleteChunkRequestParameter")
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class RemoveReq implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        @Schema(description = "切片 ID 列表", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "Chunk ID List", requiredMode = Schema.RequiredMode.REQUIRED)
         @JsonProperty("chunk_ids")
-        @NotEmpty(message = "切片ID列表不能为空")
+        @NotEmpty(message = "Chunk ID list cannot be empty")
         private List<String> chunkIds;
     }
 
     /**
-     * 文档切片信息 VO
+     * Document chunkInfo VO
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Schema(description = "文档切片信息")
+    @Schema(description = "Document chunkInfo")
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class InfoVO implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        @Schema(description = "切片 ID (通常为 document_id + 索引)", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "Chunk ID (UsuallyFor document_id + Index)", requiredMode = Schema.RequiredMode.REQUIRED)
         private String id;
 
-        @Schema(description = "切片文本内容 (全文检索的主要对象)", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "ChunkTextContent (AlldocRetrievalPrimaryneedObject)", requiredMode = Schema.RequiredMode.REQUIRED)
         private String content;
 
-        @Schema(description = "所属文档 ID", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "BelongingDocument ID", requiredMode = Schema.RequiredMode.REQUIRED)
         @JsonProperty("document_id")
         private String documentId;
 
-        @Schema(description = "文档名称 / 关键词")
+        @Schema(description = "DocumentName / Keyword")
         @JsonProperty("docnm_kwd")
         private String docnmKwd;
 
-        @Schema(description = "重要关键词列表 (用于关键词增强检索)")
+        @Schema(description = "reneedKeywordList (Used forKeywordEnhanceRetrieval)")
         @JsonProperty("important_keywords")
         private List<String> importantKeywords;
 
-        @Schema(description = "预设问题列表 (用于 Q&A 模式增强)")
+        @Schema(description = "Preset question list (Used for Q&A ModeEnhance)")
         private List<String> questions;
 
-        @Schema(description = "关联的图片 ID")
+        @Schema(description = "AssociateImage ID")
         @JsonProperty("image_id")
         private String imageId;
 
-        @Schema(description = "所属知识库 ID")
+        @Schema(description = "BelongingKnowledge base ID")
         @JsonProperty("dataset_id")
         private String datasetId;
 
-        @Schema(description = "切片是否可用 (true: 参与检索, false: 被禁用)")
+        @Schema(description = "ChunkWhetherAvailable (true: ParameterWithRetrieval, false: BeDisabled)")
         private Boolean available;
 
-        @Schema(description = "切片在原文中的位置索引列表 (RAGFlow返回嵌套数组, 如 [[start, end, filename]])")
+        @Schema(description = "Position index list of chunks in original text (RAGFlowReturnNestedArray, Like [[start, end, filename]])")
         private List<List<Object>> positions;
 
-        @Schema(description = "Token ID 列表")
+        @Schema(description = "Token ID List")
         @JsonProperty("token")
         private List<Integer> token;
     }
 
     /**
-     * 分片列表聚合响应
+     * ShardingListAggregateResponse
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @Schema(description = "分片列表聚合响应")
+    @Schema(description = "ShardingListAggregateResponse")
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ListVO implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        @Schema(description = "切片信息列表")
+        @Schema(description = "ChunkInfoList")
         private List<InfoVO> chunks;
 
-        @Schema(description = "关联的文档详细信息")
+        @Schema(description = "AssociateDocumentDetailedInfo")
         private DocumentDTO.InfoVO doc;
 
-        @Schema(description = "总记录数")
+        @Schema(description = "Total records")
         private Long total;
     }
 }

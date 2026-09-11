@@ -714,8 +714,8 @@ export default {
   'common.copyAddress': 'Sao chép địa chỉ',
 
   // Language switch
-  'language.zhCN': '中文简体',
-  'language.zhTW': '中文繁體',
+  'language.zhCN': 'Chinese (Simplified)',
+  'language.zhTW': 'Chinese (Traditional)',
   'language.en': 'English',
   'language.de': 'Deutsch',
   'language.vi': 'Tiếng Việt',
