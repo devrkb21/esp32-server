@@ -121,6 +121,20 @@ services:
     networks:
       - xiaozhi-net
 
+  # Voiceprint Database Auto-Initializer
+  xiaozhi-esp32-server-voiceprint-init:
+    image: mysql:8.0
+    container_name: xiaozhi-esp32-server-voiceprint-init
+    restart: "no"
+    depends_on:
+      xiaozhi-esp32-server-db:
+        condition: service_healthy
+    volumes:
+      - ./main/voiceprint/init.sql:/init.sql:ro
+    entrypoint: ["sh", "-c", "mysql -h xiaozhi-esp32-server-db -u root -pxiaozhi_internal_pass < /init.sql"]
+    networks:
+      - xiaozhi-net
+
   # Voiceprint Recognition Service (3D-Speaker API)
   xiaozhi-esp32-server-voiceprint:
     image: ${VOICEPRINT_IMAGE:-ghcr.nju.edu.cn/xinnan-tech/voiceprint-api:latest}
@@ -129,8 +143,8 @@ services:
     depends_on:
       xiaozhi-esp32-server-db:
         condition: service_healthy
-      xiaozhi-esp32-server-web:
-        condition: service_started
+      xiaozhi-esp32-server-voiceprint-init:
+        condition: service_completed_successfully
     ports:
       - "${VOICEPRINT_PORT:-18005}:8005"
     volumes:
