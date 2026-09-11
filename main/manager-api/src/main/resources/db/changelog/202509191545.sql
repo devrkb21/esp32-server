@@ -23,19 +23,5 @@ UPDATE `ai_model_config` SET
 delete from `ai_tts_voice` where tts_model_id = 'TTS_XunFeiStreamTTS';
 
 -- Basic personas
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0001', 'TTS_XunFeiStreamTTS', 'Ling Xiaoxuan', 'x5_lingxiaoxuan_flow', 'Chinese', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0002', 'TTS_XunFeiStreamTTS', 'Ling Feiyi', 'x5_lingfeiyi_flow', 'Chinese', NULL, NULL, NULL, NULL, 2, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0003', 'TTS_XunFeiStreamTTS', 'Ling Xiaoyue', 'x5_lingxiaoyue_flow', 'Chinese', NULL, NULL, NULL, NULL, 3, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0004', 'TTS_XunFeiStreamTTS', 'Ling Yuzhao', 'x5_lingyuzhao_flow', 'Chinese', NULL, NULL, NULL, NULL, 4, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0005', 'TTS_XunFeiStreamTTS', 'Ling Yuyan', 'x5_lingyuyan_flow', 'Chinese', NULL, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL);
 
 -- Need to add corresponding character voice
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0006', 'TTS_XunFeiStreamTTS', 'Ling Feizhe', 'x4_lingfeizhe_oral', 'Chinese', NULL, NULL, NULL, NULL, 6, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0007', 'TTS_XunFeiStreamTTS', 'Ling Xiaoli', 'x4_lingxiaoli_oral', 'Chinese', NULL, NULL, NULL, NULL, 7, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0008', 'TTS_XunFeiStreamTTS', 'Ling Xiaotang', 'x5_lingxiaotang_flow', 'Chinese', NULL, NULL, NULL, NULL, 8, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0009', 'TTS_XunFeiStreamTTS', 'Ling Xiaoqi', 'x4_lingxiaoqi_oral', 'Chinese', NULL, NULL, NULL, NULL, 9, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0010', 'TTS_XunFeiStreamTTS', 'Ling Youyou (F)', 'x4_lingyouyou_oral', 'Chinese', NULL, NULL, NULL, NULL, 10, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0011', 'TTS_XunFeiStreamTTS', 'Zijin', 'x4_zijin_oral', 'Tianjin Dialect', NULL, NULL, NULL, NULL, 11, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0012', 'TTS_XunFeiStreamTTS', 'Ziyang', 'x4_ziyang_oral', 'Northeastern Dialect', NULL, NULL, NULL, NULL, 12, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0013', 'TTS_XunFeiStreamTTS', 'Grant', 'x5_EnUs_Grant_flow', 'English', NULL, NULL, NULL, NULL, 13, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_XunFeiStreamTTS_0014', 'TTS_XunFeiStreamTTS', 'Lila', 'x5_EnUs_Lila_flow', 'English', NULL, NULL, NULL, NULL, 14, NULL, NULL, NULL, NULL);

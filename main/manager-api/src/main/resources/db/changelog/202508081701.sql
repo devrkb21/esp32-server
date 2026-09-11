@@ -29,4 +29,4 @@ For more configurations, please refer to: https://github.com/Ksuriuri/index-tts-
 -- Add Index-TTS-vLLM streaming TTS voices
 delete from `ai_tts_voice` where tts_model_id = 'TTS_IndexStreamTTS';
 -- Default voices
-INSERT INTO `ai_tts_voice` VALUES ('TTS_IndexStreamTTS_0001', 'TTS_IndexStreamTTS', 'Jay Klee', 'jay_klee', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_IndexStreamTTS_0001', 'TTS_IndexStreamTTS', 'Jay Klee', 'jay_klee', 'English', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);

@@ -23,32 +23,15 @@ UPDATE `ai_model_config` SET
 delete from `ai_tts_voice` where tts_model_id = 'TTS_AliBLStreamTTS';
 
 -- Voice assistant
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0001', 'TTS_AliBLStreamTTS', 'Long Xiaochun (F)', 'longxiaochun_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0002', 'TTS_AliBLStreamTTS', 'Long Xiaoxia (F)', 'longxiaoxia_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 2, NULL, NULL, NULL, NULL);
 
 -- Live commerce
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0003', 'TTS_AliBLStreamTTS', 'Long Anran (F)', 'longanran', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 3, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0004', 'TTS_AliBLStreamTTS', 'Long Anxuan (F)', 'longanxuan', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 4, NULL, NULL, NULL, NULL);
 
 -- Social companionship
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0005', 'TTS_AliBLStreamTTS', 'Long Han (M)', 'longhan_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0006', 'TTS_AliBLStreamTTS', 'Long Yan (F)', 'longyan_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 6, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0007', 'TTS_AliBLStreamTTS', 'Long Feifei (F)', 'longfeifei_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 7, NULL, NULL, NULL, NULL);
 
 -- Dialects
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0008', 'TTS_AliBLStreamTTS', 'Long Laotie (M)', 'longlaotie_v2', 'Chinese (Northeast) and mixed Chinese-English', NULL, NULL, NULL, NULL, 8, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0009', 'TTS_AliBLStreamTTS', 'Long Jiayi (F)', 'longjiayi_v2', 'Chinese (Cantonese) and mixed Chinese-English', NULL, NULL, NULL, NULL, 9, NULL, NULL, NULL, NULL);
 
 -- Child voice
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0010', 'TTS_AliBLStreamTTS', 'Long Jielidou (M)', 'longjielidou_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 10, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0011', 'TTS_AliBLStreamTTS', 'Long Ling (F)', 'longling_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 11, NULL, NULL, NULL, NULL);
 
 -- Poetry recitation
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0012', 'TTS_AliBLStreamTTS', 'Li Bai (M)', 'libai_v2', 'Chinese and mixed Chinese-English', NULL, NULL, NULL, NULL, 12, NULL, NULL, NULL, NULL);
 
 -- Global marketing
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0013', 'TTS_AliBLStreamTTS', 'Loong Eva (F)', 'loongeva_v2', 'BritishEnglish', NULL, NULL, NULL, NULL, 13, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0014', 'TTS_AliBLStreamTTS', 'Loong Brian (M)', 'loongbrian_v2', 'BritishEnglish', NULL, NULL, NULL, NULL, 14, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0015', 'TTS_AliBLStreamTTS', 'Loong Kyong (F)', 'loongkyong_v2', 'Korean', NULL, NULL, NULL, NULL, 15, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0016', 'TTS_AliBLStreamTTS', 'Loong Tomoka (F)', 'loongtomoka_v2', 'Japanese', NULL, NULL, NULL, NULL, 16, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliBLStreamTTS_0017', 'TTS_AliBLStreamTTS', 'Loong Tomoya (M)', 'loongtomoya_v2', 'Japanese', NULL, NULL, NULL, NULL, 17, NULL, NULL, NULL, NULL);

@@ -22,7 +22,7 @@ INSERT INTO `ai_model_config` VALUES ('ASR_DoubaoStreamASRV2', 'ASR', 'DoubaoStr
 "resource_id": "volc.seedasr.sauc.duration",
 "end_window_size": 200,
 "enable_multilingual": false,
-"language": "zh-CN",
+"language": "en-US",
 "output_dir": "tmp/"
 }', NULL, NULL, 6, NULL, NULL, NULL, NULL);
 

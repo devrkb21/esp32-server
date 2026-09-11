@@ -231,3 +231,6 @@ UPDATE `sys_params` SET `param_value` = 'I am experiencing a momentary connectio
 UPDATE `sys_params` SET `param_value` = 'Khulna' WHERE `param_code` = 'plugins.get_weather.default_location';
 UPDATE `sys_params` SET `param_value` = 'https://www.thedailystar.net/news/bangladesh/rss.xml' WHERE `param_code` = 'plugins.get_news.default_rss_url';
 UPDATE `sys_params` SET `param_value` = '{"bangladesh":"https://www.thedailystar.net/news/bangladesh/rss.xml","world":"https://www.thedailystar.net/news/world/rss.xml","business":"https://www.thedailystar.net/business/rss.xml","technology":"https://feeds.bbci.co.uk/news/technology/rss.xml"}' WHERE `param_code` = 'plugins.get_news.category_urls';
+
+-- Final sweep: Ensure no Chinese voices exist in database under any circumstances
+DELETE FROM `ai_tts_voice` WHERE `tts_voice` LIKE 'zh-%' OR `tts_voice` LIKE 'zh_%' OR `tts_voice` LIKE 'saturn_zh_%' OR `languages` IN ('Chinese', 'Mandarin', 'Cantonese', 'Liaoning', 'Shaanxi', '中文');

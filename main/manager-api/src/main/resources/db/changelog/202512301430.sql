@@ -52,7 +52,7 @@ UPDATE `ai_model_config` SET
 `config_json` = JSON_SET(
 `config_json`, 
 '$.enable_multilingual', false,
-'$.language', 'zh-CN'
+'$.language', 'en-US'
 )
 WHERE `id` = 'ASR_DoubaoStreamASR' 
 AND JSON_EXTRACT(`config_json`, '$.enable_multilingual') IS NULL 

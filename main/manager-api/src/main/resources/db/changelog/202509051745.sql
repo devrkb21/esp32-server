@@ -30,16 +30,3 @@ UPDATE `ai_model_config` SET
 delete from `ai_tts_voice` where tts_model_id = 'TTS_MinimaxStreamTTS';
 
 -- Default voices
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0001', 'TTS_MinimaxStreamTTS', 'Girl voice', 'female-shaonv', 'Chinese', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0002', 'TTS_MinimaxStreamTTS', 'Mature female voice', 'female-chengshu', 'Chinese', NULL, NULL, NULL, NULL, 2, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0003', 'TTS_MinimaxStreamTTS', 'Domineering master', 'badao_shaoye', 'Chinese', NULL, NULL, NULL, NULL, 3, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0004', 'TTS_MinimaxStreamTTS', 'Yandere brother', 'bingjiao_didi', 'Chinese', NULL, NULL, NULL, NULL, 4, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0005', 'TTS_MinimaxStreamTTS', 'Innocent junior', 'chunzhen_xuedi', 'Chinese', NULL, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0006', 'TTS_MinimaxStreamTTS', 'Aloof senior', 'lengdan_xiongzhang', 'Chinese', NULL, NULL, NULL, NULL, 6, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0007', 'TTS_MinimaxStreamTTS', 'Sweet Xiaoling', 'tianxin_xiaoling', 'Chinese', NULL, NULL, NULL, NULL, 7, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0008', 'TTS_MinimaxStreamTTS', 'Playful cute girl', 'qiaopi_mengmei', 'Chinese', NULL, NULL, NULL, NULL, 8, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0009', 'TTS_MinimaxStreamTTS', 'Charming mature lady', 'wumei_yujie', 'Chinese', NULL, NULL, NULL, NULL, 9, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0010', 'TTS_MinimaxStreamTTS', 'Cute Schoolgirl', 'diadia_xuemei', 'Chinese', NULL, NULL, NULL, NULL, 7, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0011', 'TTS_MinimaxStreamTTS', 'Elegant senior', 'danya_xuejie', 'Chinese', NULL, NULL, NULL, NULL, 8, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0012', 'TTS_MinimaxStreamTTS', 'Santa Claus', 'Santa_Claus', 'Chinese', NULL, NULL, NULL, NULL, 9, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_MinimaxStreamTTS_0013', 'TTS_MinimaxStreamTTS', 'Grinch', 'Grinch', 'Chinese', NULL, NULL, NULL, NULL, 10, NULL, NULL, NULL, NULL);
