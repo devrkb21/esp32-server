@@ -1,0 +1,19 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install git and native build tools for compiling Node modules
+RUN apk add --no-cache git python3 make g++ bash
+
+# Clone the official adapted repository
+RUN git clone --depth 1 https://github.com/xinnan-tech/xiaozhi-mqtt-gateway.git . \
+    && npm install --omit=dev
+
+# Copy entrypoint script
+COPY docker-entrypoint-mqtt.sh /docker-entrypoint-mqtt.sh
+RUN chmod +x /docker-entrypoint-mqtt.sh
+
+EXPOSE 1883 8884/udp 8007
+
+ENTRYPOINT ["/docker-entrypoint-mqtt.sh"]
+CMD ["node", "index.js"]

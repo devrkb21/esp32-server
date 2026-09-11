@@ -92,6 +92,33 @@ services:
     networks:
       - xiaozhi-net
 
+  # MQTT Gateway Service (Device Tools, Auto-Reading & Online Asset Flashing)
+  xiaozhi-esp32-server-mqtt:
+    build:
+      context: .
+      dockerfile: Dockerfile-mqtt
+    container_name: xiaozhi-esp32-server-mqtt
+    restart: always
+    depends_on:
+      - xiaozhi-esp32-server
+      - xiaozhi-esp32-server-web
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+      - "${UDP_PORT:-8884}:8884/udp"
+      - "${MQTT_API_PORT:-8007}:8007"
+    environment:
+      - TZ=Asia/Dhaka
+      - PUBLIC_IP=${MQTT_PUBLIC_IP:-127.0.0.1}
+      - MQTT_PORT=1883
+      - UDP_PORT=8884
+      - API_PORT=8007
+      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:-xiaozhi_mqtt_key}
+      - SERVER_SECRET=${MANAGER_API_SECRET:-}
+    volumes:
+      - ./main/mqtt-gateway/config:/app/config
+    networks:
+      - xiaozhi-net
+
 networks:
   xiaozhi-net:
     driver: bridge
