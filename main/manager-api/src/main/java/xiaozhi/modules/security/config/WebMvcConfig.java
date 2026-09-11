@@ -69,7 +69,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
         // Set time zone
-        mapper.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+        mapper.setTimeZone(TimeZone.getTimeZone("Asia/Dhaka"));
 
         // ConfigurationJava8DateTime serialization
         JavaTimeModule javaTimeModule = new JavaTimeModule();

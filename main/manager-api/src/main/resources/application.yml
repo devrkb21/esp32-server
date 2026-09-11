@@ -19,6 +19,9 @@ spring:
   messages:
     encoding: UTF-8
     basename: i18n/messages
+  jackson:
+    time-zone: Asia/Dhaka
+    date-format: yyyy-MM-dd HH:mm:ss
   servlet:
     multipart:
       max-file-size: 100MB
