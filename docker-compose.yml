@@ -113,7 +113,7 @@ services:
       - MQTT_PORT=1883
       - UDP_PORT=8884
       - API_PORT=8007
-      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:-Xiaozhi_Mqtt_Key_2026}
+      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:-SecureEspMqttKey2026}
       - SERVER_SECRET=${MANAGER_API_SECRET:-}
     volumes:
       - ./main/mqtt-gateway/config:/app/config
