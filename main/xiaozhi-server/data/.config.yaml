@@ -1,5 +1,5 @@
 # ==========================================================
-# Xiaozhi Server Configuration Template (config_from_api.yaml)
+# Xiaozhi Server Configuration (.config.yaml)
 # Reads dynamically from .env or environment variables
 # ==========================================================
 

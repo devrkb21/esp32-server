@@ -12,15 +12,58 @@ from config.manage_api_client import (
 )
 
 
+import re
+
+
 def get_project_dir():
     """Get project root directory"""
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/"
 
 
+def load_env_files():
+    """Load key-value pairs from .env files if present"""
+    project_dir = get_project_dir().rstrip("/\\")
+    env_paths = [
+        os.path.join(project_dir, ".env"),
+        os.path.join(os.path.dirname(project_dir), ".env"),
+    ]
+    for env_path in env_paths:
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip().strip('"').strip("'")
+                            if k and k not in os.environ:
+                                os.environ[k] = v
+            except Exception:
+                pass
+
+
+load_env_files()
+
+
+def expand_env_vars(text: str) -> str:
+    """Expand ${VAR:-default} and ${VAR} patterns using environment variables"""
+    pattern = re.compile(r'\$\{([^}:]+)(?::-([^}]*))?\}')
+
+    def replace(match):
+        var_name = match.group(1)
+        default_val = match.group(2) if match.group(2) is not None else ""
+        return os.environ.get(var_name, default_val)
+
+    return pattern.sub(replace, text)
+
+
 def read_config(config_path):
     with open(config_path, "r", encoding="utf-8") as file:
-        config = yaml.safe_load(file)
-    return config
+        content = file.read()
+    content = expand_env_vars(content)
+    config = yaml.safe_load(content)
+    return config or {}
 
 
 async def load_config():

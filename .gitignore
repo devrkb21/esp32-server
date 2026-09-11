@@ -155,12 +155,11 @@ cython_debug/
 *.iml
 tmp
 .history
-.DS_Store
-main/xiaozhi-server/data/
+main/xiaozhi-server/data/*
+!main/xiaozhi-server/data/.config.yaml
 main/xiaozhi-server/.claude
 
 main/manager-web/node_modules
-.config.yaml
 .secrets.yaml
 .private_config.yaml
 .env.development
