@@ -17,18 +17,19 @@ import ptBRLocale from 'element-ui/lib/locale/lang/pt-br'
 
 Vue.use(VueI18n);
 
-// 从本地存储获取语言设置，如果没有则使用浏览器语言或默认语言
+// Get language setting from local storage, or use browser/default language
 const getDefaultLanguage = () => {
   const savedLang = localStorage.getItem('userLanguage');
   if (savedLang) {
+    if (savedLang === 'zh_CN' || savedLang === 'zh_TW') {
+      localStorage.setItem('userLanguage', 'en');
+      return 'en';
+    }
     return savedLang;
   }
   const browserLang = navigator.language || navigator.userLanguage;
   if (browserLang.indexOf('zh') === 0) {
-    if (browserLang === 'zh-TW' || browserLang === 'zh-HK' || browserLang === 'zh-MO') {
-      return 'zh_TW';
-    }
-    return 'zh_CN';
+    return 'en';
   }
   if (browserLang.indexOf('de') === 0) {
     return 'de';
@@ -44,10 +45,10 @@ const getDefaultLanguage = () => {
 
 const i18n = new VueI18n({
   locale: getDefaultLanguage(),
-  fallbackLocale: 'zh_CN',
+  fallbackLocale: 'en',
   messages: {
-    'zh_CN': { ...zhLocale, ...zhCN },
-    'zh_TW': { ...twLocale, ...zhTW },
+    'zh_CN': { ...enLocale, ...zhCN },
+    'zh_TW': { ...enLocale, ...zhTW },
     'en': { ...en, ...enLocale },
     'de': { ...de, ...deLocale },
     'vi': { ...vi, ...viLocale },
@@ -57,10 +58,10 @@ const i18n = new VueI18n({
 
 export default i18n;
 
-// 提供一个方法来切换语言
+// Method to switch language
 export const changeLanguage = (lang) => {
   i18n.locale = lang;
   localStorage.setItem('userLanguage', lang);
-  // 通知组件语言已更改
+  // Notify components that language has changed
   Vue.prototype.$eventBus.$emit('languageChanged', lang);
 };

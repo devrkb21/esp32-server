@@ -6,46 +6,46 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 声音克隆响应DTO
- * 用于向前端展示声音克隆信息，包含模型名称和用户名称
+ * Voice cloningResponseDTO
+ * Used to display voice cloning information to frontend，Contains model name and user name
  */
 @Data
-@Schema(description = "声音克隆响应DTO")
+@Schema(description = "Voice cloningResponseDTO")
 public class VoiceCloneResponseDTO {
 
-    @Schema(description = "唯一标识")
+    @Schema(description = "Unique identifier")
     private String id;
 
-    @Schema(description = "声音名称")
+    @Schema(description = "VoiceName")
     private String name;
 
-    @Schema(description = "模型id")
+    @Schema(description = "Modelid")
     private String modelId;
 
-    @Schema(description = "模型名称")
+    @Schema(description = "Model name")
     private String modelName;
 
-    @Schema(description = "声音id")
+    @Schema(description = "Voiceid")
     private String voiceId;
 
-    @Schema(description = "语言")
+    @Schema(description = "Language")
     private String languages;
 
-    @Schema(description = "用户ID（关联用户表）")
+    @Schema(description = "User ID（AssociateUsertable）")
     private Long userId;
 
-    @Schema(description = "用户名称")
+    @Schema(description = "Usernamecall")
     private String userName;
 
-    @Schema(description = "训练状态：0待训练 1训练中 2训练成功 3训练失败")
+    @Schema(description = "Training status：0Pending training 1Training 2Training succeeded 3Training failed")
     private Integer trainStatus;
 
-    @Schema(description = "训练错误原因")
+    @Schema(description = "TrainingErrororiginalcause")
     private String trainError;
 
-    @Schema(description = "创建时间")
+    @Schema(description = "Creation time")
     private Date createDate;
 
-    @Schema(description = "是否有音频数据")
+    @Schema(description = "WhetherHas audioData")
     private Boolean hasVoice;
 }

@@ -86,10 +86,10 @@ class TTSProvider(TTSProviderBase):
             None if not config.get("reference_id") else config.get("reference_id")
         )
         self.reference_audio = parse_string_to_list(
-             config.get('ref_audio')if config.get('ref_audio') else config.get("reference_audio")
+            config.get('ref_audio') if config.get('ref_audio') else config.get("reference_audio")
         )
         self.reference_text = parse_string_to_list(
-             config.get('ref_text')if config.get('ref_text') else config.get("reference_text")
+            config.get('ref_text') if config.get('ref_text') else config.get("reference_text")
         )
         self.audio_file_type = config.get("response_format", "wav")
         self.api_key = config.get("api_key", "YOUR_API_KEY")
@@ -103,7 +103,7 @@ class TTSProvider(TTSProviderBase):
             "yes",
         )
 
-        # 处理空字符串的情况
+        # Handle empty string cases
         channels = config.get("channels", "1")
         rate = config.get("rate", "44100")
         max_new_tokens = config.get("max_new_tokens", "1024")
@@ -114,7 +114,7 @@ class TTSProvider(TTSProviderBase):
         self.max_new_tokens = int(max_new_tokens) if max_new_tokens else 1024
         self.chunk_length = int(chunk_length) if chunk_length else 200
 
-        # 处理空字符串的情况
+        # Handle empty string cases
         top_p = config.get("top_p", "0.7")
         temperature = config.get("temperature", "0.7")
         repetition_penalty = config.get("repetition_penalty", "1.2")

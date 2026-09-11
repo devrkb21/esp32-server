@@ -4,7 +4,7 @@ This guide is for users who run the project from source in full-module mode and 
 
 The project's test platform, `https://2662r3426b.vicp.fun`, has used this method since launch and it has worked well.
 
-You can also refer to the video tutorial by the Bilibili creator `毕乐labs`: ["Open-source Xiaozhi server xiaozhi-server automatic updates and latest-version MCP endpoint configuration complete guide"](https://www.bilibili.com/video/BV15H37zHE7Q).
+You can also refer to the video tutorial by the Bilibili creator `Bile Labs`: ["Open-source Xiaozhi server xiaozhi-server automatic updates and latest-version MCP endpoint configuration complete guide"](https://www.bilibili.com/video/BV15H37zHE7Q).
 
 # Prerequisites
 

@@ -93,7 +93,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
         long pageSize = Long.parseLong(limit);
         Page<ModelConfigEntity> pageInfo = new Page<>(curPage, pageSize);
 
-        // 添加排序规则：先按is_enabled降序，再按sort升序
+        // AddSortRule：firstbyis_enabledDescending，thenbysortAscending
         pageInfo.addOrder(OrderItem.desc("is_enabled"), OrderItem.asc("sort"));
 
         IPage<ModelConfigEntity> modelConfigEntityIPage = modelConfigDao.selectPage(
@@ -107,28 +107,28 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
 
     @Override
     public ModelConfigDTO edit(String modelType, String provideCode, String id, ModelConfigBodyDTO modelConfigBodyDTO) {
-        // 1. 参数验证
+        // 1. ParameterVerify
         validateEditParameters(modelType, provideCode, id, modelConfigBodyDTO);
 
-        // 2. 验证模型提供者
+        // 2. VerifyModelProvider
         validateModelProvider(modelType, provideCode);
 
-        // 3. 获取原始配置（不经过敏感数据处理）
+        // 3. GetoriginalinitialConfiguration（Without sensitive data processing）
         ModelConfigEntity originalEntity = getOriginalConfigFromDb(id);
 
-        // 4. 验证LLM配置
+        // 4. VerifyLLMConfiguration
         validateLlmConfiguration(modelConfigBodyDTO);
 
-        // 5. 准备更新实体并处理敏感数据
+        // 5. Prepare entity update and handle sensitive data
         ModelConfigEntity modelConfigEntity = prepareUpdateEntity(modelConfigBodyDTO, originalEntity, modelType, id);
 
-        // 6. 执行数据库更新
+        // 6. ExecuteDatalibUpdate
         modelConfigDao.updateById(modelConfigEntity);
 
-        // 7. 清除缓存
+        // 7. Clear cache
         clearModelCache(id);
 
-        // 8. 返回处理后的数据（包含敏感数据掩码）
+        // 8. Return processed data（ContainSensitiveDatamaskCode）
         return buildResponseDTO(modelConfigEntity);
     }
 
@@ -230,7 +230,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 验证编辑参数
+     * VerifyEditParameter
      */
     private void validateEditParameters(String modelType, String provideCode, String id,
             ModelConfigBodyDTO modelConfigBodyDTO) {
@@ -246,7 +246,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 验证添加参数
+     * VerifyAddParameter
      */
     private void validateAddParameters(String modelType, String provideCode, ModelConfigBodyDTO modelConfigBodyDTO) {
         if (StringUtils.isBlank(modelType) || StringUtils.isBlank(provideCode)) {
@@ -256,19 +256,19 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
             throw new RenException(ErrorCode.PARAMS_GET_ERROR);
         }
         if (StringUtils.isBlank(modelConfigBodyDTO.getId())) {
-            // 参照 MP @TableId AutoUUID 策略使用
+            // Refer to MP @TableId AutoUUID StrategyUse
             // com.baomidou.mybatisplus.core.incrementer.DefaultIdentifierGenerator(UUID.replace("-",""))
-            // 进行分配默认模型ID
+            // Assign default modelID
             modelConfigBodyDTO.setId(DefaultIdentifierGenerator.getInstance().nextUUID(ModelConfigEntity.class));
         }
     }
 
     /**
-     * 设置默认模型
+     * SetDefault model
      */
     @Override
     public void setDefaultModel(String modelType, int isDefault) {
-        // 参数验证
+        // ParameterVerify
         if (StringUtils.isBlank(modelType)) {
             throw new RenException(ErrorCode.MODEL_TYPE_PROVIDE_CODE_NOT_NULL);
         }
@@ -278,12 +278,12 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
         modelConfigDao.update(entity, new QueryWrapper<ModelConfigEntity>()
                 .eq("model_type", modelType));
 
-        // 清除相关缓存
+        // ClearRelatedCache
         clearModelCacheByType(modelType);
     }
 
     /**
-     * 验证模型提供者
+     * VerifyModelProvider
      */
     private void validateModelProvider(String modelType, String provideCode) {
         List<ModelProviderDTO> providerList = modelProviderService.getList(modelType, provideCode);
@@ -293,7 +293,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 从数据库获取原始配置（不经过敏感数据处理）
+     * Get raw configuration from database（Without sensitive data processing）
      */
     private ModelConfigEntity getOriginalConfigFromDb(String id) {
         ModelConfigEntity originalEntity = modelConfigDao.selectById(id);
@@ -304,7 +304,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 验证LLM配置
+     * VerifyLLMConfiguration
      */
     private void validateLlmConfiguration(ModelConfigBodyDTO modelConfigBodyDTO) {
         if (modelConfigBodyDTO.getConfigJson() != null && modelConfigBodyDTO.getConfigJson().containsKey("llm")) {
@@ -321,7 +321,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
                 throw new RenException(ErrorCode.LLM_NOT_EXIST);
             }
 
-            // 验证LLM类型
+            // VerifyLLMType
             JSONObject configJson = modelConfigEntity.getConfigJson();
             if (configJson != null && configJson.containsKey("type")) {
                 String type = configJson.get("type").toString();
@@ -333,47 +333,47 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 准备更新实体，处理敏感数据
+     * PrepareUpdateEntity，Process sensitiveData
      */
     private ModelConfigEntity prepareUpdateEntity(ModelConfigBodyDTO modelConfigBodyDTO,
             ModelConfigEntity originalEntity,
             String modelType,
             String id) {
-        // 1. 复制原始实体，保留所有原始数据（包括敏感信息）
+        // 1. CopyoriginalinitialEntity，RetainAlloriginalinitialData（Including sensitiveInformation）
         ModelConfigEntity modelConfigEntity = ConvertUtils.sourceToTarget(originalEntity, ModelConfigEntity.class);
         modelConfigEntity.setId(id);
         modelConfigEntity.setModelType(modelType);
 
-        // 2. 只更新非敏感字段
+        // 2. onlyUpdateNon-Sensitive field
         modelConfigEntity.setModelName(modelConfigBodyDTO.getModelName());
         modelConfigEntity.setSort(modelConfigBodyDTO.getSort());
         modelConfigEntity.setIsEnabled(modelConfigBodyDTO.getIsEnabled());
         modelConfigEntity.setRemark(modelConfigBodyDTO.getRemark());
-        // 3. 处理配置JSON，仅更新非敏感字段和明确修改的敏感字段
+        // 3. ProcessConfigurationJSON，Only update non-sensitive fields and explicitly modified sensitive fields
         if (modelConfigBodyDTO.getConfigJson() != null && originalEntity.getConfigJson() != null) {
             JSONObject originalJson = originalEntity.getConfigJson();
-            JSONObject updatedJson = new JSONObject(originalJson); // 基于原始JSON进行修改
+            JSONObject updatedJson = new JSONObject(originalJson); // Based onoriginalinitialJSONPerformUpdate
 
-            // 遍历更新的JSON，只更新非敏感字段或确实被修改的敏感字段
+            // TraverseUpdateJSON，Only update non-sensitive fields or sensitive fields that were actually modified
             for (String key : modelConfigBodyDTO.getConfigJson().keySet()) {
                 Object value = modelConfigBodyDTO.getConfigJson().get(key);
 
-                // 如果是敏感字段，需要确认是否真的被修改（前端传入的可能是掩码后的值）
+                // If it isSensitive field，Need to confirm whether actually modified（Frontend may pass masked values）
                 if (SensitiveDataUtils.isSensitiveField(key)) {
 
                     if (value instanceof String && !SensitiveDataUtils.isMaskedValue((String) value)) {
                         updatedJson.set(key, value);
                     }
                 } else if (value instanceof JSONObject) {
-                    // 递归处理嵌套JSON
+                    // Recursively process nestedJSON
                     mergeJson(updatedJson, key, (JSONObject) value);
                 } else {
-                    // 非敏感字段直接更新
+                    // Non-sensitive fields updated directly
                     updatedJson.set(key, value);
                 }
             }
 
-            // 删除在新JSON中不存在的非敏感字段
+            // DeleteatNewJSONnon-sensitive fields that do not exist in
             for (String oldKey : originalJson.keySet().toArray(new String[0])) {
                 if (!modelConfigBodyDTO.getConfigJson().containsKey(oldKey)
                         && !SensitiveDataUtils.isSensitiveField(oldKey)) {
@@ -387,37 +387,37 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
         return modelConfigEntity;
     }
 
-    // 辅助方法：判断值是否是掩码格式
+    // Helper method：Determine whether value is in mask format
     private boolean isMaskedValue(String value) {
         if (value == null)
             return false;
-        // 简单判断是否包含掩码的特征（***）
+        // Simple determination of whether mask characteristics are contained（***）
         return value.contains("***");
     }
 
-    // 辅助方法：递归合并 JSON，保留原始敏感字段
+    // Helper method：Recursively merge JSON，Retainoriginalsensitive fields
     private void mergeJson(JSONObject original, String key, JSONObject updated) {
-        // 空值检查
+        // emptyValueCheck
         if (original == null || updated == null) {
-            log.warn("mergeJson: original 或 updated 为 null");
+            log.warn("mergeJson: original or updated as null");
             return;
         }
 
-        // 如果 original 中不存在 key，创建一个新的 JSON 对象
+        // If original inDoes not exist key，Create aNew JSON Object
         if (!original.containsKey(key)) {
             original.set(key, new JSONObject());
         }
 
-        // 获取 original 中的子对象
+        // Get original insubObject
         Object originalValue = original.get(key);
         JSONObject originalChild;
 
-        // 检查 originalValue 是否是 JSONObject 类型
+        // Check originalValue Whetheris JSONObject Type
         if (originalValue instanceof JSONObject) {
             originalChild = (JSONObject) originalValue;
         } else {
-            // 如果不是 JSONObject 类型，记录警告并创建新的 JSON 对象
-            log.warn("mergeJson: key '{}' 的值不是 JSONObject 类型 (实际类型：{})，将创建新对象",
+            // Ifnotis JSONObject Type，Log warning and create new JSON Object
+            log.warn("mergeJson: key '{}' Valuenotis JSONObject Type (ActualType：{})，CreateNewObject",
                     key, originalValue != null ? originalValue.getClass().getSimpleName() : "null");
             originalChild = new JSONObject();
             original.set(key, originalChild);
@@ -435,7 +435,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
             }
         }
 
-        // 删除在新 JSON 中不存在的非敏感子字段
+        // DeleteatNew JSON non-sensitive sub-fields that do not exist in
         for (String oldChildKey : originalChild.keySet().toArray(new String[0])) {
             if (!updated.containsKey(oldChildKey) && !SensitiveDataUtils.isSensitiveField(oldChildKey)) {
                 originalChild.remove(oldChildKey);
@@ -444,7 +444,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 准备新增实体
+     * PrepareNewaddEntity
      */
     private ModelConfigEntity prepareAddEntity(ModelConfigBodyDTO modelConfigBodyDTO, String modelType) {
         ModelConfigEntity modelConfigEntity = ConvertUtils.sourceToTarget(modelConfigBodyDTO, ModelConfigEntity.class);
@@ -454,7 +454,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 构建返回的DTO，处理敏感数据
+     * BuildReturnDTO，Process sensitiveData
      */
     private ModelConfigDTO buildResponseDTO(ModelConfigEntity entity) {
         ModelConfigDTO dto = ConvertUtils.sourceToTarget(entity, ModelConfigDTO.class);
@@ -465,14 +465,14 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 处理敏感字段
+     * Process sensitive fields
      */
     private JSONObject maskSensitiveFields(JSONObject configJson) {
         return SensitiveDataUtils.maskSensitiveFields(configJson);
     }
 
     /**
-     * 清除模型缓存
+     * ClearModelCache
      */
     private void clearModelCache(String id) {
         redisUtils.delete(RedisKeys.getModelConfigById(id));
@@ -480,7 +480,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 按模型类型清除缓存
+     * Clear cache by model type
      */
     private void clearModelCacheByType(String modelType) {
         List<ModelConfigEntity> entities = modelConfigDao.selectList(
@@ -491,7 +491,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 检查智能体配置是否有引用
+     * Check whether agent configuration has references
      */
     private void checkAgentReference(String modelId) {
         List<AgentEntity> agents = agentDao.selectList(
@@ -518,7 +518,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 检查意图识别配置是否有引用
+     * Check whether intent recognition configuration has references
      */
     private void checkIntentConfigReference(String modelId) {
         ModelConfigEntity modelConfig = modelConfigDao.selectById(modelId);
@@ -535,7 +535,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 获取符合条件的TTS平台列表
+     * GetMatchConditionTTSPlatformList
      */
     @Override
     public List<Map<String, Object>> getTtsPlatformList() {
@@ -543,7 +543,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     /**
-     * 根据模型类型获取所有启用的模型配置
+     * Get all enabled model configurations by model type
      */
     @Override
     public List<ModelConfigEntity> getEnabledModelsByType(String modelType) {

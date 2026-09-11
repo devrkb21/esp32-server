@@ -36,7 +36,7 @@ trap 'stty "$old_stty_settings"' EXIT
 # Print colored ASCII art
 echo -e "\e[1;32m"  # Set color to bright green
 cat << "EOF"
-Script author: @Bilibili 香草味的纳西妲喵
+Script author: @Bilibili Vanilla Nahida Meow
  __      __            _  _  _            _   _         _      _      _        
  \ \    / /           (_)| || |          | \ | |       | |    (_)    | |       
   \ \  / /__ _  _ __   _ | || |  __ _    |  \| |  __ _ | |__   _   __| |  __ _ 

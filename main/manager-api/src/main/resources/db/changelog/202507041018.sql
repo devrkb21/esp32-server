@@ -1,12 +1,12 @@
 DROP TABLE IF EXISTS ai_agent_voice_print;
 create table ai_agent_voice_print (
-  id varchar(32) NOT NULL COMMENT '声纹ID',
-  agent_id varchar(32)  NOT NULL COMMENT '关联的智能体ID',
-  source_name varchar(50)  NOT NULL COMMENT '声纹来源的人的姓名',
-  introduce varchar(200) COMMENT '描述声纹来源的这个人',
-  create_date DATETIME COMMENT '创建时间',
-  creator bigint COMMENT '创建者',
-  update_date DATETIME COMMENT '修改时间',
-  updater bigint COMMENT '修改者',
+  id varchar(32) NOT NULL COMMENT 'Voiceprint ID',
+  agent_id varchar(32)  NOT NULL COMMENT 'Associated agent ID',
+  source_name varchar(50)  NOT NULL COMMENT 'Name of the person from whom voiceprint originates',
+  introduce varchar(200) COMMENT 'Description of the person from whom voiceprint originates',
+  create_date DATETIME COMMENT 'Create time',
+  creator bigint COMMENT 'Creator',
+  update_date DATETIME COMMENT 'Modification time',
+  updater bigint COMMENT 'Modified by',
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='智能体声纹表'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Agent voiceprint table'

@@ -32,7 +32,7 @@ import xiaozhi.modules.sys.service.SysDictTypeService;
 import xiaozhi.modules.sys.vo.SysDictTypeVO;
 
 /**
- * 字典类型
+ * Dictionary type
  */
 @Service
 @AllArgsConstructor
@@ -76,7 +76,7 @@ public class SysDictTypeServiceImpl extends BaseServiceImpl<SysDictTypeDao, SysD
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void save(SysDictTypeDTO dto) {
-        // 字典类型编码不能重复
+        // Dictionary typeCode cannot be duplicated
         checkDictTypeUnique(dto.getDictType(), null);
 
         SysDictTypeEntity entity = ConvertUtils.sourceToTarget(dto, SysDictTypeEntity.class);
@@ -87,7 +87,7 @@ public class SysDictTypeServiceImpl extends BaseServiceImpl<SysDictTypeDao, SysD
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(SysDictTypeDTO dto) {
-        // 字典类型编码不能重复
+        // Dictionary typeCode cannot be duplicated
         checkDictTypeUnique(dto.getDictType(), String.valueOf(dto.getId()));
 
         SysDictTypeEntity entity = ConvertUtils.sourceToTarget(dto, SysDictTypeEntity.class);
@@ -98,11 +98,11 @@ public class SysDictTypeServiceImpl extends BaseServiceImpl<SysDictTypeDao, SysD
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long[] ids) {
-        // 先删除对应的字典数据
+        // firstDeleteCorresponding dictionary data
         for (Long id : ids) {
             sysDictDataService.deleteByTypeId(id);
         }
-        // 再删除字典类型
+        // thenDeleteDictionary type
         deleteBatchIds(Arrays.asList(ids));
     }
 
@@ -110,26 +110,26 @@ public class SysDictTypeServiceImpl extends BaseServiceImpl<SysDictTypeDao, SysD
     public List<SysDictTypeVO> list(Map<String, Object> params) {
         List<SysDictTypeEntity> entityList = baseDao.selectList(getWrapper(params));
         List<SysDictTypeVO> sysDictTypeVOList = ConvertUtils.sourceToTarget(entityList, SysDictTypeVO.class);
-        // 设置用户名
+        // SetUsername
         setUserName(sysDictTypeVOList);
 
         return sysDictTypeVOList;
     }
 
     /**
-     * 设置用户名
+     * SetUsername
      *
-     * @param sysDictTypeList 字典类型集合
+     * @param sysDictTypeList Dictionary typeCollection
      */
     private void setUserName(List<SysDictTypeVO> sysDictTypeList) {
-        // 收集所有用户 ID
+        // Collect all users ID
         Set<Long> userIds = sysDictTypeList.stream().flatMap(vo -> Stream.of(vo.getCreator(), vo.getUpdater()))
                 .filter(Objects::nonNull).collect(Collectors.toSet());
 
-        // 设置更新者和创建者名称
+        // SetUpdaterandCreatorName
         if (!userIds.isEmpty()) {
             List<SysUserEntity> sysUserEntities = sysUserDao.selectByIds(userIds);
-            // 把List转成Map，Map<Long, String>
+            // ListConvert toMap，Map<Long, String>
             Map<Long, String> userNameMap = sysUserEntities.stream().collect(Collectors.toMap(SysUserEntity::getId,
                     SysUserEntity::getUsername, (existing, replacement) -> existing));
 

@@ -5,17 +5,17 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-@Schema(description = "更新设备通讯录别名")
+@Schema(description = "Update device contact alias")
 public class DeviceAddressBookAliasDTO {
 
-    @NotBlank(message = "MAC地址不能为空")
-    @Schema(description = "本设备MAC地址")
+    @NotBlank(message = "MACAddress cannot be empty")
+    @Schema(description = "thisDeviceMACAddress")
     private String macAddress;
 
-    @NotBlank(message = "目标MAC地址不能为空")
-    @Schema(description = "对方设备MAC地址")
+    @NotBlank(message = "TargetMACAddress cannot be empty")
+    @Schema(description = "forpartyDeviceMACAddress")
     private String targetMac;
 
-    @Schema(description = "我对对方的称呼")
+    @Schema(description = "meforforpartyAddress name")
     private String alias;
 }

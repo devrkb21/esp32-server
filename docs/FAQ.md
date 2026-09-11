@@ -3,7 +3,7 @@
 ### 1. Why does Xiaozhi recognize my speech as a lot of Korean, Japanese, or English? 🇰🇷
 
 Suggestion: Check whether `models/SenseVoiceSmall` already contains `model.pt`.
-If not, download it from here: [Download speech recognition model file](Deployment.md#模型文件)
+If not, download it from here: [Download speech recognition model file](Deployment.md#model-files)
 
 ### 2. Why do I get `TTS task error: file does not exist`? 📁
 

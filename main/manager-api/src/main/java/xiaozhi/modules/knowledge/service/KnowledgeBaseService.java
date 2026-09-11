@@ -10,97 +10,97 @@ import xiaozhi.modules.knowledge.entity.KnowledgeBaseEntity;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 
 /**
- * 知识库知识库服务接口
+ * Knowledge base service interface
  */
 public interface KnowledgeBaseService extends BaseService<KnowledgeBaseEntity> {
 
     /**
-     * 分页查询知识库列表
+     * Paginate query knowledge base list
      * 
-     * @param knowledgeBaseDTO 查询条件
-     * @param page             页码
-     * @param limit            每页数量
-     * @return 分页数据
+     * @param knowledgeBaseDTO QueryCondition
+     * @param page             PageCode
+     * @param limit            eachPagesamount
+     * @return Pagination data
      */
     PageData<KnowledgeBaseDTO> getPageList(KnowledgeBaseDTO knowledgeBaseDTO, Integer page, Integer limit);
 
     /**
-     * 根据ID获取知识库详情
+     * According toIDGetKnowledge base details
      * 
-     * @param id 知识库ID
-     * @return 知识库详情
+     * @param id Knowledge base ID
+     * @return Knowledge base details
      */
     KnowledgeBaseDTO getById(String id);
 
     /**
-     * 新增知识库
+     * NewaddKnowledge base
      * 
-     * @param knowledgeBaseDTO 知识库信息
-     * @return 新增的知识库
+     * @param knowledgeBaseDTO Knowledge baseInfo
+     * @return NewaddKnowledge base
      */
     KnowledgeBaseDTO save(KnowledgeBaseDTO knowledgeBaseDTO);
 
     /**
-     * 更新知识库
+     * Update knowledge base
      * 
-     * @param knowledgeBaseDTO 知识库信息
-     * @return 更新的知识库
+     * @param knowledgeBaseDTO Knowledge baseInfo
+     * @return UpdateKnowledge base
      */
     KnowledgeBaseDTO update(KnowledgeBaseDTO knowledgeBaseDTO);
 
     /**
-     * 根据知识库ID查询知识库
+     * According toKnowledge base IDQueryKnowledge base
      * 
-     * @param datasetId 知识库ID
-     * @return 知识库详情
+     * @param datasetId Knowledge base ID
+     * @return Knowledge base details
      */
     KnowledgeBaseDTO getByDatasetId(String datasetId);
 
     /**
-     * 根据知识库ID集合查询知识库
+     * According toKnowledge base IDCollectionQueryKnowledge base
      *
-     * @param datasetIdList 知识库ID集合
-     * @return 知识库详情
+     * @param datasetIdList Knowledge base IDCollection
+     * @return Knowledge base details
      */
     List<KnowledgeBaseDTO> getByDatasetIdList(List<String> datasetIdList);
 
     /**
-     * 根据知识库ID删除知识库
+     * According toKnowledge base IDDeleteKnowledge base
      * 
-     * @param datasetId 知识库ID
+     * @param datasetId Knowledge base ID
      */
     void deleteByDatasetId(String datasetId);
 
     /**
-     * 获取RAG配置信息
+     * GetRAGConfigInfo
      * 
-     * @param ragModelId RAG模型配置ID
-     * @return RAG配置信息
+     * @param ragModelId RAGModel configurationID
+     * @return RAGConfigInfo
      */
     Map<String, Object> getRAGConfig(String ragModelId);
 
     /**
-     * 根据知识库ID获取对应的RAG配置
+     * According toKnowledge base IDGetToshouldRAGConfig
      * 
-     * @param datasetId 知识库ID
-     * @return RAG配置
+     * @param datasetId Knowledge base ID
+     * @return RAGConfig
      */
     Map<String, Object> getRAGConfigByDatasetId(String datasetId);
 
     /**
-     * 获取RAG模型列表
+     * Get RAG model list
      * 
-     * @return RAG模型列表
+     * @return RAGModel list
      */
     List<ModelConfigEntity> getRAGModels();
 
     /**
-     * 更新知识库统计信息 (用于被文件服务回调)
+     * Update knowledge baseStatisticsInfo (Used forBeFileServiceCallback)
      * 
-     * @param datasetId  知识库ID
-     * @param docDelta   文档数增量
-     * @param chunkDelta 分块数增量
-     * @param tokenDelta Token数增量
+     * @param datasetId  Knowledge base ID
+     * @param docDelta   DocumentCountIncrement
+     * @param chunkDelta ChunkingCountIncrement
+     * @param tokenDelta TokenCountIncrement
      */
     void updateStatistics(String datasetId, Integer docDelta, Long chunkDelta, Long tokenDelta);
 }

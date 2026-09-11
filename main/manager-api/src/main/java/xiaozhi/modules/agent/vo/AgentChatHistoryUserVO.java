@@ -4,13 +4,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 智能体用户个人聊天数据的VO
+ * Agent user personal chat dataVO
  */
 @Data
 public class AgentChatHistoryUserVO {
-    @Schema(description = "聊天内容")
+    @Schema(description = "ChatContent")
     private String content;
 
-    @Schema(description = "音频ID")
+    @Schema(description = "AudioID")
     private String audioId;
 }

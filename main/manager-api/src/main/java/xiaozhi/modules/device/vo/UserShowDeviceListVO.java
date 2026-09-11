@@ -8,43 +8,43 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 @Data
-@Schema(description = "用户显示设备列表VO")
+@Schema(description = "User display device listVO")
 public class UserShowDeviceListVO {
 
-    @Schema(description = "app版本")
+    @Schema(description = "appVersion")
     private String appVersion;
 
-    @Schema(description = "绑定用户名称")
+    @Schema(description = "BindUsernamecall")
     private String bindUserName;
 
-    @Schema(description = "设备型号")
+    @Schema(description = "DeviceModel")
     private String deviceType;
 
-    @Schema(description = "设备型号(board)")
+    @Schema(description = "DeviceModel(board)")
     private String board;
 
-    @Schema(description = "设备唯一标识符")
+    @Schema(description = "DeviceUnique identifierchar")
     private String id;
 
-    @Schema(description = "mac地址")
+    @Schema(description = "macAddress")
     private String macAddress;
 
-    @Schema(description = "设备别名")
+    @Schema(description = "DeviceAlias")
     private String alias;
 
-    @Schema(description = "自动更新开关(0关闭/1开启)")
+    @Schema(description = "AutomaticUpdateSwitch(0Close/1Enable)")
     private Integer autoUpdate;
 
-    @Schema(description = "最近对话时间")
+    @Schema(description = "RecentforCall duration")
     private String recentChatTime;
 
-    @Schema(description = "最后连接时间戳（毫秒）", type = "string", example = "1783689702000")
+    @Schema(description = "LastConnection timestamp（millis）", type = "string", example = "1783689702000")
     private Long lastConnectedAtTimestamp;
 
-    @Schema(description = "绑定时间戳（毫秒）", type = "string", example = "1783689702000")
+    @Schema(description = "Binding timestamp（millis）", type = "string", example = "1783689702000")
     private Long createDateTimestamp;
 
-    @Schema(description = "绑定时间（兼容字段，请使用 createDateTimestamp）", deprecated = true)
+    @Schema(description = "Binding time（Compatible fields，pleaseUse createDateTimestamp）", deprecated = true)
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "UTC")
     private Date createDate;
 

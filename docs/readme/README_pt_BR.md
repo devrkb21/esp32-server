@@ -17,7 +17,7 @@ Suporte ao protocolo MQTT+UDP, protocolo WebSocket, ponto de acesso MCP, reconhe
 </p>
 
 <p align="center">
-  <a href="../../README.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/简体中文-DFE0E5"></a>
+  <a href="../../README.md"><img alt="Chinese README" src="https://img.shields.io/badge/Chinese-DFE0E5"></a>
   <a href="./README_en.md"><img alt="README in English" src="https://img.shields.io/badge/English-DFE0E5"></a>
   <a href="./README_vi.md"><img alt="Tiếng Việt" src="https://img.shields.io/badge/Tiếng Việt-DFE0E5"></a>
   <a href="./README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-DFE0E5"></a>
@@ -36,9 +36,9 @@ Suporte ao protocolo MQTT+UDP, protocolo WebSocket, ponto de acesso MCP, reconhe
 <p align="center">
 Liderado pela Equipe do Professor Siyuan Liu (Universidade de Tecnologia do Sul da China)
 </br>
-刘思源教授团队主导研发（华南理工大学）
+Led by Prof. Siyuan Liu's team (South China University of Technology)
 </br>
-<img src="../images/hnlg.jpg" alt="Universidade de Tecnologia do Sul da China (华南理工大学)" width="50%">
+<img src="../images/hnlg.jpg" alt="South China University of Technology" width="50%">
 </p>
 
 ---
@@ -54,31 +54,31 @@ Quer ver os efeitos de uso? Clique nos vídeos abaixo 🎥
     <td>
       <a href="https://www.bilibili.com/video/BV1FMFyejExX" target="_blank">
         <picture>
-          <img alt="响应速度感受" src="docs/images/demo9.png" /></picture>
+          <img alt="Response speed demo" src="docs/images/demo9.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1vchQzaEse" target="_blank">
         <picture>
-          <img alt="速度优化秘诀" src="docs/images/demo6.png" /></picture>
+          <img alt="Speed optimization secret" src="docs/images/demo6.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1WEcxzFEAT" target="_blank">
         <picture>
-          <img alt="小智数字人 支持语音唤醒" src="docs/images/demo8.png" /></picture>
+          <img alt="Xiaozhi Digital Human voice wakeup" src="docs/images/demo8.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1CKVz6UEuB" target="_blank">
         <picture>
-          <img alt="设备呼叫设备，打电话" src="docs/images/demo0.png" /></picture>
+          <img alt="Device calls device, making a call" src="docs/images/demo0.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1C1tCzUEZh" target="_blank">
         <picture>
-          <img alt="复杂医疗场景" src="docs/images/demo1.png" /></picture>
+          <img alt="Complex medical scenario" src="docs/images/demo1.png" /></picture>
       </a>
     </td>
   </tr>
@@ -86,31 +86,31 @@ Quer ver os efeitos de uso? Clique nos vídeos abaixo 🎥
     <td>
       <a href="https://www.bilibili.com/video/BV1VC96Y5EMH" target="_blank">
         <picture>
-          <img alt="播放音乐查询天气播报新闻" src="docs/images/demo7.png" /></picture>
+          <img alt="Play music, check the weather, and read the news" src="docs/images/demo7.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV12J7WzBEaH" target="_blank">
         <picture>
-          <img alt="实时打断" src="docs/images/demo10.png" /></picture>
+          <img alt="Real-time interruption" src="docs/images/demo10.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1Co76z7EvK" target="_blank">
         <picture>
-          <img alt="拍照识物品" src="docs/images/demo12.png" /></picture>
+          <img alt="Take a photo to recognize objects" src="docs/images/demo12.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1pNXWYGEx1" target="_blank">
         <picture>
-          <img alt="控制家电开关" src="docs/images/demo5.png" /></picture>
+          <img alt="Control home appliance switches" src="docs/images/demo5.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1TJ7WzzEo6" target="_blank">
         <picture>
-          <img alt="多指令任务" src="docs/images/demo11.png" /></picture>
+          <img alt="Multi-command tasks" src="docs/images/demo11.png" /></picture>
       </a>
     </td>
   </tr>
@@ -118,31 +118,31 @@ Quer ver os efeitos de uso? Clique nos vídeos abaixo 🎥
     <td>
       <a href="https://www.bilibili.com/video/BV1ZQKUzYExM" target="_blank">
         <picture>
-          <img alt="MCP接入点" src="docs/images/demo13.png" /></picture>
+          <img alt="MCP access point" src="docs/images/demo13.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1zUW5zJEkq" target="_blank">
         <picture>
-          <img alt="MQTT指令下发" src="docs/images/demo4.png" /></picture>
+          <img alt="MQTT command delivery" src="docs/images/demo4.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1Exu3zqEDe" target="_blank">
         <picture>
-          <img alt="声纹识别" src="docs/images/demo14.png" /></picture>
+          <img alt="Voiceprint recognition" src="docs/images/demo14.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV1CDKWemEU6" target="_blank">
         <picture>
-          <img alt="自定义音色" src="docs/images/demo2.png" /></picture>
+          <img alt="Custom voice style" src="docs/images/demo2.png" /></picture>
       </a>
     </td>
     <td>
       <a href="https://www.bilibili.com/video/BV12yA2egEaC" target="_blank">
         <picture>
-          <img alt="使用粤语交流" src="docs/images/demo3.png" /></picture>
+          <img alt="Use Cantonese to communicate" src="docs/images/demo3.png" /></picture>
       </a>
     </td>
   </tr>
@@ -217,7 +217,7 @@ Este projeto fornece as seguintes ferramentas de teste para ajudá-lo a verifica
 ---
 ## Lista de Funcionalidades ✨
 ### Implementado ✅
-![请参考-全模块安装架构图](../images/deploy2.png)
+![Architecture diagram for full-module deployment](../images/deploy2.png)
 | Módulo de Funcionalidade | Descrição |
 |:---:|:---|
 | Arquitetura Principal | Baseado em [gateway MQTT+UDP](https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mqtt-gateway-integration.md), servidores WebSocket e HTTP, fornece sistema completo de gerenciamento de console e autenticação |
@@ -344,10 +344,10 @@ Na verdade, qualquer VLLM que suporte chamadas via interface OpenAI pode ser int
 |:---:|:---:|:---|
 | <img src="../images/logo_bailing.png" width="160"> | [Robô de Diálogo por Voz Bailing](https://github.com/wwbin2017/bailing) | Este projeto foi inspirado pelo [Robô de Diálogo por Voz Bailing](https://github.com/wwbin2017/bailing) e implementado com base nele |
 | <img src="../images/logo_tenclass.png" width="160"> | [Tenclass](https://www.tenclass.com/) | Agradecimentos à [Tenclass](https://www.tenclass.com/) por formular protocolos de comunicação padrão, soluções de compatibilidade multidispositivo e demonstrações práticas de cenários de alta concorrência para o ecossistema Xiaozhi; fornecendo suporte completo de documentação técnica para este projeto |
-| <img src="../images/logo_xuanfeng.png" width="160"> | [Xuanfeng Technology (玄凤科技)](https://github.com/Eric0308) | Agradecimentos à [Xuanfeng Technology](https://github.com/Eric0308) por contribuir com o framework de chamada de função, protocolo de comunicação MCP e implementação do mecanismo de chamada baseado em plugins. Através de um sistema padronizado de agendamento de instruções e capacidades de expansão dinâmica, melhora significativamente a eficiência de interação e extensibilidade funcional dos dispositivos de frontend (IoT) |
+| <img src="../images/logo_xuanfeng.png" width="160"> | [Xuanfeng Technology](https://github.com/Eric0308) | Agradecimentos à [Xuanfeng Technology](https://github.com/Eric0308) por contribuir com o framework de chamada de função, protocolo de comunicação MCP e implementação do mecanismo de chamada baseado em plugins. Através de um sistema padronizado de agendamento de instruções e capacidades de expansão dinâmica, melhora significativamente a eficiência de interação e extensibilidade funcional dos dispositivos de frontend (IoT) |
 | <img src="../images/logo_junsen.png" width="160"> | [huangjunsen](https://github.com/huangjunsen0406) | Agradecimentos a [huangjunsen](https://github.com/huangjunsen0406) por contribuir com o módulo `Console de Controle Inteligente Mobile`, que permite controle eficiente e interação em tempo real em dispositivos móveis, melhorando significativamente a conveniência operacional e a eficiência de gerenciamento do sistema em cenários móveis. |
-| <img src="../images/logo_huiyuan.png" width="160"> | [Huiyuan Design (汇远设计)](http://ui.kwd988.net/) | Agradecimentos à [Huiyuan Design](http://ui.kwd988.net/) por fornecer soluções visuais profissionais para este projeto, utilizando sua experiência prática de design atendendo mais de mil empresas para potencializar a experiência do usuário deste produto |
-| <img src="../images/logo_qinren.png" width="160"> | [Xi'an Qinren Information Technology (西安勤人信息科技)](https://www.029app.com/) | Agradecimentos à [Xi'an Qinren Information Technology](https://www.029app.com/) por aprofundar o sistema visual deste projeto, garantindo consistência e extensibilidade do estilo de design geral em aplicações de múltiplos cenários |
+| <img src="../images/logo_huiyuan.png" width="160"> | [Huiyuan Design](http://ui.kwd988.net/) | Agradecimentos à [Huiyuan Design](http://ui.kwd988.net/) por fornecer soluções visuais profissionais para este projeto, utilizando sua experiência prática de design atendendo mais de mil empresas para potencializar a experiência do usuário deste produto |
+| <img src="../images/logo_qinren.png" width="160"> | [Xi'an Qinren Information Technology](https://www.029app.com/) | Agradecimentos à [Xi'an Qinren Information Technology](https://www.029app.com/) por aprofundar o sistema visual deste projeto, garantindo consistência e extensibilidade do estilo de design geral em aplicações de múltiplos cenários |
 | <img src="../images/logo_contributors.png" width="160"> | [Contribuidores de Código](https://github.com/xinnan-tech/xiaozhi-esp32-server/graphs/contributors) | Agradecimentos a [todos os contribuidores de código](https://github.com/xinnan-tech/xiaozhi-esp32-server/graphs/contributors), seus esforços tornaram o projeto mais robusto e poderoso. |
 
 

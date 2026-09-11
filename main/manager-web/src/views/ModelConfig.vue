@@ -21,10 +21,10 @@
       </div>
     </div>
 
-    <!-- 主体内容 -->
+    <!-- Main Content -->
     <div class="main-wrapper">
       <div class="content-panel">
-        <!-- 左侧导航 -->
+        <!-- Left Navigation -->
         <el-menu
           :default-active="activeTab"
           class="nav-panel"
@@ -57,7 +57,7 @@
           </el-menu-item>
         </el-menu>
 
-        <!-- 右侧内容 -->
+        <!-- Right Content -->
         <div class="content-area">
           <el-card class="model-card" shadow="never">
             <el-table
@@ -279,14 +279,14 @@ export default {
   },
 
   mounted() {
-    // 在组件挂载后确保表头翻译文本正确显示
+    // Ensure table header translation displays correctly after mount
     setTimeout(() => {
       this.updateSelectionHeaderText();
     }, 100);
   },
 
   updated() {
-    // 在组件更新后重新设置表头翻译文本
+    // Reset table header translation after component update
     this.updateSelectionHeaderText();
   },
 
@@ -299,7 +299,7 @@ export default {
   },
 
   methods: {
-    // 更新选择列表头翻译文本
+    // Update selection column header translation text
     updateSelectionHeaderText() {
       const thElement = document.querySelector(`.el-table__header th:nth-child(1) .cell`);
       if (thElement) {
@@ -323,9 +323,9 @@ export default {
       return "";
     },
     selectionCellClassName({ row, column, rowIndex, columnIndex }) {
-      // 只对表头行设置data-content
+      // Only set data-content on header row
       if (rowIndex === undefined) {
-        // 使用setTimeout确保DOM已经渲染完成
+        // Use setTimeout to ensure DOM is rendered
         setTimeout(() => {
           const thElement = document.querySelector(
             `.el-table__header th:nth-child(1) .cell`
@@ -339,15 +339,15 @@ export default {
     },
     handleMenuSelect(index) {
       this.activeTab = index;
-      this.currentPage = 1; // 重置到第一页
-      this.pageSize = 10; // 可选：重置每页条数
+      this.currentPage = 1; // Reset to first page
+      this.pageSize = 10; // Optional: reset page size
       this.loadData();
     },
     handleSearch() {
       this.currentPage = 1;
       this.loadData();
     },
-    // 批量删除
+    // Batch delete
     batchDelete() {
       if (this.selectedModels.length === 0) {
         this.$message.warning(this.$t("modelConfig.selectModelsFirst"));
@@ -398,7 +398,7 @@ export default {
       this.editModelData.duplicateMode = true;
       this.editDialogVisible = true;
     },
-    // 删除单个模型
+    // Delete single model
     deleteModel(model) {
       this.$confirm(this.$t("modelConfig.confirmDelete"), this.$t("message.info"), {
         confirmButtonText: this.$t("common.confirm"),
@@ -443,7 +443,7 @@ export default {
           } else {
             this.$message.error(data.msg || this.$t("modelConfig.duplicateFailed"));
           }
-          done && done(); // 调用done回调关闭加载状态
+          done && done(); // Call done callback to close loading state
         });
       } else {
         Api.model.updateModel({ modelType, provideCode, id, formData }, ({ data }) => {
@@ -454,7 +454,7 @@ export default {
           } else {
             this.$message.error(data.msg || this.$t("modelConfig.saveFailed"));
           }
-          done && done(); // 调用done回调关闭加载状态
+          done && done(); // Call done callback to close loading state
         });
       }
     },
@@ -473,7 +473,7 @@ export default {
       }
     },
 
-    // 新增模型配置
+    // Add model configuration
     handleAddConfirm(newModel) {
       const params = {
         modelType: this.activeTab,
@@ -502,9 +502,9 @@ export default {
       });
     },
 
-    // 获取模型配置列表
+    // Get model configuration list
     loadData() {
-      this.loading = true; // 开始加载
+      this.loading = true; // Start loading
       const params = {
         modelType: this.activeTab,
         modelName: this.search,
@@ -513,7 +513,7 @@ export default {
       };
 
       Api.model.getModelList(params, ({ data }) => {
-        this.loading = false; // 结束加载
+        this.loading = false; // End loading
         if (data.code === 0) {
           this.modelList = data.data.list;
           this.total = data.data.total;
@@ -522,7 +522,7 @@ export default {
         }
       });
     },
-    // 处理启用/禁用状态变更
+    // Handle enable/disable status change
     handleStatusChange(model) {
       const newStatus = model.isEnabled ? 1 : 0;
       const originalStatus = model.isEnabled;
@@ -536,12 +536,12 @@ export default {
               ? this.$t("modelConfig.enableSuccess")
               : this.$t("modelConfig.disableSuccess")
           );
-          // 保持新状态
+          // Keep new state
           model.isEnabled = newStatus;
-          // 刷新表格数据
+          // Refresh table data
           this.loadData();
         } else {
-          // 操作失败时恢复原状态
+          // Restore original state on operation failure
           model.isEnabled = originalStatus;
           this.$message.error(data.msg || this.$t("modelConfig.operationFailed"));
         }
@@ -582,7 +582,7 @@ export default {
 }
 
 .main-wrapper {
-  // 顶部 63px 底部 35px 查询72px
+  // Top 63px Bottom 35px Query 72px
   height: calc(100vh - 63px - 35px - 72px);
   margin: 0 22px;
   border-radius: 15px;
@@ -810,10 +810,10 @@ export default {
   display: block;
   text-align: center;
   line-height: 32px;
-  /* 设置合适的行高，确保文本完整显示 */
+  /* Set line height to display text properly */
   color: black;
   margin-top: 0;
-  /* 移除可能导致偏移的上边距 */
+  /* Remove top margin that might cause offset */
   height: 32px;
   position: absolute;
   top: 50%;
@@ -826,7 +826,7 @@ export default {
   position: relative;
 }
 
-/* 已移除可能影响文本显示的空伪元素 */
+/* Removed empty pseudo-elements affecting text display */
 
 ::v-deep .el-table__body .el-checkbox__inner {
   display: inline-block !important;
@@ -871,7 +871,7 @@ export default {
 
 .voice-management-btn:hover {
   background: #8aa2e0;
-  /* 悬停时颜色加深 */
+  /* Darken color on hover */
   transform: scale(1.05);
 }
 

@@ -9,11 +9,11 @@ UPDATE `ai_model_config`
 SET `remark` = REPLACE(
     REPLACE(
         `remark`,
-        '开通Doubao-1.5-pro服务',
-        '开通 Doubao-Seed-2.0-Lite 服务'
+        'Activate Doubao-1.5-pro service',
+        'Activate Doubao-Seed-2.0-Lite service'
     ),
-    '当前建议使用doubao-1-5-pro-32k-250115',
-    '当前建议使用 doubao-seed-2-0-lite-260215'
+    'Currently recommended: doubao-1-5-pro-32k-250115',
+    'Currently recommended: doubao-seed-2-0-lite-260215'
 )
 WHERE `id` = 'LLM_DoubaoLLM'
   AND (

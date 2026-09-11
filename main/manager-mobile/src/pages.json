@@ -97,7 +97,7 @@
       "type": "page",
       "layout": "default",
       "style": {
-        "navigationBarTitleText": "Edit Functions",
+        "navigationBarTitleText": "Edit Features",
         "navigationStyle": "custom"
       }
     },
@@ -122,7 +122,7 @@
       "path": "pages/device-config/index",
       "type": "page",
       "style": {
-        "navigationBarTitleText": "Device Config",
+        "navigationBarTitleText": "Device Configuration",
         "navigationStyle": "custom"
       }
     },
@@ -132,7 +132,7 @@
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "Forgot Password"
+        "navigationBarTitleText": "ForgotPassword"
       }
     },
     {
@@ -212,7 +212,7 @@
           "type": "page",
           "layout": "default",
           "style": {
-            "navigationBarTitleText": "Subpackage Page"
+            "navigationBarTitleText": "Subpackage Demo"
           }
         }
       ]
