@@ -5,19 +5,19 @@ update `ai_model_config` set config_json = '{\"type\": \"intent_llm\", \"llm\": 
 -- Add edge voices
 delete from `ai_tts_voice` where tts_model_id = 'TTS_EdgeTTS';
 INSERT INTO `ai_tts_voice` VALUES 
-('TTS_EdgeTTS0001', 'TTS_EdgeTTS', 'Jenny (US Female)', 'en-US-JennyNeural', 'English', NULL, NULL, 1, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0002', 'TTS_EdgeTTS', 'Guy (US Male)', 'en-US-GuyNeural', 'English', NULL, NULL, 2, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0003', 'TTS_EdgeTTS', 'Aria (US Female)', 'en-US-AriaNeural', 'English', NULL, NULL, 3, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0004', 'TTS_EdgeTTS', 'Christopher (US)', 'en-US-ChristopherNeural', 'English', NULL, NULL, 4, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0005', 'TTS_EdgeTTS', 'Sonia (UK Female)', 'en-GB-SoniaNeural', 'English', NULL, NULL, 5, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0006', 'TTS_EdgeTTS', 'Ryan (UK Male)', 'en-GB-RyanNeural', 'English', NULL, NULL, 6, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0007', 'TTS_EdgeTTS', 'Ana (US Child)', 'en-US-AnaNeural', 'English', NULL, NULL, 7, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0008', 'TTS_EdgeTTS', 'Eric (US Male)', 'en-US-EricNeural', 'English', NULL, NULL, 8, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0009', 'TTS_EdgeTTS', 'Michelle (US)', 'en-US-MichelleNeural', 'English', NULL, NULL, 9, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0010', 'TTS_EdgeTTS', 'Nabanita (BD Female)', 'bn-BD-NabanitaNeural', 'Bengali', NULL, NULL, 10, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0011', 'TTS_EdgeTTS', 'Pradeep (BD Male)', 'bn-BD-PradeepNeural', 'Bengali', NULL, NULL, 11, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0012', 'TTS_EdgeTTS', 'Tanishaa (IN Female)', 'bn-IN-TanishaaNeural', 'Bengali', NULL, NULL, 12, NULL, NULL, NULL, NULL),
-('TTS_EdgeTTS0013', 'TTS_EdgeTTS', 'Bashkar (IN Male)', 'bn-IN-BashkarNeural', 'Bengali', NULL, NULL, 13, NULL, NULL, NULL, NULL);
+('TTS_EdgeTTS0001', 'TTS_EdgeTTS', 'Jenny (US Female)', 'en-US-JennyNeural', 'English', '/voice-demos/en-US-JennyNeural.mp3', NULL, 1, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0002', 'TTS_EdgeTTS', 'Guy (US Male)', 'en-US-GuyNeural', 'English', '/voice-demos/en-US-GuyNeural.mp3', NULL, 2, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0003', 'TTS_EdgeTTS', 'Aria (US Female)', 'en-US-AriaNeural', 'English', '/voice-demos/en-US-AriaNeural.mp3', NULL, 3, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0004', 'TTS_EdgeTTS', 'Christopher (US)', 'en-US-ChristopherNeural', 'English', '/voice-demos/en-US-ChristopherNeural.mp3', NULL, 4, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0005', 'TTS_EdgeTTS', 'Sonia (UK Female)', 'en-GB-SoniaNeural', 'English', '/voice-demos/en-GB-SoniaNeural.mp3', NULL, 5, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0006', 'TTS_EdgeTTS', 'Ryan (UK Male)', 'en-GB-RyanNeural', 'English', '/voice-demos/en-GB-RyanNeural.mp3', NULL, 6, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0007', 'TTS_EdgeTTS', 'Ana (US Child)', 'en-US-AnaNeural', 'English', '/voice-demos/en-US-AnaNeural.mp3', NULL, 7, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0008', 'TTS_EdgeTTS', 'Eric (US Male)', 'en-US-EricNeural', 'English', '/voice-demos/en-US-EricNeural.mp3', NULL, 8, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0009', 'TTS_EdgeTTS', 'Michelle (US)', 'en-US-MichelleNeural', 'English', '/voice-demos/en-US-MichelleNeural.mp3', NULL, 9, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0010', 'TTS_EdgeTTS', 'Nabanita (BD Female)', 'bn-BD-NabanitaNeural', 'Bengali', '/voice-demos/bn-BD-NabanitaNeural.mp3', NULL, 10, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0011', 'TTS_EdgeTTS', 'Pradeep (BD Male)', 'bn-BD-PradeepNeural', 'Bengali', '/voice-demos/bn-BD-PradeepNeural.mp3', NULL, 11, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0012', 'TTS_EdgeTTS', 'Tanishaa (IN Female)', 'bn-IN-TanishaaNeural', 'Bengali', '/voice-demos/bn-IN-TanishaaNeural.mp3', NULL, 12, NULL, NULL, NULL, NULL),
+('TTS_EdgeTTS0013', 'TTS_EdgeTTS', 'Bashkar (IN Male)', 'bn-IN-BashkarNeural', 'Bengali', '/voice-demos/bn-IN-BashkarNeural.mp3', NULL, 13, NULL, NULL, NULL, NULL);
 
 -- Add parameter for whether user registration is allowed
 delete from `sys_params` where id in (103,104);

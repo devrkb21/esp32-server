@@ -44,7 +44,7 @@ Application Steps:
 3. Obtain appid and access_token
 4. Fill into the configuration file
 For custom hotwords, refer to: https://www.volcengine.com/docs/6561/155738
-If enabledMultilingualRecognition Mode, Please setlanguageWhen this key is empty, This model supports ChineseEnglish, Shanghainese, Hokkien, Sichuan, Shaanxi, CantoneseRecognition。For other languages please refer to: https://www.volcengine.com/docs/6561/1354869
+If enabledMultilingualRecognition Mode, Please setlanguageWhen this key is empty, This model supports ChineseEnglish, Shanghainese, Hokkien, Sichuan, Shaanxi, CantoneseRecognition.For other languages please refer to: https://www.volcengine.com/docs/6561/1354869
 ' WHERE `id` = 'ASR_DoubaoStreamASR';
 
 -- Update Doubao streaming ASR model config: add enable_multilingual default

@@ -247,7 +247,7 @@ router.beforeEach((to, from, next) => {
 })
 
 router.afterEach((to) => {
-  const defaultTitle = process.env.VUE_APP_TITLE || 'Control Console'
+  const defaultTitle = process.env.VUE_APP_TITLE || 'ESP Console'
   document.title = to.meta && to.meta.title ? `${to.meta.title} - ${defaultTitle}` : defaultTitle
 })
 

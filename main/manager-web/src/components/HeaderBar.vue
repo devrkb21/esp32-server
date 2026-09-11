@@ -3,8 +3,8 @@
     <div class="header-container">
       <!-- Left Elements -->
       <div class="header-left" @click="handleRouter('home')">
-        <img loading="lazy" alt="" src="@/assets/xiaozhi-logo.png" class="logo-img" />
-        <img loading="lazy" alt="" :src="xiaozhiAiIcon" class="brand-img" />
+        <img loading="lazy" alt="ESP Console" src="@/assets/xiaozhi-logo.png" class="logo-img" />
+        <span class="brand-title">ESP Console</span>
       </div>
 
       <!-- Center Navigation Menu -->
@@ -520,6 +520,14 @@ export default {
 .logo-img {
   width: 42px;
   height: 42px;
+}
+
+.brand-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
 }
 
 .brand-img {

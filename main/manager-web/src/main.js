@@ -18,7 +18,7 @@ Vue.use(ElementUI);
 locale.i18n((key, value) => i18n.t(key, value))
 
 Vue.config.productionTip = false
-document.title = process.env.VUE_APP_TITLE || 'Control Console';
+document.title = process.env.VUE_APP_TITLE || 'ESP Console';
 
 // Register Service Worker
 registerServiceWorker();

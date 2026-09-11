@@ -15,10 +15,10 @@ One, Quick deployment tutorial (dockerDeployment)
 3.$ git clone https://github.com/infiniflow/ragflow.git
 4.docker compose -f docker-compose.yml up -d
 5.$ docker logs -f docker-ragflow-cpu-1
-6.After registration and login, Click the avatar in top right corner, ObtainRAGFlowAPI KEYandAPIServer Address。UseRAGFlowbefore please inModel Provideradd models and set default model in。
+6.After registration and login, Click the avatar in top right corner, ObtainRAGFlowAPI KEYandAPIServer Address.UseRAGFlowbefore please inModel Provideradd models and set default model in.
 Two, If you wish to turn off the registration function
 1.Stop Service docker compose down
 2. sed -i ''s/REGISTER_ENABLED=1/REGISTER_ENABLED=0/g'' .env 
 3.cat .env | grep -i register
-4.SeeREGISTER_ENABLED=0 Just restart the service。', 1, NULL, NULL, NULL, NULL);
+4.SeeREGISTER_ENABLED=0 Just restart the service.', 1, NULL, NULL, NULL, NULL);
 

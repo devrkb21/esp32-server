@@ -195,19 +195,23 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
         DeviceEntity deviceById = getDeviceByMacAddress(macAddress);
 
-        // DeviceUnbound，then return currently uploaded firmware info（notUpdate）to maintain compatibility with older firmware versions
+        // DeviceUnbound, return currently uploaded firmware info to maintain compatibility
         if (deviceById == null) {
             DeviceReportRespDTO.Firmware firmware = new DeviceReportRespDTO.Firmware();
-            firmware.setVersion(deviceReport.getApplication().getVersion());
+            String currentVer = (deviceReport != null && deviceReport.getApplication() != null && deviceReport.getApplication().getVersion() != null)
+                    ? deviceReport.getApplication().getVersion() : "0.0.0";
+            firmware.setVersion(currentVer);
             firmware.setUrl(Constant.INVALID_FIRMWARE_URL);
             response.setFirmware(firmware);
         } else {
             // Firmware upgrade info is returned only when device is bound and auto-upgrade is explicitly enabled
             if (Integer.valueOf(1).equals(deviceById.getAutoUpdate())) {
-                String type = deviceReport.getBoard() == null ? null : deviceReport.getBoard().getType();
-                DeviceReportRespDTO.Firmware firmware = buildFirmwareInfo(type,
-                        deviceReport.getApplication() == null ? null : deviceReport.getApplication().getVersion());
-                response.setFirmware(firmware);
+                String type = (deviceReport != null && deviceReport.getBoard() != null) ? deviceReport.getBoard().getType() : null;
+                String currentVer = (deviceReport != null && deviceReport.getApplication() != null) ? deviceReport.getApplication().getVersion() : null;
+                DeviceReportRespDTO.Firmware firmware = buildFirmwareInfo(type, currentVer);
+                if (firmware != null) {
+                    response.setFirmware(firmware);
+                }
             }
         }
 
@@ -395,8 +399,12 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         if (StringUtils.isBlank(macAddress)) {
             return null;
         }
+        String normalized = xiaozhi.modules.device.controller.OTAController.normalizeMacAddress(macAddress);
         QueryWrapper<DeviceEntity> wrapper = new QueryWrapper<>();
-        wrapper.eq("mac_address", macAddress);
+        wrapper.eq("mac_address", normalized)
+                .or().eq("mac_address", macAddress)
+                .or().eq("mac_address", macAddress.toLowerCase())
+                .or().eq("mac_address", macAddress.toUpperCase());
         return baseDao.selectOne(wrapper);
     }
 
@@ -498,18 +506,28 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             // If device has no version info，orOTAVersion is newer than device version，thenReturnDownloadAddress
             if (compareVersions(ota.getVersion(), currentVersion) > 0) {
                 String otaUrl = sysParamsService.getValue(Constant.SERVER_OTA, true);
-                if (StringUtils.isBlank(otaUrl) || otaUrl.equals("null")) {
-                    log.error("OTAAddressnotConfiguration，pleaseLoginSmart console，atParameter managementFound【server.ota】Configuration");
-                    // Attempt to get from request
-                    HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder
-                            .getRequestAttributes())
-                            .getRequest();
-                    otaUrl = request.getRequestURL().toString();
+                if (StringUtils.isBlank(otaUrl) || "null".equalsIgnoreCase(otaUrl)) {
+                    try {
+                        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder
+                                .getRequestAttributes())
+                                .getRequest();
+                        String proto = request.getHeader("X-Forwarded-Proto");
+                        String host = request.getHeader("X-Forwarded-Host");
+                        if (StringUtils.isNotBlank(proto) && StringUtils.isNotBlank(host)) {
+                            otaUrl = proto + "://" + host;
+                        } else {
+                            String reqUrl = request.getRequestURL().toString();
+                            otaUrl = reqUrl.replaceAll("/ota/?$", "");
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to derive OTA URL from request: {}", e.getMessage());
+                        otaUrl = "";
+                    }
                 }
-                // URLin/ota/Replaceas/otaMag/download/
                 String uuid = UUID.randomUUID().toString();
                 redisUtils.set(RedisKeys.getOtaIdKey(uuid), ota.getId());
-                downloadUrl = otaUrl.replace("/ota/", "/otaMag/download/") + uuid;
+                String baseOtaUrl = otaUrl.replaceAll("/+$", "").replaceAll("/ota$", "");
+                downloadUrl = baseOtaUrl + "/otaMag/download/" + uuid;
             }
         }
 

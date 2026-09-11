@@ -1018,6 +1018,8 @@ TTS:
     # cosyvoice-v3 and select voices require activation
     type: alibl_stream
     api_key: your_api_key
+    # Default compatible with legacy endpoint; for workspace, replace with wss://<WorkspaceId>.cn-beijing.maas.aliyuncs.com/api-ws/v1/inference
+    ws_url: wss://dashscope.aliyuncs.com/api-ws/v1/inference/
     model: "cosyvoice-v2"
     voice: "longcheng_v2"
     output_dir: tmp/

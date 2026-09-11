@@ -7,10 +7,10 @@ import asyncio
 import traceback
 import websockets
 
-from asyncio import Task
 from typing import Callable, Any
 from config.logger import setup_logging
 from core.utils.tts import MarkdownCleaner
+from core.utils.alibl_endpoint import build_ws_connect_options, resolve_ws_url
 from core.providers.tts.base import TTSProviderBase
 from core.providers.tts.dto.dto import SentenceType, ContentType, InterfaceType
 
@@ -29,14 +29,14 @@ class TTSProvider(TTSProviderBase):
         super().__init__(config, delete_audio_file)
 
         self.interface_type = InterfaceType.DUAL_STREAM
-        # Basic configuration
+        # Base configuration
         self.api_key = config.get("api_key")
         if not self.api_key:
             raise ValueError("api_key is required for CosyVoice TTS")
-        self.report_on_last = True
 
         # WebSocket configuration
-        self.ws_url = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/"
+        self.ws_url = resolve_ws_url(config.get("ws_url"))
+        self.ws_connect_options = build_ws_connect_options(self.tts_timeout)
         self.ws = None
         self._monitor_task = None
         self.activate_session = False
@@ -48,7 +48,7 @@ class TTSProvider(TTSProviderBase):
         if config.get("private_voice"):
             self.voice = config.get("private_voice")
 
-        # Audio parameter configuration
+        # Audio parameters configuration
         self.format = config.get("format", "pcm")
 
         volume = config.get("volume", "50")
@@ -60,27 +60,27 @@ class TTSProvider(TTSProviderBase):
         pitch = config.get("pitch", "1.0")
         self.pitch = float(pitch) if pitch else 1.0
 
-        # Apply percentage adjustment (if present), otherwise use public config
+        # Apply percentage adjustment if present, otherwise use standard config
         self._apply_percentage_params(config)
 
         self.header = {
             "Authorization": f"Bearer {self.api_key}",
-            # "user-agent": "your_platform_info",  # Optional
-            # "X-DashScope-WorkSpace": workspace,  # Optional, DashScope workspace ID
+            # "user-agent": "your_platform_info", // Optional
+            # "X-DashScope-WorkSpace": workspace, // Optional, DashScope Workspace ID
             "X-DashScope-DataInspection": "enable",
         }
 
     async def _ensure_connection(self):
-        """Ensure WebSocket connection is available, supports connection reuse within 60 seconds"""
+        """Ensure WebSocket connection is available, supports reuse within 60s"""
         try:
             current_time = time.time()
             if self.ws and current_time - self.last_active_time < 60:
-                # Connections can only be reused within one minute for continuous dialogue
-                logger.bind(tag=TAG).debug(f"Using existing connection...")
+                # Reuse connection within 60 seconds for continuous conversation
+                logger.bind(tag=TAG).debug(f"Reusing existing connection...")
                 return self.ws
-            logger.bind(tag=TAG).debug("Starting to establish new connection...")
+            logger.bind(tag=TAG).debug("Establishing new connection...")
 
-            # Cancel old monitoring task before establishing new connection
+            # Cancel old listener task before establishing new connection
             await self._cancel_monitor_task()
 
             self.ws = await websockets.connect(
@@ -89,9 +89,10 @@ class TTSProvider(TTSProviderBase):
                 ping_interval=30,
                 ping_timeout=10,
                 close_timeout=10,
+                **self.ws_connect_options,
             )
 
-            logger.bind(tag=TAG).debug("WebSocket connection established successfully")
+            logger.bind(tag=TAG).debug("WebSocket connection established")
             self.last_active_time = current_time
             return self.ws
         except Exception as e:
@@ -118,7 +119,7 @@ class TTSProvider(TTSProviderBase):
                         logger.bind(tag=TAG).error(f"Failed to cancel TTS session: {str(e)}")
                         continue
 
-                # Filter old messages: check if sentence_id matches
+                # Filter old messages: verify sentence_id match
                 if message.sentence_id != self.conn.sentence_id:
                     continue
 
@@ -127,13 +128,13 @@ class TTSProvider(TTSProviderBase):
                 )
 
                 if message.sentence_type == SentenceType.FIRST:
-                    # Reset stream processing state
+                    # Reset streaming state
                     self.reset_stream_state()
                     # Initialize session
                     try:
                         if not getattr(self.conn, "sentence_id", None): 
                             self.conn.sentence_id = uuid.uuid4().hex
-                            logger.bind(tag=TAG).debug(f"Automatically generated new Session ID: {self.conn.sentence_id}")
+                            logger.bind(tag=TAG).debug(f"Auto-generated new session ID: {self.conn.sentence_id}")
 
                         logger.bind(tag=TAG).debug("Starting TTS session...")
                         future = asyncio.run_coroutine_threadsafe(
@@ -151,7 +152,7 @@ class TTSProvider(TTSProviderBase):
                     if message.content_detail:
                         try:
                             logger.bind(tag=TAG).debug(
-                                f"Starting to send TTS text: {message.content_detail}"
+                                f"Sending TTS text: {message.content_detail}"
                             )
                             future = asyncio.run_coroutine_threadsafe(
                                 self.text_to_speak(message.content_detail, None),
@@ -164,15 +165,15 @@ class TTSProvider(TTSProviderBase):
 
                 elif ContentType.FILE == message.content_type:
                     logger.bind(tag=TAG).info(
-                        f"Adding audio file to pending playlist: {message.content_file}"
+                        f"Added audio file to playlist: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
-                        # First process file audio data
+                        # Process audio file data first
                         self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
 
                 if message.sentence_type == SentenceType.LAST:
                     try:
-                        logger.bind(tag=TAG).debug("Starting to finish TTS session...")
+                        logger.bind(tag=TAG).debug("Finishing TTS session...")
                         future = asyncio.run_coroutine_threadsafe(
                             self.finish_session(self.conn.sentence_id),
                             loop=self.conn.loop,
@@ -186,7 +187,7 @@ class TTSProvider(TTSProviderBase):
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"Failed to process TTS text: {str(e)}, type: {type(e).__name__}, stack: {traceback.format_exc()}"
+                    f"Failed to process TTS text: {str(e)}, Type: {type(e).__name__}, Traceback: {traceback.format_exc()}"
                 )
                 continue
 
@@ -194,17 +195,17 @@ class TTSProvider(TTSProviderBase):
         """Send text to TTS service for synthesis"""
         try:
             if self.ws is None:
-                logger.bind(tag=TAG).warning("WebSocket connection does not exist, terminating sending text")
+                logger.bind(tag=TAG).warning("WebSocket connection does not exist, aborting text send")
                 return
 
-            # Filter Markdown
+            # Clean markdown
             filtered_text = MarkdownCleaner.clean_markdown(text)
 
             if filtered_text:
-                # Use sliding window matching to handle replacement words across fragments
+                # Use sliding window to handle cross-chunk replacement words
                 confirmed_texts, self._pending_prefix = self._match_stream_text(filtered_text)
 
-                # Send each confirmed text fragment
+                # Send each confirmed text segment
                 for txt in confirmed_texts:
                     if txt and self.ws:
                         continue_task_message = {
@@ -230,21 +231,21 @@ class TTSProvider(TTSProviderBase):
 
     async def start_session(self, session_id):
         """Start TTS session"""
-        logger.bind(tag=TAG).debug(f"Starting session ~~ {session_id}")
+        logger.bind(tag=TAG).debug(f"Starting session {session_id}")
         try:
-            # When previous session is active, close previous connection and create a new one
+            # Close previous active connection and create a new one if active
             if self.activate_session:
                 await self.close()
 
-            # Set session activation flag
+            # Set session active flag
             self.activate_session = True
 
-            # Ensure connection is available
+            # Ensure connection is ready
             await self._ensure_connection()
 
-            # Start monitoring task
+            # Start listener task
             if self._monitor_task is None or self._monitor_task.done():
-                logger.bind(tag=TAG).debug("Starting monitoring task...")
+                logger.bind(tag=TAG).debug("Starting monitor task...")
                 self._monitor_task = asyncio.create_task(self._start_monitor_tts_response())
 
             # Send run-task message to start session
@@ -282,7 +283,7 @@ class TTSProvider(TTSProviderBase):
 
     async def finish_session(self, session_id):
         """Finish TTS session"""
-        logger.bind(tag=TAG).debug(f"Closing session ~~ {session_id}")
+        logger.bind(tag=TAG).debug(f"Closing session {session_id}")
         try:
             if self.ws and session_id:
                 # Send finish-task message
@@ -321,7 +322,7 @@ class TTSProvider(TTSProviderBase):
             self.last_active_time = None
     
     async def _cancel_monitor_task(self):
-        """Cancel monitoring task"""
+        """Cancel monitor task"""
         if self._monitor_task and not self._monitor_task.done():
             self._monitor_task.cancel()
             try:
@@ -329,11 +330,11 @@ class TTSProvider(TTSProviderBase):
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                logger.bind(tag=TAG).warning(f"Error cancelling monitoring task: {e}")
+                logger.bind(tag=TAG).warning(f"Error cancelling monitor task: {e}")
         self._monitor_task = None
 
     async def _start_monitor_tts_response(self):
-        """Monitor TTS response - long running"""
+        """Monitor TTS responses - long running"""
         try:
             while not self.conn.stop_event.is_set():
                 try:
@@ -347,29 +348,26 @@ class TTSProvider(TTSProviderBase):
                             event = header.get("event")
                             task_id = header.get("task_id")
 
-                            # Only process responses for the currently active session
+                            # Only process responses for active session
                             if task_id and self.conn.sentence_id != task_id:
                                 if event in ["task-finished", "task-failed"]:
-                                    logger.bind(tag=TAG).debug(f"Received residual downlink finish response, resetting session state ~~")
+                                    logger.bind(tag=TAG).debug("Received residual downstream completion response, resetting session state")
                                     self.activate_session = False
                                 continue
 
                             if event == "task-started":
-                                logger.bind(tag=TAG).debug("TTS task started successfully ~")
-                                self.tts_audio_queue.put((SentenceType.FIRST, [], None))
+                                logger.bind(tag=TAG).debug("TTS task started successfully")
                             elif event == "result-generated":
-                                # Send cached data
-                                tts_text = self.get_tts_text(self.conn.sentence_id)
-                                if tts_text:
-                                    logger.bind(tag=TAG).info(
-                                        f"Sentence speech generated successfully: {tts_text}"
-                                    )
-                                    self.tts_audio_queue.put(
-                                        (SentenceType.FIRST, [], tts_text)
-                                    )
-                                    self.clear_tts_text(self.conn.sentence_id)
+                                output = data.get("payload", {}).get("output", {})
+                                if output.get("type") == "sentence-begin":
+                                    original_text = output.get("original_text")
+                                    self.tts_text = self._restore_original_text(original_text)
+                                    logger.bind(tag=TAG).debug(f"Sentence speech generation started:  {self.tts_text}")
+                                    self.tts_audio_queue.put((SentenceType.FIRST, [], self.tts_text))
+                                elif output.get("type") == "sentence-end":
+                                    logger.bind(tag=TAG).info(f"Sentence speech generation succeeded: {self.tts_text}")
                             elif event == "task-finished":
-                                logger.bind(tag=TAG).debug("TTS task finished ~")
+                                logger.bind(tag=TAG).debug("TTS task completed")
                                 self.activate_session = False
                                 self._process_before_stop_play_files()
                             elif event == "task-failed":
@@ -394,14 +392,14 @@ class TTSProvider(TTSProviderBase):
                     )
                     break
 
-            # Close WebSocket on connection error
+            # Close WebSocket on connection exception
             if self.ws:
                 try:
                     await self.ws.close()
                 except:
                     pass
                 self.ws = None
-        # Clean up references on monitor task exit
+        # Clean up references on task exit
         finally:
             self.activate_session = False
             self._monitor_task = None
@@ -409,10 +407,10 @@ class TTSProvider(TTSProviderBase):
     def audio_to_opus_data_stream(
         self, audio_file_path, callback: Callable[[Any], Any] = None
     ):
-        """Override parent method: Use an independent temporary encoder for audio files to avoid concurrency conflicts with the TTS streaming encoder.
-        In dual-stream TTS, the monitor task receives TTS audio on the event loop thread and encodes using self.opus_encoder,
-        while tts_text_priority_thread processing music files also uses self.opus_encoder.
-        The shared encoder.buffer is not thread-safe; concurrent access causes SILK resampler assertion failure.
+        """Override base method: Use independent temporary encoder for audio files to avoid concurrency conflicts with TTS streaming encoder.
+        In dual-streaming TTS, monitor task receives audio in event loop thread and encodes using self.opus_encoder,
+        while tts_text_priority_thread processes audio files also using self.opus_encoder.
+        Shared encoder.buffer is not thread-safe; concurrent access causes SILK resampler assertion failure.
         """
         from core.utils.util import audio_to_data_stream
 
@@ -425,7 +423,7 @@ class TTSProvider(TTSProviderBase):
         )
 
     def to_tts(self, text: str) -> list:
-        """Non-streaming audio data generation, used for audio generation and testing scenarios"""
+        """Non-streaming audio generation for testing and offline scenarios"""
         try:
             # Create event loop
             loop = asyncio.new_event_loop()
@@ -444,6 +442,7 @@ class TTSProvider(TTSProviderBase):
                     ping_timeout=10,
                     close_timeout=10,
                     max_size=10 * 1024 * 1024,
+                    **self.ws_connect_options,
                 )
 
                 try:

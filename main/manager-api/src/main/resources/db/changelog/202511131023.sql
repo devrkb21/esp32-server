@@ -1,7 +1,7 @@
 UPDATE `ai_model_config` SET 
 `doc_link` = 'https://github.com/infiniflow/ragflow/blob/main/README_zh.md',
 `remark` = 'For detailed deployment tutorial refer to: https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/ragflow-integration.md
-Deployed successfully, After registration and login, Click the avatar in top right corner, ObtainRAGFlowAPI KEYandAPIServer Address。UseRAGFlowbefore please inModel Provideradd models and set default model in。' WHERE `id` = 'RAG_RAGFlow';
+Deployed successfully, After registration and login, Click the avatar in top right corner, ObtainRAGFlowAPI KEYandAPIServer Address.UseRAGFlowbefore please inModel Provideradd models and set default model in.' WHERE `id` = 'RAG_RAGFlow';
 
 update `ai_model_config` set `model_name` = 'External LLM intent recognition' where `id` = 'Intent_intent_llm';
 update `ai_model_config` set `model_name` = 'LLM autonomous function calling' where `id` = 'Intent_function_call';

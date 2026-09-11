@@ -23,7 +23,7 @@ UPDATE `ai_model_config` SET
 4. Output files are saved in tmp/ directory
 Application Steps:
 **OpenAi ASRApplication Steps:**
-1.Log inOpenAI Platform。https://auth.openai.com/log-in
+1.Log inOpenAI Platform.https://auth.openai.com/log-in
 2.Createapi-key https://platform.openai.com/settings/organization/api-keys
 3.Model can selectgpt-4o-transcribeorGPT-4o mini Transcribe
 ' WHERE `id` = 'ASR_OpenaiASR';
@@ -32,7 +32,7 @@ Application Steps:
 UPDATE `ai_model_config` SET 
 `doc_link` = 'https://console.groq.com/docs/speech-to-text',
 `remark` = 'Groq ASRConfiguration Instructions:
-1.Log ingroq Console。https://console.groq.com/home
+1.Log ingroq Console.https://console.groq.com/home
 2.Createapi-key https://console.groq.com/keys
 3.Model can selectwhisper-large-v3-turboorwhisper-large-v3 (distil-whisper-large-v3-enOnly supportsEnglishTranscription) 
 ' WHERE `id` = 'ASR_GroqASR';
