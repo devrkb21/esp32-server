@@ -59,6 +59,20 @@ class ASRProvider(ASRProviderBase):
 
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
+
+        # Ensure model.pt exists if using local SenseVoiceSmall directory
+        if self.model_dir and os.path.exists(self.model_dir):
+            model_pt = os.path.join(self.model_dir, "model.pt")
+            if not os.path.exists(model_pt):
+                logger.bind(tag=TAG).info(f"SenseVoiceSmall model.pt not found in {self.model_dir}. Downloading automatically...")
+                try:
+                    import urllib.request
+                    url = "https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt"
+                    urllib.request.urlretrieve(url, model_pt)
+                    logger.bind(tag=TAG).info("Successfully downloaded SenseVoiceSmall model.pt")
+                except Exception as e:
+                    logger.bind(tag=TAG).error(f"Failed to auto-download SenseVoiceSmall model.pt: {e}")
+
         with CaptureOutput():
             self.model = AutoModel(
                 model=self.model_dir,

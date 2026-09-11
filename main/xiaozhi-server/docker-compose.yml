@@ -9,7 +9,7 @@ services:
     security_opt:
       - seccomp:unconfined
     environment:
-      - TZ=UTC
+      - TZ=Asia/Dhaka
     ports:
       # WS server
       - "8000:8000"
