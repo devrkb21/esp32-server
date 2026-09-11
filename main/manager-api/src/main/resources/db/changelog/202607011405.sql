@@ -15,5 +15,5 @@ SET `remark` = 'FunASRLocal ModelConfiguration Instructions:
 2. Supports Chinese, Japanese, KoreanCantoneseSpeech Recognition
 3. Local inference, No network connection required
 4. Audio files to recognize are stored in tmp/ directory
-5. "RecognitionLanguages"field controls recognized language: auto = Auto detect; If you need to restrict recognition to onlyChineseCan be set to zh (en=English, ja=Japanese, ko=Korean, yue=Cantonese) 。'
+5. "RecognitionLanguages"field controls recognized language: auto = Auto detect; If you need to restrict recognition to onlyChineseCan be set to zh (en=English, ja=Japanese, ko=Korean, yue=Cantonese) .'
 WHERE `id` = 'ASR_FunASR';

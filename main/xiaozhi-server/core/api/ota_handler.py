@@ -155,23 +155,31 @@ class OTAHandler(BaseHandler):
             self.logger.bind(tag=TAG).debug(f"OTA request headers: {request.headers}")
             self.logger.bind(tag=TAG).debug(f"OTA request data: {data}")
 
-            device_id = request.headers.get("device-id", "")
-            if device_id:
-                self.logger.bind(tag=TAG).info(f"OTA request device ID: {device_id}")
-            else:
-                raise Exception("OTA request device ID is empty")
-
-            client_id = request.headers.get("client-id", "")
-            if client_id:
-                self.logger.bind(tag=TAG).info(f"OTA request ClientID: {client_id}")
-            else:
-                raise Exception("OTA request ClientID is empty")
-
             data_json = {}
             try:
                 data_json = json.loads(data) if data else {}
             except Exception:
                 data_json = {}
+
+            device_id = ""
+            for h in ("device-id", "device_id", "device-mac", "mac", "Device-Id"):
+                if h in request.headers:
+                    device_id = request.headers.get(h, "").strip()
+                    break
+            if not device_id and isinstance(data_json, dict):
+                device_id = str(data_json.get("mac_address") or data_json.get("uuid") or data_json.get("device_id") or "")
+
+            # Normalize MAC address if 12 hex chars
+            clean_mac = re.sub(r"[:-]", "", device_id).upper()
+            if len(clean_mac) == 12 and re.match(r"^[0-9A-F]{12}$", clean_mac):
+                device_id = ":".join(clean_mac[i:i+2] for i in range(0, 12, 2))
+
+            if not device_id:
+                device_id = "default_device"
+            self.logger.bind(tag=TAG).info(f"OTA request device ID: {device_id}")
+
+            client_id = request.headers.get("client-id", "") or request.headers.get("Client-Id", "") or device_id
+            self.logger.bind(tag=TAG).info(f"OTA request ClientID: {client_id}")
 
             server_config = self.config["server"]
             # Distinguish ports:

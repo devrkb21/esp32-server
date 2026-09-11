@@ -23,7 +23,7 @@ UPDATE `ai_model_config` SET
 - Emotion(emotion): Controls emotion of synthesized speech, Supports7types of values: ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "calm"], This parameter is only for speech-2.5-hd-preview, speech-2.5-turbo-preview, speech-02-hd, speech-02-turbo, speech-01-turbo, speech-01-hd Take effect
 - timbre_weightsandvoice_idRequired (choose one)
 - voice_id(requestedVoiceid, must matchweightFill parameters synchronously)
-- weight(Weight, Supports up to4typesVoiceMixed。Range[1,100])
+- weight(Weight, Supports up to4typesVoiceMixed.Range[1,100])
 ' WHERE `id` = 'TTS_MinimaxStreamTTS';
 
 -- Add Minimax streaming TTS voices

@@ -4,8 +4,8 @@
       <!-- Maintain same header -->
       <el-header>
         <div style="display: flex;align-items: center;margin-top: 15px;margin-left: 10px;gap: 10px;">
-          <img loading="lazy" alt="" src="@/assets/xiaozhi-logo.png" style="width: 45px;height: 45px;" />
-          <img loading="lazy" alt="" :src="xiaozhiAiIcon" style="height: 18px;" />
+          <img loading="lazy" alt="ESP Console" src="@/assets/xiaozhi-logo.png" style="width: 45px;height: 45px;" />
+          <span style="font-size: 22px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.5px;">ESP Console</span>
         </div>
       </el-header>
       <div class="login-person">

@@ -9,8 +9,8 @@
             margin-left: 11px;
             gap: 10px;
           ">
-          <img loading="lazy" alt="" src="@/assets/xiaozhi-logo.png" style="width: 42px; height: 42px" />
-          <img loading="lazy" alt="" :src="xiaozhiAiIcon" style="height: 20px" />
+          <img loading="lazy" alt="ESP Console" src="@/assets/xiaozhi-logo.png" style="width: 42px; height: 42px" />
+          <span style="font-size: 22px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.5px;">ESP Console</span>
         </div>
       </el-header>
       <div class="login-person">

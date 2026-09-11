@@ -42,32 +42,45 @@ public class OTAController {
     @Operation(summary = "OTAVersion and device activation status check")
     @PostMapping
     public ResponseEntity<String> checkOTAVersion(
-            @RequestBody DeviceReportReqDTO deviceReportReqDTO,
-            @Parameter(name = "Device-Id", description = "DeviceUnique identifier", required = true, in = ParameterIn.HEADER) @RequestHeader("Device-Id") String deviceId,
-            @Parameter(name = "Client-Id", description = "ClientIdentifier", required = false, in = ParameterIn.HEADER) @RequestHeader(value = "Client-Id", required = false) String clientId) {
+            @RequestBody(required = false) DeviceReportReqDTO deviceReportReqDTO,
+            @Parameter(name = "Device-Id", description = "Device Unique identifier", required = false, in = ParameterIn.HEADER) @RequestHeader(value = "Device-Id", required = false) String deviceId,
+            @Parameter(name = "Client-Id", description = "Client Identifier", required = false, in = ParameterIn.HEADER) @RequestHeader(value = "Client-Id", required = false) String clientId) {
+        
+        // Fallback: if Device-Id header missing, check request body
+        if (StringUtils.isBlank(deviceId) && deviceReportReqDTO != null) {
+            deviceId = deviceReportReqDTO.getMacAddress();
+            if (StringUtils.isBlank(deviceId)) {
+                deviceId = deviceReportReqDTO.getUuid();
+            }
+        }
+        
         if (StringUtils.isBlank(deviceId)) {
             return createResponse(DeviceReportRespDTO.createError("Device ID is required"));
         }
-        if (StringUtils.isBlank(clientId)) {
-            clientId = deviceId;
-        }
+        
         boolean macAddressValid = isMacAddressValid(deviceId);
-        // DeviceIdandMacAddressshouldisConsistent, andandMust requireneedapplicationField
         if (!macAddressValid) {
             return createResponse(DeviceReportRespDTO.createError("Invalid device ID"));
         }
-        return createResponse(deviceService.checkDeviceActive(deviceId, clientId, deviceReportReqDTO));
+        
+        String normalizedDeviceId = normalizeMacAddress(deviceId);
+        if (StringUtils.isBlank(clientId)) {
+            clientId = normalizedDeviceId;
+        }
+        
+        return createResponse(deviceService.checkDeviceActive(normalizedDeviceId, clientId, deviceReportReqDTO));
     }
 
     @Operation(summary = "Quick check for device activation status")
     @PostMapping("activate")
     public ResponseEntity<String> activateDevice(
-            @Parameter(name = "Device-Id", description = "DeviceUnique identifier", required = true, in = ParameterIn.HEADER) @RequestHeader("Device-Id") String deviceId,
-            @Parameter(name = "Client-Id", description = "ClientIdentifier", required = false, in = ParameterIn.HEADER) @RequestHeader(value = "Client-Id", required = false) String clientId) {
+            @Parameter(name = "Device-Id", description = "Device Unique identifier", required = false, in = ParameterIn.HEADER) @RequestHeader(value = "Device-Id", required = false) String deviceId,
+            @Parameter(name = "Client-Id", description = "Client Identifier", required = false, in = ParameterIn.HEADER) @RequestHeader(value = "Client-Id", required = false) String clientId) {
         if (StringUtils.isBlank(deviceId)) {
             return ResponseEntity.status(202).build();
         }
-        DeviceEntity device = deviceService.getDeviceByMacAddress(deviceId);
+        String normalizedDeviceId = normalizeMacAddress(deviceId);
+        DeviceEntity device = deviceService.getDeviceByMacAddress(normalizedDeviceId);
         if (device == null) {
             return ResponseEntity.status(202).build();
         }
@@ -79,17 +92,17 @@ public class OTAController {
     public ResponseEntity<String> getOTA() {
         String mqttUdpConfig = sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, false);
         if (StringUtils.isBlank(mqttUdpConfig)) {
-            return ResponseEntity.ok("OTAInterface does notNormal，Missingmqtt_gatewayAddress，pleaseLoginSmart console，atParameter managementFound【server.mqtt_gateway】Configuration");
+            return ResponseEntity.ok("OTA status: Missing mqtt_gateway configuration in parameter management (server.mqtt_gateway)");
         }
         String wsUrl = sysParamsService.getValue(Constant.SERVER_WEBSOCKET, true);
         if (StringUtils.isBlank(wsUrl) || wsUrl.equals("null")) {
-            return ResponseEntity.ok("OTAInterface does notNormal，MissingWebSocket address，pleaseLoginSmart console，atParameter managementFound【server.websocket】Configuration");
+            return ResponseEntity.ok("OTA status: Missing WebSocket address in parameter management (server.websocket)");
         }
         String otaUrl = sysParamsService.getValue(Constant.SERVER_OTA, true);
         if (StringUtils.isBlank(otaUrl) || otaUrl.equals("null")) {
-            return ResponseEntity.ok("OTAInterface does notNormal，MissingOTA address，pleaseLoginSmart console，atParameter managementFound【server.ota】Configuration");
+            return ResponseEntity.ok("OTA status: Missing OTA address in parameter management (server.ota)");
         }
-        return ResponseEntity.ok("OTAInterface runningNormal，websocketCluster count：" + wsUrl.split(";").length);
+        return ResponseEntity.ok("OTA status: Running normally, WebSocket cluster count: " + wsUrl.split(";").length);
     }
 
     @SneakyThrows
@@ -106,17 +119,45 @@ public class OTAController {
     }
 
     /**
-     * SimpleDeterminemacAddressWhether valid（Non-Strict）
-     * 
-     * @param macAddress
-     * @return
+     * Determine whether MAC address or device ID is valid.
+     * Supports colon-separated (AA:BB:CC:DD:EE:FF), hyphen-separated (AA-BB-CC-DD-EE-FF),
+     * or raw 12-character hex (AABBCCDDEEFF).
      */
-    private boolean isMacAddressValid(String macAddress) {
+    public static boolean isMacAddressValid(String macAddress) {
         if (StringUtils.isBlank(macAddress)) {
             return false;
         }
-        // MACAddressUsuallyas12digit hexNumber，Can contain colon or hyphen separators
-        String macPattern = "^([0-9A-Za-z]{2}[:-]){5}([0-9A-Za-z]{2})$";
-        return macAddress.matches(macPattern);
+        String clean = macAddress.trim();
+        // 1. Standard colon or hyphen delimited: AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF
+        String delimitedPattern = "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$";
+        if (clean.matches(delimitedPattern)) {
+            return true;
+        }
+        // 2. Raw 12-char hex: AABBCCDDEEFF or aabbccddeeff
+        String rawPattern = "^[0-9A-Fa-f]{12}$";
+        if (clean.matches(rawPattern)) {
+            return true;
+        }
+        // 3. Fallback for UUIDs or custom ESP32 client IDs (alphanumeric with hyphens/colons)
+        return clean.length() >= 6 && clean.matches("^[0-9A-Za-z:_-]{6,64}$");
+    }
+
+    /**
+     * Normalize MAC address to uppercase colon-delimited format (AA:BB:CC:DD:EE:FF).
+     */
+    public static String normalizeMacAddress(String macAddress) {
+        if (StringUtils.isBlank(macAddress)) {
+            return macAddress;
+        }
+        String clean = macAddress.trim().replaceAll("[:-]", "").toUpperCase();
+        if (clean.matches("^[0-9A-F]{12}$")) {
+            StringBuilder sb = new StringBuilder(17);
+            for (int i = 0; i < 12; i += 2) {
+                if (i > 0) sb.append(':');
+                sb.append(clean, i, i + 2);
+            }
+            return sb.toString();
+        }
+        return macAddress.trim().toUpperCase();
     }
 }

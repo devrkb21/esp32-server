@@ -279,7 +279,10 @@ class ConnectionHandler:
         """Save memory and close connection"""
         try:
             # Daemon thread 1: Generate title independently (independent of memory model)
-            if self.session_id:
+            # Only trigger title generation when server chat_history reporting is enabled;
+            # otherwise server cannot look up corresponding agent/chat_history by session_id,
+            # which throws an "Agent not found" error
+            if self.session_id and getattr(self, "chat_history_conf", None) != 0:
                 def generate_title_task():
                     try:
                         loop = asyncio.new_event_loop()

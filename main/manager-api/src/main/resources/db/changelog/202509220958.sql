@@ -15,5 +15,5 @@ UPDATE `ai_model_config` SET
 - max_tokens: Max OutputtokenCount, Default2048
 - top_p: Core sampling parameter, Controls vocabulary diversity, Default1.0
 - frequency_penalty: Frequency Penalty, Reduces repeated content, Default0.0
-4. Each model corresponds to eachapi_password,Check model settings when changing modelsapi_password。
+4. Each model corresponds to eachapi_password,Check model settings when changing modelsapi_password.
 ' WHERE `id` = 'LLM_XunfeiSparkLLM';

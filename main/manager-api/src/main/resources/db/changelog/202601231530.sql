@@ -57,20 +57,20 @@ UPDATE `ai_model_config` SET
 5. Connection Reuse: EnableWebSocketConnection Reuse, DefaulttrueReduce connection overhead (Note: When reused, idle connections when the device is listening will consume concurrency quota) 
 
 Detailed documentation:https://www.volcengine.com/docs/6561/1329505
-【audio_params】Audio output configuration - Users can customize and add any audio parameters supported by Volcengine
+[audio_params]Audio output configuration - Users can customize and add any audio parameters supported by Volcengine
 - speech_rate: Speech Rate(-50~100), Default0
 - loudness_rate: Volume(-50~100), Default0
 - emotion: Emotion Type (Only partialVoiceSupports) , Optional Values: neutral, happy, sad, angry, fearful, disgusted, surprised
 - emotion_scale: Emotion Intensity(1~5), Default4
 Example: {"speech_rate": 10, "loudness_rate": 5, "emotion": "happy", "emotion_scale": 4}
 
-【additions】Advanced text processing configuration - Users can customize and add any advanced parameters supported by Volcengine
+[additions]Advanced text processing configuration - Users can customize and add any advanced parameters supported by Volcengine
 - post_process.pitch: Pitch(-12~12), Default0
 - aigc_metadata: AIGCMetadata configuration
 - cache_config: Cache Configuration
 Example: {"post_process": {"pitch": 2}, "aigc_metadata": {}, "cache_config": {}}
 
-【mix_speaker】Audio mixing control configuration - MultiVoiceMixed (Only TTS 1.0) 
+[mix_speaker]Audio mixing control configuration - MultiVoiceMixed (Only TTS 1.0) 
 Example: 
 {"speakers": [
 {"source_speaker": "zh_male_bvlazysheep","mix_factor": 0.3}, 
