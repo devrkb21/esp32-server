@@ -99,6 +99,7 @@ services:
       dockerfile: Dockerfile-mqtt
     container_name: xiaozhi-esp32-server-mqtt
     restart: always
+    command: ["node", "app.js"]
     depends_on:
       - xiaozhi-esp32-server
       - xiaozhi-esp32-server-web

@@ -7,7 +7,8 @@ RUN apk add --no-cache git python3 make g++ bash
 
 # Clone the official adapted repository
 RUN git clone --depth 1 https://github.com/xinnan-tech/xiaozhi-mqtt-gateway.git . \
-    && npm install --omit=dev
+    && npm install --omit=dev \
+    && ln -sf /app/app.js /app/index.js
 
 # Copy entrypoint script
 COPY docker-entrypoint-mqtt.sh /docker-entrypoint-mqtt.sh

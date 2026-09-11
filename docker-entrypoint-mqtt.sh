@@ -37,4 +37,16 @@ MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:-xiaozhi_mqtt_key}
 SERVER_SECRET=${SERVER_SECRET:-}
 EOF
 
+cd /app
+
+# Ensure index.js exists as symlink to app.js for backwards compatibility
+if [ -f /app/app.js ] && [ ! -f /app/index.js ]; then
+  ln -sf /app/app.js /app/index.js
+fi
+
+# If called with index.js, redirect to app.js
+if [ "$1" = "node" ] && [ "$2" = "index.js" ]; then
+  set -- node app.js
+fi
+
 exec "$@"
