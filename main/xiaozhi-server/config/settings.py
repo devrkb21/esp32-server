@@ -14,11 +14,30 @@ def check_config_file():
     """
     Simplified configuration check, notifying user about config file status
     """
-    custom_config_file = get_project_dir() + "data/." + default_config_file
+    project_dir = get_project_dir()
+    data_dir = os.path.join(project_dir, "data")
+    os.makedirs(data_dir, exist_ok=True)
+
+    custom_config_file = os.path.join(data_dir, "." + default_config_file)
     if not os.path.exists(custom_config_file):
-        raise FileNotFoundError(
-            "data/.config.yaml not found. Please confirm the configuration file exists as instructed."
-        )
+        template_file = os.path.join(project_dir, "config_from_api.yaml")
+        if os.path.exists(template_file):
+            import shutil
+            shutil.copyfile(template_file, custom_config_file)
+            print(f"Auto-generated default {custom_config_file} from config_from_api.yaml")
+        else:
+            with open(custom_config_file, "w", encoding="utf-8") as f:
+                f.write("""server:
+  ip: 0.0.0.0
+  port: 8000
+  http_port: 8003
+  vision_explain: http://YOUR_IP_OR_DOMAIN:PORT/mcp/vision/explain
+manager-api:
+  url: http://xiaozhi-esp32-server-web:8002/xiaozhi
+  secret: your_server_secret_value
+prompt_template: agent-base-prompt.txt
+""")
+            print(f"Auto-generated template {custom_config_file}")
 
     # Check if configuration is read from API
     config = asyncio.run(load_config())
