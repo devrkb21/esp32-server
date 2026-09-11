@@ -1,4 +1,5 @@
 import os
+import shutil
 import asyncio
 from config.config_loader import read_config, get_project_dir, load_config
 
@@ -22,19 +23,8 @@ def check_config_file():
     if not os.path.exists(custom_config_file):
         template_file = os.path.join(project_dir, "config_from_api.yaml")
         if os.path.exists(template_file):
-            with open(template_file, "r", encoding="utf-8") as f:
-                template_content = f.read()
-
-            env_secret = os.getenv("MANAGER_API_SECRET") or os.getenv("SERVER_SECRET")
-            env_url = os.getenv("MANAGER_API_URL")
-            if env_secret:
-                template_content = template_content.replace("your_server_secret_value", env_secret)
-            if env_url:
-                template_content = template_content.replace("http://xiaozhi-esp32-server-web:8002/xiaozhi", env_url)
-
-            with open(custom_config_file, "w", encoding="utf-8") as f:
-                f.write(template_content)
-            print(f"Auto-initialized {custom_config_file} from config_from_api.yaml")
+            shutil.copyfile(template_file, custom_config_file)
+            print(f"Copied {template_file} to {custom_config_file}")
 
     # Check if configuration is read from API
     config = asyncio.run(load_config())

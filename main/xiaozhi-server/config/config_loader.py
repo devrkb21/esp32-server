@@ -53,7 +53,7 @@ async def load_config():
             custom_config["manager-api"]["url"] = env_url
 
     api_secret = custom_config.get("manager-api", {}).get("secret", "")
-    if custom_config.get("manager-api", {}).get("url") and api_secret and api_secret != "YOUR_SERVER_SECRET_HERE":
+    if custom_config.get("manager-api", {}).get("url") and api_secret and not ("your" in api_secret.lower()):
         config = await get_config_from_api_async(custom_config)
     else:
         # Merge configurations
