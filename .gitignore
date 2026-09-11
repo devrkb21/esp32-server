@@ -156,7 +156,8 @@ cython_debug/
 tmp
 .history
 .DS_Store
-main/xiaozhi-server/data
+main/xiaozhi-server/data/*
+!main/xiaozhi-server/data/.gitkeep
 main/xiaozhi-server/.claude
 
 main/manager-web/node_modules
