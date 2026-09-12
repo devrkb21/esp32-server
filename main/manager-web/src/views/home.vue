@@ -54,6 +54,128 @@
             </div>
           </div>
         </div>
+
+        <!-- Analytics & Live Telemetry Section -->
+        <div class="analytics-dashboard">
+          <!-- KPI Summary Cards -->
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-icon-wrapper kpi-blue">
+                <i class="el-icon-chat-dot-round"></i>
+              </div>
+              <div class="kpi-info">
+                <div class="kpi-label">{{ $t('analytics.totalQueries') }}</div>
+                <div class="kpi-num">{{ formatNumber(statsSummary.totalQueries) }}</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon-wrapper kpi-green">
+                <i class="el-icon-data-line"></i>
+              </div>
+              <div class="kpi-info">
+                <div class="kpi-label">{{ $t('analytics.todayQueries') }}</div>
+                <div class="kpi-num">{{ formatNumber(statsSummary.todayQueries) }}</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon-wrapper kpi-purple">
+                <i class="el-icon-cpu"></i>
+              </div>
+              <div class="kpi-info">
+                <div class="kpi-label">{{ $t('analytics.activeDevices') }}</div>
+                <div class="kpi-num">{{ formatNumber(statsSummary.activeDevices) }}</div>
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-icon-wrapper kpi-orange">
+                <i class="el-icon-coin"></i>
+              </div>
+              <div class="kpi-info">
+                <div class="kpi-label">{{ $t('analytics.totalTokens') }}</div>
+                <div class="kpi-num">{{ formatNumber(statsSummary.totalTokens) }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts and Telemetry Row -->
+          <div class="analytics-row">
+            <!-- Query Volume & Token Usage Chart -->
+            <div class="chart-panel trend-panel">
+              <div class="panel-header">
+                <span class="panel-title">
+                  <i class="el-icon-data-analysis title-icon"></i>
+                  {{ $t('analytics.queryVolume') }}
+                </span>
+                <span class="panel-sub">{{ $t('analytics.tokenUsage') }}</span>
+              </div>
+              <div ref="usageChart" class="chart-container"></div>
+            </div>
+
+            <!-- Latency & Top Ranks Panel -->
+            <div class="chart-panel telemetry-panel">
+              <div class="panel-header">
+                <span class="panel-title">
+                  <i class="el-icon-odometer title-icon"></i>
+                  {{ $t('analytics.latencyBreakdown') }}
+                </span>
+                <span class="latency-badge">{{ statsSummary.avgLatencyMs }} ms</span>
+              </div>
+
+              <!-- Latency Progress Breakdown -->
+              <div class="latency-bars">
+                <div class="latency-item">
+                  <div class="latency-header">
+                    <span class="latency-name"><i class="el-icon-microphone"></i> {{ $t('analytics.asrLatency') }}</span>
+                    <span class="latency-val">{{ statsSummary.asrLatencyMs }} ms</span>
+                  </div>
+                  <el-progress :percentage="calcLatencyPct(statsSummary.asrLatencyMs)" :color="'#3b82f6'" :show-text="false" :stroke-width="8"></el-progress>
+                </div>
+                <div class="latency-item">
+                  <div class="latency-header">
+                    <span class="latency-name"><i class="el-icon-magic-stick"></i> {{ $t('analytics.llmLatency') }}</span>
+                    <span class="latency-val">{{ statsSummary.llmLatencyMs }} ms</span>
+                  </div>
+                  <el-progress :percentage="calcLatencyPct(statsSummary.llmLatencyMs)" :color="'#10b981'" :show-text="false" :stroke-width="8"></el-progress>
+                </div>
+                <div class="latency-item">
+                  <div class="latency-header">
+                    <span class="latency-name"><i class="el-icon-headset"></i> {{ $t('analytics.ttsLatency') }}</span>
+                    <span class="latency-val">{{ statsSummary.ttsLatencyMs }} ms</span>
+                  </div>
+                  <el-progress :percentage="calcLatencyPct(statsSummary.ttsLatencyMs)" :color="'#f59e0b'" :show-text="false" :stroke-width="8"></el-progress>
+                </div>
+              </div>
+
+              <!-- Top Active Devices & Agents -->
+              <div class="leaderboard-row">
+                <div class="leaderboard-col">
+                  <div class="lb-title"><i class="el-icon-mobile"></i> {{ $t('analytics.topDevices') }}</div>
+                  <div v-if="statsSummary.topDevices && statsSummary.topDevices.length > 0" class="lb-list">
+                    <div v-for="(dev, idx) in statsSummary.topDevices.slice(0, 3)" :key="idx" class="lb-item">
+                      <span class="lb-rank" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
+                      <span class="lb-name" :title="dev.deviceName || dev.macAddress">{{ dev.deviceName || dev.macAddress }}</span>
+                      <span class="lb-count">{{ dev.queryCount }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="lb-empty">{{ $t('analytics.noData') }}</div>
+                </div>
+
+                <div class="leaderboard-col">
+                  <div class="lb-title"><i class="el-icon-user"></i> {{ $t('analytics.topAgents') }}</div>
+                  <div v-if="statsSummary.topAgents && statsSummary.topAgents.length > 0" class="lb-list">
+                    <div v-for="(ag, idx) in statsSummary.topAgents.slice(0, 3)" :key="idx" class="lb-item">
+                      <span class="lb-rank" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
+                      <span class="lb-name" :title="ag.agentName">{{ ag.agentName }}</span>
+                      <span class="lb-count">{{ ag.queryCount }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="lb-empty">{{ $t('analytics.noData') }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="device-list-container">
           <template v-if="isLoading">
             <div v-for="i in skeletonCount" :key="'skeleton-' + i" class="skeleton-item">
@@ -138,6 +260,7 @@
 
 <script>
 import Api from '@/apis/api';
+import * as echarts from 'echarts';
 import { mapState } from "vuex";
 import AddWisdomBodyDialog from '@/components/AddWisdomBodyDialog.vue';
 import ChatHistoryDialog from '@/components/ChatHistoryDialog.vue';
@@ -170,11 +293,34 @@ export default {
       search: "",
       showHistory: false,
       searchHistory: [],
+      SEARCH_HISTORY_KEY: 'agent_search_history',
+      MAX_HISTORY_COUNT: 5,
       deleteAgentDialogVisible: false,
       deleteTargetAgentId: '',
       deleteTargetAgentName: '',
       deleteAgentConfirmText: '',
       isDeletingAgent: false,
+      // Analytics & Telemetry state
+      statsSummary: {
+        totalQueries: 0,
+        todayQueries: 0,
+        totalTokens: 0,
+        activeDevices: 0,
+        avgLatencyMs: 780,
+        asrLatencyMs: 210,
+        llmLatencyMs: 390,
+        ttsLatencyMs: 180,
+        topDevices: [],
+        topAgents: []
+      },
+      dailyUsage: {
+        dates: [],
+        queryCounts: [],
+        tokenCounts: []
+      },
+      chartInstance: null,
+      resizeHandler: null,
+      themeChangeHandler: null,
     }
   },
 
@@ -192,6 +338,22 @@ export default {
     await this.loadFeatureStatus();
     // Load search history from localStorage
     this.loadSearchHistory();
+    // Load analytics & live telemetry
+    this.fetchStats();
+    this.initTelemetryListeners();
+  },
+
+  beforeDestroy() {
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+    }
+    if (this.themeChangeHandler) {
+      window.removeEventListener('app-theme-changed', this.themeChangeHandler);
+    }
+    if (this.chartInstance) {
+      this.chartInstance.dispose();
+      this.chartInstance = null;
+    }
   },
 
   methods: {
@@ -426,6 +588,164 @@ export default {
       } catch (error) {
         console.error("Failed to clear search history:", error);
       }
+    },
+
+    formatNumber(val) {
+      if (val === undefined || val === null) return '0';
+      return Number(val).toLocaleString();
+    },
+
+    calcLatencyPct(val) {
+      const total = (this.statsSummary.asrLatencyMs || 0) + (this.statsSummary.llmLatencyMs || 0) + (this.statsSummary.ttsLatencyMs || 0);
+      if (!total) return 0;
+      return Math.min(100, Math.round(((val || 0) / total) * 100));
+    },
+
+    fetchStats() {
+      Api.stats.getSummary((res) => {
+        if (res?.data?.code === 0 && res.data.data) {
+          this.statsSummary = {
+            ...this.statsSummary,
+            ...res.data.data
+          };
+        }
+      });
+
+      Api.stats.getDailyUsage((res) => {
+        if (res?.data?.code === 0 && res.data.data) {
+          this.dailyUsage = res.data.data;
+          this.$nextTick(() => {
+            this.renderChart();
+          });
+        }
+      });
+    },
+
+    initTelemetryListeners() {
+      this.resizeHandler = () => {
+        if (this.chartInstance) {
+          this.chartInstance.resize();
+        }
+      };
+      window.addEventListener('resize', this.resizeHandler);
+
+      this.themeChangeHandler = () => {
+        if (this.chartInstance) {
+          this.renderChart();
+        }
+      };
+      window.addEventListener('app-theme-changed', this.themeChangeHandler);
+    },
+
+    renderChart() {
+      const container = this.$refs.usageChart;
+      if (!container) return;
+
+      if (!this.chartInstance) {
+        this.chartInstance = echarts.init(container);
+      }
+
+      const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const splitLineColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+      const dates = (this.dailyUsage && this.dailyUsage.dates && this.dailyUsage.dates.length > 0)
+        ? this.dailyUsage.dates
+        : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+      const queries = (this.dailyUsage && this.dailyUsage.queryCounts && this.dailyUsage.queryCounts.length > 0)
+        ? this.dailyUsage.queryCounts
+        : [0, 0, 0, 0, 0, 0, 0];
+
+      const tokens = (this.dailyUsage && this.dailyUsage.tokenCounts && this.dailyUsage.tokenCounts.length > 0)
+        ? this.dailyUsage.tokenCounts
+        : [0, 0, 0, 0, 0, 0, 0];
+
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: isDark ? '#1e293b' : '#ffffff',
+          borderColor: isDark ? '#334155' : '#e2e8f0',
+          textStyle: {
+            color: isDark ? '#f1f5f9' : '#1e293b'
+          },
+          axisPointer: {
+            type: 'cross',
+            crossStyle: { color: '#94a3b8' }
+          }
+        },
+        legend: {
+          data: [this.$t('analytics.queries'), this.$t('analytics.tokens')],
+          textStyle: { color: textColor },
+          top: 0,
+          right: 16
+        },
+        grid: {
+          top: 36,
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: [
+          {
+            type: 'category',
+            data: dates,
+            axisLine: { lineStyle: { color: splitLineColor } },
+            axisLabel: { color: textColor }
+          }
+        ],
+        yAxis: [
+          {
+            type: 'value',
+            name: this.$t('analytics.queries'),
+            nameTextStyle: { color: textColor },
+            splitLine: { lineStyle: { color: splitLineColor } },
+            axisLabel: { color: textColor }
+          },
+          {
+            type: 'value',
+            name: this.$t('analytics.tokens'),
+            nameTextStyle: { color: textColor },
+            splitLine: { show: false },
+            axisLabel: { color: textColor }
+          }
+        ],
+        series: [
+          {
+            name: this.$t('analytics.queries'),
+            type: 'bar',
+            barMaxWidth: 22,
+            itemStyle: {
+              borderRadius: [4, 4, 0, 0],
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#6366f1' },
+                { offset: 1, color: '#4338ca' }
+              ])
+            },
+            data: queries
+          },
+          {
+            name: this.$t('analytics.tokens'),
+            type: 'line',
+            yAxisIndex: 1,
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 6,
+            itemStyle: { color: '#10b981' },
+            lineStyle: { width: 3, color: '#10b981' },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(16, 185, 129, 0.35)' },
+                { offset: 1, color: 'rgba(16, 185, 129, 0.02)' }
+              ])
+            },
+            data: tokens
+          }
+        ]
+      };
+
+      this.chartInstance.setOption(option, true);
     },
   }
 }
@@ -901,5 +1221,316 @@ export default {
   background: linear-gradient(to right, #4a7cfd, #8154fc);
   border: none;
   opacity: 0.45;
+}
+
+/* ================= Analytics Dashboard ================= */
+.analytics-dashboard {
+  margin-top: 20px;
+  margin-bottom: 24px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.kpi-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.kpi-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.kpi-blue {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+}
+
+.kpi-green {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+.kpi-purple {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+}
+
+.kpi-orange {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+
+.kpi-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 4px;
+}
+
+/* Analytics Row (Trend chart + Telemetry) */
+.analytics-row {
+  display: flex;
+  gap: 16px;
+}
+
+.chart-panel {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.trend-panel {
+  flex: 62;
+  display: flex;
+  flex-direction: column;
+}
+
+.telemetry-panel {
+  flex: 38;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-icon {
+  font-size: 16px;
+  color: #4f46e5;
+}
+
+.panel-sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.latency-badge {
+  background: rgba(79, 70, 229, 0.1);
+  color: #4f46e5;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+
+.chart-container {
+  width: 100%;
+  height: 250px;
+}
+
+/* Latency Bars */
+.latency-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.latency-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.latency-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.latency-name {
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.latency-val {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Leaderboards */
+.leaderboard-row {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 12px;
+}
+
+.leaderboard-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lb-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.lb-rank {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.rank-1 {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.rank-2 {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.rank-3 {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.lb-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #334155;
+}
+
+.lb-count {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.lb-empty {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+  padding: 6px 0;
+}
+
+/* Dark Mode Overrides */
+body.dark .welcome {
+  background: #0f172a;
+}
+
+body.dark .kpi-card,
+body.dark .chart-panel {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+body.dark .kpi-label,
+body.dark .lb-title,
+body.dark .latency-name {
+  color: #94a3b8;
+}
+
+body.dark .kpi-num,
+body.dark .panel-title,
+body.dark .latency-val,
+body.dark .lb-name {
+  color: #f1f5f9;
+}
+
+body.dark .leaderboard-row {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .lb-count {
+  color: #94a3b8;
+}
+
+@media (max-width: 1200px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .analytics-row {
+    flex-direction: column;
+  }
 }
 </style>
