@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { t } from '@/i18n'
+import BleConfig from './components/ble-config.vue'
 import UltrasonicConfig from './components/ultrasonic-config.vue'
 import WifiConfig from './components/wifi-config.vue'
 import WifiSelector from './components/wifi-selector.vue'
@@ -14,7 +15,7 @@ interface WiFiNetwork {
 }
 
 // Provisioning type
-const configType = ref<'wifi' | 'ultrasonic'>('wifi')
+const configType = ref<'wifi' | 'ble' | 'ultrasonic'>('wifi')
 
 // Provisioning mode selector state
 const configTypeSelectorShow = ref(false)
@@ -32,16 +33,25 @@ const selectedWifiInfo = ref<{
 })
 
 // Provisioning mode options
-const configTypeOptions = [
+const configTypeOptions = computed(() => [
   {
     name: t('deviceConfig.wifiConfig'),
     value: 'wifi' as const,
   },
-  // {
-  //   name: t('deviceConfig.ultrasonicConfig'),
-  //   value: 'ultrasonic' as const,
-  // },
-]
+  {
+    name: t('deviceConfig.bleConfig'),
+    value: 'ble' as const,
+  },
+  {
+    name: t('deviceConfig.ultrasonicConfig'),
+    value: 'ultrasonic' as const,
+  },
+])
+
+const currentConfigTypeName = computed(() => {
+  const found = configTypeOptions.value.find(item => item.value === configType.value)
+  return found ? found.name : t('deviceConfig.wifiConfig')
+})
 
 // Show provisioning mode selector
 function showConfigTypeSelector() {
@@ -49,7 +59,7 @@ function showConfigTypeSelector() {
 }
 
 // Confirm provisioning mode selector
-function onConfigTypeConfirm(item: { name: string, value: 'wifi' | 'ultrasonic' }) {
+function onConfigTypeConfirm(item: { name: string, value: 'wifi' | 'ble' | 'ultrasonic' }) {
   configType.value = item.value
   configTypeSelectorShow.value = false
 }
@@ -94,7 +104,7 @@ onMounted(() => {
             {{ t('deviceConfig.configMethod') }}
           </text>
           <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ configType === 'wifi' ? t('deviceConfig.wifiConfig') : t('deviceConfig.ultrasonicConfig') }}
+            {{ currentConfigTypeName }}
           </text>
           <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
         </view>
@@ -116,10 +126,17 @@ onMounted(() => {
       </view>
 
       <!-- Provisioning actions -->
-      <view v-if="selectedWifiInfo.network" class="flex-1">
+      <view v-if="selectedWifiInfo.network && selectedWifiInfo.network.ssid" class="flex-1">
         <!-- WiFi provisioning component -->
         <wifi-config
           v-if="configType === 'wifi'"
+          :selected-network="selectedWifiInfo.network"
+          :password="selectedWifiInfo.password"
+        />
+
+        <!-- BLE provisioning component -->
+        <ble-config
+          v-else-if="configType === 'ble'"
           :selected-network="selectedWifiInfo.network"
           :password="selectedWifiInfo.password"
         />
