@@ -27,6 +27,10 @@ export default {
   'header.changePassword': 'Change Password',
   'header.logout': 'Logout',
   'header.searchPlaceholder': 'Name, tag or MAC search',
+  'header.darkTheme': 'Switch to Dark Mode',
+  'header.lightTheme': 'Switch to Light Mode',
+  'header.darkThemeActive': 'Dark Mode activated',
+  'header.lightThemeActive': 'Light Mode activated',
 
   // McpToolCallDialog component text
   'mcpToolCall.title': 'Tool Call',
@@ -746,6 +750,25 @@ export default {
   'home.deleteFailed': 'Delete failed',
   'home.enableMemory': 'Please enable memory in the "Config Role" page first',
 
+  // Analytics Dashboard
+  'analytics.dashboardTitle': 'Platform Analytics & Live Telemetry',
+  'analytics.totalQueries': 'Total Voice Queries',
+  'analytics.todayQueries': "Today's Queries",
+  'analytics.activeDevices': 'Online Devices',
+  'analytics.totalTokens': 'Estimated Tokens',
+  'analytics.queryVolume': 'Voice Query Volume (7 Days)',
+  'analytics.tokenUsage': 'Token Consumption Trend',
+  'analytics.latencyBreakdown': 'Model Latency Breakdown',
+  'analytics.avgLatency': 'Average Roundtrip',
+  'analytics.asrLatency': 'ASR Speech Recognition',
+  'analytics.llmLatency': 'LLM Inference',
+  'analytics.ttsLatency': 'TTS Audio Synthesis',
+  'analytics.topDevices': 'Most Active Devices',
+  'analytics.topAgents': 'Most Active Agents',
+  'analytics.noData': 'No activity recorded yet',
+  'analytics.queries': 'Queries',
+  'analytics.tokens': 'Tokens',
+
   // Parameter management page text
   'paramManagement.pageTitle': 'Parameter Management',
   'paramManagement.searchPlaceholder': 'Please enter parameter code or remark to search',
@@ -1051,6 +1074,15 @@ export default {
   'functionDialog.copyFailed': 'Copy failed, please copy manually',
   'functionDialog.jsonFormatError': ' field format error: invalid JSON format',
   'functionDialog.defaultValue': 'Default Value',
+  'functionDialog.smartHomeGuide': 'Smart Home Voice Control (Bengali & English)',
+  'functionDialog.smartHomeGuideDesc': 'Control smart devices naturally by speaking in Bengali or English. Click below to insert sample devices.',
+  'functionDialog.addLight': 'Light',
+  'functionDialog.addFan': 'Fan',
+  'functionDialog.addClimate': 'AC / Climate',
+  'functionDialog.addSwitch': 'Switch',
+  'functionDialog.addLock': 'Door Lock',
+  'functionDialog.sampleCommands': 'Sample Voice Commands',
+
 
   // Model Configuration Page Text
   'modelConfig.searchPlaceholder': 'Please enter model name to search',

@@ -27,6 +27,10 @@ export default {
   'header.changePassword': 'Đổi mật khẩu',
   'header.logout': 'Đăng xuất',
   'header.searchPlaceholder': 'Tên, thẻ hoặc tìm kiếm mac',
+  'header.darkTheme': 'Chuyển sang chế độ tối',
+  'header.lightTheme': 'Chuyển sang chế độ sáng',
+  'header.darkThemeActive': 'Đã kích hoạt chế độ tối',
+  'header.lightThemeActive': 'Đã kích hoạt chế độ sáng',
 
   // McpToolCallDialog component text
   'mcpToolCall.title': 'Gọi công cụ',
@@ -744,7 +748,26 @@ export default {
   'home.deleteAgentMissingInfo': 'Không thể xác nhận thông tin tác nhân. Vui lòng tải lại rồi thử lại.',
   'home.deleteSuccess': 'Xóa thành công',
   'home.deleteFailed': 'Xóa thất bại',
-  'home.enableMemory': 'Vui lòng bật bộ nhớ trong trang \"Cấu hình vai trò\" trước',
+  'home.enableMemory': 'Vui lòng bật bộ nhớ trong trang "Cấu hình vai trò" trước',
+
+  // Analytics Dashboard
+  'analytics.dashboardTitle': 'Phân tích nền tảng & Đo từ xa trực tiếp',
+  'analytics.totalQueries': 'Tổng số truy vấn giọng nói',
+  'analytics.todayQueries': 'Truy vấn hôm nay',
+  'analytics.activeDevices': 'Thiết bị trực tuyến',
+  'analytics.totalTokens': 'Số token ước tính',
+  'analytics.queryVolume': 'Khối lượng truy vấn (7 ngày)',
+  'analytics.tokenUsage': 'Xu hướng tiêu thụ token',
+  'analytics.latencyBreakdown': 'Phân tích độ trễ mô hình',
+  'analytics.avgLatency': 'Độ trễ khứ hồi trung bình',
+  'analytics.asrLatency': 'Nhận dạng giọng nói ASR',
+  'analytics.llmLatency': 'Suy luận LLM',
+  'analytics.ttsLatency': 'Tổng hợp âm thanh TTS',
+  'analytics.topDevices': 'Thiết bị hoạt động nhiều nhất',
+  'analytics.topAgents': 'Tác nhân hoạt động nhiều nhất',
+  'analytics.noData': 'Chưa có hoạt động nào được ghi lại',
+  'analytics.queries': 'Truy vấn',
+  'analytics.tokens': 'Token',
 
   // Parameter management page text
   'paramManagement.pageTitle': 'Quản lý tham số',
@@ -1051,6 +1074,15 @@ export default {
   'functionDialog.copyFailed': 'Sao chép thất bại, vui lòng sao chép thủ công',
   'functionDialog.jsonFormatError': ' lỗi định dạng trường: định dạng JSON không hợp lệ',
   'functionDialog.defaultValue': 'Giá trị mặc định',
+  'functionDialog.smartHomeGuide': 'Điều khiển nhà thông minh bằng giọng nói (Bengali & Tiếng Anh)',
+  'functionDialog.smartHomeGuideDesc': 'Điều khiển thiết bị thông minh bằng giọng nói tiếng Bengali hoặc tiếng Anh. Nhấp bên dưới để chèn thiết bị mẫu.',
+  'functionDialog.addLight': 'Đèn',
+  'functionDialog.addFan': 'Quạt',
+  'functionDialog.addClimate': 'Điều hòa',
+  'functionDialog.addSwitch': 'Công tắc',
+  'functionDialog.addLock': 'Khóa cửa',
+  'functionDialog.sampleCommands': 'Lệnh thoại mẫu',
+
 
   // Model Configuration Page Text
   'modelConfig.searchPlaceholder': 'Vui lòng nhập tên mô hình để tìm kiếm',

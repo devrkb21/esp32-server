@@ -365,19 +365,27 @@ public class ConfigServiceImpl implements ConfigService {
             voiceprintConfig.put("url", voiceprintUrl);
             voiceprintConfig.put("speakers", speakers);
 
-            // Get voiceprint recognition similarity threshold，Default0.4
+            // Get voiceprint recognition similarity threshold, default 0.70 (70% confidence)
             String thresholdStr = sysParamsService.getValue("server.voiceprint_similarity_threshold", true);
+            double threshold = 0.70;
             if (StringUtils.isNotBlank(thresholdStr) && !"null".equals(thresholdStr)) {
                 try {
-                    double threshold = Double.parseDouble(thresholdStr);
-                    voiceprintConfig.put("similarity_threshold", threshold);
+                    threshold = Double.parseDouble(thresholdStr);
                 } catch (NumberFormatException e) {
-                    // If parsedFail，UseDefault value0.4
-                    voiceprintConfig.put("similarity_threshold", 0.4);
+                    threshold = 0.70;
                 }
-            } else {
-                voiceprintConfig.put("similarity_threshold", 0.4);
             }
+            voiceprintConfig.put("similarity_threshold", threshold);
+
+            // Require voice match for smart home commands
+            String reqSmarthomeStr = sysParamsService.getValue("server.voiceprint_require_smarthome", true);
+            boolean requireSmarthome = "true".equalsIgnoreCase(reqSmarthomeStr) || "1".equals(reqSmarthomeStr);
+            voiceprintConfig.put("require_voice_match_smart_home", requireSmarthome);
+
+            // Admin speaker only policy for sensitive actions
+            String adminOnlyStr = sysParamsService.getValue("server.voiceprint_admin_only", true);
+            boolean adminOnly = "true".equalsIgnoreCase(adminOnlyStr) || "1".equals(adminOnlyStr);
+            voiceprintConfig.put("admin_speaker_only", adminOnly);
 
             result.put("voiceprint", voiceprintConfig);
         } catch (Exception e) {

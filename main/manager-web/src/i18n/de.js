@@ -27,6 +27,10 @@ export default {
   'header.changePassword': 'Passwort ändern',
   'header.logout': 'Abmelden',
   'header.searchPlaceholder': 'Name, Tag oder Mac-Suche',
+  'header.darkTheme': 'Zu dunklem Modus wechseln',
+  'header.lightTheme': 'Zu hellem Modus wechseln',
+  'header.darkThemeActive': 'Dunkler Modus aktiviert',
+  'header.lightThemeActive': 'Heller Modus aktiviert',
 
   // McpToolCallDialog component text
   'mcpToolCall.title': 'Werkzeugaufruf',
@@ -746,6 +750,25 @@ export default {
   'home.deleteFailed': 'Löschen fehlgeschlagen',
   'home.enableMemory': 'Bitte aktivieren Sie zuerst den Speicher auf der \"Rolle konfigurieren\" Seite',
 
+  // Analytics Dashboard
+  'analytics.dashboardTitle': 'Plattform-Analytik & Live-Telemetrie',
+  'analytics.totalQueries': 'Gesamte Sprachabfragen',
+  'analytics.todayQueries': 'Heutige Abfragen',
+  'analytics.activeDevices': 'Online-Geräte',
+  'analytics.totalTokens': 'Geschätzte Tokens',
+  'analytics.queryVolume': 'Sprachabfragevolumen (7 Tage)',
+  'analytics.tokenUsage': 'Token-Verbrauchstrend',
+  'analytics.latencyBreakdown': 'Modell-Latenzaufteilung',
+  'analytics.avgLatency': 'Durchschnittliche Gesamtlatenz',
+  'analytics.asrLatency': 'ASR-Spracherkennung',
+  'analytics.llmLatency': 'LLM-Inferenz',
+  'analytics.ttsLatency': 'TTS-Audiosynthese',
+  'analytics.topDevices': 'Aktivste Geräte',
+  'analytics.topAgents': 'Aktivste Agenten',
+  'analytics.noData': 'Noch keine Aktivität erfasst',
+  'analytics.queries': 'Abfragen',
+  'analytics.tokens': 'Tokens',
+
   // Parameter management page text
   'paramManagement.pageTitle': 'Parameterverwaltung',
   'paramManagement.searchPlaceholder': 'Bitte Parameter-Code oder Bemerkung zur Suche eingeben',
@@ -1051,6 +1074,15 @@ export default {
   'functionDialog.copyFailed': 'Kopieren fehlgeschlagen, bitte manuell kopieren',
   'functionDialog.jsonFormatError': ' Feldformatfehler: ungültiges JSON-Format',
   'functionDialog.defaultValue': 'Standardwert',
+  'functionDialog.smartHomeGuide': 'Smart Home Sprachsteuerung (Bengali & Englisch)',
+  'functionDialog.smartHomeGuideDesc': 'Steuern Sie intelligente Geräte natürlich auf Bengali oder Englisch. Klicken Sie unten, um Beispielgeräte einzufügen.',
+  'functionDialog.addLight': 'Licht',
+  'functionDialog.addFan': 'Lüfter',
+  'functionDialog.addClimate': 'Klimaanlage',
+  'functionDialog.addSwitch': 'Schalter',
+  'functionDialog.addLock': 'Türschloss',
+  'functionDialog.sampleCommands': 'Beispiel-Sprachbefehle',
+
 
   // Model Configuration Page Text
   'modelConfig.searchPlaceholder': 'Bitte Modellnamen zur Suche eingeben',
