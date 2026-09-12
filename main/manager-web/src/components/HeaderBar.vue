@@ -156,6 +156,13 @@
 
       <!-- Right Elements -->
       <div class="header-right">
+        <!-- Theme Toggle Button -->
+        <el-tooltip :content="isDarkMode ? ($t('header.lightTheme') || 'Switch to Light Mode') : ($t('header.darkTheme') || 'Switch to Dark Mode')" placement="bottom">
+          <div class="theme-toggle-btn" @click="handleToggleTheme">
+            <i :class="isDarkMode ? 'el-icon-sunny' : 'el-icon-moon'"></i>
+          </div>
+        </el-tooltip>
+
         <img loading="lazy" alt="" src="@/assets/home/avatar.png" class="avatar-img" @click="handleAvatarClick" />
         <span class="el-user-dropdown" @click="handleAvatarClick">
           {{ userInfo.username || "Loading..." }}
@@ -179,6 +186,7 @@
 <script>
 import i18n, { changeLanguage } from "@/i18n";
 import featureManager from "@/utils/featureManager"; // Feature manager utility
+import { isDark, toggleTheme } from "@/utils/theme";
 import { mapActions, mapState } from "vuex";
 import ChangePasswordDialog from "./ChangePasswordDialog.vue"; // Change password dialog component
 
@@ -191,6 +199,8 @@ export default {
   data() {
     return {
       search: "",
+      isDarkMode: isDark(),
+      themeListener: null,
       isChangePasswordDialogVisible: false, // Control change password dialog visibility
       paramDropdownVisible: false,
       voiceCloneDropdownVisible: false,
@@ -323,8 +333,27 @@ export default {
   async mounted() {
     // Wait for featureManager initialization before loading feature status
     await this.loadFeatureStatus();
+    this.themeListener = (e) => {
+      this.isDarkMode = e.detail?.theme === 'dark';
+    };
+    window.addEventListener('app-theme-changed', this.themeListener);
+  },
+  beforeDestroy() {
+    if (this.themeListener) {
+      window.removeEventListener('app-theme-changed', this.themeListener);
+    }
   },
   methods: {
+    handleToggleTheme() {
+      const next = toggleTheme();
+      this.isDarkMode = next === 'dark';
+      this.$message.success({
+        message: this.isDarkMode
+          ? (this.$t("header.darkThemeActive") || "Dark Mode activated")
+          : (this.$t("header.lightThemeActive") || "Light Mode activated"),
+        duration: 1500
+      });
+    },
     handleRouter(type) {
       this.$router.push(this.routerPaths[type]);
     },
