@@ -18,6 +18,25 @@ test('keeps normal voice previews on their direct URL', async () => {
   assert.equal(cloneRequestCount, 0)
 })
 
+test('resolves relative voice-demos to static bundled path', async () => {
+  const url = await resolveVoicePreviewUrl({
+    id: 'TTS_EdgeTTS0001',
+    isClone: false,
+    voiceDemo: '/voice-demos/en-US-JennyNeural.mp3',
+  }, async () => 'unused', 'https://api.example.test')
+
+  assert.equal(url, '/static/voice-demos/en-US-JennyNeural.mp3')
+})
+
+test('resolves voice key fallback to static bundled path', async () => {
+  const url = await resolveVoicePreviewUrl({
+    id: 'bn-BD-NabanitaNeural',
+    isClone: false,
+  }, async () => 'unused', 'https://api.example.test')
+
+  assert.equal(url, '/static/voice-demos/bn-BD-NabanitaNeural.mp3')
+})
+
 test('uses the clone record id to obtain and construct a temporary play URL', async () => {
   let requestedCloneId = ''
   const url = await resolveVoicePreviewUrl({
