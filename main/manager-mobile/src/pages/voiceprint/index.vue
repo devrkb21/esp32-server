@@ -1,9 +1,18 @@
 <script lang="ts" setup>
-import type { ChatHistory, CreateSpeakerData, VoicePrint } from '@/api/voiceprint'
+import type { ChatHistory, CreateSpeakerData, VoicePrint, VoiceprintSecurityConfig } from '@/api/voiceprint'
 import { computed, onMounted, ref } from 'vue'
 import { useMessage } from 'wot-design-uni/components/wd-message-box'
 import { useToast } from 'wot-design-uni/components/wd-toast'
-import { createVoicePrint, deleteVoicePrint, getAudioDownloadId, getChatHistory, getVoicePrintList, updateVoicePrint } from '@/api/voiceprint'
+import {
+  createVoicePrint,
+  deleteVoicePrint,
+  getAudioDownloadId,
+  getChatHistory,
+  getVoicePrintList,
+  getVoiceprintSecurity,
+  updateVoicePrint,
+  updateVoiceprintSecurity,
+} from '@/api/voiceprint'
 import { t } from '@/i18n'
 import { getEnvBaseUrl } from '@/utils'
 
@@ -81,6 +90,51 @@ const editForm = ref<VoicePrint>({
   introduce: '',
   createDate: '',
 })
+
+// Voiceprint Security policy state
+const securityConfig = ref<VoiceprintSecurityConfig>({
+  confidenceThreshold: 0.70,
+  requireVoiceMatchSmartHome: false,
+  adminSpeakerOnly: true,
+})
+const confidencePercent = ref<number>(70)
+const isSavingSecurity = ref<boolean>(false)
+
+async function loadSecuritySettings() {
+  try {
+    const data = await getVoiceprintSecurity()
+    if (data) {
+      securityConfig.value = {
+        confidenceThreshold: data.confidenceThreshold ?? 0.70,
+        requireVoiceMatchSmartHome: !!data.requireVoiceMatchSmartHome,
+        adminSpeakerOnly: !!data.adminSpeakerOnly,
+      }
+      confidencePercent.value = Math.round((data.confidenceThreshold ?? 0.70) * 100)
+    }
+  }
+  catch (error) {
+    console.error('Failed to load voiceprint security settings:', error)
+  }
+}
+
+async function saveSecuritySettings() {
+  isSavingSecurity.value = true
+  try {
+    await updateVoiceprintSecurity({
+      confidenceThreshold: Number((confidencePercent.value / 100).toFixed(2)),
+      requireVoiceMatchSmartHome: securityConfig.value.requireVoiceMatchSmartHome,
+      adminSpeakerOnly: securityConfig.value.adminSpeakerOnly,
+    })
+    toast.success(t('voiceprint.securitySaved'))
+  }
+  catch (error) {
+    console.error('Failed to update voiceprint security settings:', error)
+    toast.error(t('voiceprint.securitySaveFailed'))
+  }
+  finally {
+    isSavingSecurity.value = false
+  }
+}
 
 // Get voiceprint list
 async function loadVoicePrintList() {
@@ -365,7 +419,7 @@ watch(() => [showAddDialog.value, showEditDialog.value], (newValues) => {
 
 onMounted(async () => {
   // Agent simplified to default
-
+  loadSecuritySettings()
   loadVoicePrintList()
   loadChatHistory()
 })
@@ -380,6 +434,89 @@ defineExpose({
 
 <template>
   <view class="voiceprint-container" style="background: #f5f7fb; min-height: 100%;">
+    <!-- Voiceprint Security Settings Card -->
+    <view class="p-[20rpx_20rpx_0_20rpx]">
+      <view class="rounded-[20rpx] border border-[#e2e8f0] bg-white p-[28rpx] shadow-[0_4rpx_16rpx_rgba(0,0,0,0.04)]">
+        <view class="mb-[20rpx] flex items-center justify-between">
+          <view class="flex items-center gap-[12rpx]">
+            <wd-icon name="lock-on" size="20" color="#336cff" />
+            <text class="text-[30rpx] text-[#1e293b] font-bold">
+              {{ t('voiceprint.securitySettings') }}
+            </text>
+          </view>
+          <wd-button
+            size="small"
+            type="primary"
+            plain
+            :loading="isSavingSecurity"
+            class="!h-[56rpx] !rounded-[12rpx] !text-[24rpx]"
+            @click="saveSecuritySettings"
+          >
+            {{ t('voiceprint.saveSecurity') }}
+          </wd-button>
+        </view>
+
+        <text class="mb-[24rpx] block text-[24rpx] text-[#64748b] leading-[1.4]">
+          {{ t('voiceprint.securityDesc') }}
+        </text>
+
+        <!-- Require Voice Match for Smart Home Commands -->
+        <view class="mb-[20rpx] flex items-center justify-between rounded-[14rpx] bg-[#f8fafc] p-[20rpx_24rpx]">
+          <view class="flex-1 pr-[20rpx]">
+            <text class="block text-[26rpx] text-[#1e293b] font-semibold">
+              {{ t('voiceprint.requireSmartHome') }}
+            </text>
+            <text class="mt-[4rpx] block text-[22rpx] text-[#64748b]">
+              {{ t('voiceprint.requireSmartHomeDesc') }}
+            </text>
+          </view>
+          <wd-switch
+            v-model="securityConfig.requireVoiceMatchSmartHome"
+            size="22"
+          />
+        </view>
+
+        <!-- Admin Speaker Only for Sensitive Actions -->
+        <view class="mb-[24rpx] flex items-center justify-between rounded-[14rpx] bg-[#f8fafc] p-[20rpx_24rpx]">
+          <view class="flex-1 pr-[20rpx]">
+            <text class="block text-[26rpx] text-[#1e293b] font-semibold">
+              {{ t('voiceprint.adminSpeakerOnly') }}
+            </text>
+            <text class="mt-[4rpx] block text-[22rpx] text-[#64748b]">
+              {{ t('voiceprint.adminSpeakerOnlyDesc') }}
+            </text>
+          </view>
+          <wd-switch
+            v-model="securityConfig.adminSpeakerOnly"
+            size="22"
+          />
+        </view>
+
+        <!-- Confidence Threshold Slider -->
+        <view class="rounded-[14rpx] bg-[#f8fafc] p-[20rpx_24rpx]">
+          <view class="mb-[16rpx] flex items-center justify-between">
+            <text class="text-[26rpx] text-[#1e293b] font-semibold">
+              {{ t('voiceprint.confidenceThreshold') }}
+            </text>
+            <text class="rounded-[8rpx] bg-[#e6ebff] p-[4rpx_12rpx] text-[24rpx] text-[#336cff] font-bold">
+              {{ confidencePercent }}%
+            </text>
+          </view>
+          <wd-slider
+            v-model="confidencePercent"
+            :min="50"
+            :max="95"
+            :step="5"
+          />
+          <view class="mt-[12rpx] flex items-center justify-between text-[20rpx] text-[#94a3b8]">
+            <text>50% (Flexible)</text>
+            <text>70% (Default)</text>
+            <text>95% (Strict)</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <!-- Loading state -->
     <view v-if="loading && voicePrintList.length === 0" class="loading-container">
       <wd-loading color="#336cff" />

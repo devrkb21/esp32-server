@@ -1,3 +1,5 @@
+import io
+import wave
 import asyncio
 import time
 import aiohttp
@@ -195,4 +197,23 @@ class VoiceprintProvider:
             elapsed = time.monotonic() - api_start_time
             logger.bind(tag=TAG).error(f"Voiceprint identification failed: {e}")
             return None
+
+    def _pcm_to_wav(self, pcm_data: bytes, sample_rate: int = 16000) -> bytes:
+        """Convert raw PCM audio bytes to 16-bit mono WAV format."""
+        if not pcm_data:
+            return b""
+        if len(pcm_data) % 2 != 0:
+            pcm_data = pcm_data[:-1]
+        try:
+            wav_buffer = io.BytesIO()
+            with wave.open(wav_buffer, "wb") as wav_file:
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)
+                wav_file.setframerate(sample_rate)
+                wav_file.writeframes(pcm_data)
+            wav_buffer.seek(0)
+            return wav_buffer.read()
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"WAV conversion failed in VoiceprintProvider: {e}")
+            return b""
 

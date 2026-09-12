@@ -91,6 +91,13 @@ class ToolManager:
                     response=f"Executor for tool type {tool_type.value} is not registered",
                 )
 
+            # Speaker voiceprint security authorization check
+            from core.utils.voiceprint_security import verify_speaker_security
+            allowed, refusal = await verify_speaker_security(self.conn, tool_name, arguments)
+            if not allowed:
+                self.logger.warning(f"Voiceprint security blocked tool '{tool_name}': {refusal}")
+                return ActionResponse(action=Action.REQLLM, result=refusal, response=refusal)
+
             # Execute tool
             self.logger.info(f"Executing tool: {tool_name}, args: {arguments}")
             result = await executor.execute(self.conn, tool_name, arguments)
