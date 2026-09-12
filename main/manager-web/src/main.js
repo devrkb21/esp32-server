@@ -8,8 +8,13 @@ import store from './store';
 import i18n from './i18n';
 import locale from 'element-ui/lib/locale'
 import './styles/global.scss';
+import './styles/dark.scss';
 import { register as registerServiceWorker } from './registerServiceWorker';
 import featureManager from './utils/featureManager';
+import { initTheme } from './utils/theme';
+
+// Initialize dark/light theme
+initTheme();
 
 // Create event bus for inter-component communication
 Vue.prototype.$eventBus = new Vue();

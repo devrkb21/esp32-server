@@ -1,5 +1,8 @@
 <script lang="ts" setup>
 import type { ConfigProviderThemeVars } from 'wot-design-uni/components/wd-config-provider/types'
+import { useThemeStore } from '@/store/theme'
+
+const themeStore = useThemeStore()
 
 const themeVars: ConfigProviderThemeVars = {
   // colorTheme: 'red',
@@ -9,7 +12,7 @@ const themeVars: ConfigProviderThemeVars = {
 </script>
 
 <template>
-  <wd-config-provider :theme-vars="themeVars">
+  <wd-config-provider :theme="themeStore.currentTheme" :theme-vars="themeVars">
     <slot />
     <wd-toast />
     <wd-message-box />

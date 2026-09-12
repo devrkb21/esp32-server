@@ -1,0 +1,264 @@
+/* Element UI & Custom Views Dark Theme Styles */
+
+html.dark,
+body.dark {
+  background-color: #12131c !important;
+  color: #e4e7f2 !important;
+
+  #app {
+    background-color: #12131c;
+    color: #e4e7f2;
+  }
+
+  // Header styling in dark mode
+  .header {
+    background-color: #181a26 !important;
+    border-bottom: 1px solid #282b3d !important;
+
+    .brand-title {
+      color: #ffffff !important;
+    }
+
+    .equipment-management {
+      color: #9ea5bd !important;
+
+      &:hover {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+
+      &.active-tab {
+        color: #ffffff !important;
+        background-color: #336cff !important;
+      }
+    }
+
+    .el-user-dropdown {
+      color: #e4e7f2 !important;
+    }
+
+    .theme-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffc107;
+      cursor: pointer;
+      margin-right: 14px;
+      font-size: 18px;
+      transition: all 0.25s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.16);
+        transform: scale(1.08);
+      }
+    }
+  }
+
+  // Cards and containers
+  .el-card,
+  .panel,
+  .content-card,
+  .box-card {
+    background-color: #1a1d2b !important;
+    border-color: #282b3d !important;
+    color: #e4e7f2 !important;
+  }
+
+  // Tables
+  .el-table {
+    background-color: #1a1d2b !important;
+    color: #cbd1e1 !important;
+
+    th.el-table__cell,
+    tr {
+      background-color: #1a1d2b !important;
+    }
+
+    thead th.el-table__cell {
+      background-color: #151722 !important;
+      color: #e4e7f2 !important;
+      border-bottom: 1px solid #282b3d !important;
+    }
+
+    td.el-table__cell {
+      border-bottom: 1px solid #232637 !important;
+    }
+
+    &--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+      background-color: #1f2233 !important;
+    }
+
+    .el-table__body tr:hover > td.el-table__cell {
+      background-color: #25283c !important;
+    }
+
+    &::before {
+      background-color: #282b3d !important;
+    }
+  }
+
+  // Dialogs and Modals
+  .el-dialog {
+    background-color: #1a1d2b !important;
+    border: 1px solid #282b3d !important;
+
+    .el-dialog__title {
+      color: #f1f3fa !important;
+    }
+
+    .el-dialog__body {
+      color: #cbd1e1 !important;
+    }
+
+    .el-dialog__headerbtn .el-dialog__close {
+      color: #9ea5bd !important;
+
+      &:hover {
+        color: #ffffff !important;
+      }
+    }
+  }
+
+  .el-message-box {
+    background-color: #1a1d2b !important;
+    border: 1px solid #282b3d !important;
+
+    &__title,
+    &__content {
+      color: #e4e7f2 !important;
+    }
+  }
+
+  // Dropdowns, Cascaders, and Select Poppers
+  .el-dropdown-menu,
+  .el-select-dropdown,
+  .el-cascader__dropdown,
+  .el-popover {
+    background-color: #1a1d2b !important;
+    border: 1px solid #282b3d !important;
+
+    .popper__arrow::after {
+      border-bottom-color: #1a1d2b !important;
+    }
+  }
+
+  .el-dropdown-menu__item,
+  .el-select-dropdown__item,
+  .el-cascader-node {
+    color: #cbd1e1 !important;
+
+    &:hover,
+    &.hover,
+    &:focus {
+      background-color: #25283c !important;
+      color: #336cff !important;
+    }
+
+    &.selected {
+      color: #336cff !important;
+      font-weight: bold;
+    }
+  }
+
+  // Form Controls: Inputs, Selects, Textareas
+  .el-input__inner,
+  .el-textarea__inner {
+    background-color: #141622 !important;
+    border-color: #2f334a !important;
+    color: #e4e7f2 !important;
+
+    &:focus {
+      border-color: #336cff !important;
+    }
+
+    &::placeholder {
+      color: #6c7287 !important;
+    }
+  }
+
+  .el-input.is-disabled .el-input__inner {
+    background-color: #1a1c27 !important;
+    border-color: #282a3a !important;
+    color: #6c7287 !important;
+  }
+
+  // Pagination
+  .el-pagination {
+    button {
+      background-color: #1a1d2b !important;
+      color: #9ea5bd !important;
+
+      &:disabled {
+        color: #4b4f63 !important;
+        background-color: #141622 !important;
+      }
+    }
+
+    .el-pager li {
+      background-color: #1a1d2b !important;
+      color: #9ea5bd !important;
+
+      &.active {
+        background-color: #336cff !important;
+        color: #ffffff !important;
+      }
+    }
+  }
+
+  // Tabs
+  .el-tabs__item {
+    color: #9ea5bd !important;
+
+    &.is-active {
+      color: #336cff !important;
+    }
+  }
+
+  .el-tabs__nav-wrap::after {
+    background-color: #282b3d !important;
+  }
+
+  // Sliders
+  .el-slider__runway {
+    background-color: #282b3d !important;
+  }
+
+  // Buttons secondary / default
+  .el-button--default:not(.el-button--primary):not(.el-button--danger):not(.el-button--success) {
+    background-color: #222536 !important;
+    border-color: #2f334a !important;
+    color: #cbd1e1 !important;
+
+    &:hover {
+      background-color: #2b2e42 !important;
+      color: #ffffff !important;
+      border-color: #3a3f5c !important;
+    }
+  }
+}
+
+// Light mode toggle button styling
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.05);
+  color: #5c6b8a;
+  cursor: pointer;
+  margin-right: 14px;
+  font-size: 18px;
+  transition: all 0.25s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #336cff;
+    transform: scale(1.08);
+  }
+}

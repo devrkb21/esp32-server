@@ -1,19 +1,100 @@
-// Test iconfont
-// @import './iconfont.css';
-
-.test {
-  // Use @apply to compose overall styles
-  @apply mt-4 ml-4;
-
-  padding-top: 4px;
-  color: red;
-}
+// Theme CSS Variables and Global Dark Mode Styles
 
 :root,
 page {
-  // Theme color modifier
-  // --wot-color-theme: #37c2bc;
+  --app-bg-page: #f5f7fb;
+  --app-bg-card: #ffffff;
+  --app-bg-card-sub: #f5f7fb;
+  --app-border-color: #eeeeee;
+  --app-text-primary: #232338;
+  --app-text-regular: #65686f;
+  --app-text-muted: #9d9ea3;
+  --app-navbar-bg: #ffffff;
 
-  // Button background color modifier
-  // --wot-button-primary-bg-color: green;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Dark mode definitions */
+.wot-theme-dark,
+.dark,
+html.dark page {
+  --app-bg-page: #0f1117;
+  --app-bg-card: #181a24;
+  --app-bg-card-sub: #222634;
+  --app-border-color: #2b2f42;
+  --app-text-primary: #f1f3fa;
+  --app-text-regular: #a8adbe;
+  --app-text-muted: #74798e;
+  --app-navbar-bg: #141620;
+
+  background-color: var(--app-bg-page) !important;
+  color: var(--app-text-primary) !important;
+
+  // Background overrides for dark mode
+  .bg-\[\#f5f7fb\],
+  .bg-\[\#fbfbfb\] {
+    background-color: var(--app-bg-page) !important;
+  }
+
+  .bg-white {
+    background-color: var(--app-bg-card) !important;
+  }
+
+  .border-\[\#eeeeee\],
+  .border-\[\#f5f5f5\],
+  .border-\[\#f0f0f0\] {
+    border-color: var(--app-border-color) !important;
+  }
+
+  .text-\[\#232338\],
+  .text-\[\#333\] {
+    color: var(--app-text-primary) !important;
+  }
+
+  .text-\[\#65686f\] {
+    color: var(--app-text-regular) !important;
+  }
+
+  .text-\[\#9d9ea3\] {
+    color: var(--app-text-muted) !important;
+  }
+
+  // Wot Design Uni components in dark mode
+  .wd-navbar {
+    background-color: var(--app-navbar-bg) !important;
+    border-bottom: 1px solid var(--app-border-color);
+  }
+
+  .wd-navbar__title {
+    color: var(--app-text-primary) !important;
+  }
+
+  .wd-popup,
+  .custom-popup {
+    .bg-white {
+      background-color: var(--app-bg-card) !important;
+    }
+  }
+
+  .language-sheet {
+    background-color: var(--app-bg-card);
+
+    .language-item {
+      border-bottom-color: var(--app-border-color) !important;
+
+      .language-name {
+        color: var(--app-text-primary) !important;
+      }
+
+      &:active {
+        background-color: var(--app-bg-card-sub) !important;
+      }
+    }
+  }
+
+  // Active state backgrounds
+  .active\:bg-\[\#f5f7fb\]:active,
+  .active\:bg-\[\#eef3ff\]:active {
+    background-color: var(--app-bg-card-sub) !important;
+  }
 }
