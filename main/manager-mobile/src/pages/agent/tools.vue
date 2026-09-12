@@ -214,6 +214,26 @@ function handleJsonChange(key: string, value: string, field: any) {
   }
 }
 
+// Home Assistant Smart Home Helpers
+function isHomeAssistant(func: any) {
+  if (!func) return false
+  const code = String(func.providerCode || '').toLowerCase()
+  const id = String(func.id || '').toUpperCase()
+  const name = String(func.name || '').toLowerCase()
+  return code === 'hass_state' || code === 'home_assistant'
+    || id === 'SYSTEM_PLUGIN_HA_STATE'
+    || name.includes('homeassistant') || name.includes('home assistant')
+}
+
+function insertMobileDeviceTemplate(templateText: string) {
+  if (!currentFunction.value) return
+  const current = arrayTextCache.value['devices'] || ''
+  const updated = current ? `${current.trim()}\n${templateText}` : templateText
+  const devicesField = currentFunction.value.fieldsMeta?.find((f: any) => f.key === 'devices')
+  handleArrayChange('devices', updated, devicesField)
+  uni.showToast({ title: 'Template added', icon: 'none' })
+}
+
 // Close parameter editing dialog
 function closeParamEdit() {
   showParamDialog.value = false
@@ -485,6 +505,64 @@ onMounted(async () => {
 
           <!-- Parameter form - card layout -->
           <view v-else class="flex flex-col gap-[24rpx]">
+            <!-- Smart Home / Home Assistant Helper Card -->
+            <view
+              v-if="isHomeAssistant(currentFunction)"
+              class="border border-[#d4edff] rounded-[20rpx] bg-[#f0f7ff] p-[24rpx]"
+              style="box-shadow: 0 2rpx 12rpx rgba(22, 119, 255, 0.08);"
+            >
+              <view class="mb-[14rpx] flex items-center justify-between">
+                <text class="text-[28rpx] text-[#1677ff] font-semibold">
+                  🏠 {{ t('agent.tools.smartHomeGuide') }}
+                </text>
+              </view>
+              <text class="mb-[20rpx] block text-[24rpx] text-[#65686f] leading-[1.5]">
+                {{ t('agent.tools.smartHomeGuideDesc') }}
+              </text>
+              <!-- Quick Insert Chips -->
+              <view class="mb-[20rpx] flex flex-wrap gap-[14rpx]">
+                <view
+                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
+                  @click="insertMobileDeviceTemplate('Living Room, Light, light.living_room')"
+                >
+                  💡 {{ t('agent.tools.addLight') }}
+                </view>
+                <view
+                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
+                  @click="insertMobileDeviceTemplate('Bedroom, Ceiling Fan, fan.bedroom')"
+                >
+                  🌀 {{ t('agent.tools.addFan') }}
+                </view>
+                <view
+                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
+                  @click="insertMobileDeviceTemplate('Living Room, AC, climate.living_room')"
+                >
+                  ❄️ {{ t('agent.tools.addClimate') }}
+                </view>
+                <view
+                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
+                  @click="insertMobileDeviceTemplate('Kitchen, Plug, switch.kitchen_plug')"
+                >
+                  🔌 {{ t('agent.tools.addSwitch') }}
+                </view>
+                <view
+                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
+                  @click="insertMobileDeviceTemplate('Entrance, Front Door Lock, lock.front_door')"
+                >
+                  🔒 {{ t('agent.tools.addLock') }}
+                </view>
+              </view>
+              <!-- Voice Command Examples -->
+              <view class="rounded-[14rpx] bg-white/80 p-[16rpx] text-[22rpx] text-[#555] leading-[1.6]">
+                <text class="mb-[6rpx] block text-[#232338] font-medium">
+                  🗣️ {{ t('agent.tools.sampleCommands') }}:
+                </text>
+                <text class="block">🇧🇩 "লিভিং রুমের লাইট জ্বালাও / নিভাও" (আলো ৮০% করো)</text>
+                <text class="block">🇧🇩 "ফ্যান চালু করো" / "এসি ২৪ ডিগ্রিতে রাখো"</text>
+                <text class="block">🇬🇧 "Turn on/off living room light" / "Lock front door"</text>
+              </view>
+            </view>
+
             <view
               v-for="field in currentFunction.fieldsMeta"
               :key="field.key"
