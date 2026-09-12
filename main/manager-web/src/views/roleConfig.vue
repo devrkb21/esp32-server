@@ -1544,10 +1544,10 @@ export default {
       // Use isClone field returned from backend
       const isCloneAudio = Boolean(item.isClone);
       
-      // Check if valid audio URL exists using backend response fields
-      const hasValidAudioUrl = !!((item.voice_demo || item.voiceDemo)?.trim());
+      // Check if valid audio URL exists using backend response fields or voice-demo mapping
+      const hasValidAudioUrl = !!((item.voice_demo || item.voiceDemo)?.trim()) || Boolean(item.ttsVoice || (item.value && !String(item.value).startsWith('TTS_')));
       
-      // Cloned audio always displays play button, standard audio requires valid URL
+      // Cloned audio always displays play button, standard audio requires valid URL or known demo
       return isCloneAudio || hasValidAudioUrl;
     },
 
@@ -1731,6 +1731,17 @@ export default {
                 break;
               }
             }
+          }
+
+          if (!audioUrl) {
+            const voiceKey = voiceDetail.ttsVoice || voiceDetail.value || voiceId;
+            if (voiceKey && !String(voiceKey).startsWith('TTS_')) {
+              audioUrl = `/voice-demos/${voiceKey}.mp3`;
+            }
+          }
+
+          if (audioUrl && !audioUrl.startsWith('http://') && !audioUrl.startsWith('https://') && !audioUrl.startsWith('/')) {
+            audioUrl = '/' + audioUrl;
           }
         }
 

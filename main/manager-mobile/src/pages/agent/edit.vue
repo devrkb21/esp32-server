@@ -92,6 +92,7 @@ interface VoiceOption {
   name: string
   voiceDemo?: string | null
   voice_demo?: string | null
+  ttsVoice?: string | null
   isClone: boolean
   train_status?: number
 }
@@ -152,6 +153,11 @@ interface SnapshotRestoreContext {
 const audioRef = ref<UniApp.InnerAudioContext | null>(null)
 const playingVoiceId = ref<string>('')
 const voicePreviewRequestGate = createVoicePreviewRequestGate()
+
+const currentVoiceOption = computed(() => {
+  return voiceOptions.value.find(v => v.value === formData.value.ttsVoiceId)
+    || (voiceOptions.value.length > 0 ? voiceOptions.value[0] : null)
+})
 
 // Use plugin store
 const pluginStore = usePluginStore()
@@ -584,10 +590,12 @@ function filterVoicesByLanguage(options: VoiceSelectionOptions = {}) {
   const filteredVoices = filterTtsVoicesByLanguage(allVoices, selectedTtsLanguage.value)
 
   voiceOptions.value = filteredVoices.map(voice => ({
+    id: voice.id,
     value: voice.id,
     name: voice.name,
     voiceDemo: voice.voiceDemo,
     voice_demo: voice.voice_demo,
+    ttsVoice: voice.ttsVoice,
     isClone: Boolean(voice.isClone),
     train_status: voice.trainStatus,
   }))
@@ -896,9 +904,10 @@ async function playAudio(voice: VoiceOption, event: Event) {
 
   try {
     const audioUrl = await resolveVoicePreviewUrl({
-      id: voice.value,
+      id: voice.value || voice.id,
       isClone: voice.isClone,
       voiceDemo: voice.voiceDemo || voice.voice_demo,
+      ttsVoice: voice.ttsVoice || voiceDetails.value[voice.value]?.ttsVoice,
     }, getVoiceCloneAudioId, getEnvBaseUrl())
 
     // User may cancel or switch while waiting for temporary URL.
@@ -1506,6 +1515,13 @@ onMounted(async () => {
           <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
             {{ displayNames.voiceprint }}
           </text>
+          <view v-if="currentVoiceOption && hasVoicePreview(currentVoiceOption)" class="mr-[12rpx] flex items-center" @click.stop="playAudio(currentVoiceOption, $event)">
+            <wd-icon
+              :name="playingVoiceId === currentVoiceOption.value ? 'pause-circle' : 'play-circle'"
+              size="20px"
+              :custom-class="playingVoiceId === currentVoiceOption.value ? 'text-[#336cff]' : 'text-[#65686f]'"
+            />
+          </view>
           <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
         </view>
 

@@ -27,6 +27,11 @@
                             </template>
                             <template slot="operations" slot-scope="scope">
                                 <el-button size="mini" type="text"
+                                    :icon="playingVoiceId === (scope.row.id || scope.row.voiceId) ? 'el-icon-video-pause' : 'el-icon-video-play'"
+                                    @click="toggleAudio(scope.row)">
+                                    {{ playingVoiceId === (scope.row.id || scope.row.voiceId) ? ($t('voiceClone.pause') || 'Pause') : ($t('voiceResource.audition') || 'Play Demo') }}
+                                </el-button>
+                                <el-button size="mini" type="text" style="color: #f56c6c;"
                                     @click="deleteVoiceClone(scope.row)">{{ $t('voiceClone.delete') }}</el-button>
                             </template>
                             <template slot="footer-btns">
@@ -86,7 +91,10 @@ export default {
                 userId: null,
                 languages: ""
             },
-            tableColumns: []
+            tableColumns: [],
+            playingVoiceId: null,
+            isPaused: false,
+            currentAudio: null
         };
     },
     created() {
@@ -272,8 +280,51 @@ export default {
                 default:
                     return '';
             }
+        },
+        toggleAudio(row) {
+            const rowId = row.id || row.voiceId;
+            if (this.playingVoiceId === rowId && this.currentAudio) {
+                if (this.isPaused) {
+                    this.currentAudio.play();
+                    this.isPaused = false;
+                } else {
+                    this.currentAudio.pause();
+                    this.isPaused = true;
+                }
+                return;
+            }
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentAudio = null;
+            }
+            this.playingVoiceId = rowId;
+            this.isPaused = false;
+
+            let audioUrl = row.voiceDemo || row.voice_demo;
+            if (!audioUrl) {
+                const voiceKey = row.ttsVoice || row.voiceId || rowId;
+                audioUrl = `/voice-demos/${voiceKey}.mp3`;
+            }
+            this.currentAudio = new Audio(audioUrl);
+            this.currentAudio.onended = () => {
+                this.playingVoiceId = null;
+                this.isPaused = false;
+            };
+            this.currentAudio.onerror = () => {
+                this.$message.warning(this.$t('roleConfig.noPreviewAudio') || 'Audio preview not available');
+                this.playingVoiceId = null;
+            };
+            this.currentAudio.play().catch(() => {
+                this.playingVoiceId = null;
+            });
         }
     },
+    beforeDestroy() {
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio = null;
+        }
+    }
 };
 </script>
 
