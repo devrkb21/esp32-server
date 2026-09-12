@@ -1,5 +1,6 @@
 package xiaozhi.modules.device.controller;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -167,6 +168,36 @@ public class DeviceController {
 
         Result<Object> response = new Result<Object>();
         response.setMsg("Tools called successfully");
+        return response.ok(result);
+    }
+
+    @PostMapping("/command/{deviceId}/reboot")
+    @Operation(summary = "RebootDevice")
+    @RequiresPermissions("sys:role:normal")
+    public Result<Object> rebootDevice(@PathVariable String deviceId) {
+        Object result = deviceService.callDeviceTool(deviceId, "reboot", Collections.emptyMap());
+        if (result == null) {
+            return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
+        }
+        Result<Object> response = new Result<Object>();
+        response.setMsg("Reboot command sent successfully");
+        return response.ok(result);
+    }
+
+    @PostMapping("/command/{deviceId}/volume")
+    @Operation(summary = "SetDeviceVolume")
+    @RequiresPermissions("sys:role:normal")
+    public Result<Object> setDeviceVolume(@PathVariable String deviceId, @RequestBody Map<String, Object> body) {
+        Object volumeVal = (body != null && body.containsKey("volume")) ? body.get("volume") : null;
+        if (volumeVal == null) {
+            return new Result<Object>().error("Volume parameter is required (0-100)");
+        }
+        Object result = deviceService.callDeviceTool(deviceId, "set_volume", Collections.singletonMap("volume", volumeVal));
+        if (result == null) {
+            return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
+        }
+        Result<Object> response = new Result<Object>();
+        response.setMsg("Volume updated successfully");
         return response.ok(result);
     }
 

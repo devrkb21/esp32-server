@@ -105,4 +105,64 @@ export default {
                 });
             }).send();
     },
+    // Call device tool
+    callDeviceTool(deviceId, name, args, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/tools/call/${deviceId}`)
+            .method('POST')
+            .data({ name, arguments: args || {} })
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((res) => {
+                callback(res);
+            })
+            .networkFail((err) => {
+                console.error('Failed to call device tool:', err);
+                RequestService.reAjaxFun(() => {
+                    this.callDeviceTool(deviceId, name, args, callback);
+                });
+            }).send();
+    },
+    // Reboot device
+    rebootDevice(deviceId, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/command/${deviceId}/reboot`)
+            .method('POST')
+            .data({})
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((res) => {
+                callback(res);
+            })
+            .networkFail((err) => {
+                console.error('Failed to reboot device:', err);
+                RequestService.reAjaxFun(() => {
+                    this.rebootDevice(deviceId, callback);
+                });
+            }).send();
+    },
+    // Set device volume
+    setDeviceVolume(deviceId, volume, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/command/${deviceId}/volume`)
+            .method('POST')
+            .data({ volume })
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((res) => {
+                callback(res);
+            })
+            .networkFail((err) => {
+                console.error('Failed to set device volume:', err);
+                RequestService.reAjaxFun(() => {
+                    this.setDeviceVolume(deviceId, volume, callback);
+                });
+            }).send();
+    },
 }
