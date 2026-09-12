@@ -27,6 +27,10 @@ export default {
   'header.changePassword': 'Alterar Senha',
   'header.logout': 'Sair',
   'header.searchPlaceholder': 'Nome, tag ou pesquisa no Mac',
+  'header.darkTheme': 'Alternar para Modo Escuro',
+  'header.lightTheme': 'Alternar para Modo Claro',
+  'header.darkThemeActive': 'Modo Escuro ativado',
+  'header.lightThemeActive': 'Modo Claro ativado',
 
   // Texto do componente McpToolCallDialog
   'mcpToolCall.title': 'Chamada de Ferramenta',
@@ -746,6 +750,25 @@ export default {
   'home.deleteFailed': 'Falha ao excluir',
   'home.enableMemory': 'Por favor, ative a memória na página "Configurar Papel" primeiro',
 
+  // Analytics Dashboard
+  'analytics.dashboardTitle': 'Análise da Plataforma & Telemetria ao Vivo',
+  'analytics.totalQueries': 'Total de Consultas de Voz',
+  'analytics.todayQueries': 'Consultas de Hoje',
+  'analytics.activeDevices': 'Dispositivos Online',
+  'analytics.totalTokens': 'Tokens Estimados',
+  'analytics.queryVolume': 'Volume de Consultas de Voz (7 Dias)',
+  'analytics.tokenUsage': 'Tendência de Consumo de Tokens',
+  'analytics.latencyBreakdown': 'Detalhamento de Latência do Modelo',
+  'analytics.avgLatency': 'Latência Média Total',
+  'analytics.asrLatency': 'Reconhecimento de Fala ASR',
+  'analytics.llmLatency': 'Inferência LLM',
+  'analytics.ttsLatency': 'Síntese de Áudio TTS',
+  'analytics.topDevices': 'Dispositivos Mais Ativos',
+  'analytics.topAgents': 'Agentes Mais Ativos',
+  'analytics.noData': 'Nenhuma atividade registrada ainda',
+  'analytics.queries': 'Consultas',
+  'analytics.tokens': 'Tokens',
+
   // Página de gerenciamento de parâmetros
   'paramManagement.pageTitle': 'Gerenciamento de Parâmetros',
   'paramManagement.searchPlaceholder': 'Por favor, insira código do parâmetro ou observação para pesquisar',
@@ -1051,6 +1074,15 @@ export default {
   'functionDialog.copyFailed': 'Falha ao copiar. Por favor, copie manualmente',
   'functionDialog.jsonFormatError': ' erro no formato do campo: formato JSON inválido',
   'functionDialog.defaultValue': 'Valor Padrão',
+  'functionDialog.smartHomeGuide': 'Controle de Voz Smart Home (Bengali e Inglês)',
+  'functionDialog.smartHomeGuideDesc': 'Controle dispositivos inteligentes naturalmente falando em bengali ou inglês. Clique abaixo para inserir dispositivos de exemplo.',
+  'functionDialog.addLight': 'Luz',
+  'functionDialog.addFan': 'Ventilador',
+  'functionDialog.addClimate': 'Ar-condicionado',
+  'functionDialog.addSwitch': 'Interruptor',
+  'functionDialog.addLock': 'Fechadura',
+  'functionDialog.sampleCommands': 'Exemplos de Comandos de Voz',
+
 
   // Página de configuração de modelos
   'modelConfig.searchPlaceholder': 'Por favor, insira o nome do modelo para pesquisar',

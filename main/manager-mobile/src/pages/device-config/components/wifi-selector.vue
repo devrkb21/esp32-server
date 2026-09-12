@@ -38,14 +38,22 @@ const selectedNetwork = ref<WiFiNetwork | null>(null)
 const password = ref('')
 const selectorExpanded = ref(false)
 
+// Hidden WiFi state
+const isHiddenWifi = ref(false)
+const hiddenSsid = ref('')
+const isHiddenEncrypted = ref(true)
+
 // Computed properties
 const networkDisplayText = computed(() => {
+  if (isHiddenWifi.value) {
+    return hiddenSsid.value.trim() || t('deviceConfig.hiddenWifi')
+  }
   if (!selectedNetwork.value)
     return t('deviceConfig.selectWifiNetwork')
   return selectedNetwork.value.ssid
 })
 
-// Check xiaozhi connection status
+// Check ESP connection status
 async function checkESP32Connection() {
   checkingConnection.value = true
   try {
@@ -56,12 +64,12 @@ async function checkESP32Connection() {
     })
     isConnectedToESP32.value = response.statusCode === 200
     emit('connection-status', isConnectedToESP32.value)
-    console.log(`${t('deviceConfig.xiaozhi')}connection status:`, isConnectedToESP32.value)
+    console.log(`${t('deviceConfig.xiaozhi')} connection status:`, isConnectedToESP32.value)
   }
   catch (error) {
     isConnectedToESP32.value = false
     emit('connection-status', false)
-    console.log('xiaozhi connection check failed:', error)
+    console.log('ESP connection check failed:', error)
   }
   finally {
     checkingConnection.value = false
@@ -131,7 +139,7 @@ async function scanWifi() {
 
 // Show network selector
 async function showNetworkSelector() {
-  // Real-time detection of xiaozhi connection status
+  // Real-time detection of ESP connection status
   await checkESP32Connection()
 
   if (!isConnectedToESP32.value) {
@@ -158,6 +166,63 @@ function selectNetwork(network: WiFiNetwork) {
   emit('network-selected', network, '')
 }
 
+// Hidden WiFi toggle handler
+function onHiddenWifiToggle(val: any) {
+  const isChecked = typeof val === 'boolean' ? val : (val?.value ?? isHiddenWifi.value)
+  isHiddenWifi.value = isChecked
+  if (isChecked) {
+    selectorExpanded.value = false
+    selectedNetwork.value = null
+    updateHiddenNetwork()
+  }
+  else {
+    hiddenSsid.value = ''
+    password.value = ''
+    selectedNetwork.value = null
+    emit('network-selected', null, '')
+  }
+}
+
+// Hidden WiFi SSID input handler
+function onHiddenSsidChange() {
+  updateHiddenNetwork()
+}
+
+// Hidden WiFi encryption toggle handler
+function onHiddenEncryptionChange(val: any) {
+  const isEncrypted = typeof val === 'boolean' ? val : (val?.value ?? isHiddenEncrypted.value)
+  isHiddenEncrypted.value = isEncrypted
+  if (!isEncrypted) {
+    password.value = ''
+  }
+  updateHiddenNetwork()
+}
+
+// Update hidden network info and notify parent
+function updateHiddenNetwork() {
+  const trimmedSsid = hiddenSsid.value.trim()
+  if (trimmedSsid) {
+    const hiddenNet: WiFiNetwork = {
+      ssid: trimmedSsid,
+      rssi: -50,
+      authmode: isHiddenEncrypted.value ? 4 : 0,
+      channel: 0,
+    }
+    selectedNetwork.value = hiddenNet
+    emit('network-selected', hiddenNet, isHiddenEncrypted.value ? password.value : '')
+  }
+  else {
+    selectedNetwork.value = null
+    emit('network-selected', null, isHiddenEncrypted.value ? password.value : '')
+  }
+}
+
+// Switch to hidden network mode from scan modal
+function switchToHiddenFromModal() {
+  selectorExpanded.value = false
+  onHiddenWifiToggle(true)
+}
+
 // Notify parent component on password change
 function onPasswordChange() {
   emit('network-selected', selectedNetwork.value, password.value)
@@ -173,6 +238,9 @@ function getSelectedNetworkInfo() {
 
 // Reset selection
 function reset() {
+  isHiddenWifi.value = false
+  hiddenSsid.value = ''
+  isHiddenEncrypted.value = true
   selectedNetwork.value = null
   password.value = ''
   wifiNetworks.value = []
@@ -220,12 +288,12 @@ onMounted(() => {
 
 <template>
   <view class="wifi-selector">
-    <!-- Xiaozhi connection status -->
+    <!-- ESP connection status -->
     <view v-if="props.autoConnect" class="connection-status">
       <view v-if="!isConnectedToESP32" class="status-warning">
         <view class="status-content">
           <text class="warning-text">
-            {{ t('deviceConfig.connectXiaozhiHotspot') }} (xiaozhi-XXXXXX)
+            {{ t('deviceConfig.connectXiaozhiHotspot') }}
           </text>
           <wd-button
             size="small"
@@ -253,8 +321,27 @@ onMounted(() => {
       </view>
     </view>
 
-    <!-- WiFi network selector -->
-    <view class="network-selector">
+    <!-- Hidden WiFi Toggle -->
+    <view class="mb-[20rpx] border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx]">
+      <view class="flex items-center justify-between">
+        <view>
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            {{ t('deviceConfig.hiddenWifi') }}
+          </text>
+          <text class="mt-[4rpx] block text-[22rpx] text-[#9d9ea3]">
+            {{ t('deviceConfig.hiddenWifiPrompt') }}
+          </text>
+        </view>
+        <wd-switch
+          v-model="isHiddenWifi"
+          size="22"
+          @change="onHiddenWifiToggle"
+        />
+      </view>
+    </view>
+
+    <!-- Normal WiFi network selector (when not in hidden mode) -->
+    <view v-if="!isHiddenWifi" class="network-selector">
       <view class="selector-item" @click="showNetworkSelector">
         <text class="selector-label">
           {{ t('deviceConfig.wifiNetwork') }}
@@ -263,6 +350,42 @@ onMounted(() => {
           {{ networkDisplayText }}
         </text>
         <wd-icon name="arrow-right" custom-class="arrow-icon" />
+      </view>
+    </view>
+
+    <!-- Hidden WiFi Inputs (when in hidden mode) -->
+    <view v-if="isHiddenWifi" class="space-y-[20rpx]">
+      <!-- Hidden SSID Input -->
+      <view class="password-item">
+        <text class="password-label">
+          {{ t('deviceConfig.hiddenWifiSsid') }}
+        </text>
+        <wd-input
+          v-model="hiddenSsid"
+          :placeholder="t('deviceConfig.enterHiddenWifiSsid')"
+          clearable
+          @input="onHiddenSsidChange"
+        />
+      </view>
+
+      <!-- Password / Encryption -->
+      <view class="password-item">
+        <view class="mb-[8rpx] flex items-center justify-between">
+          <text class="password-label">
+            {{ t('deviceConfig.wifiPassword') }}
+          </text>
+          <wd-checkbox v-model="isHiddenEncrypted" @change="onHiddenEncryptionChange">
+            <text class="text-[24rpx] text-[#65686f]">{{ t('deviceConfig.requiresPassword') }}</text>
+          </wd-checkbox>
+        </view>
+        <wd-input
+          v-if="isHiddenEncrypted"
+          v-model="password"
+          :placeholder="t('deviceConfig.enterWifiPassword')"
+          show-password
+          clearable
+          @input="onPasswordChange"
+        />
       </view>
     </view>
 
@@ -329,11 +452,23 @@ onMounted(() => {
             </view>
           </view>
         </view>
+
+        <!-- Hidden network option inside modal -->
+        <view class="mt-[24rpx] border-t border-[#eeeeee] pt-[20rpx]">
+          <wd-button
+            size="medium"
+            plain
+            block
+            @click="switchToHiddenFromModal"
+          >
+            {{ t('deviceConfig.addHiddenNetwork') }}
+          </wd-button>
+        </view>
       </view>
     </view>
 
-    <!-- Password input -->
-    <view v-if="selectedNetwork && selectedNetwork.authmode > 0" class="password-section">
+    <!-- Password input (for scanned normal network) -->
+    <view v-if="!isHiddenWifi && selectedNetwork && selectedNetwork.authmode > 0" class="password-section">
       <view class="password-item">
         <text class="password-label">
           {{ t('deviceConfig.wifiPassword') }}

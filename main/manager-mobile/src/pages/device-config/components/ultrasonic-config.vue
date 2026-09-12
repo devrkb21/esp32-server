@@ -40,7 +40,7 @@ const END_BYTES = [0x03, 0x04] // End bytes
 
 // Computed properties
 const canGenerate = computed(() => {
-  if (!props.selectedNetwork)
+  if (!props.selectedNetwork || !props.selectedNetwork.ssid || !props.selectedNetwork.ssid.trim())
     return false
   if (props.selectedNetwork.authmode > 0 && !props.password)
     return false

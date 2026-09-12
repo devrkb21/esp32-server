@@ -24,7 +24,7 @@ const configuring = ref(false)
 
 // Computed properties
 const canSubmit = computed(() => {
-  if (!props.selectedNetwork)
+  if (!props.selectedNetwork || !props.selectedNetwork.ssid || !props.selectedNetwork.ssid.trim())
     return false
   if (props.selectedNetwork.authmode > 0 && !props.password)
     return false
@@ -144,7 +144,7 @@ async function submitConfig() {
       </view>
       <view class="help-content">
         <text class="help-item">
-          1. {{ t('deviceConfig.phoneConnectXiaozhiHotspot') }} (xiaozhi-XXXXXX)
+          1. {{ t('deviceConfig.phoneConnectXiaozhiHotspot') }}
         </text>
         <text class="help-item">
           2. {{ t('deviceConfig.selectTargetWifiNetwork') }}

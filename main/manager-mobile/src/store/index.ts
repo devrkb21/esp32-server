@@ -17,5 +17,6 @@ export * from './config'
 export * from './plugin'
 export * from './provider'
 export * from './speedPitch'
+export * from './theme'
 // Export modules
 export * from './user'
