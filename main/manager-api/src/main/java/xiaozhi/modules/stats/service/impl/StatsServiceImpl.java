@@ -43,10 +43,11 @@ public class StatsServiceImpl implements StatsService {
         );
         vo.setTotalDevices(totalDevices != null ? totalDevices : 0L);
 
+        Date fiveMinutesAgo = new Date(System.currentTimeMillis() - 5 * 60 * 1000L);
         Long activeDevices = deviceDao.selectCount(
                 new LambdaQueryWrapper<DeviceEntity>()
                         .eq(DeviceEntity::getUserId, userId)
-                        .eq(DeviceEntity::getIsOnline, true)
+                        .ge(DeviceEntity::getLastConnectedAt, fiveMinutesAgo)
         );
         vo.setActiveDevices(activeDevices != null ? activeDevices : 0L);
 
@@ -191,10 +192,15 @@ public class StatsServiceImpl implements StatsService {
                     count = c != null ? c : 0L;
                 }
                 TopDeviceVO dVO = new TopDeviceVO();
-                dVO.setDeviceName(dev.getDeviceName() != null ? dev.getDeviceName() : "Device " + dev.getId());
+                String devName = dev.getAlias();
+                if (devName == null || devName.trim().isEmpty()) {
+                    devName = dev.getMacAddress() != null ? dev.getMacAddress() : "Device " + dev.getId();
+                }
+                dVO.setDeviceName(devName);
                 dVO.setMacAddress(dev.getMacAddress());
                 dVO.setQueryCount(count);
-                dVO.setIsOnline(Boolean.TRUE.equals(dev.getIsOnline()));
+                boolean isOnline = dev.getLastConnectedAt() != null && dev.getLastConnectedAt().after(fiveMinutesAgo);
+                dVO.setIsOnline(isOnline);
                 topDevices.add(dVO);
             }
             topDevices.sort((a, b) -> Long.compare(b.getQueryCount(), a.getQueryCount()));
