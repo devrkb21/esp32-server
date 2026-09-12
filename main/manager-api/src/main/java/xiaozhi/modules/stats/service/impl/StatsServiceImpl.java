@@ -181,6 +181,7 @@ public class StatsServiceImpl implements StatsService {
 
         List<TopDeviceVO> topDevices = new ArrayList<>();
         if (userDevices != null) {
+            Date fiveMinutesAgo = new Date(System.currentTimeMillis() - 5 * 60 * 1000L);
             for (DeviceEntity dev : userDevices) {
                 Long count = 0L;
                 if (dev.getMacAddress() != null) {
