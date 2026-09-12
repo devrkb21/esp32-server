@@ -2,7 +2,17 @@
 import type { Device, FirmwareType } from '@/api/device'
 import { computed, onMounted, ref } from 'vue'
 import { useMessage } from 'wot-design-uni/components/wd-message-box'
-import { bindDevice, bindDeviceManual, getBindDevices, getFirmwareTypes, unbindDevice, updateDeviceAutoUpdate } from '@/api/device'
+import {
+  bindDevice,
+  bindDeviceManual,
+  getBindDevices,
+  getDeviceOnlineStatus,
+  getFirmwareTypes,
+  rebootDevice,
+  setDeviceVolume,
+  unbindDevice,
+  updateDeviceAutoUpdate,
+} from '@/api/device'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
 import { parseDeviceLastConnectedAtTimestamp } from './deviceTimeUtils.mjs'
@@ -51,6 +61,13 @@ const deviceList = ref<Device[]>([])
 const firmwareTypes = ref<FirmwareType[]>([])
 const loading = ref(false)
 const isBindDevice = ref(false)
+
+// Remote control & telemetry states
+const deviceStatusMap = ref<Record<string, boolean>>({})
+const deviceVolumes = ref<Record<string, number>>({})
+const isRebooting = ref<Record<string, boolean>>({})
+const isUpdatingVolume = ref<Record<string, boolean>>({})
+const volumeTimers = ref<Record<string, any>>({})
 
 // Manual bind dialog
 const isManualBindDialog = ref(false)
@@ -110,6 +127,12 @@ async function loadDeviceList() {
     loading.value = true
     const response = await getBindDevices(currentAgentId.value)
     deviceList.value = response || []
+    deviceList.value.forEach((device) => {
+      if (deviceVolumes.value[device.id] === undefined) {
+        deviceVolumes.value[device.id] = 70
+      }
+    })
+    fetchOnlineStatus()
   }
   catch (error) {
     console.error('Failed to get device list:', error)
@@ -118,6 +141,88 @@ async function loadDeviceList() {
   finally {
     loading.value = false
   }
+}
+
+// Fetch device online status from MQTT gateway
+async function fetchOnlineStatus() {
+  if (!currentAgentId.value)
+    return
+  try {
+    const rawRes = await getDeviceOnlineStatus(currentAgentId.value)
+    if (rawRes) {
+      let statusMap: any = rawRes
+      if (typeof rawRes === 'string') {
+        try {
+          statusMap = JSON.parse(rawRes)
+        }
+        catch {
+          statusMap = null
+        }
+      }
+      if (statusMap && typeof statusMap === 'object') {
+        deviceList.value.forEach((device) => {
+          const mac = device.macAddress ? device.macAddress.replace(/:/g, '_') : 'unknown'
+          const groupId = device.board ? device.board.replace(/:/g, '_') : 'GID_default'
+          const clientId = `${groupId}@@@${mac}@@@${mac}`
+          const info = statusMap[clientId]
+          if (info) {
+            deviceStatusMap.value[device.id] = info.isAlive === true || (info.isAlive === null && info.exists === true)
+          }
+          else {
+            deviceStatusMap.value[device.id] = false
+          }
+        })
+      }
+    }
+  }
+  catch (err) {
+    console.error('Failed to fetch device online status:', err)
+  }
+}
+
+// Confirm and execute device reboot
+function confirmRebootDevice(device: Device) {
+  message.confirm({
+    title: t('device.rebootConfirmTitle'),
+    msg: t('device.rebootConfirmMsg', { macAddress: device.macAddress }),
+    confirmButtonText: t('device.reboot'),
+    cancelButtonText: t('common.cancel'),
+  }).then(async () => {
+    try {
+      isRebooting.value[device.id] = true
+      await rebootDevice(device.id)
+      toast.success(t('device.rebootSuccess'))
+    }
+    catch (err: any) {
+      toast.error(err?.message || t('device.rebootFailed'))
+    }
+    finally {
+      isRebooting.value[device.id] = false
+    }
+  }).catch(() => {
+    // User cancelled
+  })
+}
+
+// Adjust device volume with debounce
+function onVolumeChange(device: Device, volume: number) {
+  deviceVolumes.value[device.id] = volume
+  if (volumeTimers.value[device.id]) {
+    clearTimeout(volumeTimers.value[device.id])
+  }
+  volumeTimers.value[device.id] = setTimeout(async () => {
+    try {
+      isUpdatingVolume.value[device.id] = true
+      await setDeviceVolume(device.id, volume)
+      toast.success(t('device.volumeSetSuccess'))
+    }
+    catch (err: any) {
+      toast.error(err?.message || t('device.volumeSetFailed'))
+    }
+    finally {
+      isUpdatingVolume.value[device.id] = false
+    }
+  }, 400)
 }
 
 // Refresh method exposed to parent
@@ -397,12 +502,29 @@ defineExpose({
             <view class="cursor-pointer bg-[#fbfbfb] p-[32rpx] transition-all duration-200 active:bg-[#f8f9fa]">
               <view class="flex items-start justify-between">
                 <view class="flex-1">
+                  <!-- Header: Device Name & Online Status Badge -->
                   <view class="mb-[16rpx] flex items-center justify-between">
                     <text class="max-w-[60%] break-all text-[32rpx] text-[#232338] font-semibold">
                       {{ getDeviceTypeName(device.board) }}
                     </text>
+                    <view
+                      class="flex items-center gap-[10rpx] rounded-[24rpx] px-[16rpx] py-[6rpx]"
+                      :class="deviceStatusMap[device.id] ? 'bg-[#e6f7ff] border-[1rpx] border-[#91d5ff]' : 'bg-[#f5f5f5] border-[1rpx] border-[#d9d9d9]'"
+                    >
+                      <view
+                        class="h-[14rpx] w-[14rpx] rounded-full"
+                        :class="deviceStatusMap[device.id] ? 'bg-[#52c41a]' : 'bg-[#bfbfbf]'"
+                      />
+                      <text
+                        class="text-[22rpx] font-medium"
+                        :class="deviceStatusMap[device.id] ? 'text-[#1890ff]' : 'text-[#8c8c8c]'"
+                      >
+                        {{ deviceStatusMap[device.id] ? t('device.online') : t('device.offline') }}
+                      </text>
+                    </view>
                   </view>
 
+                  <!-- Device Info -->
                   <view class="mb-[20rpx]">
                     <text class="mb-[12rpx] block text-[28rpx] text-[#65686f] leading-[1.4]">
                       {{ t('device.macAddress') }}：{{ device.macAddress }}
@@ -415,15 +537,53 @@ defineExpose({
                     </text>
                   </view>
 
-                  <view class="flex items-center justify-between border-[1rpx] border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx]">
-                    <text class="text-[28rpx] text-[#232338] font-medium">
-                      {{ t('device.otaUpdate') }}
-                    </text>
-                    <wd-switch
-                      :model-value="device.autoUpdate === 1"
-                      size="24"
-                      @change="toggleAutoUpdate(device)"
+                  <!-- Volume Slider -->
+                  <view class="mb-[16rpx] rounded-[12rpx] border-[1rpx] border-[#eeeeee] bg-[#f5f7fb] p-[16rpx_20rpx]">
+                    <view class="mb-[8rpx] flex items-center justify-between">
+                      <view class="flex items-center gap-[10rpx]">
+                        <wd-icon name="sound" size="16" color="#336cff" />
+                        <text class="text-[26rpx] text-[#232338] font-medium">
+                          {{ t('device.volume') }}
+                        </text>
+                      </view>
+                      <text class="text-[24rpx] text-[#336cff] font-semibold">
+                        {{ deviceVolumes[device.id] !== undefined ? deviceVolumes[device.id] : 70 }}%
+                      </text>
+                    </view>
+                    <wd-slider
+                      :model-value="deviceVolumes[device.id] !== undefined ? deviceVolumes[device.id] : 70"
+                      :min="0"
+                      :max="100"
+                      :step="5"
+                      :show-value="false"
+                      custom-class="device-volume-slider"
+                      @change="(val: any) => onVolumeChange(device, typeof val === 'object' ? val.value : val)"
                     />
+                  </view>
+
+                  <!-- Actions: OTA Switch & Reboot Button -->
+                  <view class="flex items-center justify-between gap-[16rpx]">
+                    <view class="flex flex-1 items-center justify-between rounded-[12rpx] border-[1rpx] border-[#eeeeee] bg-[#f5f7fb] p-[14rpx_20rpx]">
+                      <text class="text-[26rpx] text-[#232338] font-medium">
+                        {{ t('device.otaUpdate') }}
+                      </text>
+                      <wd-switch
+                        :model-value="device.autoUpdate === 1"
+                        size="20"
+                        @change="toggleAutoUpdate(device)"
+                      />
+                    </view>
+                    <wd-button
+                      size="small"
+                      type="warning"
+                      plain
+                      class="!h-[68rpx] !rounded-[12rpx]"
+                      :loading="isRebooting[device.id]"
+                      @click.stop="confirmRebootDevice(device)"
+                    >
+                      <wd-icon name="refresh" size="14" class="mr-[6rpx]" />
+                      {{ t('device.reboot') }}
+                    </wd-button>
                   </view>
                 </view>
               </view>

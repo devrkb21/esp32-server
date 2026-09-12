@@ -55,7 +55,13 @@
                   @change="handleOtaSwitchChange(scope.row)"></el-switch>
               </template>
               <template slot="operations" slot-scope="scope">
-                <el-button size="mini" type="text" @click="handleUnbind(scope.row.device_id)">
+                <el-button size="mini" type="text" @click="handleVolumeDialog(scope.row)">
+                  <i class="el-icon-headset"></i> {{ $t('device.volume') || 'Volume' }}
+                </el-button>
+                <el-button size="mini" type="text" style="color: #e6a23c;" :loading="rebootingDeviceId === scope.row.device_id" @click="handleReboot(scope.row)">
+                  <i class="el-icon-refresh"></i> {{ $t('device.reboot') || 'Reboot' }}
+                </el-button>
+                <el-button size="mini" type="text" style="color: #f56c6c;" @click="handleUnbind(scope.row.device_id)">
                   {{ $t('device.unbind') }}
                 </el-button>
                 <el-button v-if="isGenerate(scope.row)" size="mini" type="text" @click="handleGenertor(scope.row)">
@@ -83,6 +89,29 @@
         </div>
       </div>
     </div>
+
+    <!-- Volume Adjustment Dialog -->
+    <el-dialog
+      :title="($t('device.adjustVolume') || 'Adjust Volume') + ' - ' + (selectedDevice ? (selectedDevice.alias || selectedDevice.macAddress) : '')"
+      :visible.sync="volumeDialogVisible"
+      width="420px"
+      :append-to-body="true"
+    >
+      <div style="padding: 20px 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+          <span style="font-size: 14px; color: #606266; font-weight: 500;">
+            <i class="el-icon-headset" style="margin-right: 6px; color: #409eff;"></i>
+            {{ $t('device.volume') || 'Volume' }}:
+          </span>
+          <span style="font-size: 18px; font-weight: bold; color: #409eff;">{{ currentVolume }}%</span>
+        </div>
+        <el-slider v-model="currentVolume" :min="0" :max="100" :step="5" show-input></el-slider>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="volumeDialogVisible = false">{{ $t('button.cancel') }}</el-button>
+        <el-button type="primary" :loading="volumeSubmitting" @click="submitVolume">{{ $t('button.ok') }}</el-button>
+      </span>
+    </el-dialog>
 
     <AddDeviceDialog :visible.sync="addDeviceDialogVisible" :agent-id="currentAgentId"
       @refresh="fetchBindDevices(currentAgentId)" />
@@ -138,6 +167,11 @@ export default {
       userApi: null,
       firmwareTypes: [],
       mqttServiceAvailable: false,
+      volumeDialogVisible: false,
+      selectedDevice: null,
+      currentVolume: 70,
+      volumeSubmitting: false,
+      rebootingDeviceId: '',
     };
   },
   computed: {
@@ -316,7 +350,47 @@ export default {
             });
           }
         });
+      }).catch(() => {});
+    },
+    handleVolumeDialog(row) {
+      this.selectedDevice = row;
+      this.currentVolume = (row.volume !== undefined && row.volume !== null) ? row.volume : 70;
+      this.volumeDialogVisible = true;
+    },
+    submitVolume() {
+      if (!this.selectedDevice) return;
+      this.volumeSubmitting = true;
+      Api.device.setDeviceVolume(this.selectedDevice.device_id, this.currentVolume, ({ data }) => {
+        this.volumeSubmitting = false;
+        if (data.code === 0) {
+          this.$message.success(this.$t('device.volumeUpdated') || 'Volume updated successfully');
+          this.selectedDevice.volume = this.currentVolume;
+          this.volumeDialogVisible = false;
+        } else {
+          this.$message.error(data.msg || 'Failed to update volume');
+        }
       });
+    },
+    handleReboot(row) {
+      this.$confirm(
+        `Are you sure you want to reboot device ${row.alias || row.macAddress}?`,
+        this.$t('message.warning'),
+        {
+          confirmButtonText: this.$t('button.ok'),
+          cancelButtonText: this.$t('button.cancel'),
+          type: 'warning'
+        }
+      ).then(() => {
+        this.rebootingDeviceId = row.device_id;
+        Api.device.rebootDevice(row.device_id, ({ data }) => {
+          this.rebootingDeviceId = '';
+          if (data.code === 0) {
+            this.$message.success('Reboot command sent successfully');
+          } else {
+            this.$message.error(data.msg || 'Failed to reboot device');
+          }
+        });
+      }).catch(() => {});
     },
     handleGenertor(row) {
       const pathname = window.location.pathname;

@@ -69,3 +69,51 @@ export function unbindDevice(deviceId: string) {
     deviceId,
   })
 }
+
+/**
+ * Get online status of devices for an agent
+ * @param agentId Agent ID
+ */
+export function getDeviceOnlineStatus(agentId: string) {
+  return http.Post<string>(`/device/bind/${agentId}`, {}, {
+    meta: {
+      ignoreAuth: false,
+      toast: false,
+    },
+    cacheFor: {
+      expire: 0,
+    },
+  })
+}
+
+/**
+ * Call device tool (MCP command via MQTT)
+ * @param deviceId Device ID
+ * @param name Tool name (e.g. reboot, set_volume, self.get_device_status)
+ * @param args Tool arguments
+ */
+export function callDeviceTool(deviceId: string, name: string, args: Record<string, any> = {}) {
+  return http.Post(`/device/tools/call/${deviceId}`, {
+    name,
+    arguments: args,
+  })
+}
+
+/**
+ * Send reboot command to device
+ * @param deviceId Device ID
+ */
+export function rebootDevice(deviceId: string) {
+  return http.Post(`/device/command/${deviceId}/reboot`, {})
+}
+
+/**
+ * Adjust device volume (0-100)
+ * @param deviceId Device ID
+ * @param volume Volume level (0-100)
+ */
+export function setDeviceVolume(deviceId: string, volume: number) {
+  return http.Post(`/device/command/${deviceId}/volume`, {
+    volume,
+  })
+}
