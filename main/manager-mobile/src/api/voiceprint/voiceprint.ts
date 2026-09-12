@@ -70,3 +70,33 @@ export function getAudioDownloadId(audioId: string) {
     },
   })
 }
+
+export interface VoiceprintSecurityConfig {
+  confidenceThreshold: number
+  requireVoiceMatchSmartHome: boolean
+  adminSpeakerOnly: boolean
+}
+
+// Get voiceprint security settings
+export function getVoiceprintSecurity() {
+  return http.Get<VoiceprintSecurityConfig>('/agent/voice-print/security', {
+    meta: {
+      ignoreAuth: false,
+      toast: false,
+    },
+    cacheFor: {
+      expire: 0,
+    },
+  })
+}
+
+// Update voiceprint security settings
+export function updateVoiceprintSecurity(data: VoiceprintSecurityConfig) {
+  return http.Post<null>('/agent/voice-print/security', data, {
+    meta: {
+      ignoreAuth: false,
+      toast: true,
+    },
+  })
+}
+

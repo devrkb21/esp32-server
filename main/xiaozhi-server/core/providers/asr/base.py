@@ -89,6 +89,7 @@ class ASRProviderBase(ABC):
             # Data is already PCM, use directly
             pcm_data = asr_audio_task
             combined_pcm_data = b"".join(pcm_data)
+            conn.last_audio_pcm = combined_pcm_data
 
             # Prepare WAV data in advance
             wav_data = None

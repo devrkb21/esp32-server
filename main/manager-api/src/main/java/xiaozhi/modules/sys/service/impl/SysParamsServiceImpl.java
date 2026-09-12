@@ -202,6 +202,22 @@ public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParam
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void setParam(String paramCode, String paramValue, String remark) {
+        int count = baseDao.updateValueByCode(paramCode, paramValue);
+        if (count == 0) {
+            SysParamsEntity entity = new SysParamsEntity();
+            entity.setParamCode(paramCode);
+            entity.setParamValue(paramValue);
+            entity.setParamType(0);
+            entity.setValueType("string");
+            entity.setRemark(remark != null ? remark : paramCode);
+            baseDao.insert(entity);
+        }
+        sysParamsRedis.set(paramCode, paramValue);
+    }
+
+    @Override
     public void initServerSecret() {
         // GetServer secret key
         String secretParam = getValue(Constant.SERVER_SECRET, false);

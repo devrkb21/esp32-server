@@ -50,6 +50,15 @@ public interface SysParamsService extends BaseService<SysParamsEntity> {
     int updateValueByCode(String paramCode, String paramValue);
 
     /**
+     * Set or insert parameter value by code
+     *
+     * @param paramCode  Parameter code
+     * @param paramValue Parameter value
+     * @param remark     Parameter description
+     */
+    void setParam(String paramCode, String paramValue, String remark);
+
+    /**
      * InitializeServer secret key
      */
     void initServerSecret();

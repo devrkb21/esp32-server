@@ -159,6 +159,7 @@ class ConnectionHandler:
         self.asr_audio = []  # Store list of PCM frames shared by VAD and ASR
         self.asr_audio_queue = queue.Queue()
         self.current_speaker = None  # Store current speaker
+        self.last_audio_pcm = None  # Store last utterance PCM bytes for live voiceprint verification
         self.introduced_speakers = set()  # Set of introduced speakers, ensures speaker name is only introduced on first turn
         self.system_introduced_speakers = set()  # Set of speakers injected into system prompt, ensures injection occurs only once
 

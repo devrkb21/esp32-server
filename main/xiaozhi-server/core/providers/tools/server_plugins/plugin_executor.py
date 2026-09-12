@@ -20,6 +20,12 @@ class ServerPluginExecutor(ToolExecutor):
         self, conn: "ConnectionHandler", tool_name: str, arguments: Dict[str, Any]
     ) -> ActionResponse:
         """Execute server plugin tool"""
+        # Speaker voiceprint security authorization check
+        from core.utils.voiceprint_security import verify_speaker_security
+        allowed, refusal = await verify_speaker_security(conn, tool_name, arguments)
+        if not allowed:
+            return ActionResponse(action=Action.REQLLM, result=refusal, response=refusal)
+
         func_item = all_function_registry.get(tool_name)
         if not func_item:
             return ActionResponse(
