@@ -65,6 +65,40 @@
           {{ $t('functionDialog.paramConfig') }} - {{ currentFunction.name }}
         </h4>
         <div v-if="currentFunction" class="params-container">
+          <!-- Smart Home Helper if Home Assistant plugin -->
+          <div v-if="isHomeAssistant(currentFunction)" class="ha-assistant-panel">
+            <div class="ha-header">
+              <div class="ha-badge">🏠 {{ $t('functionDialog.smartHomeGuide') }}</div>
+              <p class="ha-desc">{{ $t('functionDialog.smartHomeGuideDesc') }}</p>
+            </div>
+            <div class="ha-quick-actions">
+              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Living Room, Ceiling Light, light.living_room')">
+                💡 {{ $t('functionDialog.addLight') }}
+              </el-button>
+              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Bedroom, Ceiling Fan, fan.bedroom')">
+                🌀 {{ $t('functionDialog.addFan') }}
+              </el-button>
+              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Living Room, AC, climate.living_room')">
+                ❄️ {{ $t('functionDialog.addClimate') }}
+              </el-button>
+              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Kitchen, Coffee Maker, switch.coffee_maker')">
+                🔌 {{ $t('functionDialog.addSwitch') }}
+              </el-button>
+              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Entrance, Front Door Lock, lock.front_door')">
+                🔒 {{ $t('functionDialog.addLock') }}
+              </el-button>
+            </div>
+            <div class="ha-voice-commands">
+              <div class="ha-cmd-title">🗣️ {{ $t('functionDialog.sampleCommands') }}:</div>
+              <div class="ha-cmd-list">
+                <div class="ha-cmd-item">🇧🇩 <em>"লিভিং রুমের লাইট জ্বালাও / বন্ধ করো"</em> (বাতির আলো ৮০% করো)</div>
+                <div class="ha-cmd-item">🇧🇩 <em>"ফ্যান চালু করো / ৫০% স্পিডে চালাও"</em></div>
+                <div class="ha-cmd-item">🇧🇩 <em>"এসি ২৪ ডিগ্রিতে সেট করো"</em> / <em>"দরজা লক করো"</em></div>
+                <div class="ha-cmd-item">🇬🇧 <em>"Turn on/off living room light"</em> / <em>"Set fan speed to 50%"</em></div>
+              </div>
+            </div>
+          </div>
+
           <el-form :model="currentFunction" class="param-form">
             <!-- Iterate fieldsMeta instead of params keys -->
             <div v-if="currentFunction.fieldsMeta.length == 0">
@@ -462,11 +496,80 @@ export default {
       }
       return description;
     },
+    isHomeAssistant(func) {
+      if (!func) return false;
+      const code = String(func.providerCode || '').toLowerCase();
+      const id = String(func.id || '').toUpperCase();
+      const name = String(func.name || '').toLowerCase();
+      return code === 'hass_state' || code === 'home_assistant' ||
+             id === 'SYSTEM_PLUGIN_HA_STATE' ||
+             name.includes('homeassistant') || name.includes('home assistant');
+    },
+    insertDeviceTemplate(templateText) {
+      if (!this.currentFunction) return;
+      if (!this.currentFunction.params) {
+        this.$set(this.currentFunction, 'params', {});
+      }
+      const current = this.currentFunction.params['devices'] || '';
+      const newVal = current ? `${String(current).trim()}\n${templateText}` : templateText;
+      this.$set(this.currentFunction.params, 'devices', newVal);
+      this.handleParamChange(this.currentFunction, 'devices', newVal);
+      this.$message.success(this.$t('message.saveSuccess') || 'Device template added');
+    },
   }
 }
 </script>
 
 <style lang="scss" scoped>
+.ha-assistant-panel {
+  background: linear-gradient(135deg, rgba(22, 119, 255, 0.08), rgba(82, 196, 26, 0.08));
+  border: 1px solid rgba(22, 119, 255, 0.25);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+
+  .ha-header {
+    margin-bottom: 10px;
+    .ha-badge {
+      font-weight: 600;
+      font-size: 14px;
+      color: #1890ff;
+    }
+    .ha-desc {
+      font-size: 12px;
+      color: #666;
+      margin: 4px 0 0 0;
+    }
+  }
+
+  .ha-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .ha-voice-commands {
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    border-left: 3px solid #52c41a;
+
+    .ha-cmd-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .ha-cmd-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: #444;
+    }
+  }
+}
+
 .function-manager {
   display: grid;
   grid-template-columns: max-content max-content 1fr;
