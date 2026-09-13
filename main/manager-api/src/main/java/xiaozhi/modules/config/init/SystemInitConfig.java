@@ -10,6 +10,7 @@ import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.modules.config.service.ConfigService;
 import xiaozhi.modules.device.service.DeviceAddressBookService;
+import xiaozhi.modules.sys.init.SysParamsAutoSeeder;
 import xiaozhi.modules.sys.service.SysParamsService;
 
 @Configuration
@@ -18,6 +19,9 @@ public class SystemInitConfig {
 
     @Autowired
     private SysParamsService sysParamsService;
+
+    @Autowired
+    private SysParamsAutoSeeder sysParamsAutoSeeder;
 
     @Autowired
     private ConfigService configService;
@@ -40,6 +44,7 @@ public class SystemInitConfig {
         }
 
         sysParamsService.initServerSecret();
+        sysParamsAutoSeeder.seedParams();
         configService.getConfig(false);
 
         // Initialize device contact book cache
