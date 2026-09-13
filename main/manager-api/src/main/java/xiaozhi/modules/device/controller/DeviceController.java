@@ -161,27 +161,37 @@ public class DeviceController {
         String toolName = request.getName();
         Map<String, Object> arguments = request.getArguments();
 
-        Object result = deviceService.callDeviceTool(deviceId, toolName, arguments);
-        if (result == null) {
-            return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
-        }
+        try {
+            Object result = deviceService.callDeviceTool(deviceId, toolName, arguments);
+            if (result == null) {
+                return new Result<Object>().error("Device is offline or did not respond to tool call");
+            }
 
-        Result<Object> response = new Result<Object>();
-        response.setMsg("Tools called successfully");
-        return response.ok(result);
+            Result<Object> response = new Result<Object>();
+            response.setMsg("Tools called successfully");
+            return response.ok(result);
+        } catch (Exception e) {
+            log.error("Error executing device tool {} on {}: {}", toolName, deviceId, e.getMessage());
+            return new Result<Object>().error("Failed to execute tool: " + e.getMessage());
+        }
     }
 
     @PostMapping("/command/{deviceId}/reboot")
     @Operation(summary = "RebootDevice")
     @RequiresPermissions("sys:role:normal")
     public Result<Object> rebootDevice(@PathVariable String deviceId) {
-        Object result = deviceService.callDeviceTool(deviceId, "reboot", Collections.emptyMap());
-        if (result == null) {
-            return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
+        try {
+            Object result = deviceService.callDeviceTool(deviceId, "reboot", Collections.emptyMap());
+            if (result == null) {
+                return new Result<Object>().error("Device is offline or did not respond to reboot command");
+            }
+            Result<Object> response = new Result<Object>();
+            response.setMsg("Reboot command sent successfully");
+            return response.ok(result);
+        } catch (Exception e) {
+            log.error("Error rebooting device {}: {}", deviceId, e.getMessage());
+            return new Result<Object>().error("Failed to reboot device: " + e.getMessage());
         }
-        Result<Object> response = new Result<Object>();
-        response.setMsg("Reboot command sent successfully");
-        return response.ok(result);
     }
 
     @PostMapping("/command/{deviceId}/volume")
@@ -192,13 +202,18 @@ public class DeviceController {
         if (volumeVal == null) {
             return new Result<Object>().error("Volume parameter is required (0-100)");
         }
-        Object result = deviceService.callDeviceTool(deviceId, "set_volume", Collections.singletonMap("volume", volumeVal));
-        if (result == null) {
-            return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
+        try {
+            Object result = deviceService.callDeviceTool(deviceId, "set_volume", Collections.singletonMap("volume", volumeVal));
+            if (result == null) {
+                return new Result<Object>().error("Device is offline or did not respond to volume command");
+            }
+            Result<Object> response = new Result<Object>();
+            response.setMsg("Volume updated successfully");
+            return response.ok(result);
+        } catch (Exception e) {
+            log.error("Error setting volume for device {}: {}", deviceId, e.getMessage());
+            return new Result<Object>().error("Failed to update volume: " + e.getMessage());
         }
-        Result<Object> response = new Result<Object>();
-        response.setMsg("Volume updated successfully");
-        return response.ok(result);
     }
 
     @GetMapping("/address-book/{macAddress}")

@@ -153,17 +153,30 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     }
 
     /**
+     * Format MQTT gateway URL ensuring no duplicate http:// prefix or trailing slashes
+     */
+    private String formatMqttGatewayUrl(String path) {
+        String mqttGatewayUrl = sysParamsService.getValue("server.mqtt_manager_api", true);
+        if (StringUtils.isBlank(mqttGatewayUrl) || "null".equalsIgnoreCase(mqttGatewayUrl)) {
+            return null;
+        }
+        String cleaned = mqttGatewayUrl.trim().replaceFirst("^https?://", "").replaceAll("/+$", "");
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        String cleanedPath = path.startsWith("/") ? path : "/" + path;
+        return "http://" + cleaned + cleanedPath;
+    }
+
+    /**
      * Get device online data
      */
     @Override
     public String getDeviceOnlineData(String agentId) {
-        // fromSystem parametersget fromMQTTGatewayAddress
-        String mqttGatewayUrl = sysParamsService.getValue("server.mqtt_manager_api", true);
-        if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)) {
+        String url = formatMqttGatewayUrl("/api/devices/status");
+        if (url == null) {
             return "";
         }
-        // BuildCompleteURL
-        String url = StrUtil.format("http://{}/api/devices/status", mqttGatewayUrl);
 
         // Get device list for current user
         UserDetail user = SecurityUser.getUser();
@@ -182,7 +195,12 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                 .put("clientIds", deviceIds).build();
 
         if (CollUtil.isNotEmpty(deviceIds)) {
-            return postToMqttGateway(url, params);
+            try {
+                return postToMqttGateway(url, params);
+            } catch (Exception e) {
+                log.warn("Failed to get device online data from gateway: {}", e.getMessage());
+                return "";
+            }
         }
         // ReturnResponse
         return "";
@@ -716,12 +734,6 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
     @Override
     public Object getDeviceTools(String deviceId) {
-        // fromSystem parametersget fromMQTTGatewayAddress
-        String mqttGatewayUrl = sysParamsService.getValue("server.mqtt_manager_api", true);
-        if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)) {
-            return null;
-        }
-
         // GetDeviceInformation
         DeviceEntity device = baseDao.selectById(deviceId);
         if (device == null) {
@@ -740,7 +752,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         String clientId = StrUtil.format("{}@@@{}@@@{}", groupId, macAddress, macAddress);
 
         // BuildCompleteURL
-        String url = StrUtil.format("http://{}/api/commands/{}", mqttGatewayUrl, clientId);
+        String url = formatMqttGatewayUrl("/api/commands/" + clientId);
+        if (url == null) {
+            return null;
+        }
 
         // StorageAllToolList
         List<Object> allTools = new ArrayList<>();
@@ -772,7 +787,13 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                     .put("payload", payload)
                     .build();
 
-            String resultMessage = postToMqttGateway(url, requestBody);
+            String resultMessage;
+            try {
+                resultMessage = postToMqttGateway(url, requestBody);
+            } catch (Exception e) {
+                log.warn("Failed to get device tools for {}: {}", clientId, e.getMessage());
+                break;
+            }
 
             // ParseResponse
             if (StringUtils.isBlank(resultMessage)) {
@@ -816,12 +837,6 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
     @Override
     public Object callDeviceTool(String deviceId, String toolName, Map<String, Object> arguments) {
-        // fromSystem parametersget fromMQTTGatewayAddress
-        String mqttGatewayUrl = sysParamsService.getValue("server.mqtt_manager_api", true);
-        if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)) {
-            return null;
-        }
-
         // GetDeviceInformation
         DeviceEntity device = baseDao.selectById(deviceId);
         if (device == null) {
@@ -840,7 +855,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         String clientId = StrUtil.format("{}@@@{}@@@{}", groupId, macAddress, macAddress);
 
         // BuildCompleteURL
-        String url = StrUtil.format("http://{}/api/commands/{}", mqttGatewayUrl, clientId);
+        String url = formatMqttGatewayUrl("/api/commands/" + clientId);
+        if (url == null) {
+            return null;
+        }
 
         // BuildRequestAgent
         Map<String, Object> params = MapUtil
@@ -863,7 +881,13 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                 .put("payload", payload)
                 .build();
 
-        String resultMessage = postToMqttGateway(url, requestBody);
+        String resultMessage;
+        try {
+            resultMessage = postToMqttGateway(url, requestBody);
+        } catch (Exception e) {
+            log.warn("Failed to call device tool {} on device {}: {}", toolName, deviceId, e.getMessage());
+            return null;
+        }
 
         // ParseResponse
         if (StringUtils.isNotBlank(resultMessage)) {

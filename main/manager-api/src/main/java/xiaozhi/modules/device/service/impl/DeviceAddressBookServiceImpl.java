@@ -208,8 +208,15 @@ public class DeviceAddressBookServiceImpl implements DeviceAddressBookService {
             return result;
         }
 
+        String cleanedGw = mqttGatewayUrl.trim().replaceFirst("^https?://", "").replaceAll("/+$", "");
+        if (cleanedGw.isEmpty()) {
+            result.put("message", action + " Fail, Gateway Configuration Invalid");
+            return result;
+        }
+
         try {
-            String url = "http://" + mqttGatewayUrl + path;
+            String cleanPath = path.startsWith("/") ? path : "/" + path;
+            String url = "http://" + cleanedGw + cleanPath;
             String response = MqttGatewayAuthorization.postJson(
                     url,
                     JSONUtil.toJsonStr(body),
