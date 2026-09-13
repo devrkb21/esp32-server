@@ -63,6 +63,16 @@ services:
       - SPRING_DATA_REDIS_HOST=xiaozhi-esp32-server-redis
       - SPRING_DATA_REDIS_PASSWORD=
       - SPRING_DATA_REDIS_PORT=6379
+      - SERVER_DOMAIN=${SERVER_DOMAIN:-esp.czbd.app}
+      - ***REDACTED***${MQTT_PUBLIC_IP:-13.201.26.73}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - UDP_PORT=${UDP_PORT:-8884}
+      - MQTT_API_PORT=${MQTT_API_PORT:-8007}
+      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:-***REDACTED***}
+      - MANAGER_API_SECRET=${MANAGER_API_SECRET:-***REDACTED***}
+      - VOICEPRINT_KEY=${VOICEPRINT_KEY:-***REDACTED***}
+      - WS_PORT=${WS_PORT:-18000}
+      - VISION_PORT=${VISION_PORT:-18003}
     volumes:
       - ./uploadfile:/uploadfile
     networks:
