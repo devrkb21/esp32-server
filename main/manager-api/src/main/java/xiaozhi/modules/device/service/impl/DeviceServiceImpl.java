@@ -886,6 +886,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             resultMessage = postToMqttGateway(url, requestBody);
         } catch (Exception e) {
             log.warn("Failed to call device tool {} on device {}: {}", toolName, deviceId, e.getMessage());
+            if ("reboot".equalsIgnoreCase(toolName)) {
+                return true;
+            }
             return null;
         }
 
@@ -893,8 +896,21 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         if (StringUtils.isNotBlank(resultMessage)) {
             cn.hutool.json.JSONObject jsonObject = JSONUtil.parseObj(resultMessage);
             if (jsonObject.getBool("success", false)) {
-                cn.hutool.json.JSONObject data = jsonObject.getJSONObject("data");
-                if (data != null) {
+                Object rawData = jsonObject.get("data");
+                if (rawData == null) {
+                    return true;
+                }
+                if (rawData instanceof Boolean || rawData instanceof Number) {
+                    return rawData;
+                }
+                if (rawData instanceof String) {
+                    String strData = ((String) rawData).trim();
+                    if ("true".equalsIgnoreCase(strData)) return true;
+                    if ("false".equalsIgnoreCase(strData)) return false;
+                    return strData;
+                }
+                if (rawData instanceof cn.hutool.json.JSONObject) {
+                    cn.hutool.json.JSONObject data = (cn.hutool.json.JSONObject) rawData;
                     cn.hutool.json.JSONArray content = data.getJSONArray("content");
                     if (content != null && content.size() > 0) {
                         cn.hutool.json.JSONObject firstContent = content.getJSONObject(0);
@@ -908,9 +924,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                                     } catch (Exception e) {
                                         return trimmedText;
                                     }
-                                } else if ("true".equals(trimmedText)) {
+                                } else if ("true".equalsIgnoreCase(trimmedText)) {
                                     return true;
-                                } else if ("false".equals(trimmedText)) {
+                                } else if ("false".equalsIgnoreCase(trimmedText)) {
                                     return false;
                                 } else {
                                     return trimmedText;
@@ -918,7 +934,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                             }
                         }
                     }
+                    return data;
                 }
+                return rawData;
             }
         }
         return null;
