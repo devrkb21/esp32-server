@@ -12,6 +12,7 @@
                 <el-input :placeholder="$t('device.searchPlaceholder')" v-model="searchKeyword" class="search-input"
                   @keyup.enter.native="handleSearch" clearable />
                 <CustomButton icon="el-icon-search" type="confirm" @click="handleSearch">{{ $t('device.search') }}</CustomButton>
+                <el-button icon="el-icon-refresh" size="small" :loading="refreshingStatus" @click="refreshStatusNow" style="border-radius: 8px;">{{ $t('common.refresh') || 'Refresh' }}</el-button>
               </div>
             </div>
             <CustomTable
@@ -37,8 +38,12 @@
                 <MacAddressMask :macAddress="scope.row.macAddress" />
               </template>
               <template slot="deviceStatus" slot-scope="scope">
-                <el-tag v-if="scope.row.deviceStatus === 'online'" type="success">{{ $t('device.online') }}</el-tag>
-                <el-tag v-else type="danger">{{ $t('device.offline') }}</el-tag>
+                <el-tag v-if="scope.row.deviceStatus === 'online'" type="success" effect="dark" size="mini">
+                  <i class="el-icon-circle-check"></i> {{ $t('device.online') }}
+                </el-tag>
+                <el-tag v-else type="info" effect="plain" size="mini">
+                  <i class="el-icon-circle-close"></i> {{ $t('device.offline') }}
+                </el-tag>
               </template>
               <template slot="alias" slot-scope="scope">
                 <el-input v-show="scope.row.isEdit" v-model="scope.row.alias" size="mini" maxlength="64" show-word-limit
@@ -172,6 +177,8 @@ export default {
       currentVolume: 70,
       volumeSubmitting: false,
       rebootingDeviceId: '',
+      refreshingStatus: false,
+      statusPollTimer: null,
     };
   },
   computed: {
@@ -213,7 +220,11 @@ export default {
     const agentId = this.$route.query.agentId;
     if (agentId) {
       this.fetchBindDevices(agentId);
+      this.startStatusPolling(agentId);
     }
+  },
+  beforeDestroy() {
+    this.stopStatusPolling();
   },
   created() {
     this.getFirmwareTypes()
@@ -444,10 +455,38 @@ export default {
       });
     },
 
-    fetchDeviceStatus(agentId) {
-      this.loading = true;
+    startStatusPolling(agentId) {
+      this.stopStatusPolling();
+      this.statusPollTimer = setInterval(() => {
+        if (this.$route.query.agentId) {
+          this.fetchDeviceStatus(this.$route.query.agentId, true);
+        }
+      }, 10000);
+    },
+    stopStatusPolling() {
+      if (this.statusPollTimer) {
+        clearInterval(this.statusPollTimer);
+        this.statusPollTimer = null;
+      }
+    },
+    refreshStatusNow() {
+      const agentId = this.$route.query.agentId;
+      if (agentId) {
+        this.refreshingStatus = true;
+        this.fetchDeviceStatus(agentId, false);
+        setTimeout(() => {
+          this.refreshingStatus = false;
+        }, 800);
+      }
+    },
+    fetchDeviceStatus(agentId, isSilent = false) {
+      if (!isSilent) {
+        this.loading = true;
+      }
       Api.device.getDeviceStatus(agentId, ({ data }) => {
-        this.loading = false;
+        if (!isSilent) {
+          this.loading = false;
+        }
         if (data.code === 0) {
           try {
             const statusData = JSON.parse(data.data);
