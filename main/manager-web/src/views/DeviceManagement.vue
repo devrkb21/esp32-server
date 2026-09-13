@@ -365,17 +365,22 @@ export default {
     },
     handleVolumeDialog(row) {
       this.selectedDevice = row;
-      this.currentVolume = (row.volume !== undefined && row.volume !== null) ? row.volume : 70;
+      const cached = localStorage.getItem('device_vol_' + (row.device_id || row.id));
+      this.currentVolume = (row.volume !== undefined && row.volume !== null)
+        ? row.volume
+        : (cached !== null ? parseInt(cached) : 70);
       this.volumeDialogVisible = true;
     },
     submitVolume() {
       if (!this.selectedDevice) return;
       this.volumeSubmitting = true;
-      Api.device.setDeviceVolume(this.selectedDevice.device_id, this.currentVolume, ({ data }) => {
+      const devId = this.selectedDevice.device_id || this.selectedDevice.id;
+      Api.device.setDeviceVolume(devId, this.currentVolume, ({ data }) => {
         this.volumeSubmitting = false;
         if (data.code === 0) {
           this.$message.success(this.$t('device.volumeUpdated') || 'Volume updated successfully');
           this.selectedDevice.volume = this.currentVolume;
+          localStorage.setItem('device_vol_' + devId, this.currentVolume);
           this.volumeDialogVisible = false;
         } else {
           this.$message.error(data.msg || 'Failed to update volume');

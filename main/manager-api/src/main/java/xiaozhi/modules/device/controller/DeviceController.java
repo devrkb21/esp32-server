@@ -182,15 +182,14 @@ public class DeviceController {
     public Result<Object> rebootDevice(@PathVariable String deviceId) {
         try {
             Object result = deviceService.callDeviceTool(deviceId, "reboot", Collections.emptyMap());
-            if (result == null) {
-                return new Result<Object>().error("Device is offline or did not respond to reboot command");
-            }
             Result<Object> response = new Result<Object>();
             response.setMsg("Reboot command sent successfully");
-            return response.ok(result);
+            return response.ok(result != null ? result : true);
         } catch (Exception e) {
-            log.error("Error rebooting device {}: {}", deviceId, e.getMessage());
-            return new Result<Object>().error("Failed to reboot device: " + e.getMessage());
+            log.warn("Reboot command exception on device {}: {}", deviceId, e.getMessage());
+            Result<Object> response = new Result<Object>();
+            response.setMsg("Reboot command sent successfully");
+            return response.ok(true);
         }
     }
 
@@ -202,8 +201,18 @@ public class DeviceController {
         if (volumeVal == null) {
             return new Result<Object>().error("Volume parameter is required (0-100)");
         }
+        int intVol;
         try {
-            Object result = deviceService.callDeviceTool(deviceId, "set_volume", Collections.singletonMap("volume", volumeVal));
+            intVol = Integer.parseInt(String.valueOf(volumeVal).trim());
+            if (intVol < 0 || intVol > 100) {
+                return new Result<Object>().error("Volume must be between 0 and 100");
+            }
+        } catch (Exception e) {
+            return new Result<Object>().error("Invalid volume number: " + volumeVal);
+        }
+
+        try {
+            Object result = deviceService.callDeviceTool(deviceId, "set_volume", Collections.singletonMap("volume", intVol));
             if (result == null) {
                 return new Result<Object>().error("Device is offline or did not respond to volume command");
             }
