@@ -86,6 +86,10 @@ async def main():
         get_local_ip(),
         port,
     )
+    if ota_server.companion_handler is not None:
+        logger.bind(tag=TAG).info(
+            "Companion app is:\t\thttp://{}:{}/app/", get_local_ip(), port
+        )
     mcp_endpoint = config.get("mcp_endpoint", None)
     if mcp_endpoint is not None and "your" not in mcp_endpoint.lower():
         # Validate MCP endpoint format

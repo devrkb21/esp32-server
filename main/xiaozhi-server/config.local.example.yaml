@@ -51,6 +51,23 @@ TTS:
     language: Bangla (Bengali, written in Bangla script)
     output_dir: tmp/
 
+# End a chat after 30 s without speech (default 120 s): with no working mic a double tap would
+# otherwise leave the robot stuck "listening" for two minutes
+close_connection_no_voice_time: 30
+
+# TinyBot companion (alarms, reminders, prayer times, weather, phone messages) and the mobile
+# web app at http://192.168.0.123:8003/app/. Set app_token to protect the app API.
+companion:
+  enabled: true
+  app_token: ""
+  data_dir: data/companion
+  poll_s: 30
+  default_city: Dhaka
+  default_lat: 23.8103
+  default_lon: 90.4125
+  prayer_method: Karachi
+  asr_method: Hanafi
+
 # Spoken when the LLM fails (e.g. quota). Bangla, to match the TTS voice.
 system_error_response: "দুঃখিত, আমি এখন একটু ব্যস্ত। একটু পরে আবার চেষ্টা করো।"
 
