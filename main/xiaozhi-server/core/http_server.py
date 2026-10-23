@@ -13,6 +13,16 @@ class SimpleHttpServer:
         self.logger = setup_logging()
         self.ota_handler = OTAHandler(config)
         self.vision_handler = VisionHandler(config)
+        self.companion_handler = None
+        try:
+            from core.companion import get_service
+
+            if get_service(config) is not None:
+                from core.companion.handler import CompanionHandler
+
+                self.companion_handler = CompanionHandler(config)
+        except Exception as e:
+            self.logger.bind(tag=TAG).error(f"Companion API disabled, init failed: {e}")
 
     def _get_websocket_url(self, local_ip: str, port: int) -> str:
         """Get WebSocket address
@@ -74,6 +84,10 @@ class SimpleHttpServer:
                         ),
                     ]
                 )
+
+                # TinyBot companion API and mobile web app (standalone and manager-api modes)
+                if self.companion_handler is not None:
+                    app.add_routes(self.companion_handler.routes())
 
                 # Run service
                 runner = web.AppRunner(app)

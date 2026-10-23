@@ -40,7 +40,8 @@ async def resume_vad_detection(conn: "ConnectionHandler"):
     conn.just_woken_up = False
 
 
-async def startToChat(conn: "ConnectionHandler", text):
+async def startToChat(conn: "ConnectionHandler", text, display_text=None):
+    # display_text: what the device shows as the user line (default: the text itself)
     # Check if input is JSON format (contains speaker info)
     speaker_name = None
     actual_text = text
@@ -103,7 +104,7 @@ async def startToChat(conn: "ConnectionHandler", text):
         return
 
     # Intent not handled, continue normal chat flow using actual text content
-    await send_stt_message(conn, actual_text)
+    await send_stt_message(conn, actual_text if display_text is None else display_text)
 
     # Prepare to start new session
     conn.client_abort = False

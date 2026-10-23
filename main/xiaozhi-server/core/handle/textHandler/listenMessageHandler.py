@@ -13,6 +13,7 @@ from core.handle.reportHandle import enqueue_asr_report
 from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.textMessageHandler import TextMessageHandler
 from core.handle.textMessageType import TextMessageType
+from core.companion.story import is_story_request, build_story_prompt
 from core.utils.util import remove_punctuation_and_length, is_wakeup_word
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 
@@ -91,6 +92,16 @@ class ListenTextMessageHandler(TextMessageHandler):
 
                     # Add to dialogue history so model understands context
                     conn.dialogue.put(Message(role="assistant", content=call_text))
+                    return
+
+                # TinyBot companion story request: [companion:story]<topic>
+                if is_story_request(original_text):
+                    prompt = build_story_prompt(conn.config, original_text)
+                    conn.logger.bind(tag=TAG).info(f"Companion story request: {original_text}")
+                    conn.just_woken_up = True
+                    enqueue_asr_report(conn, original_text, [])
+                    # Show a short title on the robot, not the long LLM instructions
+                    await startToChat(conn, prompt, display_text="Story time!")
                     return
 
                 # Check if wake word

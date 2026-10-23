@@ -228,6 +228,50 @@ end_prompt:
   prompt: |
     Please end this conversation warmly and affectionately, beginning with "Time really flies"!
 
+# #####################################################################################
+# ############################# TinyBot companion ######################################
+# Schedules, reminders, prayer times, weather and phone messages for the robot, plus the
+# mobile web app at http://<server>:8003/app/ (see docs/companion-api.md)
+companion:
+  enabled: true
+  # Bearer token for the app API (/companion/v1/devices...); empty = no protection (LAN only)
+  app_token: ""
+  # Device store (devices.json) and rendered TTS audio (audio/*.ogg)
+  data_dir: data/companion
+  # How often the robot polls /companion/v1/device/sync (seconds)
+  poll_s: 30
+  # Defaults for new robots (prayer times and weather)
+  default_city: Dhaka
+  default_lat: 23.8103
+  default_lon: 90.4125
+  # Prayer times are computed locally. Methods: Karachi (Fajr 18 deg, Isha 18 deg, Bangladesh),
+  # MWL, ISNA, Egypt, Makkah, Tehran, Jafari. Asr: Hanafi or Standard (Shafi)
+  prayer_method: Karachi
+  asr_method: Hanafi
+  # Optional minutes added per prayer, e.g. {fajr: 2, dhuhr: 2}
+  prayer_offsets: {}
+  # Weather (Open-Meteo, no key) cache per location, seconds
+  weather_cache_s: 1200
+  # Edge TTS voice for spoken reminders/messages; empty = the EdgeTTS voice from TTS config
+  voice: ""
+  # Topics for "[companion:story]" requests without a topic (one is picked at random)
+  story_topics:
+    - একটি সাহসী ছোট্ট বিড়ালছানা
+    - চাঁদে বেড়াতে যাওয়া খরগোশ
+    - সুন্দরবনের বাঘ মামা আর তার বন্ধুরা
+    - হাতি আর পিঁপড়ার বন্ধুত্ব
+    - রংধনুর সাত রঙের রহস্য
+    - পদ্মা নদীর ছোট্ট ইলিশ মাছ
+    - জাদুর বাঁশিওয়ালা রাখাল ছেলে
+    - মেঘের দেশে ঘুরতে যাওয়া
+    - দয়ালু কাঠুরিয়া আর সোনার কুড়াল
+    - সত্যি কথা বলার পুরস্কার
+    - ছোট্ট রোবট টাইনিবটের অভিযান
+    - দাদুর বাগানের আম গাছ
+    - তারার দেশের ছোট্ট পরী
+    - অন্ধকারে ভয় পাওয়া জোনাকি পোকা
+    - চড়ুই পাখির নতুন বাসা
+
 # The module selected for specific processing
 selected_module:
   # Voice Activity Detection module, default SileroVAD
@@ -271,6 +315,8 @@ Intent:
       - get_news_from_newsnow
       # play_music is server built-in player; hass_play_music is via Home Assistant
       - play_music
+      # TinyBot companion: alarms, reminders, focus timer, prayer times
+      - companion_robot
       #- hass_state
       #- hass_play_music
 
