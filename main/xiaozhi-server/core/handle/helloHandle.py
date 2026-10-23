@@ -12,7 +12,7 @@ from core.utils.util import audio_to_data, audio_file_to_wav_bytes
 from core.providers.tts.dto.dto import SentenceType
 from core.utils.wakeup_word import WakeupWordsConfig
 from core.handle.sendAudioHandle import sendAudioMessage, send_tts_message
-from core.utils.util import remove_punctuation_and_length, opus_datas_to_wav_bytes
+from core.utils.util import remove_punctuation_and_length, is_wakeup_word, opus_datas_to_wav_bytes
 from core.providers.tools.device_mcp import MCPClient, send_mcp_initialize_message
 
 TAG = __name__
@@ -107,7 +107,7 @@ async def checkWakeupWords(conn: "ConnectionHandler", text):
         return False
 
     _, filtered_text = remove_punctuation_and_length(text)
-    if filtered_text not in conn.config.get("wakeup_words"):
+    if not is_wakeup_word(filtered_text, conn.config.get("wakeup_words")):
         return False
 
     conn.just_woken_up = True

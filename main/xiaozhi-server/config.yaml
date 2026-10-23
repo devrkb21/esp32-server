@@ -102,7 +102,9 @@ module_test:
 
 # Wakeup words, used to distinguish wakeup word from speech content
 wakeup_words:
-  # Built-in ESP32 wake word model (WN9_NIHAOXIAOZHI_TTS) reports the Chinese phrase
+  # Built-in ESP32 wake words: English firmware builds use "Hi ESP", Chinese ones "你好小智".
+  # Matching ignores case, spaces and punctuation.
+  - "Hi ESP"
   - "你好小智"
   - "nihaoxiaozhi"
   - "Hello Xiaozhi"
