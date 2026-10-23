@@ -54,6 +54,10 @@ async def startToChat(conn: "ConnectionHandler", text):
                 actual_content = data["content"]
                 conn.logger.bind(tag=TAG).info(f"Parsed speaker information: {speaker_name}")
                 actual_text = actual_content
+            elif "content" in data:
+                # FunASR etc. return {"content","language","emotion"}: only hand the recognized
+                # text to the LLM, otherwise the whole JSON ends up in the dialogue history
+                actual_text = data["content"]
     except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
         # If parse fails, continue using original text
         pass

@@ -2,13 +2,14 @@
 
 ## Overview
 
-The `web_search` plugin supports searching the web in real time during conversations and returning results. It supports two search providers: Metaso and Tavily. You can choose either one based on your needs.
+The `web_search` plugin supports searching the web in real time during conversations and returning results. It supports three search providers: Metaso, Tavily and Serply. You can choose any one based on your needs.
 
 ## API Key Guide
 
-We currently support `Metaso Search` and `Tavily Search`.
+We currently support `Metaso Search`, `Tavily Search` and `Serply Search`.
 - Tavily Search: 1,000 free requests per month.
-- Metaso Search: provides high-quality domestic data sources.
+- Metaso Search: provides high-quality domestic (China) data sources.
+- Serply Search: returns Google search results; 2,500 free requests on sign-up, paid afterwards.
 
 ## How to get an API key
 
@@ -24,6 +25,13 @@ We currently support `Metaso Search` and `Tavily Search`.
 - Create an API key in the console
 - Copy the generated API key (it starts with `tvly-`); this is the required configuration value
 
+### Option 3: Use Serply Search
+
+- Go to [Serply](https://serply.io), register and log in
+- Create an API key in the dashboard
+- Copy the generated API key; it is the key piece of information needed for configuration
+- See the [Serply documentation](https://serply.io/docs) for the API
+
 ## Configuration
 
 ### Option 1. Use the control panel deployment (recommended)
@@ -32,14 +40,14 @@ We currently support `Metaso Search` and `Tavily Search`.
 - Open the "Role Configuration" page and select the agent you want to configure
 - Click the "Edit Features" button, then find the "Web Search" plugin in the parameter configuration area on the right
 - Enable "Web Search"
-- Set the search provider (`metaso` or `tavily`) and fill in the corresponding API key
+- Set the search provider (`metaso`, `tavily` or `serply`) and fill in the corresponding API key
 - Save the configuration, then save the agent configuration
 
 ### Option 2. Single-module xiaozhi-server deployment
 
 Configure the following in `data/.config.yaml`:
 
-- Set the search provider in `provider`; valid values are `metaso` or `tavily`
+- Set the search provider in `provider`; valid values are `metaso`, `tavily` or `serply`
 - Put the obtained API key in `api_key`
 
 ```yaml
