@@ -13,7 +13,7 @@ from core.handle.reportHandle import enqueue_asr_report
 from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.textMessageHandler import TextMessageHandler
 from core.handle.textMessageType import TextMessageType
-from core.utils.util import remove_punctuation_and_length
+from core.utils.util import remove_punctuation_and_length, is_wakeup_word
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 
 
@@ -94,7 +94,7 @@ class ListenTextMessageHandler(TextMessageHandler):
                     return
 
                 # Check if wake word
-                is_wakeup_words = filtered_text in conn.config.get("wakeup_words")
+                is_wakeup_words = is_wakeup_word(filtered_text, conn.config.get("wakeup_words"))
                 # Whether wake word greeting is enabled
                 enable_greeting = conn.config.get("enable_greeting", True)
 

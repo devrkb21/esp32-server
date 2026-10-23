@@ -178,6 +178,20 @@ def remove_punctuation_and_length(text):
     return len(result), result
 
 
+def is_wakeup_word(text, wakeup_words) -> bool:
+    """Compare ignoring case, spaces and punctuation ("Hi,ESP" == "Hi ESP" == "hiesp")."""
+    if not text or not wakeup_words:
+        return False
+    if isinstance(wakeup_words, str):
+        wakeup_words = [w for w in wakeup_words.split(";")]
+    target = remove_punctuation_and_length(str(text))[1].lower()
+    if not target:
+        return False
+    return any(
+        remove_punctuation_and_length(str(w))[1].lower() == target for w in wakeup_words
+    )
+
+
 def check_model_key(modelType, modelKey):
     if "your" in modelKey.lower():
         return f"Configuration error: API key for {modelType} is not set, current value: {modelKey}"
