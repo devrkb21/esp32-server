@@ -21,11 +21,11 @@ ws://your-host-machine-LAN-IP:8000/xiaozhi/v1/?from=mqtt_gateway
 
 ## Important Notes
 
-If you are deploying on a server, make sure ports `1883`, `8884`, and `8007` are open to the outside world. The protocol type for `8884` is `UDP`; the others are `TCP`.
+If you are deploying on a server, make sure ports `1883` (TCP) and `8884` (UDP) are open to the outside world. With this repo's `docker-compose.yml`, the management API port `8007` is only reachable inside the Docker network (manager-api uses `xiaozhi-esp32-server-mqtt:8007`); do not expose it publicly, because anyone who knows the signature key could control devices through it.
 
-If you are deploying on a server, make sure ports `1883`, `8884`, and `8007` are open to the outside world. The protocol type for `8884` is `UDP`; the others are `TCP`.
+If you are deploying on a server, make sure ports `1883` (TCP) and `8884` (UDP) are open to the outside world. With this repo's `docker-compose.yml`, the management API port `8007` is only reachable inside the Docker network (manager-api uses `xiaozhi-esp32-server-mqtt:8007`); do not expose it publicly, because anyone who knows the signature key could control devices through it.
 
-If you are deploying on a server, make sure ports `1883`, `8884`, and `8007` are open to the outside world. The protocol type for `8884` is `UDP`; the others are `TCP`.
+If you are deploying on a server, make sure ports `1883` (TCP) and `8884` (UDP) are open to the outside world. With this repo's `docker-compose.yml`, the management API port `8007` is only reachable inside the Docker network (manager-api uses `xiaozhi-esp32-server-mqtt:8007`); do not expose it publicly, because anyone who knows the signature key could control devices through it.
 
 ## Part 1: Deploy the MQTT Gateway
 

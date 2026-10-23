@@ -24,7 +24,7 @@ async def handle_user_intent(conn: "ConnectionHandler", text):
             parsed_data = json.loads(text)
             if isinstance(parsed_data, dict) and "content" in parsed_data:
                 text = parsed_data["content"]  # Extract content for intent analysis
-                conn.current_speaker = parsed_data.get("speaker")  # Retain speaker information
+                # current_speaker is set only by startToChat from the server's voiceprint result
     except (json.JSONDecodeError, TypeError):
         pass
 

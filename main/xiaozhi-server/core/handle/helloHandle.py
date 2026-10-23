@@ -30,7 +30,27 @@ WAKEUP_CONFIG = {
         "How can I help you today?",
         "I'm right here, at your service.",
     ],
+    # Used when the agent's TTS language / voice is Bangla
+    "responses_bn": [
+        "আমি এখানেই আছি, বলো।",
+        "হ্যাঁ, বলো, আমি শুনছি।",
+        "আমি তৈরি, কী করতে পারি?",
+        "বলো, কী লাগবে?",
+        "আমি শুনছি, বলো।",
+    ],
 }
+
+
+def _is_bangla(conn) -> bool:
+    """True if the agent speaks Bangla (TTS language or a bn-* voice)."""
+    try:
+        tts_name = conn.config.get("selected_module", {}).get("TTS", "")
+        language = str(conn.config.get("TTS", {}).get(tts_name, {}).get("language", "")).lower()
+        voice = str(getattr(conn.tts, "voice", "") or "").lower()
+    except Exception:
+        return False
+    return any(k in language for k in ("bengali", "bangla", "বাংলা")) or language.startswith("bn") \
+        or voice.startswith("bn-") or voice.startswith("bn_")
 
 # Create global wake word configuration manager
 wakeup_words_config = WakeupWordsConfig()
@@ -46,7 +66,11 @@ async def handleHelloMessage(conn: "ConnectionHandler", msg_json):
         format = audio_params.get("format")
         conn.logger.bind(tag=TAG).debug(f"Client audio format: {format}")
         conn.audio_format = format
-        conn.welcome_msg["audio_params"] = audio_params
+        # Echo the client's parameters, but report the rate the server really encodes TTS at
+        reply_params = dict(audio_params)
+        if getattr(conn, "sample_rate", None):
+            reply_params["sample_rate"] = conn.sample_rate
+        conn.welcome_msg["audio_params"] = reply_params
     features = msg_json.get("features")
     if features:
         conn.logger.bind(tag=TAG).debug(f"Client features: {features}")
@@ -136,7 +160,8 @@ async def wakeupWordsResponse(conn: "ConnectionHandler"):
             return
 
         # Randomly select a reply from predefined response list
-        result = random.choice(WAKEUP_CONFIG["responses"])
+        responses = WAKEUP_CONFIG["responses_bn"] if _is_bangla(conn) else WAKEUP_CONFIG["responses"]
+        result = random.choice(responses)
         if not result or len(result) == 0:
             return
 

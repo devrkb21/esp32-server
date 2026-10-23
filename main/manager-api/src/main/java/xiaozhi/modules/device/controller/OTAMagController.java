@@ -322,7 +322,11 @@ public class OTAMagController {
         if (StringUtils.isNotBlank(result.getData())) {
             String uuid = UUID.randomUUID().toString();
             redisUtils.set(RedisKeys.getOtaIdKey(uuid), "file:" + result.getData());
-            String downloadUrl = otaUrl.replace("/ota/", "/otaMag/download/") + uuid;
+            String baseOtaUrl = StringUtils.defaultString(otaUrl).replaceAll("/+$", "").replaceAll("/ota$", "");
+            if (!baseOtaUrl.endsWith("/xiaozhi")) {
+                baseOtaUrl = baseOtaUrl + "/xiaozhi";
+            }
+            String downloadUrl = baseOtaUrl + "/otaMag/download/" + uuid;
             result.setData(downloadUrl);
         }
         return result;

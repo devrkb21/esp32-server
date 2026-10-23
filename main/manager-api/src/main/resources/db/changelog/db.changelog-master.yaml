@@ -742,7 +742,6 @@ databaseChangeLog:
   - changeSet:
       id: 202609111200
       author: antigravity
-      runOnChange: true
       validCheckSum:
         - ANY
       changes:
@@ -753,7 +752,6 @@ databaseChangeLog:
   - changeSet:
       id: 202609120000
       author: antigravity
-      runOnChange: true
       validCheckSum:
         - ANY
       changes:
@@ -764,7 +762,6 @@ databaseChangeLog:
   - changeSet:
       id: 202609130000
       author: antigravity
-      runOnChange: true
       validCheckSum:
         - ANY
       changes:
@@ -772,3 +769,11 @@ databaseChangeLog:
             encoding: utf8
             path: classpath:db/changelog/202609130000.sql
 
+
+  - changeSet:
+      id: 202610230000
+      author: tinybot
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202610230000.sql
