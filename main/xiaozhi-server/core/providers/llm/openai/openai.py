@@ -66,6 +66,11 @@ class LLMProvider(LLMProviderBase):
             f"Intent recognition params initialized: {self.temperature}, {self.max_tokens}, {self.top_p}, {self.frequency_penalty}"
         )
 
+        # Provider-specific request fields from the config, e.g. {"reasoning_effort": "low"} for
+        # reasoning models on Groq, sent as-is in the request body
+        extra_body = config.get("extra_body")
+        self.extra_body = dict(extra_body) if isinstance(extra_body, dict) else None
+
         model_key_msg = check_model_key("LLM", self.api_key)
         if model_key_msg:
             logger.bind(tag=TAG).error(model_key_msg)
@@ -80,7 +85,9 @@ class LLMProvider(LLMProviderBase):
         return dialogue
 
     def _apply_thinking_disabled(self, request_params: dict):
-        """Automatically disable thinking mode based on domain"""
+        """Automatically disable thinking mode based on domain, then add configured extra_body"""
+        if self.extra_body:
+            request_params.setdefault("extra_body", {}).update(self.extra_body)
         parsed_url = urlparse(self.base_url)
         domain = parsed_url.netloc
         for disabled_domain, params in THINKING_DISABLED_DOMAINS.items():
