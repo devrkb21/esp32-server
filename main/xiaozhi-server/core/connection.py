@@ -240,7 +240,9 @@ class ConnectionHandler:
             # Start AEC cache cleanup task
             self._aec_cache_cleanup_task = asyncio.create_task(self._check_aec_cache_expiry())
 
-            self.welcome_msg = self.config["xiaozhi"]
+            # Per-connection copy: the hello reply carries session_id and audio_params, and the
+            # shared config must not be modified by one connection for all the others.
+            self.welcome_msg = copy.deepcopy(self.config["xiaozhi"])
             self.welcome_msg["session_id"] = self.session_id
 
             # Read sample rate from configuration

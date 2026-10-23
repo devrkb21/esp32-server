@@ -33,13 +33,13 @@ public class SysParamsAutoSeeder {
     @Value("${MQTT_API_PORT:8007}")
     private String mqttApiPort;
 
-    @Value("${MQTT_SIGNATURE_KEY:SecureEspMqttKey2026}")
+    @Value("${MQTT_SIGNATURE_KEY:}")
     private String mqttSignatureKey;
 
-    @Value("${MANAGER_API_SECRET:19252d23-9d4b-4215-93e7-f81f26c0e11d}")
+    @Value("${MANAGER_API_SECRET:}")
     private String managerApiSecret;
 
-    @Value("${VOICEPRINT_KEY:7a8b9c0d-1e2f-4a5b-8c9d-0e1f2a3b4c5d}")
+    @Value("${VOICEPRINT_KEY:}")
     private String voiceprintKey;
 
     @Value("${WS_PORT:18000}")
@@ -71,21 +71,22 @@ public class SysParamsAutoSeeder {
         String udpGateway = mqttPublicIp + ":" + udpPort;
         checkAndSet("server.udp_gateway", udpGateway, "UDP gateway configuration", true);
 
-        // 6. MQTT Signature Key
-        checkAndSet("server.mqtt_signature_key", mqttSignatureKey, "MQTT Secret Key Configuration", true);
+        // 6. MQTT Signature Key: the gateway reads it from the environment, so the database must
+        //    always hold the same value (otherwise devices get credentials the gateway rejects).
+        syncSecret("server.mqtt_signature_key", mqttSignatureKey, "MQTT Secret Key Configuration");
 
         // 7. MQTT Manager API (Docker internal communication)
         String mqttApi = "xiaozhi-esp32-server-mqtt:" + mqttApiPort;
         checkAndSet("server.mqtt_manager_api", mqttApi, "MQTT gateway management API address", false);
 
-        // 8. Server Secret
-        if (StringUtils.isNotBlank(managerApiSecret)) {
-            checkAndSet("server.secret", managerApiSecret, "Server Secret Key", false);
-        }
+        // 8. Server Secret: xiaozhi-server and the gateway read it from the environment
+        syncSecret("server.secret", managerApiSecret, "Server Secret Key");
 
         // 9. Voiceprint Endpoint
-        String voiceprintUrl = "http://xiaozhi-esp32-server-voiceprint:8005/voiceprint/health?key=" + voiceprintKey;
-        checkAndSet("server.voice_print", voiceprintUrl, "Voiceprint API address", false);
+        if (StringUtils.isNotBlank(voiceprintKey)) {
+            String voiceprintUrl = "http://xiaozhi-esp32-server-voiceprint:8005/voiceprint/health?key=" + voiceprintKey;
+            syncSecret("server.voice_print", voiceprintUrl, "Voiceprint API address");
+        }
 
         // 10. Voiceprint Similarity Threshold
         checkAndSet("server.voiceprint_similarity_threshold", "0.4", "Voiceprint similarity threshold", false);
@@ -105,6 +106,26 @@ public class SysParamsAutoSeeder {
         checkAndSet("server.auth.enabled", "true", "Whether server module enables token authentication", false);
 
         log.info("System parameters auto-seeding finished.");
+    }
+
+    /**
+     * Secrets come from the environment (.env) and are never committed. When one is set, the
+     * database copy is kept identical so a rotation in .env takes effect on the next restart.
+     */
+    private void syncSecret(String code, String envValue, String remark) {
+        if (StringUtils.isBlank(envValue)) {
+            log.warn("{} is not set in the environment; keeping the database value", code);
+            return;
+        }
+        try {
+            String current = sysParamsService.getValue(code, false);
+            if (!envValue.equals(current)) {
+                log.info("Syncing sys_params [{}] from the environment", code);
+                sysParamsService.setParam(code, envValue, remark);
+            }
+        } catch (Exception e) {
+            log.error("Failed to sync parameter [{}]: {}", code, e.getMessage());
+        }
     }
 
     private void checkAndSet(String code, String targetValue, String remark, boolean forceIpCheck) {

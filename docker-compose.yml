@@ -64,13 +64,13 @@ services:
       - SPRING_DATA_REDIS_PASSWORD=
       - SPRING_DATA_REDIS_PORT=6379
       - SERVER_DOMAIN=${SERVER_DOMAIN:-esp.czbd.app}
-      - MQTT_PUBLIC_IP=${MQTT_PUBLIC_IP:-13.201.26.73}
+      - MQTT_PUBLIC_IP=${MQTT_PUBLIC_IP:?Set MQTT_PUBLIC_IP in .env}
       - MQTT_PORT=${MQTT_PORT:-1883}
       - UDP_PORT=${UDP_PORT:-8884}
       - MQTT_API_PORT=${MQTT_API_PORT:-8007}
-      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:-SecureEspMqttKey2026}
-      - MANAGER_API_SECRET=${MANAGER_API_SECRET:-19252d23-9d4b-4215-93e7-f81f26c0e11d}
-      - VOICEPRINT_KEY=${VOICEPRINT_KEY:-7a8b9c0d-1e2f-4a5b-8c9d-0e1f2a3b4c5d}
+      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:?Set MQTT_SIGNATURE_KEY in .env}
+      - MANAGER_API_SECRET=${MANAGER_API_SECRET:?Set MANAGER_API_SECRET in .env}
+      - VOICEPRINT_KEY=${VOICEPRINT_KEY:?Set VOICEPRINT_KEY in .env}
       - WS_PORT=${WS_PORT:-18000}
       - VISION_PORT=${VISION_PORT:-18003}
     volumes:
@@ -95,7 +95,7 @@ services:
       - "${VISION_PORT:-18003}:8003"
     environment:
       - TZ=Asia/Dhaka
-      - MANAGER_API_SECRET=${MANAGER_API_SECRET:-}
+      - MANAGER_API_SECRET=${MANAGER_API_SECRET:?Set MANAGER_API_SECRET in .env}
       - MANAGER_API_URL=${MANAGER_API_URL:-http://xiaozhi-esp32-server-web:8002/xiaozhi}
     volumes:
       - ./main/xiaozhi-server/data:/opt/xiaozhi-esp32-server/data
@@ -114,18 +114,18 @@ services:
     depends_on:
       - xiaozhi-esp32-server
       - xiaozhi-esp32-server-web
+    # The management API (8007) is only used inside the Docker network, so it is not published.
     ports:
       - "${MQTT_PORT:-1883}:1883"
       - "${UDP_PORT:-8884}:8884/udp"
-      - "${MQTT_API_PORT:-8007}:8007"
     environment:
       - TZ=Asia/Dhaka
-      - PUBLIC_IP=${MQTT_PUBLIC_IP:-127.0.0.1}
+      - PUBLIC_IP=${MQTT_PUBLIC_IP:?Set MQTT_PUBLIC_IP in .env (devices receive it as the UDP audio address)}
       - MQTT_PORT=1883
       - UDP_PORT=8884
       - API_PORT=8007
-      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:-SecureEspMqttKey2026}
-      - SERVER_SECRET=${MANAGER_API_SECRET:-}
+      - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:?Set MQTT_SIGNATURE_KEY in .env}
+      - SERVER_SECRET=${MANAGER_API_SECRET:?Set MANAGER_API_SECRET in .env}
     volumes:
       - ./main/mqtt-gateway/config:/app/config
     networks:
@@ -139,9 +139,40 @@ services:
     depends_on:
       xiaozhi-esp32-server-db:
         condition: service_healthy
+    environment:
+      - VOICEPRINT_KEY=${VOICEPRINT_KEY:?Set VOICEPRINT_KEY in .env}
     volumes:
       - ./main/voiceprint/init.sql:/init.sql:ro
-    entrypoint: ["sh", "-c", "mysql -h xiaozhi-esp32-server-db -u root -pxiaozhi_internal_pass < /init.sql"]
+      - ./main/voiceprint/data:/voiceprint-data
+    # Creates the voiceprint DB and writes the service config with the API key from .env
+    # (the key is never committed).
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        mysql -h xiaozhi-esp32-server-db -u root -pxiaozhi_internal_pass < /init.sql
+        cat > /voiceprint-data/.voiceprint.yaml <<EOF
+        server:
+          host: 0.0.0.0
+          port: 8005
+          authorization: "$${VOICEPRINT_KEY}"
+
+        mysql:
+          host: "xiaozhi-esp32-server-db"
+          port: 3306
+          user: "root"
+          password: "xiaozhi_internal_pass"
+          database: "voiceprint_db"
+
+        voiceprint:
+          similarity_threshold: 0.4
+          target_sample_rate: 16000
+          tmp_dir: "tmp"
+
+        logging:
+          level: "INFO"
+        EOF
     networks:
       - xiaozhi-net
 
@@ -155,8 +186,7 @@ services:
         condition: service_healthy
       xiaozhi-esp32-server-voiceprint-init:
         condition: service_completed_successfully
-    ports:
-      - "${VOICEPRINT_PORT:-18005}:8005"
+    # No host port: only manager-api and xiaozhi-server (same Docker network) call this API.
     volumes:
       - ./main/voiceprint/data:/app/data
     security_opt:

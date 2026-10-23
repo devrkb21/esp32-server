@@ -423,6 +423,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                 .or().eq("mac_address", macAddress)
                 .or().eq("mac_address", macAddress.toLowerCase())
                 .or().eq("mac_address", macAddress.toUpperCase());
+        // Never fail with TooManyResults when duplicate rows exist with different spellings
+        wrapper.orderByAsc("create_date").last("LIMIT 1");
         return baseDao.selectOne(wrapper);
     }
 
@@ -545,6 +547,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                 String uuid = UUID.randomUUID().toString();
                 redisUtils.set(RedisKeys.getOtaIdKey(uuid), ota.getId());
                 String baseOtaUrl = otaUrl.replaceAll("/+$", "").replaceAll("/ota$", "");
+                // The API is served under the /xiaozhi context path; server.ota may be just the domain
+                if (!baseOtaUrl.endsWith("/xiaozhi")) {
+                    baseOtaUrl = baseOtaUrl + "/xiaozhi";
+                }
                 downloadUrl = baseOtaUrl + "/otaMag/download/" + uuid;
             }
         }
@@ -886,9 +892,6 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             resultMessage = postToMqttGateway(url, requestBody);
         } catch (Exception e) {
             log.warn("Failed to call device tool {} on device {}: {}", toolName, deviceId, e.getMessage());
-            if ("reboot".equalsIgnoreCase(toolName)) {
-                return true;
-            }
             return null;
         }
 
