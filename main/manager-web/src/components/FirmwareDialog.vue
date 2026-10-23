@@ -111,6 +111,10 @@ export default {
           this.saving = true
           // Hand over dialog close logic to parent after submit
           this.$emit('submit', this.form)
+          // 兜底：父组件若未在回调内重置 saving，3 秒后强制释放加载状态
+          setTimeout(() => {
+            this.saving = false
+          }, 3000)
         }
       })
     },

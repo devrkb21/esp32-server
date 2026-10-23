@@ -102,7 +102,9 @@ module_test:
 
 # Wakeup words, used to distinguish wakeup word from speech content
 wakeup_words:
-  # Built-in ESP32 wake word model (WN9_NIHAOXIAOZHI_TTS) reports the Chinese phrase
+  # Built-in ESP32 wake words: English firmware builds use "Hi ESP", Chinese ones "你好小智".
+  # Matching ignores case, spaces and punctuation.
+  - "Hi ESP"
   - "你好小智"
   - "nihaoxiaozhi"
   - "Hello Xiaozhi"
@@ -170,17 +172,18 @@ plugins:
     # ragflow dataset IDs
     dataset_ids: ["123456789"]
   # Web search plugin configuration
-  # Supports metaso and tavily
+  # Supports metaso, Tavily and Serply
   # Metaso API Key: https://metaso.cn/search-api/api-keys
   # Tavily API Key: https://app.tavily.com/home
+  # Serply API Key: https://serply.io
   web_search:
-    # Search provider: metaso / tavily
+    # Search provider: metaso / tavily / serply
     provider: "metaso"
     # Tool description
     description: "Web search tool. Used when the user explicitly requests web searching for information."
     # Result count (default 5)
     max_results: 5
-    # API Key (mk- prefix for metaso / tvly- prefix for tavily)
+    # API Key (mk- prefix for metaso / tvly- prefix for tavily / Serply API key)
     api_key: "mk-xxx"
 # Voiceprint recognition configuration
 voiceprint:

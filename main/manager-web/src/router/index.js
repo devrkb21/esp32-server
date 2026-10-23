@@ -83,7 +83,6 @@ const routes = [
       return import('../views/ParamsManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Params Management'
     }
   },
@@ -94,7 +93,6 @@ const routes = [
       return import('../views/KnowledgeBaseManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Knowledge Base Management'
     }
   },
@@ -105,7 +103,6 @@ const routes = [
       return import('../views/ServerSideManager.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Server Management'
     }
   },
@@ -116,7 +113,6 @@ const routes = [
       return import('../views/OtaManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'OTA Management'
     }
   },
@@ -127,7 +123,6 @@ const routes = [
       return import('../views/VoiceResourceManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Voice Resource Management'
     }
   },
@@ -138,7 +133,6 @@ const routes = [
       return import('../views/VoiceCloneManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Voice Clone Management'
     }
   },
@@ -180,7 +174,6 @@ const routes = [
       return import('../views/FeatureManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Feature Management'
     }
   },
@@ -192,7 +185,6 @@ const routes = [
       return import('../views/ReplacementWordManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Replacement Word Management'
     }
   },
@@ -204,7 +196,6 @@ const routes = [
       return import('../views/AddressBookManagement.vue')
     },
     meta: {
-      requiresAuth: true,
       title: 'Address Book Management'
     }
   },
@@ -228,21 +219,27 @@ VueRouter.prototype.push = function push(location) {
   })
 }
 
-// Routes requiring authentication
-const protectedRoutes = ['home', 'RoleConfig', 'DeviceManagement', 'UserManagement', 'ModelConfig', 'KnowledgeBaseManagement', 'KnowledgeFileUpload', 'AddressBookManagement']
+// 匿名可访问的路由白名单
+const anonRouteNames = new Set(['login', 'Register', 'RetrievePassword', 'welcome'])
 
 // Route guard
 router.beforeEach((to, from, next) => {
-  // Check if route requires protection
-  if (protectedRoutes.includes(to.name)) {
-    // Get token from localStorage
-    const token = localStorage.getItem('token')
-    if (!token) {
-      // Not logged in, redirect to login page
-      next({ name: 'login', query: { redirect: to.fullPath } })
-      return
-    }
+  const token = localStorage.getItem('token');
+  const isAnonRoute = anonRouteNames.has(to.name);
+
+  if (isAnonRoute && token) {
+    next({ name: 'home', replace: true })
+    return
   }
+
+  if (!isAnonRoute && !token) {
+    next({
+      name: 'login',
+      replace: true
+    })
+    return
+  }
+
   next()
 })
 

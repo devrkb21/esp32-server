@@ -28,6 +28,14 @@ document.title = process.env.VUE_APP_TITLE || 'ESP Console';
 // Register Service Worker
 registerServiceWorker();
 
+// On startup, copy the token from localStorage into the store so the first request after the
+// router guard lets us through carries the Authorization header (otherwise state.token is null,
+// the request gets a 401 and the user is sent to the login page)
+const cachedToken = localStorage.getItem('token')
+if (cachedToken) {
+  store.commit('setToken', cachedToken)
+}
+
 // Create Vue instance
 new Vue({
   router,

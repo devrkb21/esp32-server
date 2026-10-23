@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from core.connection import ConnectionHandler
 from core.utils.dialogue import Message
-from core.utils.util import audio_to_data
+from core.utils.util import audio_to_data, audio_file_to_wav_bytes
 from core.providers.tts.dto.dto import SentenceType
 from core.utils.wakeup_word import WakeupWordsConfig
 from core.handle.sendAudioHandle import sendAudioMessage, send_tts_message
-from core.utils.util import remove_punctuation_and_length, opus_datas_to_wav_bytes
+from core.utils.util import remove_punctuation_and_length, is_wakeup_word, opus_datas_to_wav_bytes
 from core.providers.tools.device_mcp import MCPClient, send_mcp_initialize_message
 
 TAG = __name__
@@ -107,7 +107,7 @@ async def checkWakeupWords(conn: "ConnectionHandler", text):
         return False
 
     _, filtered_text = remove_punctuation_and_length(text)
-    if filtered_text not in conn.config.get("wakeup_words"):
+    if not is_wakeup_word(filtered_text, conn.config.get("wakeup_words")):
         return False
 
     conn.just_woken_up = True
@@ -173,8 +173,13 @@ async def wakeupWordsResponse(conn: "ConnectionHandler"):
         # Get current voice timbre
         voice = getattr(conn.tts, "voice", "default")
 
-        # Use connection's sample_rate
-        wav_bytes = opus_datas_to_wav_bytes(tts_result, sample_rate=conn.sample_rate)
+        # 保留的 TTS 音频是文件路径而非 Opus 帧：直接转目标采样率 wav，跳过有损 Opus 往返
+        if isinstance(tts_result, str):
+            wav_bytes = await asyncio.to_thread(
+                audio_file_to_wav_bytes, tts_result, conn.sample_rate
+            )
+        else:
+            wav_bytes = opus_datas_to_wav_bytes(tts_result, sample_rate=conn.sample_rate)
         file_path = wakeup_words_config.generate_file_path(voice)
         with open(file_path, "wb") as f:
             f.write(wav_bytes)
