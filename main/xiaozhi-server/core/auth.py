@@ -1,3 +1,4 @@
+import re
 import hmac
 import base64
 import hashlib
@@ -50,6 +51,15 @@ class AuthManager:
         token = f"{signature}.{ts}"
         return token
 
+    @staticmethod
+    def _normalize_mac(value) -> str:
+        """Same normalization as manager-api OTAController: AA:BB:CC:DD:EE:FF."""
+        text = str(value or "").strip()
+        clean = re.sub(r"[:-]", "", text).upper()
+        if re.fullmatch(r"[0-9A-F]{12}", clean):
+            return ":".join(clean[i:i + 2] for i in range(0, 12, 2))
+        return text.upper()
+
     def verify_token(self, token: str, client_id: str, username: str) -> bool:
         """
         Verify token validity
@@ -64,10 +74,12 @@ class AuthManager:
             if int(time.time()) - ts > self.expire_seconds:
                 return False  # Expired
 
-            expected_sig = self._sign(f"{client_id}|{username}|{ts}")
-            if not hmac.compare_digest(sig_part, expected_sig):
-                return False
-
-            return True
+            # manager-api signs the normalized MAC (upper case, colon separated) while devices
+            # send their Device-Id as-is (usually lower case), so accept both spellings.
+            for name in dict.fromkeys([username, self._normalize_mac(username)]):
+                expected_sig = self._sign(f"{client_id}|{name}|{ts}")
+                if hmac.compare_digest(sig_part, expected_sig):
+                    return True
+            return False
         except Exception:
             return False

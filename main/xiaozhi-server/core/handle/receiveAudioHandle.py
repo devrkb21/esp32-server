@@ -65,10 +65,15 @@ async def startToChat(conn: "ConnectionHandler", text):
         # If parse fails, continue using original text
         pass
 
-    # Save speaker information to connection object
-    if speaker_name:
+    # Only trust a speaker name that the server's own voiceprint check produced for this utterance.
+    # Text from the device (e.g. a "detect" message) could otherwise claim to be any speaker.
+    verified_speaker = getattr(conn, "verified_speaker", None)
+    conn.verified_speaker = None
+    if speaker_name and verified_speaker and speaker_name == verified_speaker:
         conn.current_speaker = speaker_name
     else:
+        if speaker_name and speaker_name != verified_speaker:
+            conn.logger.bind(tag=TAG).warning("Ignoring unverified speaker claim in text input")
         conn.current_speaker = None
 
     if conn.need_bind:

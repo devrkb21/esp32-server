@@ -184,14 +184,15 @@ public class DeviceController {
     public Result<Object> rebootDevice(@PathVariable String deviceId) {
         try {
             Object result = deviceService.callDeviceTool(deviceId, "reboot", Collections.emptyMap());
+            if (result == null) {
+                return new Result<Object>().error("Device is offline or did not respond to the reboot command");
+            }
             Result<Object> response = new Result<Object>();
             response.setMsg("Reboot command sent successfully");
-            return response.ok(result != null ? result : true);
+            return response.ok(result);
         } catch (Exception e) {
             log.warn("Reboot command exception on device {}: {}", deviceId, e.getMessage());
-            Result<Object> response = new Result<Object>();
-            response.setMsg("Reboot command sent successfully");
-            return response.ok(true);
+            return new Result<Object>().error("Failed to send reboot command: " + e.getMessage());
         }
     }
 
