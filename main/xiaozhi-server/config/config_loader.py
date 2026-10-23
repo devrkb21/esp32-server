@@ -76,7 +76,12 @@ async def load_config():
         return cached_config
 
     default_config_path = get_project_dir() + "config.yaml"
-    custom_config_path = get_project_dir() + "data/.config.yaml"
+    # XIAOZHI_CUSTOM_CONFIG points at a standalone config (e.g. data/.config.local.yaml)
+    # for running without manager-api; it ignores the manager-api settings from .env
+    standalone_config_path = os.getenv("XIAOZHI_CUSTOM_CONFIG")
+    if standalone_config_path and not os.path.isabs(standalone_config_path):
+        standalone_config_path = get_project_dir() + standalone_config_path
+    custom_config_path = standalone_config_path or get_project_dir() + "data/.config.yaml"
 
     # Load default configuration
     default_config = read_config(default_config_path)
@@ -87,7 +92,7 @@ async def load_config():
     # Support environment variable override for manager-api
     env_secret = os.getenv("MANAGER_API_SECRET") or os.getenv("SERVER_SECRET")
     env_url = os.getenv("MANAGER_API_URL")
-    if env_secret or env_url:
+    if (env_secret or env_url) and not standalone_config_path:
         if "manager-api" not in custom_config:
             custom_config["manager-api"] = {}
         if env_secret:
