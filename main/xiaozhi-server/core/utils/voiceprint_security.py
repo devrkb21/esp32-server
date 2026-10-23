@@ -19,9 +19,26 @@ SENSITIVE_TOOLS = {
     "factory_reset",
 }
 
+# Device MCP tools (firmware names without the "self." prefix, dots as underscores). They reach
+# this check under their sanitized names, e.g. "self.reboot" -> "self_reboot".
+SENSITIVE_DEVICE_TOOLS = {
+    "reboot",
+    "upgrade_firmware",
+    "system_reconfigure_wifi",
+    "assets_set_download_url",
+}
+
 # Smart home domains and services requiring elevated security
-SENSITIVE_SMART_HOME_DOMAINS = {"lock", "alarm_control_panel", "cover"}
+SENSITIVE_SMART_HOME_DOMAINS = {"lock", "alarm_control_panel", "cover", "garage_door"}
 SENSITIVE_SMART_HOME_SERVICES = {"unlock", "open", "disarm", "open_cover"}
+
+
+def _normalize_tool_name(tool_name: str) -> str:
+    """Lower-case, dots to underscores, and drop the device "self_" prefix."""
+    name = str(tool_name or "").strip().lower().replace(".", "_")
+    if name.startswith("self_"):
+        name = name[len("self_"):]
+    return name
 
 
 async def verify_speaker_security(
@@ -50,18 +67,29 @@ async def verify_speaker_security(
     vp_provider = getattr(conn, "voiceprint_provider", None)
 
     # 1. Determine whether the requested tool is security-sensitive
-    is_sensitive = tool_name in SENSITIVE_TOOLS
-    is_smarthome = tool_name.startswith("hass_") or tool_name in {"smart_home", "iot_control"}
+    if not isinstance(arguments, dict):
+        arguments = {}
+    norm_name = _normalize_tool_name(tool_name)
+    is_sensitive = (
+        tool_name in SENSITIVE_TOOLS
+        or norm_name in SENSITIVE_TOOLS
+        or norm_name in SENSITIVE_DEVICE_TOOLS
+    )
+    is_smarthome = norm_name.startswith("hass_") or norm_name in {"smart_home", "iot_control"}
 
     is_sensitive_sh_action = False
-    if is_smarthome and tool_name == "hass_set_state":
-        domain = str(arguments.get("domain", "")).lower()
-        service = str(arguments.get("service", "")).lower()
+    if is_smarthome and norm_name == "hass_set_state":
         entity_id = str(arguments.get("entity_id", "")).lower()
+        state = arguments.get("state") if isinstance(arguments.get("state"), dict) else {}
+        # hass_set_state receives {entity_id, state: {type, ...}}; the domain is the entity prefix
+        domain = str(arguments.get("domain") or entity_id.split(".", 1)[0]).lower()
+        service = str(arguments.get("service") or state.get("type", "")).lower()
 
-        if domain in SENSITIVE_SMART_HOME_DOMAINS or any(s in service for s in SENSITIVE_SMART_HOME_SERVICES):
+        if domain in SENSITIVE_SMART_HOME_DOMAINS:
             is_sensitive_sh_action = True
-        elif "lock" in entity_id or "door" in entity_id:
+        elif service in SENSITIVE_SMART_HOME_SERVICES:
+            is_sensitive_sh_action = True
+        elif "lock" in entity_id or "door" in entity_id or "gate" in entity_id:
             is_sensitive_sh_action = True
 
     require_smarthome_match = bool(voiceprint_config.get("require_voice_match_smart_home", False))

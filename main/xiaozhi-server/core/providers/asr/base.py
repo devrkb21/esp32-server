@@ -167,6 +167,9 @@ class ASRProviderBase(ABC):
             if text_len > 0:
                 audio_snapshot = asr_audio_task.copy()
                 enqueue_asr_report(conn, enhanced_text, audio_snapshot)
+                # Mark the speaker as verified by the server's voiceprint check, so startToChat
+                # trusts it (and only it) for this utterance
+                conn.verified_speaker = speaker_name or None
                 # Use custom module for reporting
                 await startToChat(conn, enhanced_text)
         except Exception as e:

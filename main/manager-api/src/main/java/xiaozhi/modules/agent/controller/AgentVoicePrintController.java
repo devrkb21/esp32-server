@@ -111,9 +111,14 @@ public class AgentVoicePrintController {
 
     @PostMapping("/security")
     @Operation(summary = "Update voiceprint security policy settings")
-    @RequiresPermissions("sys:role:normal")
+    // These are global settings for every device, so only a super admin may change them
+    @RequiresPermissions("sys:role:superAdmin")
     public Result<Void> updateSecuritySettings(@RequestBody VoiceprintSecurityDTO dto) {
         if (dto.getConfidenceThreshold() != null) {
+            double t = dto.getConfidenceThreshold();
+            if (Double.isNaN(t) || t < 0.3 || t > 0.95) {
+                return new Result<Void>().error("Voiceprint threshold must be between 0.3 and 0.95");
+            }
             sysParamsService.setParam("server.voiceprint_similarity_threshold", String.valueOf(dto.getConfidenceThreshold()), "Voiceprint similarity threshold");
         }
         if (dto.getRequireVoiceMatchSmartHome() != null) {
