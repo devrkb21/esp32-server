@@ -740,6 +740,21 @@ databaseChangeLog:
             encoding: utf8
             path: classpath:db/changelog/202608131030.sql
   - changeSet:
+      id: 202609021000
+      author: JacobNg1
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609021000.sql
+  - changeSet:
+      id: 202609172100
+      author: googio
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609172100.sql
+
+  - changeSet:
       id: 202609111200
       author: antigravity
       validCheckSum:
@@ -777,3 +792,11 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202610230000.sql
+
+  - changeSet:
+      id: 202610230100
+      author: tinybot
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202610230100.sql
