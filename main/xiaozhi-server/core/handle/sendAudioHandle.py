@@ -333,9 +333,7 @@ async def send_stt_message(conn: "ConnectionHandler", text):
             if isinstance(parsed_data, dict) and "content" in parsed_data:
                 # If JSON contains speaker info, only display content part
                 display_text = parsed_data["content"]
-                # Save speaker info to conn object
-                if "speaker" in parsed_data:
-                    conn.current_speaker = parsed_data["speaker"]
+                # current_speaker is set only by startToChat from the server's voiceprint result
     except (json.JSONDecodeError, TypeError):
         # If not JSON format, use original text directly
         display_text = text

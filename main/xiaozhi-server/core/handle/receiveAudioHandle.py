@@ -53,15 +53,8 @@ async def startToChat(conn: "ConnectionHandler", text):
                 speaker_name = data["speaker"]
                 actual_content = data["content"]
                 conn.logger.bind(tag=TAG).info(f"Parsed speaker information: {speaker_name}")
-
-                # Retain {"speaker":...} JSON only on first occurrence for natural address;
-                # subsequent turns degrade to plain text to prevent model repetitive naming
-                if speaker_name not in conn.introduced_speakers:
-                    conn.introduced_speakers.add(speaker_name)
-                    actual_text = text
-                else:
-                    actual_text = actual_content
-    except (json.JSONDecodeError, KeyError):
+                actual_text = actual_content
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError):
         # If parse fails, continue using original text
         pass
 
@@ -71,9 +64,15 @@ async def startToChat(conn: "ConnectionHandler", text):
     conn.verified_speaker = None
     if speaker_name and verified_speaker and speaker_name == verified_speaker:
         conn.current_speaker = speaker_name
+        # Retain {"speaker":...} JSON only on first occurrence for natural address;
+        # subsequent turns degrade to plain text to prevent model repetitive naming
+        if speaker_name not in conn.introduced_speakers:
+            conn.introduced_speakers.add(speaker_name)
+            actual_text = text
     else:
-        if speaker_name and speaker_name != verified_speaker:
+        if speaker_name:
             conn.logger.bind(tag=TAG).warning("Ignoring unverified speaker claim in text input")
+        # Unverified: pass on only the content, so no later stage can pick up the claimed name
         conn.current_speaker = None
 
     if conn.need_bind:

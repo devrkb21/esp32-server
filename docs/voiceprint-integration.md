@@ -1,5 +1,8 @@
 # Voiceprint Recognition Setup Guide
 
+> **Docker Compose deployments of this repo:** the voiceprint API is not published on a host port, and its key comes from `VOICEPRINT_KEY` in `.env`. manager-api reaches it at `http://xiaozhi-esp32-server-voiceprint:8005/voiceprint/health?key=<VOICEPRINT_KEY>` (set automatically on startup). The `127.0.0.1:8005` examples below apply to manual installs only.
+
+
 This guide has 3 parts:
 - 1. How to deploy the voiceprint recognition service
 - 2. How to configure the voiceprint API in a full-module deployment

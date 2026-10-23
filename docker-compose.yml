@@ -70,7 +70,7 @@ services:
       - MQTT_API_PORT=${MQTT_API_PORT:-8007}
       - MQTT_SIGNATURE_KEY=${MQTT_SIGNATURE_KEY:?Set MQTT_SIGNATURE_KEY in .env}
       - MANAGER_API_SECRET=${MANAGER_API_SECRET:?Set MANAGER_API_SECRET in .env}
-      - VOICEPRINT_KEY=${VOICEPRINT_KEY:-}
+      - VOICEPRINT_KEY=${VOICEPRINT_KEY:?Set VOICEPRINT_KEY in .env}
       - WS_PORT=${WS_PORT:-18000}
       - VISION_PORT=${VISION_PORT:-18003}
     volumes:
@@ -139,9 +139,40 @@ services:
     depends_on:
       xiaozhi-esp32-server-db:
         condition: service_healthy
+    environment:
+      - VOICEPRINT_KEY=${VOICEPRINT_KEY:?Set VOICEPRINT_KEY in .env}
     volumes:
       - ./main/voiceprint/init.sql:/init.sql:ro
-    entrypoint: ["sh", "-c", "mysql -h xiaozhi-esp32-server-db -u root -pxiaozhi_internal_pass < /init.sql"]
+      - ./main/voiceprint/data:/voiceprint-data
+    # Creates the voiceprint DB and writes the service config with the API key from .env
+    # (the key is never committed).
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        mysql -h xiaozhi-esp32-server-db -u root -pxiaozhi_internal_pass < /init.sql
+        cat > /voiceprint-data/.voiceprint.yaml <<EOF
+        server:
+          host: 0.0.0.0
+          port: 8005
+          authorization: "$${VOICEPRINT_KEY}"
+
+        mysql:
+          host: "xiaozhi-esp32-server-db"
+          port: 3306
+          user: "root"
+          password: "xiaozhi_internal_pass"
+          database: "voiceprint_db"
+
+        voiceprint:
+          similarity_threshold: 0.4
+          target_sample_rate: 16000
+          tmp_dir: "tmp"
+
+        logging:
+          level: "INFO"
+        EOF
     networks:
       - xiaozhi-net
 
