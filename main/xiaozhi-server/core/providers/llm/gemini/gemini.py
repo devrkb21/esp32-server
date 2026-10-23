@@ -68,7 +68,7 @@ def setup_proxy_env(http_proxy: str | None, https_proxy: str | None):
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, cfg: Dict[str, Any]):
-        self.model_name = cfg.get("model_name", "gemini-2.0-flash")
+        self.model_name = cfg.get("model_name", "gemini-3.8-flash")  # 2.0-flash was retired (404)
         self.api_key = cfg["api_key"]
         http_proxy = cfg.get("http_proxy")
         https_proxy = cfg.get("https_proxy")
@@ -170,7 +170,8 @@ class LLMProvider(LLMProviderBase):
             generation_config=self.gen_cfg,
             tools=tools,
             stream=True,
-            timeout=self.timeout,
+            # google-generativeai takes the timeout through request_options, not a keyword
+            request_options={"timeout": self.timeout},
         )
 
         try:

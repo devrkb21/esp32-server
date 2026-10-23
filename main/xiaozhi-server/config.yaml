@@ -461,10 +461,13 @@ ASR:
     # 1. Log in to Groq Console: https://console.groq.com/home
     # 2. Create api-key: https://console.groq.com/keys
     # 3. Models: whisper-large-v3-turbo or whisper-large-v3
+    # 4. Optional language: ISO-639-1 code, e.g. bn for Bangla. Without it Whisper guesses, and
+    #    short Bangla phrases are often transcribed as Japanese or Hindi.
     type: openai
     api_key: your_groq_api_key
     base_url: https://api.groq.com/openai/v1/audio/transcriptions
     model_name: whisper-large-v3-turbo
+    # language: bn
     output_dir: tmp/
   VoskASR:
     # Official website: https://alphacephei.com/vosk/
@@ -608,9 +611,19 @@ LLM:
     # Google Gemini API
     # Token application: https://aistudio.google.com/apikey
     api_key: your_gemini_api_key
-    model_name: "gemini-2.0-flash"
+    model_name: "gemini-3.8-flash"
     http_proxy: ""  #"http://127.0.0.1:10808"
     https_proxy: "" #http://127.0.0.1:10808"
+  GroqLLM:
+    # Groq (OpenAI-compatible). The same key as GroqASR works.
+    # Keys: https://console.groq.com/keys  Models: openai/gpt-oss-120b, openai/gpt-oss-20b, ...
+    type: openai
+    base_url: https://api.groq.com/openai/v1
+    api_key: your_groq_api_key
+    model_name: openai/gpt-oss-120b
+    # gpt-oss is a reasoning model: keep reasoning short so replies start fast
+    extra_body:
+      reasoning_effort: low
   CozeLLM:
     # Define LLM API type
     type: coze

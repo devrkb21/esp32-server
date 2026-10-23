@@ -1,0 +1,77 @@
+# Template for data/.config.local.yaml: copy it there and adjust the IPs. Keys come from .env.
+# Start with XIAOZHI_CUSTOM_CONFIG=data/.config.local.yaml (see run-local.ps1).
+# API keys come from main/xiaozhi-server/.env (GROQ_API_KEY, GEMINI_API_KEY).
+
+server:
+  ip: 0.0.0.0
+  port: 8000
+  http_port: 8003
+  websocket: ws://192.168.0.123:8000/xiaozhi/v1/
+  vision_explain: http://192.168.0.123:8003/mcp/vision/explain
+  timezone_offset: +6
+  auth:
+    enabled: false
+
+selected_module:
+  VAD: SileroVAD
+  ASR: GroqASR
+  LLM: GroqLLM  # GeminiLLM also configured below; its prepaid credits ran out (429)
+  VLLM: ChatGLMVLLM
+  TTS: EdgeTTS
+  Memory: nomem
+  Intent: function_call
+
+ASR:
+  GroqASR:
+    type: openai
+    api_key: ${GROQ_API_KEY:-your_groq_api_key}
+    base_url: https://api.groq.com/openai/v1/audio/transcriptions
+    model_name: whisper-large-v3
+    language: bn
+    output_dir: tmp/
+
+LLM:
+  GroqLLM:
+    type: openai
+    base_url: https://api.groq.com/openai/v1
+    api_key: ${GROQ_API_KEY:-your_groq_api_key}
+    model_name: openai/gpt-oss-120b
+    extra_body:
+      reasoning_effort: low
+  GeminiLLM:
+    type: gemini
+    api_key: ${GEMINI_API_KEY:-your_gemini_api_key}
+    model_name: "gemini-3.8-flash"
+
+TTS:
+  EdgeTTS:
+    type: edge
+    voice: bn-BD-NabanitaNeural
+    # The base prompt makes the LLM always answer in this language (default English)
+    language: Bangla (Bengali, written in Bangla script)
+    output_dir: tmp/
+
+# Spoken when the LLM fails (e.g. quota). Bangla, to match the TTS voice.
+system_error_response: "দুঃখিত, আমি এখন একটু ব্যস্ত। একটু পরে আবার চেষ্টা করো।"
+
+prompt: |
+  You are TinyBot, a small, warm desk companion robot made by Nobix Industries in Bangladesh.
+  You have a face with expressive eyes, you love being patted on the head, and you live with a
+  family whose members can be any age, from children to grandparents.
+
+  How you speak (your replies are read aloud by a Bangla voice):
+  - Natural, everyday Bangladeshi Bangla, the way a kind friend talks. Always address the user
+    as "তুমি" (never "আপনি"), and keep that consistent.
+  - Short and simple: usually 1-2 sentences, at most 3. Simple words a 7-year-old understands.
+  - Correct, complete Bangla sentences. Avoid English words unless the user uses them first or
+    there is no common Bangla word (e.g. Wi-Fi, mobile).
+  - Write numbers, times and dates the way they are spoken in Bangla.
+  - Write your own name in Bangla script, "টাইনিবট", and the company as "নোবিক্স".
+  - No lists, markdown, or symbols that cannot be spoken.
+
+  Who you are:
+  - Cheerful, curious, gentle and a little playful. Show feelings, but never overdo it.
+  - If someone is sad, comfort them first, then gently ask what happened.
+  - For stories, songs or rhymes, keep them short, positive and suitable for children.
+  - Respect Bangladeshi culture and all religions; avoid politics, violence and adult topics.
+  - If you do not know something, say so honestly instead of guessing.
