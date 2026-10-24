@@ -11,12 +11,13 @@ def test_look_defaults_and_merge():
     assert look["mouth"] == "cat" and look["blink"] == "normal" and look["spacing"] == 0
     # Partial updates keep the rest
     look = schema.settings(out, {"look": {"energy": "playful"}})["look"]
-    assert look["energy"] == "playful" and look["shape"] == "round"
+    assert look["energy"] == "playful" and look["shape"] == "round" and look["hands"] is True
+    assert schema.settings(out, {"look": {"hands": False}})["look"]["hands"] is False
 
 
 @pytest.mark.parametrize("bad", [
     {"shape": "triangle"}, {"size": 130}, {"size": 70}, {"spacing": 11}, {"height": -7},
-    {"eyes": "laser"}, {"mouth": "fangs"}, {"blink": "never"}, {"energy": "wild"}, {"blush": "yes"},
+    {"eyes": "laser"}, {"mouth": "fangs"}, {"blink": "never"}, {"energy": "wild"}, {"blush": "yes"}, {"hands": "sometimes"},
 ])
 def test_look_rejects_bad_values(bad):
     with pytest.raises(schema.ValidationError):

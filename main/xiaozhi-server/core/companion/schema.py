@@ -199,7 +199,7 @@ def default_display() -> Dict[str, int]:
 def default_look() -> Dict[str, Any]:
     return {
         "shape": "rounded", "size": 100, "spacing": 0, "height": 0, "eyes": "plain",
-        "mouth": "none", "blush": False, "blink": "normal", "energy": "normal",
+        "mouth": "none", "blush": False, "blink": "normal", "energy": "normal", "hands": True,
     }
 
 
@@ -259,6 +259,7 @@ def settings(old: Dict, patch: Any) -> Dict:
         checks = {k: _choice(v) for k, v in LOOK_CHOICES.items()}
         checks.update({k: (lambda lo, hi: lambda v, f: integer(v, lo, hi, f))(*r) for k, r in LOOK_RANGES.items()})
         checks["blush"] = boolean
+        checks["hands"] = boolean
         out["look"] = _merge_section(
             dict(default_look(), **(old.get("look") or {})),
             patch["look"],
