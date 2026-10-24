@@ -199,13 +199,19 @@
       @confirm="submitVolume">
       <div class="dev-volume">
         <div class="dev-volume__value nx-num" aria-live="polite">{{ currentVolume }}<span>%</span></div>
+        <p class="dev-volume__now nx-num">
+          <i v-if="volumeLoading" class="el-icon-loading" aria-hidden="true"></i>
+          {{ robotVolumeNow === null
+            ? tx('device.volumeNowUnknown', 'TinyBot now: –')
+            : tx('device.volumeNow', 'TinyBot now: {n}%', { n: robotVolumeNow }) }}
+        </p>
         <div class="dev-volume__slider">
           <i class="el-icon-minus" aria-hidden="true"></i>
           <el-slider v-model="currentVolume" :min="0" :max="100" :step="5" :show-tooltip="false"
             :aria-label="tx('device.volume', 'Volume')" />
           <i class="el-icon-plus" aria-hidden="true"></i>
         </div>
-        <p class="dev-volume__hint">{{ tx('device.volumeHint', 'The robot changes its volume the next time it is online.') }}</p>
+        <p class="dev-volume__hint">{{ tx('device.volumeHint', 'TinyBot changes its volume right away; if it is offline, as soon as it is back.') }}</p>
       </div>
     </CustomDialog>
 
@@ -228,7 +234,7 @@ import MacAddressMask from "@/components/MacAddressMask.vue";
 import CustomButton from "@/components/CustomButton.vue";
 import CustomDialog from "@/components/CustomDialog.vue";
 import CustomPagination from "@/components/CustomPagination.vue";
-import { ageOf } from '@/utils/companion.mjs';
+import { ageOf, companionVolume, volumeSaveOutcome } from '@/utils/companion.mjs';
 import {
   compareTimestamps,
   formatCreateDate,
@@ -269,6 +275,9 @@ export default {
       volumeDialogVisible: false,
       selectedDevice: null,
       currentVolume: 70,
+      // Volume the robot last reported (companion stats), null while unknown
+      robotVolumeNow: null,
+      volumeLoading: false,
       volumeSubmitting: false,
       rebootingDeviceId: '',
       refreshingStatus: false,
@@ -516,24 +525,45 @@ export default {
         });
       }).catch(() => {});
     },
+    // Open the Volume dialog with the robot's real volume: what it last reported (companion stats),
+    // else the volume the app asked for (companion settings), else the last value set here.
     handleVolumeDialog(row) {
       this.selectedDevice = row;
-      const cached = localStorage.getItem('device_vol_' + (row.device_id || row.id));
-      this.currentVolume = (row.volume !== undefined && row.volume !== null)
-        ? row.volume
-        : (cached !== null ? parseInt(cached) : 70);
+      const devId = row.device_id || row.id;
+      this.currentVolume = (row.volume !== undefined && row.volume !== null) ? row.volume : 70;
+      this.robotVolumeNow = null;
+      this.volumeLoading = true;
       this.volumeDialogVisible = true;
+      Api.companion.getCompanion(devId, (res) => {
+        if (this.selectedDevice !== row) return;
+        this.volumeLoading = false;
+        const view = (res && res.data && res.data.data) || {};
+        const volume = companionVolume(view);
+        if (volume !== null) this.currentVolume = volume;
+        this.robotVolumeNow = companionVolume({ stats: view.stats });
+      }, () => {
+        if (this.selectedDevice === row) this.volumeLoading = false;
+      });
+    },
+    volumeSavedText(data, volume) {
+      const outcome = volumeSaveOutcome(data);
+      if (outcome === 'offline') {
+        return this.tx('device.volumeSavedOffline', 'Volume set to {n}%. TinyBot changes it as soon as it is back online.', { n: volume });
+      }
+      if (outcome === 'other') return data.msg;
+      return this.tx('device.volumeSetTo', 'Volume set to {n}%', { n: volume });
     },
     submitVolume() {
       if (!this.selectedDevice) return;
       this.volumeSubmitting = true;
       const devId = this.selectedDevice.device_id || this.selectedDevice.id;
-      Api.device.setDeviceVolume(devId, this.currentVolume, ({ data }) => {
+      const volume = this.currentVolume;
+      Api.device.setDeviceVolume(devId, volume, ({ data }) => {
         this.volumeSubmitting = false;
         if (data.code === 0) {
-          this.$message.success(this.tx('device.volumeUpdated', 'Volume updated'));
-          this.$set(this.selectedDevice, 'volume', this.currentVolume);
-          localStorage.setItem('device_vol_' + devId, this.currentVolume);
+          // The server says whether the robot changed it now or will when it is back online
+          this.$message.success(this.volumeSavedText(data, volume));
+          this.$set(this.selectedDevice, 'volume', volume);
           this.volumeDialogVisible = false;
         } else {
           this.$message.error(data.msg || this.tx('device.volumeFailed', 'Couldn’t change the volume. Try again.'));
@@ -977,6 +1007,14 @@ export default {
     .el-slider {
       flex: 1;
     }
+  }
+  &__now {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+    margin: calc(-1 * var(--nx-space-2)) 0 0;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
   }
   &__hint {
     margin: 0;

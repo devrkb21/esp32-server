@@ -420,6 +420,7 @@
                   </p>
                   <footer class="nx-card__footer">
                     <span v-if="isDirty('pomodoro')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('pomodoro')" type="text" @click="revertSection('pomodoro')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
                     <el-button :disabled="!isDirty('pomodoro')" :loading="saving.pomodoro"
                       @click="saveSection('pomodoro')">{{ $t('companion.save') }}</el-button>
                     <el-button type="primary" icon="el-icon-video-play" :loading="commandBusy === 'pomodoro'"
@@ -522,6 +523,23 @@
                       <el-switch v-model="forms.night.light" :aria-label="$t('companion.night.light')" />
                     </div>
                   </div>
+                  <div class="cm-minutes cm-gap-top">
+                    <label class="cm-field">
+                      <span class="cm-field__label">{{ tx('companion.night.lightFor', 'Night light stays on') }}</span>
+                      <el-select :value="pickerChoice('light')" class="cm-minutes__select"
+                        :aria-label="tx('companion.night.lightFor', 'Night light stays on')" @change="(v) => pickMinutes('light', v)">
+                        <el-option v-for="n in minutePickers.light.presets" :key="n" :value="n"
+                          :label="minutesLabel(n, 'companion.night.lightUntilMorning', 'Until morning')" />
+                        <el-option value="custom" :label="tx('companion.minutesCustom', 'Custom…')" />
+                      </el-select>
+                    </label>
+                    <label v-if="pickerChoice('light') === 'custom'" class="cm-field">
+                      <span class="cm-field__label">{{ tx('companion.minutesRange', 'Minutes (0–{max})', { max: minutePickers.light.max }) }}</span>
+                      <el-input-number v-model="forms.night.light_minutes" :min="0" :max="minutePickers.light.max" :step="5"
+                        :precision="0" controls-position="right" />
+                    </label>
+                  </div>
+                  <p class="cm-help">{{ tx('companion.night.lightForHint', 'Until morning: the light stays on until night mode ends (1 hour when you turn it on by hand). Otherwise it turns itself off after this time.') }}</p>
                   <div class="cm-button-row cm-gap-top">
                     <el-button icon="el-icon-moon" :disabled="!!commandBusy && commandBusy !== 'night:on'"
                       :loading="commandBusy === 'night:on'"
@@ -537,6 +555,7 @@
                   <p class="cm-help">{{ $t('companion.night.nowHint') }}</p>
                   <footer class="nx-card__footer">
                     <span v-if="isDirty('night')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('night')" type="text" @click="revertSection('night')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
                     <el-button type="primary" :disabled="!isDirty('night')" :loading="saving.night"
                       @click="saveSection('night')">{{ $t('companion.save') }}</el-button>
                   </footer>
@@ -559,6 +578,7 @@
                   <p class="nx-footnote cm-gap-top">{{ $t('companion.care.hint') }}</p>
                   <footer class="nx-card__footer">
                     <span v-if="isDirty('care')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('care')" type="text" @click="revertSection('care')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
                     <el-button type="primary" :disabled="!isDirty('care')" :loading="saving.care"
                       @click="saveSection('care')">{{ $t('companion.save') }}</el-button>
                   </footer>
@@ -580,7 +600,8 @@
                   <div class="cm-volume" :class="{ 'is-disabled': !forms.sound.controlVolume }">
                     <div class="cm-volume__head">
                       <span class="cm-field__label">{{ $t('companion.sound.volume') }}</span>
-                      <span class="cm-volume__value nx-num">{{ forms.sound.volume }}%</span>
+                      <span class="cm-volume__now nx-num" aria-live="polite">{{ robotVolumeText }}</span>
+                      <span v-if="forms.sound.controlVolume" class="cm-volume__value nx-num">{{ forms.sound.volume }}%</span>
                     </div>
                     <div class="cm-volume__slider">
                       <i class="el-icon-minus" aria-hidden="true"></i>
@@ -598,8 +619,41 @@
                   </div>
                   <footer class="nx-card__footer">
                     <span v-if="isDirty('sound')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('sound')" type="text" @click="revertSection('sound')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
                     <el-button type="primary" :disabled="!isDirty('sound')" :loading="saving.sound"
                       @click="saveSection('sound')">{{ $t('companion.save') }}</el-button>
+                  </footer>
+                </article>
+
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ tx('companion.display.title', 'Display') }}</h2>
+                  </header>
+                  <div v-for="key in ['dim', 'off']" :key="key" class="cm-minutes" :class="{ 'cm-gap-top': key === 'off' }">
+                    <label class="cm-field">
+                      <span class="cm-field__label">{{ key === 'dim'
+                        ? tx('companion.display.dimAfter', 'Dim the screen after')
+                        : tx('companion.display.offAfter', 'Turn the screen off after') }}</span>
+                      <el-select :value="pickerChoice(key)" class="cm-minutes__select"
+                        :aria-label="key === 'dim' ? tx('companion.display.dimAfter', 'Dim the screen after') : tx('companion.display.offAfter', 'Turn the screen off after')"
+                        @change="(v) => pickMinutes(key, v)">
+                        <el-option v-for="n in minutePickers[key].presets" :key="n" :value="n"
+                          :label="minutesLabel(n, 'companion.display.never', 'Never')" />
+                        <el-option value="custom" :label="tx('companion.minutesCustom', 'Custom…')" />
+                      </el-select>
+                    </label>
+                    <label v-if="pickerChoice(key) === 'custom'" class="cm-field">
+                      <span class="cm-field__label">{{ tx('companion.minutesRange', 'Minutes (0–{max})', { max: minutePickers[key].max }) }}</span>
+                      <el-input-number v-model="forms.display[minutePickers[key].field]" :min="0" :max="minutePickers[key].max"
+                        :precision="0" controls-position="right" />
+                    </label>
+                  </div>
+                  <p class="cm-help cm-gap-top">{{ tx('companion.display.hint', 'Minutes without touch or talk. Touching TinyBot or talking to it wakes the screen up again. Dimming protects the OLED from burn-in.') }}</p>
+                  <footer class="nx-card__footer">
+                    <span v-if="isDirty('display')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('display')" type="text" @click="revertSection('display')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
+                    <el-button type="primary" :disabled="!isDirty('display')" :loading="saving.display"
+                      @click="saveSection('display')">{{ $t('companion.save') }}</el-button>
                   </footer>
                 </article>
 
@@ -619,6 +673,7 @@
                   <p class="nx-caption">ID <span class="nx-mono nx-break">{{ dev.id }}</span></p>
                   <footer class="nx-card__footer">
                     <span v-if="isDirty('robot')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('robot')" type="text" @click="revertSection('robot')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
                     <el-button type="primary" :disabled="!isDirty('robot')" :loading="saving.robot"
                       @click="saveSection('robot')">{{ $t('companion.save') }}</el-button>
                   </footer>
@@ -668,11 +723,16 @@
                 <div class="cm-action-grid">
                   <button v-for="a in quickActions" :key="a.type + a.arg" type="button" class="cm-action"
                     :disabled="!!commandBusy" :aria-busy="commandBusy === a.type + a.arg ? 'true' : 'false'"
-                    @click="sendCommand(a.type, a.arg, null, a.type + a.arg)">
+                    @click="sendCommand(a.type, actionArg(a), a.focus ? $t('companion.focus.started') : null, a.type + a.arg)">
                     <span class="cm-action__icon" aria-hidden="true">
                       <i :class="commandBusy === a.type + a.arg ? 'el-icon-loading' : a.icon"></i>
                     </span>
-                    <span class="cm-action__label">{{ $t(a.label) }}</span>
+                    <span class="cm-action__text">
+                      <span class="cm-action__label">{{ $t(a.label) }}</span>
+                      <span v-if="a.focus" class="cm-action__sub nx-num">
+                        {{ tx('companion.action.focusMinutes', '{n} min · Focus timer setting', { n: focusMinutes }) }}
+                      </span>
+                    </span>
                   </button>
                 </div>
 
@@ -850,6 +910,9 @@ import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
 import {
   DAY_PRESETS,
+  DIM_PRESETS,
+  DISPLAY_DEFAULTS,
+  DISPLAY_MAX,
   GAMES,
   MAX_ALARMS,
   MAX_LABEL,
@@ -857,6 +920,9 @@ import {
   MAX_NAME,
   MAX_REMINDERS,
   MAX_SAY,
+  NIGHT_LIGHT_MAX,
+  NIGHT_LIGHT_PRESETS,
+  OFF_PRESETS,
   PRAYER_ROWS,
   REMINDER_KINDS,
   ROBOT_PAGES,
@@ -865,15 +931,19 @@ import {
   asciiLabel,
   daysOf,
   daysPreset,
+  displayProblem,
+  displaySettings,
   formatClock,
   hasDay,
   highScores,
   isLastPageOn,
+  isMinutes,
   isTime,
   messageStatus,
   newAlarm,
   newReminder,
   nextPrayer,
+  presetChoice,
   reminderPayload,
   removeById,
   robotPages,
@@ -884,7 +954,13 @@ import {
 
 const REFRESH_MS = 10000;
 const FROM_KEY = 'companion_message_from';
-const FORM_SECTIONS = ['pomodoro', 'night', 'care', 'sound', 'robot'];
+const FORM_SECTIONS = ['pomodoro', 'night', 'care', 'sound', 'display', 'robot'];
+// Minute pickers with presets: which form field each one edits
+const MINUTE_PICKERS = {
+  dim: { section: 'display', field: 'dim_after_min', presets: DIM_PRESETS, max: DISPLAY_MAX.dim_after_min },
+  off: { section: 'display', field: 'off_after_min', presets: OFF_PRESETS, max: DISPLAY_MAX.off_after_min },
+  light: { section: 'night', field: 'light_minutes', presets: NIGHT_LIGHT_PRESETS, max: NIGHT_LIGHT_MAX },
+};
 
 const MOOD_EMOJI = {
   Happy: '😊', Sad: '😢', Sleepy: '😴', Bored: '😐', Excited: '🤩', Angry: '😠', Lonely: '🥺', Love: '🥰', Calm: '🙂',
@@ -922,11 +998,15 @@ export default {
         night: {},
         care: {},
         sound: { controlVolume: false, volume: 70, sounds: true },
+        display: { ...DISPLAY_DEFAULTS },
         robot: { name: '', owner_name: '' },
       },
       baseline: {},
+      // A minute picker switched to "Custom" keeps showing its number input
+      customPick: { dim: false, off: false, light: false },
+      minutePickers: MINUTE_PICKERS,
       saving: {
-        pomodoro: false, night: false, care: false, sound: false, robot: false,
+        pomodoro: false, night: false, care: false, sound: false, display: false, robot: false,
         alarms: false, reminders: false, prayer: false, pages: false,
       },
       alarmDialog: { visible: false, isNew: true, form: null },
@@ -962,6 +1042,8 @@ export default {
         { type: 'breathe', arg: '', icon: 'el-icon-wind-power', label: 'companion.action.breathe' },
         { type: 'night_light', arg: 'on', icon: 'el-icon-sunny', label: 'companion.action.nightLightOn' },
         { type: 'night_light', arg: 'off', icon: 'el-icon-moon-night', label: 'companion.action.nightLightOff' },
+        // Starts the Focus timer with its saved work minutes (shown on the tile)
+        { type: 'pomodoro', arg: '', icon: 'el-icon-timer', label: 'companion.action.focus', focus: true },
         { type: 'stop', arg: '', icon: 'el-icon-video-pause', label: 'companion.action.stop' },
       ],
     };
@@ -1032,6 +1114,21 @@ export default {
           items: this.reminders.filter((r) => (this.reminderKinds.includes(r.kind) ? r.kind : 'custom') === kind),
         }))
         .filter((group) => group.items.length);
+    },
+    // The robot's real speaker volume as it last reported it (null when unknown)
+    robotVolume() {
+      const v = Number(this.stats.volume);
+      return this.stats.volume !== undefined && this.stats.volume !== null && Number.isFinite(v) ? v : null;
+    },
+    robotVolumeText() {
+      return this.robotVolume === null
+        ? this.tx('companion.sound.robotNowUnknown', 'TinyBot now: –')
+        : this.tx('companion.sound.robotNow', 'TinyBot now: {n}%', { n: this.robotVolume });
+    },
+    // Work minutes the Focus timer starts with (the saved value, not an unsaved edit)
+    focusMinutes() {
+      const work = this.dev && this.dev.pomodoro && Number(this.dev.pomodoro.work_min);
+      return work > 0 ? work : 25;
     },
     settingsVolumeText() {
       const settings = (this.dev && this.dev.settings) || {};
@@ -1122,10 +1219,16 @@ export default {
       switch (section) {
         case 'pomodoro':
           return clone(dev.pomodoro || {});
-        case 'night':
-          return clone(settings.night || {});
+        case 'night': {
+          const night = clone(settings.night || {});
+          // 0 = until the night ends (missing on older servers)
+          if (!isMinutes(night.light_minutes, NIGHT_LIGHT_MAX)) night.light_minutes = 0;
+          return night;
+        }
         case 'care':
           return clone(settings.care || {});
+        case 'display':
+          return displaySettings(settings.display);
         case 'sound': {
           const manual = settings.volume !== null && settings.volume !== undefined;
           const fallback = this.stats.volume !== undefined ? this.stats.volume : 70;
@@ -1179,6 +1282,8 @@ export default {
           return { settings: { care: { ...form } } };
         case 'sound':
           return { settings: { volume: form.controlVolume ? form.volume : null, sounds: !!form.sounds } };
+        case 'display':
+          return { settings: { display: { dim_after_min: form.dim_after_min, off_after_min: form.off_after_min } } };
         case 'robot':
           return {
             name: (form.name || '').trim() || 'TinyBot',
@@ -1188,14 +1293,91 @@ export default {
           return {};
       }
     },
+    // Why a section can't be saved yet (a translated text), or ''
+    sectionProblem(section) {
+      const form = this.forms[section] || {};
+      if (section === 'night') {
+        if (!isTime(form.start) || !isTime(form.end)) return this.$t('companion.timeRequired');
+        if (!isMinutes(form.light_minutes, NIGHT_LIGHT_MAX)) {
+          return this.tx('companion.night.lightRange', 'Night light: choose 0 to {max} minutes', { max: NIGHT_LIGHT_MAX });
+        }
+      }
+      if (section === 'display') {
+        const problem = displayProblem(form);
+        if (problem === 'dimRange') {
+          return this.tx('companion.display.dimRange', 'Dim after: choose 0 to {max} minutes', { max: DISPLAY_MAX.dim_after_min });
+        }
+        if (problem === 'offRange') {
+          return this.tx('companion.display.offRange', 'Turn off after: choose 0 to {max} minutes', { max: DISPLAY_MAX.off_after_min });
+        }
+        if (problem === 'offBeforeDim') {
+          return this.tx('companion.display.offBeforeDim',
+            'The screen dims first: pick a later “Turn off” time, or “Never” for one of them.');
+        }
+      }
+      return '';
+    },
+    // Toast after saving the Sound card: names the volume when it changed, else the generic "Saved"
+    soundSavedText() {
+      const form = this.forms.sound;
+      let before = {};
+      try {
+        before = JSON.parse(this.baseline.sound || '{}') || {};
+      } catch (e) { /* keep {} */ }
+      if (!form.controlVolume || (before.controlVolume && before.volume === form.volume)) return undefined;
+      return this.dev && this.dev.online === false
+        ? this.tx('companion.sound.volumeSetOffline', 'Volume set to {n}%. TinyBot changes it when it is back online.', { n: form.volume })
+        : this.tx('companion.sound.volumeSetTo', 'Volume set to {n}%', { n: form.volume });
+    },
     saveSection(section) {
-      if (section === 'night' && (!isTime(this.forms.night.start) || !isTime(this.forms.night.end))) {
-        this.$message.warning(this.$t('companion.timeRequired'));
+      const problem = this.sectionProblem(section);
+      if (problem) {
+        this.$message.warning(problem);
         return;
       }
-      this.savePatch(this.sectionPatch(section), section)
-        .then(() => this.syncForms(true, section))
+      const okMessage = section === 'sound' ? this.soundSavedText() : undefined;
+      this.savePatch(this.sectionPatch(section), section, okMessage)
+        .then(() => {
+          this.syncForms(true, section);
+          // TinyBot reports its new volume right after changing it; show it before the next poll
+          if (okMessage) {
+            setTimeout(() => {
+              if (!this._isDestroyed) this.refresh(true);
+            }, 1500);
+          }
+        })
         .catch(() => {});
+    },
+    // Drop unsaved edits of a section
+    revertSection(section) {
+      this.syncForms(true, section);
+      Object.keys(MINUTE_PICKERS).forEach((key) => {
+        if (MINUTE_PICKERS[key].section === section) this.customPick[key] = false;
+      });
+    },
+
+    // ------------------------------------------------------------------ minute pickers (presets + custom)
+    minutesLabel(n, zeroKey, zeroFallback) {
+      if (n === 0) return this.tx(zeroKey, zeroFallback);
+      return this.tx('companion.minutesShort', '{n} min', { n });
+    },
+    pickerChoice(key) {
+      const picker = MINUTE_PICKERS[key];
+      if (this.customPick[key]) return 'custom';
+      return presetChoice(this.forms[picker.section][picker.field], picker.presets);
+    },
+    pickMinutes(key, choice) {
+      const picker = MINUTE_PICKERS[key];
+      if (choice === 'custom') {
+        this.customPick[key] = true;
+        return;
+      }
+      this.customPick[key] = false;
+      this.forms[picker.section][picker.field] = choice;
+    },
+    // Quick action argument: the Focus tile sends the saved work minutes
+    actionArg(a) {
+      return a.focus ? String(this.focusMinutes) : a.arg;
     },
 
     // Show or hide one robot page; optimistic, reverted when the save fails
@@ -2140,6 +2322,23 @@ export default {
   width: 132px;
 }
 
+// Minute picker: preset select + number input for "Custom"
+.cm-minutes {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--nx-space-3);
+
+  > .cm-field {
+    flex: 1 1 160px;
+    min-width: 0;
+  }
+  &__select,
+  .el-input-number {
+    width: 100%;
+  }
+}
+
 .cm-fields {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -2177,7 +2376,15 @@ export default {
   &__head {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--nx-space-1) var(--nx-space-3);
+  }
+  &__head > .cm-field__label {
+    margin-right: auto;
+  }
+  &__now {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
   }
   &__value {
     font-size: var(--nx-text-headline);
@@ -2438,9 +2645,20 @@ export default {
     background: var(--nx-info-soft);
     color: var(--nx-info);
   }
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
   &__label {
     font-size: var(--nx-text-callout);
     font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  &__sub {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
     overflow-wrap: anywhere;
   }
 }

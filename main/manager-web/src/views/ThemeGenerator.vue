@@ -10,11 +10,19 @@
 
       <header class="nx-page-header">
         <div class="nx-page-header__text">
-          <h1 class="nx-title">{{ tx('themeGen.title', 'TinyBot theme') }}</h1>
+          <h1 class="nx-title">{{ tx('themeGen.title', 'TinyBot look') }}</h1>
           <p class="nx-page-header__desc">
-            {{ tx('themeGen.desc', 'Choose how TinyBot wakes up, then install it on the robot or download the file.') }}
+            {{ tx('themeGen.desc', 'Design how TinyBot’s face looks and behaves, and choose the phrase that wakes it up.') }}
           </p>
         </div>
+      </header>
+
+      <!-- The face editor with live preview: the main part of this page -->
+      <TinyBotLook :device-id="deviceId" />
+
+      <header class="tg-section-head">
+        <h2 class="tg-section-title">{{ tx('look.wakeSection', 'Wake word') }}</h2>
+        <p class="tg-sub">{{ tx('look.wakeSectionDesc', 'Install a different wake phrase on TinyBot. Installing restarts the robot.') }}</p>
       </header>
 
       <div class="tg-layout">
@@ -221,6 +229,7 @@
 import Api from '@/apis/api';
 import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
+import TinyBotLook from '@/components/TinyBotLook.vue';
 import {
   ASSETS_PARTITION_SIZE,
   BUILTIN_FONT,
@@ -249,7 +258,7 @@ const WAIT_LIMIT_MS = 4 * 60 * 1000;
 
 export default {
   name: 'ThemeGenerator',
-  components: { HeaderBar, VersionFooter },
+  components: { HeaderBar, VersionFooter, TinyBotLook },
   data() {
     return {
       deviceId: this.$route.query.deviceId || '',
@@ -650,6 +659,18 @@ export default {
   }
 }
 
+.tg-section-head {
+  margin: var(--nx-space-7) 0 var(--nx-space-4);
+  padding-top: var(--nx-space-5);
+  border-top: 1px solid var(--nx-border);
+}
+.tg-section-title {
+  margin: 0;
+  font-size: var(--nx-text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nx-text);
+}
 .tg-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);

@@ -48,6 +48,16 @@ export interface NightSettings {
   dim: boolean
   lullaby: boolean
   light: boolean
+  /** Night light timeout, 0-600 minutes; 0 = until the night ends (1 hour when started by hand) */
+  light_minutes?: number
+}
+
+/** Minutes without touch or talk before the OLED dims / turns off; 0 = never */
+export interface DisplaySettings {
+  /** 0-120, default 3 */
+  dim_after_min: number
+  /** 0-600, default 20 */
+  off_after_min: number
 }
 
 export interface CareSettings {
@@ -60,6 +70,29 @@ export interface CareSettings {
 export type RobotPage = 'clock' | 'weather' | 'prayer' | 'focus' | 'games' | 'breathe' | 'story' | 'night' | 'status' | 'bond'
 export type RobotPages = Record<RobotPage, boolean>
 
+/** How TinyBot's face looks and behaves (settings.look); missing keys = the original face */
+export type LookShape = 'rounded' | 'round' | 'square'
+export type LookEyes = 'plain' | 'shine' | 'pupil'
+export type LookMouth = 'none' | 'smile' | 'cat' | 'dot'
+export type LookBlink = 'slow' | 'normal' | 'fast'
+export type LookEnergy = 'calm' | 'normal' | 'playful'
+
+export interface FaceLook {
+  shape: LookShape
+  /** percent, 75-125 */
+  size: number
+  /** px each eye moves outward, -10..10 */
+  spacing: number
+  /** px down, -6..6 */
+  height: number
+  eyes: LookEyes
+  mouth: LookMouth
+  blush: boolean
+  blink: LookBlink
+  /** how often it looks around and does idle habits */
+  energy: LookEnergy
+}
+
 export interface CompanionSettings {
   /** null = the robot keeps its own volume */
   volume: number | null
@@ -68,6 +101,8 @@ export interface CompanionSettings {
   night: NightSettings
   care: CareSettings
   pages?: RobotPages
+  look?: Partial<FaceLook>
+  display?: Partial<DisplaySettings>
 }
 
 export interface PomodoroConfig {
@@ -229,6 +264,8 @@ export interface CompanionConfigPatch {
     night?: Partial<NightSettings>
     care?: Partial<CareSettings>
     pages?: Partial<RobotPages>
+    look?: Partial<FaceLook>
+    display?: Partial<DisplaySettings>
   }
   pomodoro?: Partial<PomodoroConfig>
   /** Replaces the whole list */

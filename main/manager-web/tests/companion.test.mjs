@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ROBOT_PAGES,
+  companionVolume,
+  displayProblem,
+  displaySettings,
+  isMinutes,
+  presetChoice,
+  volumeSaveOutcome,
   ageOf,
   alarmPayload,
   asciiLabel,
@@ -200,5 +206,44 @@ describe('robot pages', () => {
     expect(isLastPageOn(one, 'clock')).toBe(true);
     expect(isLastPageOn(one, 'games')).toBe(false);
     expect(isLastPageOn({ games: false }, 'clock')).toBe(false);
+  });
+});
+
+describe('display, night light and volume helpers', () => {
+  it('fills display defaults and keeps valid values', () => {
+    expect(displaySettings(undefined)).toEqual({ dim_after_min: 3, off_after_min: 20 });
+    expect(displaySettings({ dim_after_min: 0, off_after_min: 600 })).toEqual({ dim_after_min: 0, off_after_min: 600 });
+    expect(displaySettings({ dim_after_min: 121, off_after_min: 'x' })).toEqual({ dim_after_min: 3, off_after_min: 20 });
+  });
+
+  it('checks minutes and the dim/off order', () => {
+    expect(isMinutes(0, 10)).toBe(true);
+    expect(isMinutes(1.5, 10)).toBe(false);
+    expect(isMinutes('5', 10)).toBe(false);
+    expect(displayProblem({ dim_after_min: 3, off_after_min: 20 })).toBe('');
+    expect(displayProblem({ dim_after_min: 0, off_after_min: 1 })).toBe('');
+    expect(displayProblem({ dim_after_min: 10, off_after_min: 0 })).toBe('');
+    expect(displayProblem({ dim_after_min: 10, off_after_min: 10 })).toBe('offBeforeDim');
+    expect(displayProblem({ dim_after_min: 200, off_after_min: 0 })).toBe('dimRange');
+    expect(displayProblem({ dim_after_min: 1, off_after_min: null })).toBe('offRange');
+  });
+
+  it('maps a value to its preset or custom', () => {
+    expect(presetChoice(30, [0, 15, 30])).toBe(30);
+    expect(presetChoice(31, [0, 15, 30])).toBe('custom');
+  });
+
+  it('prefers the reported volume, then the stored one', () => {
+    expect(companionVolume({ stats: { volume: 100 }, settings: { volume: 50 } })).toBe(100);
+    expect(companionVolume({ stats: {}, settings: { volume: 50 } })).toBe(50);
+    expect(companionVolume({ stats: { volume: null }, settings: { volume: null } })).toBe(null);
+    expect(companionVolume(null)).toBe(null);
+  });
+
+  it('tells an offline volume save from a direct one', () => {
+    expect(volumeSaveOutcome({ code: 0, msg: 'Volume saved; the robot changes it when it is online' })).toBe('offline');
+    expect(volumeSaveOutcome({ code: 0, msg: 'Volume updated successfully' })).toBe('now');
+    expect(volumeSaveOutcome({ code: 0, msg: 'success' })).toBe('now');
+    expect(volumeSaveOutcome({ code: 0, msg: 'Something else' })).toBe('other');
   });
 });
