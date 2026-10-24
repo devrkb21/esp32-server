@@ -15,6 +15,7 @@ import {
   robotPages,
 } from '../companionUtils.mjs'
 import { useCompanion } from './context'
+import FirmwareGroup from './FirmwareGroup.vue'
 import MinutesChips from './MinutesChips.vue'
 
 defineOptions({
@@ -264,6 +265,8 @@ async function setPage(key: RobotPage, on: boolean) {
         </wd-button>
       </view>
     </view>
+
+    <FirmwareGroup />
 
     <view class="nx-group">
       <view class="nx-group__header">

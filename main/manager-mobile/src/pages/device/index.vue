@@ -253,8 +253,11 @@ function openCompanion(device: Device) {
   activeDeviceId.value = ''
   // the page shows the robot name from the companion server once loaded; the alias is a placeholder
   const name = device.alias ? `&name=${encodeURIComponent(device.alias)}` : ''
+  // the agent lets the Firmware card read the device's version and Auto update switch
+  const agent = device.agentId || currentAgentId.value
+  const agentParam = agent ? `&agentId=${encodeURIComponent(agent)}` : ''
   uni.navigateTo({
-    url: `/pages/companion/index?deviceId=${encodeURIComponent(device.id)}${name}`,
+    url: `/pages/companion/index?deviceId=${encodeURIComponent(device.id)}${name}${agentParam}`,
   })
 }
 

@@ -9,10 +9,10 @@
 </route>
 
 <script lang="ts" setup>
-import type { CompanionContext } from './components/context'
+import type { CompanionContext, FirmwareUpdateState } from './components/context'
 import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/companion'
 import { onHide, onLoad, onShow, onUnload } from '@dcloudio/uni-app'
-import { computed, provide, ref } from 'vue'
+import { computed, onBeforeUnmount, provide, ref } from 'vue'
 import { getCompanion, sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
@@ -28,6 +28,7 @@ import PrayerPanel from './components/PrayerPanel.vue'
 import RemindersPanel from './components/RemindersPanel.vue'
 import RobotPanel from './components/RobotPanel.vue'
 import StatusPanel from './components/StatusPanel.vue'
+import { createUpdateFlow, initialUpdateState } from './firmwareUpdate.mjs'
 
 defineOptions({
   name: 'CompanionPage',
@@ -36,6 +37,7 @@ defineOptions({
 const POLL_MS = 10000
 
 const deviceId = ref('')
+const agentId = ref('')
 const fallbackName = ref('')
 const dev = ref<CompanionDevice | null>(null)
 const loading = ref(false)
@@ -76,6 +78,19 @@ function selectTab(name: string) {
   activeTab.value = name
 }
 
+// "Update now" of the Firmware card (Robot tab): kept here so it survives switching tabs
+const firmwareState = ref<FirmwareUpdateState>(initialUpdateState() as FirmwareUpdateState)
+const firmwareAppVersion = ref('')
+const firmwareFlow = createUpdateFlow({
+  sendCommand: (cmd: { type: CommandType }) => sendCompanionCommand(deviceId.value, { type: cmd.type }),
+  fetchView: () => getCompanion(deviceId.value, true),
+  appVersion: () => firmwareAppVersion.value,
+  onChange: (state: FirmwareUpdateState) => {
+    firmwareState.value = state
+  },
+})
+onBeforeUnmount(() => firmwareFlow.destroy())
+
 // A poll that started before a save must not overwrite the save's newer response
 let mutationSeq = 0
 
@@ -87,8 +102,10 @@ async function reload(silent = true) {
     loading.value = true
   try {
     const data = await getCompanion(deviceId.value, silent)
-    if (seq === mutationSeq && data)
+    if (seq === mutationSeq && data) {
       dev.value = data
+      firmwareFlow.observe(data)
+    }
     loadError.value = false
   }
   catch (error) {
@@ -135,6 +152,15 @@ async function command(type: CommandType, arg = '', okMsg?: string): Promise<boo
 
 const ctx: CompanionContext = {
   deviceId,
+  agentId,
+  firmware: {
+    state: firmwareState,
+    start: () => firmwareFlow.start(dev.value),
+    reset: () => firmwareFlow.reset(),
+    setAppVersion: (version: string) => {
+      firmwareAppVersion.value = version
+    },
+  },
   dev,
   save,
   command,
@@ -171,6 +197,7 @@ function onVisibility() {
 
 onLoad((options) => {
   deviceId.value = String(options?.deviceId || '')
+  agentId.value = String(options?.agentId || '')
   try {
     fallbackName.value = options?.name ? decodeURIComponent(String(options.name)) : ''
   }

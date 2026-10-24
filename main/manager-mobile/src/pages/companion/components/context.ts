@@ -5,8 +5,30 @@ import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
 import { agoParts, describeDays } from '../companionUtils.mjs'
 
+/** State of the "Update now" flow (see ../firmwareUpdate.mjs) */
+export interface FirmwareUpdateState {
+  phase: 'idle' | 'sending' | 'sent' | 'waiting' | 'updated' | 'current' | 'timeout' | 'failed'
+  fromVersion?: string
+  toVersion?: string
+  error?: unknown
+}
+
+export interface FirmwareUpdateControl {
+  state: Ref<FirmwareUpdateState>
+  /** Send {type: 'update'} and wait until TinyBot is back; resolves true when it was sent */
+  start: () => Promise<boolean>
+  /** Close the result note */
+  reset: () => void
+  /** The device list's firmware version (fallback when TinyBot did not report one) */
+  setAppVersion: (version: string) => void
+}
+
 export interface CompanionContext {
   deviceId: Ref<string>
+  /** Agent the device belongs to ('' when the page was opened without it) */
+  agentId: Ref<string>
+  /** "Update now" of the Firmware card: kept by the page so it survives switching tabs */
+  firmware: FirmwareUpdateControl
   /** Latest companion view from the server (null until loaded) */
   dev: Ref<CompanionDevice | null>
   /** PUT a partial config; resolves true on success (the view is replaced by the response) */
