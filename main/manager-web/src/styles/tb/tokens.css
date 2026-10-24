@@ -1,0 +1,116 @@
+/*
+ * TinyBot design tokens: the Panjika world (the Bangla household almanac).
+ * White newsprint, ink rules, one ink per area, Nobix orange for the one action and "now".
+ * Contrast (computed, WCAG): ink 17.1:1, ink-2 7.3:1, ink-3 4.6:1 on paper; white on action
+ * 5.05:1; area text inks 4.9-7.4:1. Marks (#E8613A, ochre mark) are paired with words.
+ */
+:root {
+  color-scheme: light;
+
+  /* ground and ink */
+  --tb-paper: #FBFAF7;
+  --tb-paper-2: #F3F1EC;      /* a quieter field: table head, inset */
+  --tb-ink: #1B1714;
+  --tb-ink-2: #5A524C;        /* secondary text */
+  --tb-ink-3: #7A716A;        /* tertiary text, placeholders (4.6:1) */
+  --tb-rule: #1B1714;         /* structural rules */
+  --tb-rule-soft: #DCD8D1;    /* row rules inside dense tables */
+  --tb-face: #000000;         /* the OLED window */
+
+  /* action and now: Nobix orange */
+  --tb-orange: #E8613A;       /* marks, the now rule, today's ring (not text) */
+  --tb-action: #C2451C;       /* filled action background, orange text */
+  --tb-action-hover: #A93A16;
+  --tb-on-action: #FFFFFF;
+
+  /* area inks, one per area (rows, tabs, icons of that area only) */
+  --tb-prayer: #0B7A4A;
+  --tb-alarm: #D4231C;
+  --tb-routine: #8F5F08;      /* text */
+  --tb-routine-mark: #C98A12; /* marks */
+  --tb-message: #1F4FA3;
+  --tb-look: #6B3FA0;
+
+  /* states (always with a word) */
+  --tb-ok: #0B7A4A;
+  --tb-warn: #8F5F08;
+  --tb-danger: #B81E18;
+  --tb-focus: #1F4FA3;
+
+  /* type */
+  --tb-font-display: "Libre Franklin", "Anek Bangla", "Hind Siliguri", system-ui, sans-serif;
+  --tb-font-text: "Public Sans", "Hind Siliguri", system-ui, sans-serif;
+  --tb-fs-12: 0.75rem;
+  --tb-fs-13: 0.8125rem;
+  --tb-fs-14: 0.875rem;
+  --tb-fs-15: 0.9375rem;
+  --tb-fs-16: 1rem;
+  --tb-fs-18: 1.125rem;
+  --tb-fs-20: 1.25rem;
+  --tb-fs-24: 1.5rem;
+  --tb-fs-32: 2rem;
+  --tb-fs-48: 3rem;
+  --tb-fs-date: clamp(5.5rem, 22vw, 7.75rem); /* the calendar numeral */
+  --tb-lh-text: 1.55;  /* Bangla conjuncts and vowel signs need the room */
+  --tb-lh-tight: 1.15;
+
+  /* space: 4px base */
+  --tb-s1: 4px;
+  --tb-s2: 8px;
+  --tb-s3: 12px;
+  --tb-s4: 16px;
+  --tb-s5: 20px;
+  --tb-s6: 24px;
+  --tb-s8: 32px;
+  --tb-s10: 40px;
+  --tb-s12: 48px;
+  --tb-gutter: 20px;
+
+  /* rules and radii */
+  --tb-rule-hair: 1px;
+  --tb-rule-band: 3px;
+  --tb-radius-s: 6px;
+  --tb-radius-m: 10px;
+  --tb-radius-pill: 999px;
+  --tb-target: 44px; /* minimum touch target */
+
+  /* motion (interaction thesis) */
+  --tb-ease: cubic-bezier(.2, .7, .2, 1);
+  --tb-ease-in: cubic-bezier(.4, 0, 1, 1);
+  --tb-t-hover: 120ms;
+  --tb-t-fast: 160ms;
+  --tb-t-row: 180ms;
+  --tb-t-sheet: 220ms;
+  --tb-t-day: 240ms;
+
+  /* layout */
+  --tb-sidebar: 248px;
+  --tb-content-max: 1120px;
+  --tb-shadow-sheet: 0 12px 32px rgba(27, 23, 20, .18), 0 2px 6px rgba(27, 23, 20, .08);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --tb-paper: #171310;
+  --tb-paper-2: #221D19;
+  --tb-ink: #EDE8E0;
+  --tb-ink-2: #C3BAB0;
+  --tb-ink-3: #A89F96;
+  --tb-rule: #EDE8E0;
+  --tb-rule-soft: #3A332D;
+  --tb-orange: #F2794F;
+  --tb-action: #F2794F;
+  --tb-action-hover: #F58E69;
+  --tb-on-action: #171310;
+  --tb-prayer: #3DBE84;
+  --tb-alarm: #FF5A4E;
+  --tb-routine: #E3A73A;
+  --tb-routine-mark: #E3A73A;
+  --tb-message: #7BA2F0;
+  --tb-look: #B293E8;
+  --tb-ok: #3DBE84;
+  --tb-warn: #E3A73A;
+  --tb-danger: #FF5A4E;
+  --tb-focus: #7BA2F0;
+  --tb-shadow-sheet: 0 12px 32px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3);
+}

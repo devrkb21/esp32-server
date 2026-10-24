@@ -1,4 +1,4 @@
-import { Message } from 'element-ui'
+import { toast } from '@/kit/toast'
 import router from '../router'
 import Constant from '../utils/constant'
 
@@ -52,11 +52,7 @@ export function showDanger(msg) {
     if (isNull(msg)) {
         return
     }
-    Message({
-        message: msg,
-        type: 'error',
-        showClose: true
-    })
+    toast.error(msg)
 }
 
 /**
@@ -67,11 +63,7 @@ export function showWarning(msg) {
     if (isNull(msg)) {
         return
     }
-    Message({
-        message: msg,
-        type: 'warning',
-        showClose: true
-    });
+    toast.warning(msg)
 }
 
 
@@ -81,11 +73,7 @@ export function showWarning(msg) {
  * @param msg
  */
 export function showSuccess(msg) {
-    Message({
-        message: msg,
-        type: 'success',
-        showClose: true
-    })
+    toast.success(msg)
 }
 
 

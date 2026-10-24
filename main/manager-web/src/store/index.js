@@ -1,12 +1,9 @@
 import { goToPage } from "@/utils";
-import Vue from 'vue';
-import Vuex from 'vuex';
+import { createStore } from 'vuex';
 import Api from '../apis/api';
 import Constant from '../utils/constant';
 
-Vue.use(Vuex)
-
-export default new Vuex.Store({
+export default createStore({
   state: {
     token: '',
     userInfo: {}, // User info store

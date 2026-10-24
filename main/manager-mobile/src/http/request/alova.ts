@@ -5,6 +5,7 @@ import AdapterUniapp from '@alova/adapter-uniapp'
 import { createAlova } from 'alova'
 import { createServerTokenAuthentication } from 'alova/client'
 import VueHook from 'alova/vue'
+import { DEMO, demoRequestAdapter } from '@/api/demo'
 import { t } from '@/i18n'
 import { getEnvBaseUrl } from '@/utils'
 import { toast } from '@/utils/toast'
@@ -12,6 +13,7 @@ import { ContentTypeEnum, ResultEnum, ShowMessage } from './enum'
 
 // Language mapping for Accept-Language header
 const langMap: Record<Language, string> = {
+  bn: 'bn-BD',
   zh_CN: 'zh-CN',
   en: 'en-US',
   zh_TW: 'zh-TW',
@@ -65,6 +67,8 @@ const { onAuthRequired, onResponseRefreshToken } = createServerTokenAuthenticati
 const alovaInstance = createAlova({
   baseURL: getEnvBaseUrl(),
   ...AdapterUniapp(),
+  // Demo build: answered from src/api/demo fixtures, never the network
+  ...(DEMO ? { requestAdapter: demoRequestAdapter as any } : {}),
   // Slow mobile networks and cold server starts need more than a few seconds
   timeout: 15000,
   statesHook: VueHook,

@@ -2,7 +2,9 @@ import type { TabBar } from '@uni-helper/vite-plugin-uni-pages'
 
 type FgTabBarItem = TabBar['list'][0] & {
   icon: string
-  iconType: 'uiLib' | 'unocss' | 'iconfont'
+  iconType: 'uiLib' | 'unocss' | 'iconfont' | 'tb'
+  /** i18n key of the label (nav.*) */
+  labelKey?: string
 }
 
 /**
@@ -21,37 +23,16 @@ export const TABBAR_MAP = {
   CUSTOM_TABBAR_WITHOUT_CACHE: 3,
 }
 // Switch tabbar strategy here
-export const selectedTabbarStrategy = TABBAR_MAP.NATIVE_TABBAR
+export const selectedTabbarStrategy = TABBAR_MAP.CUSTOM_TABBAR_WITH_CACHE
 
 // When NATIVE_TABBAR(1), fill iconPath and selectedIconPath
 // When CUSTOM_TABBAR(2,3), fill icon and iconType
 // When NO_TABBAR(0), tabbarList is not effective
 export const tabbarList: FgTabBarItem[] = [
-  {
-    iconPath: 'static/tabbar/robot.png',
-    selectedIconPath: 'static/tabbar/robot_activate.png',
-    pagePath: 'pages/index/index',
-    text: 'Home',
-    icon: 'home',
-    // When using UI framework icon, iconType is uiLib
-    iconType: 'uiLib',
-  },
-  {
-    iconPath: 'static/tabbar/network.png',
-    selectedIconPath: 'static/tabbar/network_activate.png',
-    pagePath: 'pages/device-config/index',
-    text: 'Network',
-    icon: 'i-carbon-network-3',
-    iconType: 'uiLib',
-  },
-  {
-    iconPath: 'static/tabbar/system.png',
-    selectedIconPath: 'static/tabbar/system_activate.png',
-    pagePath: 'pages/settings/index',
-    text: 'System',
-    icon: 'i-carbon-settings',
-    iconType: 'uiLib',
-  },
+  { iconPath: 'static/tabbar/home.png', selectedIconPath: 'static/tabbar/homeHL.png', pagePath: 'pages/index/index', text: 'Today', labelKey: 'nav.today', icon: 'today', iconType: 'tb' },
+  { iconPath: 'static/tabbar/example.png', selectedIconPath: 'static/tabbar/exampleHL.png', pagePath: 'pages/day/index', text: 'Day', labelKey: 'nav.day', icon: 'day', iconType: 'tb' },
+  { iconPath: 'static/tabbar/robot.png', selectedIconPath: 'static/tabbar/robot_activate.png', pagePath: 'pages/look/index', text: 'Look', labelKey: 'nav.look', icon: 'look', iconType: 'tb' },
+  { iconPath: 'static/tabbar/system.png', selectedIconPath: 'static/tabbar/system_activate.png', pagePath: 'pages/settings/index', text: 'More', labelKey: 'nav.more', icon: 'more', iconType: 'tb' },
 ]
 
 // Cache tabbar for NATIVE_TABBAR(1) and CUSTOM_TABBAR_WITH_CACHE(2)

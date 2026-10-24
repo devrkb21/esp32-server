@@ -21,6 +21,7 @@ export function isDark() {
 export function applyTheme(theme) {
   const root = document.documentElement;
   const body = document.body;
+  root.dataset.theme = theme;
   if (theme === 'dark') {
     root.classList.add('dark');
     body.classList.add('dark');

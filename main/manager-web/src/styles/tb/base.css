@@ -1,0 +1,63 @@
+/* Base: the browser surfaces carry the design too (selection, caret, focus, scrollbars, numerals). */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--tb-paper);
+  color: var(--tb-ink);
+  font-family: var(--tb-font-text);
+  font-size: var(--tb-fs-15);
+  line-height: var(--tb-lh-text);
+  -webkit-font-smoothing: antialiased;
+  caret-color: var(--tb-action);
+  accent-color: var(--tb-action);
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-family: var(--tb-font-display);
+  font-weight: 700;
+  line-height: var(--tb-lh-tight);
+  text-wrap: balance;
+}
+p { margin: 0; }
+a { color: inherit; text-underline-offset: 3px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+img, svg { display: block; max-width: 100%; }
+table { border-collapse: collapse; }
+hr { border: 0; height: var(--tb-rule-hair); color: var(--tb-rule-soft); background: currentColor; margin: 0; }
+
+::selection { background: var(--tb-orange); color: #fff; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--tb-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* tabular figures wherever numbers line up */
+.tb-num, td, th, time { font-variant-numeric: tabular-nums; }
+
+/* scrollbars in the world's ink */
+* { scrollbar-width: thin; scrollbar-color: var(--tb-rule-soft) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--tb-rule-soft); border-radius: 10px; border: 3px solid var(--tb-paper); }
+::-webkit-scrollbar-track { background: transparent; }
+
+.tb-visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
