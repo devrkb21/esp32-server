@@ -5,6 +5,7 @@ import AdapterUniapp from '@alova/adapter-uniapp'
 import { createAlova } from 'alova'
 import { createServerTokenAuthentication } from 'alova/client'
 import VueHook from 'alova/vue'
+import { t } from '@/i18n'
 import { getEnvBaseUrl } from '@/utils'
 import { toast } from '@/utils/toast'
 import { ContentTypeEnum, ResultEnum, ShowMessage } from './enum'
@@ -18,6 +19,21 @@ const langMap: Record<Language, string> = {
   vi: 'vi',
   pt_BR: 'pt-BR',
 }
+
+/**
+ * Turn a transport failure (no response at all) into one short, actionable message. uni.request
+ * reports these as errMsg strings such as "request:fail timeout" or "request:fail abort".
+ */
+function networkErrorMessage(error: any): string {
+  const raw = String(error?.errMsg || error?.message || error || '').toLowerCase()
+  if (raw.includes('timeout'))
+    return t('network.timeout')
+  if (raw.includes('abort'))
+    return ''
+  return t('network.unreachable')
+}
+
+let lastNetworkToastAt = 0
 
 /**
  * Create request instance
@@ -49,7 +65,8 @@ const { onAuthRequired, onResponseRefreshToken } = createServerTokenAuthenticati
 const alovaInstance = createAlova({
   baseURL: getEnvBaseUrl(),
   ...AdapterUniapp(),
-  timeout: 5000,
+  // Slow mobile networks and cold server starts need more than a few seconds
+  timeout: 15000,
   statesHook: VueHook,
 
   beforeRequest: onAuthRequired((method) => {
@@ -62,9 +79,10 @@ const alovaInstance = createAlova({
     // Check mixed content error (HTTPS page requesting HTTP API)
     const currentProtocol = typeof window !== 'undefined' && window.location.protocol
     const requestProtocol = method.baseURL?.split(':')[0]
-    const currentLang = langMap[uni.getStorageSync('app_language') as Language || 'zh_CN']
+    const currentLang = langMap[uni.getStorageSync('app_language') as Language] || 'en-US'
     if (currentProtocol === 'https:' && requestProtocol === 'http') {
-      const errorMessage = 'Cannot configure HTTP protocol address on HTTPS, please check API address'
+      const errorMessage = t('network.mixedContent')
+      toast.error(errorMessage)
       throw new Error(errorMessage)
     }
 
@@ -78,7 +96,6 @@ const alovaInstance = createAlova({
 
     const { config } = method
     const ignoreAuth = config.meta?.ignoreAuth
-    console.log('ignoreAuth===>', ignoreAuth)
 
     // Handle authentication info
     if (!ignoreAuth) {
@@ -99,52 +116,64 @@ const alovaInstance = createAlova({
     }
   }),
 
-  responded: onResponseRefreshToken((response, method) => {
-    const { config } = method
-    const { requestType } = config
-    const {
-      statusCode,
-      data: rawData,
-      errMsg,
-    } = response as UniNamespace.RequestSuccessCallbackResult
+  responded: onResponseRefreshToken({
+    onSuccess: (response, method) => {
+      const { config } = method
+      const { requestType } = config
+      const {
+        statusCode,
+        data: rawData,
+        errMsg,
+      } = response as UniNamespace.RequestSuccessCallbackResult
 
-    console.log(response)
+      // Handle special request types (upload/download)
+      if (requestType === 'upload' || requestType === 'download') {
+        return response
+      }
 
-    // Handle special request types (upload/download)
-    if (requestType === 'upload' || requestType === 'download') {
-      return response
-    }
+      // Handle HTTP status code errors
+      if (statusCode !== 200) {
+        const errorMessage = ShowMessage(statusCode) || `HTTP request error [${statusCode}]`
+        console.error('errorMessage===>', errorMessage)
+        toast.error(errorMessage)
+        throw new Error(`${errorMessage}：${errMsg}`)
+      }
 
-    // Handle HTTP status code errors
-    if (statusCode !== 200) {
-      const errorMessage = ShowMessage(statusCode) || `HTTP request error [${statusCode}]`
-      console.error('errorMessage===>', errorMessage)
-      toast.error(errorMessage)
-      throw new Error(`${errorMessage}：${errMsg}`)
-    }
-
-    // Handle business logic errors
-    const { code, msg, data } = rawData as IResponse
-    if (code !== ResultEnum.Success) {
+      // Handle business logic errors
+      const { code, msg, data } = rawData as IResponse
+      if (code !== ResultEnum.Success) {
       // Check if token is expired
-      if (code === ResultEnum.Unauthorized) {
+        if (code === ResultEnum.Unauthorized) {
         // Clear token and navigate to login page
-        uni.removeStorageSync('token')
-        uni.reLaunch({ url: '/pages/login/index' })
+          uni.removeStorageSync('token')
+          uni.reLaunch({ url: '/pages/login/index' })
+          throw new Error(`Request error [${code}]: ${msg}`)
+        }
+
+        if (config.meta?.isExposeError) {
+          return Promise.reject(msg)
+        }
+
+        if (config.meta?.toast !== false) {
+          toast.warning(msg)
+        }
         throw new Error(`Request error [${code}]: ${msg}`)
       }
-
-      if (config.meta?.isExposeError) {
-        return Promise.reject(msg)
+      // Successful response, return business data
+      return data
+    },
+    // No HTTP response at all: offline, wrong server address, server down, timeout
+    onError: (error, method) => {
+      const message = networkErrorMessage(error)
+      const now = Date.now()
+      // One toast per burst: a page firing several requests at once shows it once
+      if (message && method.config.meta?.toast !== false && now - lastNetworkToastAt > 3000) {
+        lastNetworkToastAt = now
+        toast.error(message)
       }
-
-      if (config.meta?.toast !== false) {
-        toast.warning(msg)
-      }
-      throw new Error(`Request error [${code}]: ${msg}`)
-    }
-    // Successful response, return business data
-    return data
+      console.error('[Request failed]', method.url, error)
+      throw error
+    },
   }),
 })
 

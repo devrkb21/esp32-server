@@ -133,10 +133,16 @@ const isCustomServer = ref(Boolean(getServerBaseUrlOverride()))
 const showServerSheet = ref(false)
 const serverDraft = ref('')
 const serverError = ref('')
+// Connection check before saving: idle | testing | ok | failed
+const serverTest = ref<'idle' | 'testing' | 'ok' | 'failed'>('idle')
+// URL that failed the check; saving it again means "save anyway"
+const failedServerUrl = ref('')
 
 function openServerSheet() {
   serverDraft.value = currentServerUrl.value
   serverError.value = ''
+  serverTest.value = 'idle'
+  failedServerUrl.value = ''
   showServerSheet.value = true
 }
 
@@ -150,7 +156,41 @@ function restartToLogin() {
   }, 1500)
 }
 
-function saveServerUrl() {
+/**
+ * Ask the server for its public config (no login needed). Resolves true when it answers like a
+ * Nobix / xiaozhi manager-api, so a typo or a missing "/xiaozhi" path is caught before the app
+ * signs the user out.
+ */
+function checkServer(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    uni.request({
+      url: `${url}/user/pub-config`,
+      method: 'GET',
+      timeout: 8000,
+      success: (res) => {
+        const data = res.data as any
+        resolve(res.statusCode === 200 && !!data && typeof data === 'object' && 'code' in data)
+      },
+      fail: () => resolve(false),
+    })
+  })
+}
+
+async function testServerUrl() {
+  const url = serverDraft.value.trim().replace(/\/+$/, '')
+  if (!url || !isValidServerUrl(url)) {
+    serverError.value = t(url ? 'settings.validServerUrl' : 'settings.enterServerUrl')
+    return
+  }
+  serverError.value = ''
+  serverTest.value = 'testing'
+  const ok = await checkServer(url)
+  serverTest.value = ok ? 'ok' : 'failed'
+  if (!ok)
+    serverError.value = t('settings.serverUnreachable')
+}
+
+async function saveServerUrl() {
   const url = serverDraft.value.trim().replace(/\/+$/, '')
   if (!url) {
     serverError.value = t('settings.enterServerUrl')
@@ -159,6 +199,19 @@ function saveServerUrl() {
   if (!isValidServerUrl(url)) {
     serverError.value = t('settings.validServerUrl')
     return
+  }
+  if (serverTest.value === 'testing')
+    return
+  // Check first; a second tap on the same failing address saves it anyway
+  if (failedServerUrl.value !== url) {
+    serverTest.value = 'testing'
+    const ok = await checkServer(url)
+    serverTest.value = ok ? 'ok' : 'failed'
+    if (!ok) {
+      failedServerUrl.value = url
+      serverError.value = t('settings.serverUnreachableSaveAnyway')
+      return
+    }
   }
   setServerBaseUrlOverride(url)
   clearAllCacheAfterUrlChange()
@@ -340,7 +393,7 @@ onMounted(async () => {
               {{ t('settings.language') }}
             </view>
           </view>
-          <text class="nx-row__value nx-truncate">
+          <text class="nx-truncate nx-row__value">
             {{ currentLanguageName }}
           </text>
           <wd-icon name="arrow-right" size="14px" custom-class="settings-chevron" />
@@ -485,8 +538,20 @@ onMounted(async () => {
                 type="text"
                 :placeholder="t('settings.enterServerUrl')"
                 placeholder-class="settings-placeholder"
-                @input="serverError = ''"
+                @input="serverError = ''; serverTest = 'idle'; failedServerUrl = ''"
               >
+              <view
+                class="settings-test"
+                :class="`settings-test--${serverTest}`"
+                role="button"
+                :aria-label="t('settings.testConnection')"
+                @click="testServerUrl"
+              >
+                <wd-loading v-if="serverTest === 'testing'" size="14px" />
+                <wd-icon v-else-if="serverTest === 'ok'" name="check" size="14px" />
+                <wd-icon v-else-if="serverTest === 'failed'" name="close" size="14px" />
+                <text>{{ serverTest === 'ok' ? t('settings.connected') : t('settings.testConnection') }}</text>
+              </view>
             </view>
           </view>
           <view class="nx-group__footer" :class="{ 'settings-error': serverError }">
@@ -494,7 +559,7 @@ onMounted(async () => {
           </view>
         </view>
         <view class="nx-btn nx-btn--primary nx-btn--block" role="button" @click="saveServerUrl">
-          {{ t('settings.saveSettings') }}
+          {{ failedServerUrl && failedServerUrl === serverDraft.trim().replace(/\/+$/, '') ? t('settings.saveAnyway') : t('settings.saveSettings') }}
         </view>
         <view
           v-if="isCustomServer"
@@ -510,6 +575,31 @@ onMounted(async () => {
 </template>
 
 <style lang="scss" scoped>
+.settings-test {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 56rpx;
+  padding: 0 20rpx;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-2);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  &:active {
+    opacity: 0.8;
+  }
+  &--ok {
+    background: var(--nx-success-soft);
+    color: var(--nx-success);
+  }
+  &--failed {
+    background: var(--nx-danger-soft);
+    color: var(--nx-danger);
+  }
+}
+
 .settings {
   padding-bottom: calc(var(--nx-space-7) + env(safe-area-inset-bottom));
 

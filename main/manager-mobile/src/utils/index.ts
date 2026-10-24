@@ -1,8 +1,6 @@
 import smCrypto from 'sm-crypto'
 import { pages, subPackages } from '@/pages.json'
 
-import { isMpWeixin } from './platform'
-
 /**
  * Storage key for runtime server base URL override
  */
@@ -128,75 +126,50 @@ export const getNeedLoginPages = (): string[] => getAllPages('needLogin').map(pa
 export const needLoginPages: string[] = getAllPages('needLogin').map(page => page.path)
 
 /**
- * Determine baseUrl based on WeChat mini-program environment
+ * True when running the H5 dev server with its /xiaozhi proxy (`VITE_APP_PROXY`). Requests then go
+ * through the dev server, so the app works from any device on the LAN (a phone opening
+ * http://<pc>:9000 cannot reach the PC's "localhost") and without CORS.
  */
-export function getEnvBaseUrl() {
-  // Return user override URL if present
-  const override = getServerBaseUrlOverride()
-  if (override)
-    return override
-
-  // Request base URL (default from env)
-  let baseUrl = import.meta.env.VITE_SERVER_BASEURL
-
-  // Environment base URL setup for develop, trial, release
-  const VITE_SERVER_BASEURL__WEIXIN_DEVELOP = 'https://ukw0y1.laf.run'
-  const VITE_SERVER_BASEURL__WEIXIN_TRIAL = 'https://ukw0y1.laf.run'
-  const VITE_SERVER_BASEURL__WEIXIN_RELEASE = 'https://ukw0y1.laf.run'
-
-  // Mini-program environment resolution
-  if (isMpWeixin) {
-    const {
-      miniProgram: { envVersion },
-    } = uni.getAccountInfoSync()
-
-    switch (envVersion) {
-      case 'develop':
-        baseUrl = VITE_SERVER_BASEURL__WEIXIN_DEVELOP || baseUrl
-        break
-      case 'trial':
-        baseUrl = VITE_SERVER_BASEURL__WEIXIN_TRIAL || baseUrl
-        break
-      case 'release':
-        baseUrl = VITE_SERVER_BASEURL__WEIXIN_RELEASE || baseUrl
-        break
-    }
+function useDevProxy(): boolean {
+  // #ifdef H5
+  try {
+    return import.meta.env.DEV && JSON.parse(String(import.meta.env.VITE_APP_PROXY || 'false'))
   }
+  catch {
+    return false
+  }
+  // #endif
 
-  return baseUrl
+  return false
+}
+
+/** Normalize a server address: trim spaces and trailing slashes. */
+export function normalizeBaseUrl(url: string): string {
+  return String(url || '').trim().replace(/\/+$/, '')
 }
 
 /**
- * Determine UPLOAD_BASEURL based on mini-program environment
+ * Server API base URL: the user's override (Settings → Server address), else the dev proxy
+ * prefix on the H5 dev server, else VITE_SERVER_BASEURL (also for WeChat mini-programs; their
+ * domain must be whitelisted in the mini-program console).
+ */
+export function getEnvBaseUrl() {
+  const override = getServerBaseUrlOverride()
+  if (override)
+    return normalizeBaseUrl(override)
+  if (useDevProxy())
+    return import.meta.env.VITE_APP_PROXY_PREFIX || '/xiaozhi'
+  return normalizeBaseUrl(import.meta.env.VITE_SERVER_BASEURL)
+}
+
+/**
+ * Upload URL: VITE_UPLOAD_BASEURL when it is absolute, otherwise relative to the API base URL.
  */
 export function getEnvBaseUploadUrl() {
-  // Request base URL
-  let baseUploadUrl = import.meta.env.VITE_UPLOAD_BASEURL
-
-  const VITE_UPLOAD_BASEURL__WEIXIN_DEVELOP = 'https://ukw0y1.laf.run/upload'
-  const VITE_UPLOAD_BASEURL__WEIXIN_TRIAL = 'https://ukw0y1.laf.run/upload'
-  const VITE_UPLOAD_BASEURL__WEIXIN_RELEASE = 'https://ukw0y1.laf.run/upload'
-
-  // Mini-program environment resolution
-  if (isMpWeixin) {
-    const {
-      miniProgram: { envVersion },
-    } = uni.getAccountInfoSync()
-
-    switch (envVersion) {
-      case 'develop':
-        baseUploadUrl = VITE_UPLOAD_BASEURL__WEIXIN_DEVELOP || baseUploadUrl
-        break
-      case 'trial':
-        baseUploadUrl = VITE_UPLOAD_BASEURL__WEIXIN_TRIAL || baseUploadUrl
-        break
-      case 'release':
-        baseUploadUrl = VITE_UPLOAD_BASEURL__WEIXIN_RELEASE || baseUploadUrl
-        break
-    }
-  }
-
-  return baseUploadUrl
+  const upload = import.meta.env.VITE_UPLOAD_BASEURL || ''
+  if (/^https?:\/\//i.test(upload))
+    return upload
+  return `${getEnvBaseUrl()}${upload.startsWith('/') ? '' : '/'}${upload}`
 }
 
 /**
