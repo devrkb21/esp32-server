@@ -57,3 +57,10 @@ async def test_display_in_snapshot(make_service):
         assert snap["settings"]["night"]["light_minutes"] == 0
     finally:
         await client.close()
+
+
+def test_chat_font():
+    assert schema.default_look()["chat_font"] == "pixel"
+    assert schema.settings({}, {"look": {"chat_font": "clean"}})["look"]["chat_font"] == "clean"
+    with pytest.raises(schema.ValidationError):
+        schema.settings({}, {"look": {"chat_font": "comic_sans"}})
