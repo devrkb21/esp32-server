@@ -180,6 +180,37 @@ def default_pages() -> Dict[str, bool]:
     return {page: True for page in PAGES}
 
 
+# TinyBot face look (firmware face_animations.cc FaceLook); defaults = the original face
+LOOK_CHOICES = {
+    "shape": ("rounded", "round", "square"),
+    "eyes": ("plain", "shine", "pupil"),
+    "mouth": ("none", "smile", "cat", "dot"),
+    "blink": ("slow", "normal", "fast"),
+    "energy": ("calm", "normal", "playful"),
+}
+LOOK_RANGES = {"size": (75, 125), "spacing": (-10, 10), "height": (-6, 6)}
+
+
+def default_display() -> Dict[str, int]:
+    # Minutes without touch or talk before the OLED dims / turns off (0 = never)
+    return {"dim_after_min": 3, "off_after_min": 20}
+
+
+def default_look() -> Dict[str, Any]:
+    return {
+        "shape": "rounded", "size": 100, "spacing": 0, "height": 0, "eyes": "plain",
+        "mouth": "none", "blush": False, "blink": "normal", "energy": "normal",
+    }
+
+
+def _choice(options):
+    def check(value, field):
+        if value not in options:
+            raise ValidationError(f"{field} must be one of {', '.join(options)}")
+        return value
+    return check
+
+
 def settings(old: Dict, patch: Any) -> Dict:
     if not isinstance(patch, dict):
         raise ValidationError("settings must be an object")
@@ -202,6 +233,19 @@ def settings(old: Dict, patch: Any) -> Dict:
                 "dim": boolean,
                 "lullaby": boolean,
                 "light": boolean,
+                # Night light turns itself off after this many minutes (0 = at the night's end,
+                # or after an hour when started by hand)
+                "light_minutes": lambda v, f: integer(v, 0, 600, f),
+            },
+        )
+    if "display" in patch:
+        out["display"] = _merge_section(
+            dict(default_display(), **(old.get("display") or {})),
+            patch["display"],
+            "settings.display",
+            {
+                "dim_after_min": lambda v, f: integer(v, 0, 120, f),
+                "off_after_min": lambda v, f: integer(v, 0, 600, f),
             },
         )
     if "pages" in patch:
@@ -210,6 +254,16 @@ def settings(old: Dict, patch: Any) -> Dict:
             patch["pages"],
             "settings.pages",
             {page: boolean for page in PAGES},
+        )
+    if "look" in patch:
+        checks = {k: _choice(v) for k, v in LOOK_CHOICES.items()}
+        checks.update({k: (lambda lo, hi: lambda v, f: integer(v, lo, hi, f))(*r) for k, r in LOOK_RANGES.items()})
+        checks["blush"] = boolean
+        out["look"] = _merge_section(
+            dict(default_look(), **(old.get("look") or {})),
+            patch["look"],
+            "settings.look",
+            checks,
         )
     if "care" in patch:
         out["care"] = _merge_section(

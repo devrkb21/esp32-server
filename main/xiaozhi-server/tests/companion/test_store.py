@@ -16,6 +16,7 @@ async def test_defaults_on_first_sync(make_service):
     assert snap["poll_s"] == 30
     assert snap["settings"]["night"] == {
         "enabled": True, "start": "21:30", "end": "06:30", "dim": True, "lullaby": True, "light": False,
+        "light_minutes": 0,
     }
     assert snap["settings"]["care"] == {"enabled": True, "lonely_after_min": 180}
     assert snap["settings"]["volume"] is None

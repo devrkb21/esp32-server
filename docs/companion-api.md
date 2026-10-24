@@ -128,6 +128,17 @@ Field notes:
   (arg `catch`/`simon`/`dice`/`reaction`), `stop` (close every activity, queued alert and the
   info pages), `night` (arg `on`: start night mode now until tonight's end time; `off`: end
   tonight's night early, the schedule takes over again from the next night).
+* `settings.look`: the face the user designed (TinyBot look page): `shape` rounded/round/square,
+  `size` 75..125 (%), `spacing` -10..10 and `height` -6..6 (px), `eyes` plain/shine/pupil,
+  `mouth` none/smile/cat/dot (follows the mood), `blush` bool, `blink` slow/normal/fast, `energy`
+  calm/normal/playful (how often it looks around and plays idle habits). Missing keys = the
+  original face.
+* `settings.display`: `dim_after_min` (default 3) and `off_after_min` (default 20) minutes without
+  touch or talk before the OLED dims / turns off; 0 = never.
+* `settings.night.light_minutes`: the night light turns itself off after this many minutes; 0 =
+  at the end of the night (or after an hour when started by hand).
+* `settings.volume`: also written by manager-api's device Volume dialog, which sets the volume
+  on the robot right away over MQTT; the robot reports its real volume as `stats.volume`.
 * `settings.pages`: which info pages the robot shows when the head is held (all on by default;
   missing keys count as on). Pages switched off are skipped; with every page off a hold only
   plays a sound.
