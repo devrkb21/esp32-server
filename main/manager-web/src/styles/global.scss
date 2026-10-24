@@ -1,73 +1,45 @@
-// Override autofill styles
+// Global fixes shared by all views. Design tokens and primitives: styles/nobix/.
+
+// Autofill keeps the input fill instead of the browser's yellow
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 textarea:-webkit-autofill,
-textarea:-webkit-autofill:hover,
-textarea:-webkit-autofill:focus,
-select:-webkit-autofill,
-select:-webkit-autofill:hover,
-select:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px transparent inset;
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--nx-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--nx-surface-2) inset;
   transition: background-color 5000s ease-in-out 0s;
-  background-color: transparent;
 }
 
-.el-footer {
-  height: 35px !important; /* Use !important to override default style */
-}
-
-.el-icon-video-play, .el-icon-video-pause { 
-  font-size: 18px !important;
-}
-
-.is-light {
-  border: 1px solid #e4e7ed !important;
-  color: #595959;
-  font-size: 14px;
-  background: #fafcfe !important;
-  .popper__arrow {
-    border-top-color: #e4e7ed !important;
-   }
-}
-
-@mixin scrollbar-style {
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #a1c9fd;
-    border-radius: 3px;
-  }
-  &::-webkit-scrollbar-track {
-    background: #f0f3fe;
-    border-radius: 3px;
-  }
-}
-
-// 大弹框宽度档位（表格档使用）
 :root {
   --dialog-table-max: 1280px;
 }
 
-/* 全局弹框遮罩 */
-.v-modal {
-  background: rgba(15, 23, 42, 0.55) !important;
-  backdrop-filter: blur(2px);
-}
-
-/* 全局弹框 wrapper 居中 */
-.el-dialog__wrapper.custom-dialog {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
-}
-
-/* 首页删除智能体确认弹框 wrapper 居中（非 CustomDialog，需单独命中） */
+// Dialog wrappers that centre their dialog vertically (CustomDialog and a few direct uses)
+.el-dialog__wrapper.custom-dialog,
 .el-dialog__wrapper.delete-agent-dialog {
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: auto;
+  .el-dialog {
+    margin: 32px auto !important;
+  }
+}
+
+// Thin themed scrollbar for scroll areas. Some components @import this file to use it.
+@mixin scrollbar-style {
+  scrollbar-width: thin;
+  scrollbar-color: var(--nx-border-strong) transparent;
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--nx-border-strong);
+    border-radius: 999px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }

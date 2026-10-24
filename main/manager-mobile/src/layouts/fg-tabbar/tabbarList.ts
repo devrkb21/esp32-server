@@ -61,10 +61,11 @@ export const cacheTabbarEnable = selectedTabbarStrategy === TABBAR_MAP.NATIVE_TA
 const _tabbar: TabBar = {
   // Only WeChat mini-program supports custom tabbar. Not effective in App and H5
   custom: selectedTabbarStrategy === TABBAR_MAP.CUSTOM_TABBAR_WITH_CACHE,
-  color: '#e6e6e6',
-  selectedColor: '#667dea',
-  backgroundColor: '#fff',
-  borderStyle: 'black',
+  // Nobix palette: warm grey icons, coral for the active tab
+  color: '#8E857B',
+  selectedColor: '#E2603A',
+  backgroundColor: '#FFFFFF',
+  borderStyle: 'white',
   height: '50px',
   fontSize: '10px',
   iconWidth: '24px',

@@ -221,6 +221,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// Table card: surface, hairline rows, quiet header (base table look: styles/nobix/element.scss)
 .custom-table-wrapper {
   flex: 1;
   display: flex;
@@ -228,82 +229,47 @@ export default {
   min-height: 0;
   .table-container {
     width: 100%;
-    box-shadow: 0 2px 12px rgba(74, 124, 253, 0.12);
-    border-radius: 6px;
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: var(--nx-radius-lg);
+    box-shadow: var(--nx-shadow-1);
+    overflow: hidden;
     .custom-table {
       width: 100%;
-      border: 1px solid #eef3fd;
-      border-bottom: none;
-      border-radius: 6px;
-      .el-table__body-wrapper {
-        overflow-y: auto;
-        &::-webkit-scrollbar {
-          width: 6px;
-        }
-        &::-webkit-scrollbar-thumb {
-          background: #a1c9fd;
-          border-radius: 3px;
-        }
-        &::-webkit-scrollbar-track {
-          background: #f0f3fe;
-          border-radius: 3px;
-        }
-      }
-      .el-table__header {
-        th {
-          color: #342f45;
-          background: #edf2fc !important;
-        }
-      }
     }
   }
 }
 :deep(.el-table) {
   .el-table__body-wrapper {
     overflow-y: auto;
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: #a1c9fd;
-      border-radius: 3px;
-    }
-    &::-webkit-scrollbar-track {
-      background: #f0f3fe;
-      border-radius: 3px;
-    }
   }
-  .el-table__header {
-    th {
-      color: #342f45;
-      background: #edf2fc !important;
-    }
+  th.el-table__cell:first-child .cell,
+  td.el-table__cell:first-child .cell {
+    padding-left: 20px;
+  }
+  th.el-table__cell:last-child .cell,
+  td.el-table__cell:last-child .cell {
+    padding-right: 20px;
   }
 }
 .table-footer {
-  padding: 16px 0px 0px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-4) 0 0;
 }
-
 :deep(.el-loading-mask) {
-  background-color: rgba(255, 255, 255, 0.6) !important;
-  backdrop-filter: blur(2px);
+  background: color-mix(in srgb, var(--nx-surface) 70%, transparent) !important;
 }
-
 :deep(.el-loading-spinner .circular) {
   width: 28px;
   height: 28px;
 }
-
-:deep(.el-loading-spinner .path) {
-  stroke: #6b8cff;
-}
-
 :deep(.el-loading-text) {
-  color: #6b8cff !important;
-  font-size: 14px;
+  color: var(--nx-text-2) !important;
+  font-size: var(--nx-text-footnote);
   margin-top: 8px;
 }
 </style>

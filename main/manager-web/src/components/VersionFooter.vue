@@ -44,31 +44,33 @@ export default {
 
 <style scoped>
 .copyright {
-  padding: 10px 0;
+  padding: var(--nx-space-6) 0 var(--nx-space-5);
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-caption);
 }
 
 .footer-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .beian-link {
-  text-decoration: none;
   display: inline-flex;
   align-items: center;
+  gap: 4px;
+  color: var(--nx-text-3);
 }
 
 .beian-icon {
-  width: 16px;
-  height: 16px;
-  vertical-align: middle;
+  width: 14px;
+  height: 14px;
 }
 
 .beian-text {
-  color: #000;
-  font-size: 12px;
-  vertical-align: middle;
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-caption);
 }
 </style>

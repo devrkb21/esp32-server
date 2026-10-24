@@ -7,6 +7,7 @@ import { initI18n } from './i18n'
 import { routeInterceptor } from './router/interceptor'
 import store from './store'
 
+import '@/style/nobix.scss'
 import '@/style/index.scss'
 import 'virtual:uno.css'
 

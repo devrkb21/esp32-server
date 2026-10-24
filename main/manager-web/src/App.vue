@@ -6,42 +6,17 @@
 </template>
 
 <style lang="scss">
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-}
-
-nav {
-  padding: 30px;
-
-  a {
-    font-weight: bold;
-    color: #2c3e50;
-
-    &.router-link-exact-active {
-      color: #42b983;
-    }
-  }
-}
-
+// App-wide look comes from styles/nobix (tokens, base, Element UI overrides)
 .copyright {
   padding: 0 !important;
-  color: rgb(0, 0, 0);
-  font-size: 12px;
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-caption);
   font-weight: 400;
   margin-top: auto;
   width: 100%;
-  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-.el-message {
-  top: 70px !important;
 }
 </style>
 <script>

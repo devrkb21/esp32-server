@@ -1,4 +1,4 @@
-import 'element-ui/lib/theme-chalk/index.css';
+import './styles/element-variables.scss';
 import 'normalize.css/normalize.css'; // A modern alternative to CSS resets
 import Vue from 'vue';
 import ElementUI from 'element-ui';
@@ -7,8 +7,8 @@ import router from './router';
 import store from './store';
 import i18n from './i18n';
 import locale from 'element-ui/lib/locale'
+import './styles/nobix/index.scss';
 import './styles/global.scss';
-import './styles/dark.scss';
 import { register as registerServiceWorker } from './registerServiceWorker';
 import featureManager from './utils/featureManager';
 import { initTheme } from './utils/theme';
@@ -23,7 +23,7 @@ Vue.use(ElementUI);
 locale.i18n((key, value) => i18n.t(key, value))
 
 Vue.config.productionTip = false
-document.title = process.env.VUE_APP_TITLE || 'ESP Console';
+document.title = process.env.VUE_APP_TITLE || 'Nobix Console';
 
 // Register Service Worker
 registerServiceWorker();
