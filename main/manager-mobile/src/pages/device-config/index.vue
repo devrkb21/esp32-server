@@ -45,16 +45,13 @@ const configTypeOptions = computed(() => [
     hint: tx('deviceConfig.methodWifiHint', 'Your phone joins the robot’s hotspot and sends the network to it.'),
     value: 'wifi' as const,
   },
-  {
-    name: tx('deviceConfig.methodBle', 'Bluetooth'),
-    fullName: t('deviceConfig.bleConfig'),
-    hint: tx('deviceConfig.methodBleHint', 'Fastest. Keep Bluetooth on and the robot close to your phone.'),
-    value: 'ble' as const,
-  },
+  // Bluetooth is not offered: TinyBot firmware has no BLE provisioning, and the ble-config
+  // component speaks a plain-JSON protocol that ESP BluFi devices do not understand. Re-add it
+  // once a robot ships a matching BLE service.
   {
     name: tx('deviceConfig.methodSound', 'Sound'),
     fullName: t('deviceConfig.ultrasonicConfig'),
-    hint: tx('deviceConfig.methodSoundHint', 'Your phone plays a short tone the robot listens to.'),
+    hint: tx('deviceConfig.methodSoundHintMic', 'Your phone plays a short tone the robot hears with its microphone. Turn the volume up.'),
     value: 'ultrasonic' as const,
   },
 ])

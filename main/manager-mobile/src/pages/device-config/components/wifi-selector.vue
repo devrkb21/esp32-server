@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import type { PortalStatus } from '../utils/hotspotClient'
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'wot-design-uni/components/wd-toast'
 import { t } from '@/i18n'
+import { PORTAL_URL, probePortal, scanNetworks } from '../utils/hotspotClient'
 
 // Type definitions
 interface WiFiNetwork {
@@ -9,6 +11,7 @@ interface WiFiNetwork {
   rssi: number
   authmode: number
   channel: number
+  hidden?: boolean
 }
 
 // Props
@@ -31,6 +34,9 @@ const toast = useToast()
 
 // Reactive data
 const isConnectedToESP32 = ref(false)
+// ok: full API · opaque: reachable but the browser can't read answers (firmware without CORS)
+// unreachable: not on the robot's hotspot · blocked: https page, the browser forbids the call
+const portalStatus = ref<PortalStatus>('unreachable')
 const checkingConnection = ref(false)
 const scanning = ref(false)
 const wifiNetworks = ref<WiFiNetwork[]>([])
@@ -43,6 +49,24 @@ const isHiddenWifi = ref(false)
 const hiddenSsid = ref('')
 const isHiddenEncrypted = ref(true)
 
+// What to do next, for the status row and error toasts
+const statusHint = computed(() => {
+  if (portalStatus.value === 'blocked')
+    return tx('deviceConfig.httpsBlocked', 'This page is secure (https) and can’t talk to the robot. Use “Open robot setup page” instead.')
+  return t('deviceConfig.connectXiaozhiHotspot')
+})
+
+/** The robot's own setup page: works in any browser once the phone is on its hotspot. */
+function openRobotSetupPage() {
+  // #ifdef H5
+  window.open(PORTAL_URL, '_blank')
+  // #endif
+  // #ifndef H5
+  uni.setClipboardData({ data: PORTAL_URL })
+  toast.info(tx('deviceConfig.setupPageCopied', 'Address copied: open it in your browser'))
+  // #endif
+}
+
 // Computed properties
 const networkDisplayText = computed(() => {
   if (isHiddenWifi.value) {
@@ -53,80 +77,37 @@ const networkDisplayText = computed(() => {
   return selectedNetwork.value.ssid
 })
 
-// Check ESP connection status
+// Check whether the phone is on the robot's hotspot
 async function checkESP32Connection() {
   checkingConnection.value = true
   try {
-    const response = await uni.request({
-      url: 'http://192.168.4.1/scan',
-      method: 'GET',
-      timeout: 3000,
-    })
-    isConnectedToESP32.value = response.statusCode === 200
-    emit('connection-status', isConnectedToESP32.value)
-    console.log(`${t('deviceConfig.xiaozhi')} connection status:`, isConnectedToESP32.value)
-  }
-  catch (error) {
-    isConnectedToESP32.value = false
-    emit('connection-status', false)
-    console.log('ESP connection check failed:', error)
+    portalStatus.value = await probePortal()
   }
   finally {
+    isConnectedToESP32.value = portalStatus.value === 'ok' || portalStatus.value === 'opaque'
+    emit('connection-status', isConnectedToESP32.value)
     checkingConnection.value = false
   }
 }
 
-// Scan WiFi networks
+// Scan WiFi networks (the list the robot saw when it entered setup mode)
 async function scanWifi() {
   if (!isConnectedToESP32.value) {
-    toast.error(t('deviceConfig.connectXiaozhiHotspot'))
+    toast.error(statusHint.value)
+    return
+  }
+  if (portalStatus.value === 'opaque') {
+    // The robot answers but this browser may not read its network list: type the name instead
+    toast.warning(tx('deviceConfig.typeNetworkName', 'Type your Wi-Fi name: this robot can’t share its list with the browser'))
+    onHiddenWifiToggle(true)
     return
   }
 
   scanning.value = true
-  console.log('Start scanning WiFi networks')
-
   try {
-    const response = await uni.request({
-      url: 'http://192.168.4.1/scan',
-      method: 'GET',
-      timeout: 10000,
-    })
-
-    console.log(`${t('deviceConfig.wifiScanResponse')}:`, response)
-
-    if (response.statusCode === 200 && response.data) {
-      const data = response.data as any
-      if (data.success && Array.isArray(data.networks)) {
-        wifiNetworks.value = data.networks
-        console.log(`${t('deviceConfig.scanSuccess')}, found ${data.networks.length} ${t('deviceConfig.networks')}`)
-      }
-      else if (data.aps && Array.isArray(data.aps)) {
-        // Compatible with { data: { support_5g, aps } } format
-        wifiNetworks.value = data.aps.map((item: any) => ({
-          ssid: item.ssid,
-          rssi: item.rssi,
-          authmode: item.authmode,
-          channel: item.channel || 0,
-        }))
-        console.log(`${t('deviceConfig.scanSuccess')}, found ${data.aps.length} ${t('deviceConfig.networks')}`)
-      }
-      else if (Array.isArray(response.data)) {
-        // Compatible with legacy format
-        wifiNetworks.value = response.data.map((item: any) => ({
-          ssid: item.ssid,
-          rssi: item.rssi,
-          authmode: item.authmode,
-          channel: item.channel || 0,
-        }))
-      }
-      else {
-        throw new TypeError('Scan API returned abnormal format')
-      }
-    }
-    else {
-      throw new Error(`HTTP ${response.statusCode}`)
-    }
+    wifiNetworks.value = await scanNetworks()
+    if (!wifiNetworks.value.length)
+      toast.warning(tx('deviceConfig.noNetworksFound', 'The robot found no networks. Move it closer to the router and refresh.'))
   }
   catch (error) {
     console.error(`${t('deviceConfig.wifiScanFailed')}:`, error)
@@ -143,7 +124,11 @@ async function showNetworkSelector() {
   await checkESP32Connection()
 
   if (!isConnectedToESP32.value) {
-    toast.error(t('deviceConfig.connectXiaozhiHotspot'))
+    toast.error(statusHint.value)
+    return
+  }
+  if (portalStatus.value === 'opaque') {
+    scanWifi()
     return
   }
 
@@ -207,6 +192,7 @@ function updateHiddenNetwork() {
       rssi: -50,
       authmode: isHiddenEncrypted.value ? 4 : 0,
       channel: 0,
+      hidden: true,
     }
     selectedNetwork.value = hiddenNet
     emit('network-selected', hiddenNet, isHiddenEncrypted.value ? password.value : '')
@@ -306,7 +292,10 @@ onMounted(() => {
               {{ isConnectedToESP32 ? t('deviceConfig.connectedXiaozhiHotspot') : tx('deviceConfig.hotspotNeeded', 'Join the robot’s hotspot') }}
             </view>
             <view v-if="!isConnectedToESP32" class="nx-row__subtitle">
-              {{ t('deviceConfig.connectXiaozhiHotspot') }}
+              {{ statusHint }}
+            </view>
+            <view v-else-if="portalStatus === 'opaque'" class="nx-row__subtitle">
+              {{ tx('deviceConfig.olderFirmwareHint', 'Connected. This robot needs your Wi-Fi name typed in.') }}
             </view>
           </view>
           <view
@@ -321,6 +310,14 @@ onMounted(() => {
             </text>
           </view>
         </view>
+      </view>
+      <view
+        v-if="portalStatus === 'blocked' || (!isConnectedToESP32 && !checkingConnection)"
+        class="nx-group__footer wsel__setup-link"
+        role="button"
+        @click="openRobotSetupPage"
+      >
+        {{ tx('deviceConfig.openSetupPage', 'Trouble? Open the robot’s own setup page (192.168.4.1)') }}
       </view>
     </view>
 
@@ -517,6 +514,11 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
+.wsel__setup-link {
+  color: var(--nx-accent);
+  font-weight: 600;
+}
+
 .wsel {
   width: 100%;
 

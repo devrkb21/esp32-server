@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
+import { exitPortal, probePortal, ssidError, submitCredentials, wifiPasswordError } from '../utils/hotspotClient'
 
 // Type definitions
 interface WiFiNetwork {
@@ -9,6 +10,7 @@ interface WiFiNetwork {
   rssi: number
   authmode: number
   channel: number
+  hidden?: boolean
 }
 
 // Props
@@ -21,6 +23,17 @@ const props = defineProps<Props>()
 
 // Reactive data
 const configuring = ref(false)
+// Outcome of the last attempt: shown as a card under the button
+const result = ref<'' | 'success' | 'unconfirmed' | 'failed'>('')
+const resultMessage = ref('')
+
+// What is wrong with the input before we even try (wrong password length, name too long)
+const inputError = computed(() => {
+  const net = props.selectedNetwork
+  if (!net || !net.ssid || !net.ssid.trim())
+    return ''
+  return ssidError(net.ssid) || wifiPasswordError(props.password, net.authmode > 0)
+})
 
 // Computed properties
 const canSubmit = computed(() => {
@@ -28,7 +41,7 @@ const canSubmit = computed(() => {
     return false
   if (props.selectedNetwork.authmode > 0 && !props.password)
     return false
-  return true
+  return !inputError.value
 })
 
 // Instructions shown under the button
@@ -39,72 +52,46 @@ const steps = computed(() => [
   t('deviceConfig.clickStartConfigAndWait'),
 ])
 
-// ESP32 connection check
-async function checkESP32Connection() {
-  try {
-    const response = await uni.request({
-      url: 'http://192.168.4.1/scan',
-      method: 'GET',
-      timeout: 3000,
-    })
-    return response.statusCode === 200
-  }
-  catch (error) {
-    console.log(`${t('deviceConfig.esp32ConnectionCheckFailed')}:`, error)
-    return false
-  }
+/** Translate with an English fallback until the key is in every locale */
+function tx(key: string, fallback: string) {
+  const text = t(key)
+  return text === key ? fallback : text
 }
 
 // Submit provisioning
 async function submitConfig() {
-  if (!props.selectedNetwork)
+  const net = props.selectedNetwork
+  if (!net || !canSubmit.value)
     return
+  result.value = ''
 
-  // Check ESP32 connection
-  const connected = await checkESP32Connection()
-  if (!connected) {
-    toast.error(t('deviceConfig.connectXiaozhiHotspot'))
+  const status = await probePortal()
+  if (status === 'blocked' || status === 'unreachable') {
+    result.value = 'failed'
+    resultMessage.value = status === 'blocked'
+      ? tx('deviceConfig.httpsBlocked', 'This page is secure (https) and can’t talk to the robot. Use “Open robot setup page” instead.')
+      : t('deviceConfig.connectXiaozhiHotspot')
+    toast.error(resultMessage.value)
     return
   }
 
   configuring.value = true
-  console.log(`${t('deviceConfig.startWifiConfig')}:`, props.selectedNetwork.ssid)
-
   try {
-    const response = await uni.request({
-      url: 'http://192.168.4.1/submit',
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-      },
-      data: {
-        ssid: props.selectedNetwork.ssid,
-        password: props.selectedNetwork.authmode > 0 ? props.password : '',
-      },
-      timeout: 15000,
-    })
-
-    console.log('WiFi provisioning response:', response)
-
-    if (response.statusCode === 200 && (response.data as any)?.success) {
-      toast.success(`${t('deviceConfig.configSuccess')}！${t('deviceConfig.deviceWillConnectTo')} ${props.selectedNetwork.ssid}，${t('deviceConfig.deviceWillRestart')}。${t('deviceConfig.pleaseDisconnectXiaozhiHotspot')}`)
-      // Device exits provisioning mode
-      setTimeout(() => {
-        uni.request({
-          url: 'http://192.168.4.1/exit',
-          method: 'POST',
-          timeout: 15000,
-        })
-      }, 1500)
+    const res = await submitCredentials(net.ssid, net.authmode > 0 ? props.password : '', Boolean(net.hidden))
+    if (res.ok) {
+      result.value = res.unconfirmed ? 'unconfirmed' : 'success'
+      resultMessage.value = res.unconfirmed
+        ? tx('deviceConfig.sentUnconfirmed', 'Sent. Watch the robot: it shows the Wi-Fi name and restarts when it joins.')
+        : `${t('deviceConfig.configSuccess')}! ${t('deviceConfig.deviceWillConnectTo')} ${net.ssid}. ${t('deviceConfig.pleaseDisconnectXiaozhiHotspot')}`
+      toast.success(t('deviceConfig.configSuccess'))
+      // Let the robot finish its reply, then take it out of setup mode
+      setTimeout(() => exitPortal(), 1500)
     }
     else {
-      const errorMsg = (response.data as any)?.error || t('deviceConfig.configFailed')
-      toast.error(errorMsg)
+      result.value = 'failed'
+      resultMessage.value = res.error || t('deviceConfig.configFailed')
+      toast.error(resultMessage.value)
     }
-  }
-  catch (error) {
-    console.error(`${t('deviceConfig.wifiConfigFailed')}:`, error)
-    toast.error(`${t('deviceConfig.configFailed')}，${t('deviceConfig.pleaseCheckNetworkConnection')}`)
   }
   finally {
     configuring.value = false
@@ -148,6 +135,13 @@ async function submitConfig() {
       >
         {{ configuring ? t('deviceConfig.configuring') : t('deviceConfig.startWifiConfigButton') }}
       </wd-button>
+    </view>
+
+    <view v-if="inputError" class="prov__notice prov__notice--warn" role="alert">
+      {{ inputError }}
+    </view>
+    <view v-else-if="result" class="prov__notice" :class="`prov__notice--${result}`" role="status">
+      {{ resultMessage }}
     </view>
 
     <!-- Instructions -->
@@ -198,6 +192,29 @@ async function submitConfig() {
 
   &__action {
     margin-bottom: var(--nx-space-5);
+  }
+
+  &__notice {
+    margin: calc(var(--nx-space-3) * -1) 0 var(--nx-space-5);
+    padding: var(--nx-space-3) var(--nx-space-4);
+    border-radius: var(--nx-radius);
+    font-size: var(--nx-text-callout);
+    line-height: 1.45;
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    &--success {
+      background: var(--nx-success-soft);
+      color: var(--nx-success);
+    }
+    &--unconfirmed,
+    &--warn {
+      background: var(--nx-warning-soft);
+      color: var(--nx-warning);
+    }
+    &--failed {
+      background: var(--nx-danger-soft);
+      color: var(--nx-danger);
+    }
   }
 
   &__step {

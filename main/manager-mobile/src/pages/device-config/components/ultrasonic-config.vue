@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useToast } from 'wot-design-uni/components/wd-toast'
 import { t } from '@/i18n'
+import { ssidError, wifiPasswordError } from '../utils/hotspotClient'
 
 // Type definitions
 interface WiFiNetwork {
@@ -39,12 +40,20 @@ const START_BYTES = [0x01, 0x02] // Start bytes
 const END_BYTES = [0x03, 0x04] // End bytes
 
 // Computed properties
+// The robot rejects names over 32 bytes and WPA passwords outside 8–63 characters (or 64 hex)
+const inputError = computed(() => {
+  const net = props.selectedNetwork
+  if (!net || !net.ssid || !net.ssid.trim())
+    return ''
+  return ssidError(net.ssid) || wifiPasswordError(props.password, net.authmode > 0)
+})
+
 const canGenerate = computed(() => {
   if (!props.selectedNetwork || !props.selectedNetwork.ssid || !props.selectedNetwork.ssid.trim())
     return false
   if (props.selectedNetwork.authmode > 0 && !props.password)
     return false
-  return true
+  return !inputError.value
 })
 
 const audioLengthText = computed(() => {
@@ -488,6 +497,10 @@ async function stopAudio() {
       </view>
     </view>
 
+    <view v-if="inputError" class="prov-sound-warn" role="alert">
+      {{ inputError }}
+    </view>
+
     <!-- Sound player -->
     <view class="nx-group prov__group">
       <view class="nx-group__body">
@@ -571,6 +584,16 @@ async function stopAudio() {
 </template>
 
 <style lang="scss" scoped>
+.prov-sound-warn {
+  margin-bottom: var(--nx-space-4);
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border-radius: var(--nx-radius);
+  background: var(--nx-warning-soft);
+  color: var(--nx-warning);
+  font-size: var(--nx-text-callout);
+  line-height: 1.45;
+}
+
 .prov {
   &__group {
     margin-bottom: var(--nx-space-4);
