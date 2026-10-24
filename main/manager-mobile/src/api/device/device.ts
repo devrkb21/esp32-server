@@ -1,4 +1,4 @@
-import type { Device, FirmwareType } from './types'
+import type { Device, FirmwareType, OtaFirmware } from './types'
 import { http } from '@/http/request/alova'
 
 /**
@@ -57,6 +57,22 @@ export function bindDeviceManual(data: {
 export function updateDeviceAutoUpdate(deviceId: string, autoUpdate: number) {
   return http.Put(`/device/update/${deviceId}`, {
     autoUpdate,
+  })
+}
+
+/**
+ * Published firmware of OTA management, newest update first (super admins only)
+ */
+export function getOtaFirmwares() {
+  return http.Get<{ list: OtaFirmware[], total: number }>('/otaMag', {
+    params: { page: 1, limit: 100, orderField: 'update_date', order: 'desc' },
+    meta: {
+      ignoreAuth: false,
+      toast: false,
+    },
+    cacheFor: {
+      expire: 0,
+    },
   })
 }
 

@@ -252,7 +252,8 @@ export interface CompanionMessage {
 }
 
 /** `stop` closes whatever the robot shows; `night` takes 'on' | 'off' */
-export type CommandType = 'story' | 'pomodoro' | 'lullaby' | 'ring' | 'breathe' | 'night_light' | 'game' | 'stop' | 'night'
+/** update: restart now so TinyBot checks for new firmware (installs it when Auto update is on) */
+export type CommandType = 'story' | 'pomodoro' | 'lullaby' | 'ring' | 'breathe' | 'night_light' | 'game' | 'stop' | 'night' | 'update'
 export type GameName = 'catch' | 'simon' | 'dice' | 'reaction'
 
 export interface CompanionCommand {

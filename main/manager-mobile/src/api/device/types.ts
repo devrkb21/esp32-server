@@ -1,3 +1,14 @@
+/** One entry of OTA management (GET /otaMag, super admins only) */
+export interface OtaFirmware {
+  id: string
+  firmwareName: string
+  type: string
+  version: string
+  size?: number
+  remark?: string
+  updateDate?: string
+}
+
 export interface FirmwareType {
   name: string
   key: string

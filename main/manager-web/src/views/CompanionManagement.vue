@@ -771,6 +771,10 @@
                   </footer>
                 </article>
 
+                <!-- Firmware: version, Auto update and "Update now" -->
+                <TinyBotFirmwareCard :device-id="deviceId" :agent-id="agentId" :dev="dev" :update-state="fwUpdate"
+                  @update="startFirmwareUpdate" @dismiss="dismissFirmwareUpdate" @app-version="(v) => { fwAppVersion = v; }" />
+
                 <article class="nx-card">
                   <header class="nx-card__header">
                     <h2 class="nx-headline">{{ $t('companion.pages.title') }}</h2>
@@ -1033,6 +1037,7 @@ import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
 import TinyBotDayPreview from '@/components/TinyBotDayPreview.vue';
 import TinyBotLiveScreen from '@/components/TinyBotLiveScreen.vue';
+import TinyBotFirmwareCard from '@/components/TinyBotFirmwareCard.vue';
 import {
   ACTIVITIES,
   ACTIVITY_ICON,
@@ -1091,6 +1096,7 @@ import {
   toggleDay,
   upsertById,
 } from '@/utils/companion.mjs';
+import { createUpdateFlow, initialUpdateState } from '@/utils/firmwareUpdate.mjs';
 
 const REFRESH_MS = 10000;
 const FROM_KEY = 'companion_message_from';
@@ -1122,7 +1128,7 @@ function clone(value) {
 
 export default {
   name: 'CompanionManagement',
-  components: { HeaderBar, VersionFooter, TinyBotDayPreview, TinyBotLiveScreen },
+  components: { HeaderBar, VersionFooter, TinyBotDayPreview, TinyBotLiveScreen, TinyBotFirmwareCard },
   data() {
     return {
       deviceId: this.$route.query.deviceId || '',
@@ -1133,6 +1139,9 @@ export default {
       loadError: '',
       activeTab: 'status',
       pollTimer: null,
+      // "Update now" of the Firmware card: kept here so it survives switching tabs
+      fwUpdate: initialUpdateState(),
+      fwAppVersion: '',
       windowWidth: window.innerWidth,
       // Editable copies of the config; refreshed from the server only while unchanged.
       forms: {
@@ -1352,6 +1361,17 @@ export default {
     window.addEventListener('resize', this.onResize);
     document.addEventListener('visibilitychange', this.onVisibility);
     if (this.deviceId) {
+      this.fwFlow = createUpdateFlow({
+        sendCommand: (cmd) => new Promise((resolve, reject) => {
+          Api.companion.sendCompanionCommand(this.deviceId, cmd.type, cmd.arg,
+            (res) => resolve((res && res.data && res.data.data) || {}), reject);
+        }),
+        fetchView: () => new Promise((resolve, reject) => {
+          Api.companion.getCompanion(this.deviceId, (res) => resolve(res.data.data), reject);
+        }),
+        appVersion: () => this.fwAppVersion,
+        onChange: (state) => { this.fwUpdate = state; },
+      });
       this.refresh(false);
       this.pollTimer = setInterval(() => {
         if (!document.hidden) this.refresh(true);
@@ -1361,6 +1381,7 @@ export default {
   beforeDestroy() {
     window.removeEventListener('resize', this.onResize);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    if (this.fwFlow) this.fwFlow.destroy();
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
@@ -1416,6 +1437,13 @@ export default {
       this.dev = view;
       this.now = Date.now();
       this.syncForms(false);
+      if (this.fwFlow) this.fwFlow.observe(view);
+    },
+    startFirmwareUpdate() {
+      if (this.fwFlow) this.fwFlow.start(this.dev);
+    },
+    dismissFirmwareUpdate() {
+      if (this.fwFlow) this.fwFlow.reset();
     },
     serverForm(section) {
       const dev = this.dev || {};

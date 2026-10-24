@@ -3,13 +3,15 @@ import { parseComponent } from 'vue-template-compiler';
 import { describe, expect, it, vi } from 'vitest';
 import source from '../src/views/CompanionManagement.vue?raw';
 import * as utils from '../src/utils/companion.mjs';
+import * as firmware from '../src/utils/firmwareUpdate.mjs';
 
 // No Vue SFC plugin in the unit-test runner: load the real component script with its imports
 // replaced (utils injected, API stubbed), keeping Vue's reactivity.
 const script = parseComponent(source).script.content
   .replace(/^import[\s\S]*?from\s+'[^']+';$/gm, '')
   .replace('export default', 'return');
-const prelude = `const { ${Object.keys(utils).join(', ')} } = utils;`;
+const prelude = `const { ${Object.keys(utils).join(', ')} } = utils;`
+  + `const { ${Object.keys(firmware).join(', ')} } = firmware;`;
 
 function makeVm(view) {
   const Api = {
@@ -23,7 +25,8 @@ function makeVm(view) {
       geocodeCity: vi.fn(),
     },
   };
-  const component = new Function('Api', 'HeaderBar', 'VersionFooter', 'TinyBotDayPreview', 'TinyBotLiveScreen', 'utils', prelude + script)(Api, {}, {}, {}, {}, utils);
+  const component = new Function('Api', 'HeaderBar', 'VersionFooter', 'TinyBotDayPreview', 'TinyBotLiveScreen',
+    'TinyBotFirmwareCard', 'utils', 'firmware', prelude + script)(Api, {}, {}, {}, {}, {}, utils, firmware);
   const vm = new Vue({
     ...component,
     mixins: [{
