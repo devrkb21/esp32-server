@@ -27,18 +27,27 @@ for changes, new messages and spoken (TTS) audio.
 
 ### `GET /companion/v1/device/sync`
 
-Polled by the robot every `poll_s` seconds while Wi-Fi is up. Always returns the full snapshot.
+Polled by the robot while Wi-Fi is up. Always returns the full snapshot.
+
+Long-poll: `?wait=<seconds>&rev=<rev the robot has>` holds the answer (up to `long_poll`, 25 s)
+until something is new for the robot: a different `rev`, an unacknowledged command, or a message
+whose audio is ready (or that is older than 15 s). An app command therefore reaches the robot
+within a fraction of a second instead of after the next `poll_s` poll. Without `wait` the answer
+is immediate, as before. The robot re-polls right after each answer (at most every 2 s).
 
 ```json
 {
   "rev": 7,
   "server_time": 1793000000,
   "poll_s": 30,
+  "long_poll": 25,
   "settings": {
     "volume": null,
     "sounds": true,
     "night": {"enabled": true, "start": "21:30", "end": "06:30", "dim": true, "lullaby": true, "light": false},
-    "care": {"enabled": true, "lonely_after_min": 180}
+    "care": {"enabled": true, "lonely_after_min": 180},
+    "pages": {"clock": true, "weather": true, "prayer": true, "focus": true, "games": true,
+              "breathe": true, "story": true, "night": true, "status": true, "bond": true}
   },
   "pomodoro": {"work_min": 25, "short_break_min": 5, "long_break_min": 15, "rounds": 4},
   "alarms": [
@@ -106,7 +115,12 @@ Field notes:
   manager-api setup whose OTA is served by manager-api.
 * `commands[].type`: `story` (arg = topic or empty), `pomodoro` (arg = work minutes or empty),
   `lullaby`, `ring` (find my robot), `breathe`, `night_light` (arg `on`/`off`), `game`
-  (arg `catch`/`simon`/`dice`/`reaction`).
+  (arg `catch`/`simon`/`dice`/`reaction`), `stop` (close every activity, queued alert and the
+  info pages), `night` (arg `on`: start night mode now until tonight's end time; `off`: end
+  tonight's night early, the schedule takes over again from the next night).
+* `settings.pages`: which info pages the robot shows when the head is held (all on by default;
+  missing keys count as on). Pages switched off are skipped; with every page off a hold only
+  plays a sound.
 
 ### `POST /companion/v1/device/report`
 

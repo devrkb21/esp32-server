@@ -16,7 +16,9 @@ MAX_ARG = 64
 
 REMINDER_KINDS = ("water", "medicine", "custom")
 REMINDER_MODES = ("interval", "time")
-COMMAND_TYPES = ("story", "pomodoro", "lullaby", "ring", "breathe", "night_light", "game")
+COMMAND_TYPES = ("story", "pomodoro", "lullaby", "ring", "breathe", "night_light", "game", "stop", "night")
+# Info pages on the robot (hold the head 3 s); each can be switched off from the app
+PAGES = ("clock", "weather", "prayer", "focus", "games", "breathe", "story", "night", "status", "bond")
 GAMES = ("catch", "simon", "dice", "reaction")
 ANSWERS = ("yes", "no", "seen")
 EVENT_TYPES = (
@@ -174,6 +176,10 @@ def _merge_section(old: Dict, patch: Any, field: str, rules: Dict) -> Dict:
     return out
 
 
+def default_pages() -> Dict[str, bool]:
+    return {page: True for page in PAGES}
+
+
 def settings(old: Dict, patch: Any) -> Dict:
     if not isinstance(patch, dict):
         raise ValidationError("settings must be an object")
@@ -197,6 +203,13 @@ def settings(old: Dict, patch: Any) -> Dict:
                 "lullaby": boolean,
                 "light": boolean,
             },
+        )
+    if "pages" in patch:
+        out["pages"] = _merge_section(
+            dict(default_pages(), **(old.get("pages") or {})),
+            patch["pages"],
+            "settings.pages",
+            {page: boolean for page in PAGES},
         )
     if "care" in patch:
         out["care"] = _merge_section(
@@ -284,7 +297,7 @@ def command(raw: Any) -> Dict:
     arg = text(arg, MAX_ARG, "arg")
     if ctype == "pomodoro" and arg:
         arg = str(integer(arg, 1, 120, "arg"))
-    elif ctype == "night_light":
+    elif ctype in ("night_light", "night"):
         arg = arg.lower() or "on"
         if arg not in ("on", "off"):
             raise ValidationError("arg must be on or off")
@@ -292,6 +305,6 @@ def command(raw: Any) -> Dict:
         arg = arg.lower() or "catch"
         if arg not in GAMES:
             raise ValidationError(f"arg must be one of {', '.join(GAMES)}")
-    elif ctype in ("lullaby", "ring", "breathe"):
+    elif ctype in ("lullaby", "ring", "breathe", "stop"):
         arg = ""
     return {"type": ctype, "arg": arg}

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  ROBOT_PAGES,
   ageOf,
   alarmPayload,
   asciiLabel,
@@ -9,11 +10,13 @@ import {
   formatClock,
   hasDay,
   highScores,
+  isLastPageOn,
   messageStatus,
   newReminder,
   nextPrayer,
   reminderPayload,
   removeById,
+  robotPages,
   setEnabled,
   toggleDay,
   upsertById,
@@ -183,5 +186,19 @@ describe('companion API module', () => {
     sent[0].networkFail({ status: 502 });
     expect(ok).toHaveBeenCalledWith({ data: { code: 0, data: { id: 'aa:bb' } } });
     expect(fail).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('robot pages', () => {
+  it('fills every page in order, missing ones shown', () => {
+    expect(Object.keys(robotPages(null))).toEqual(ROBOT_PAGES);
+    expect(robotPages({ games: false, clock: true })).toMatchObject({ clock: true, games: false, bond: true });
+  });
+
+  it('flags only the last page that is still on', () => {
+    const one = Object.fromEntries(ROBOT_PAGES.map((k) => [k, k === 'clock']));
+    expect(isLastPageOn(one, 'clock')).toBe(true);
+    expect(isLastPageOn(one, 'games')).toBe(false);
+    expect(isLastPageOn({ games: false }, 'clock')).toBe(false);
   });
 });

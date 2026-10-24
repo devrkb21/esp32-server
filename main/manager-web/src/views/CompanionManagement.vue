@@ -522,6 +522,19 @@
                       <el-switch v-model="forms.night.light" :aria-label="$t('companion.night.light')" />
                     </div>
                   </div>
+                  <div class="cm-button-row cm-gap-top">
+                    <el-button icon="el-icon-moon" :disabled="!!commandBusy && commandBusy !== 'night:on'"
+                      :loading="commandBusy === 'night:on'"
+                      @click="sendCommand('night', 'on', $t('companion.night.startedNow'), 'night:on')">
+                      {{ $t('companion.night.startNow') }}
+                    </el-button>
+                    <el-button icon="el-icon-sunny" :disabled="!!commandBusy && commandBusy !== 'night:off'"
+                      :loading="commandBusy === 'night:off'"
+                      @click="sendCommand('night', 'off', $t('companion.night.endedNow'), 'night:off')">
+                      {{ $t('companion.night.endNow') }}
+                    </el-button>
+                  </div>
+                  <p class="cm-help">{{ $t('companion.night.nowHint') }}</p>
                   <footer class="nx-card__footer">
                     <span v-if="isDirty('night')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
                     <el-button type="primary" :disabled="!isDirty('night')" :loading="saving.night"
@@ -609,6 +622,24 @@
                     <el-button type="primary" :disabled="!isDirty('robot')" :loading="saving.robot"
                       @click="saveSection('robot')">{{ $t('companion.save') }}</el-button>
                   </footer>
+                </article>
+
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.pages.title') }}</h2>
+                  </header>
+                  <div class="cm-settings">
+                    <div v-for="p in robotPageKeys" :key="p" class="cm-setting">
+                      <span class="cm-setting__text">
+                        <span>{{ $t('companion.pages.' + p) }}</span>
+                        <span class="cm-help">{{ $t('companion.pages.' + p + 'Hint') }}</span>
+                        <span v-if="isLastPageOn(pages, p)" class="cm-help">{{ $t('companion.pages.lastOn') }}</span>
+                      </span>
+                      <el-switch :value="pages[p]" :disabled="saving.pages || isLastPageOn(pages, p)"
+                        :aria-label="$t('companion.pages.' + p)" @change="(v) => setPage(p, v)" />
+                    </div>
+                  </div>
+                  <p class="nx-footnote cm-gap-top">{{ $t('companion.pages.footer') }}</p>
                 </article>
               </section>
 
@@ -828,6 +859,7 @@ import {
   MAX_SAY,
   PRAYER_ROWS,
   REMINDER_KINDS,
+  ROBOT_PAGES,
   ageOf,
   alarmPayload,
   asciiLabel,
@@ -836,6 +868,7 @@ import {
   formatClock,
   hasDay,
   highScores,
+  isLastPageOn,
   isTime,
   messageStatus,
   newAlarm,
@@ -843,6 +876,7 @@ import {
   nextPrayer,
   reminderPayload,
   removeById,
+  robotPages,
   setEnabled,
   toggleDay,
   upsertById,
@@ -893,7 +927,7 @@ export default {
       baseline: {},
       saving: {
         pomodoro: false, night: false, care: false, sound: false, robot: false,
-        alarms: false, reminders: false, prayer: false,
+        alarms: false, reminders: false, prayer: false, pages: false,
       },
       alarmDialog: { visible: false, isNew: true, form: null },
       reminderDialog: { visible: false, isNew: true, form: null },
@@ -919,6 +953,7 @@ export default {
       reminderKinds: REMINDER_KINDS,
       prayerRows: PRAYER_ROWS,
       games: GAMES,
+      robotPageKeys: ROBOT_PAGES,
       // Literal placeholders the server fills in; passed as params so vue-i18n keeps the braces
       sayTokens: { weather: '{weather}', date: '{date}', name: '{name}' },
       quickActions: [
@@ -927,6 +962,7 @@ export default {
         { type: 'breathe', arg: '', icon: 'el-icon-wind-power', label: 'companion.action.breathe' },
         { type: 'night_light', arg: 'on', icon: 'el-icon-sunny', label: 'companion.action.nightLightOn' },
         { type: 'night_light', arg: 'off', icon: 'el-icon-moon-night', label: 'companion.action.nightLightOff' },
+        { type: 'stop', arg: '', icon: 'el-icon-video-pause', label: 'companion.action.stop' },
       ],
     };
   },
@@ -939,6 +975,10 @@ export default {
     },
     prayer() {
       return (this.dev && this.dev.prayer) || {};
+    },
+    // Robot info pages, all keys present (missing = shown)
+    pages() {
+      return robotPages(this.dev && this.dev.settings && this.dev.settings.pages);
     },
     prayerDays() {
       return Array.isArray(this.prayer.days) ? this.prayer.days : [];
@@ -1029,6 +1069,7 @@ export default {
     hasDay,
     toggleDay,
     asciiLabel,
+    isLastPageOn,
     // Pending i18n keys fall back to their English text until the lead merges them
     tx(key, fallback, params) {
       if (this.$te(key) || this.$te(key, 'en')) return this.$t(key, params);
@@ -1155,6 +1196,16 @@ export default {
       this.savePatch(this.sectionPatch(section), section)
         .then(() => this.syncForms(true, section))
         .catch(() => {});
+    },
+
+    // Show or hide one robot page; optimistic, reverted when the save fails
+    setPage(key, on) {
+      if (!this.dev || (!on && isLastPageOn(this.pages, key))) return;
+      const before = this.dev.settings && this.dev.settings.pages;
+      this.dev = { ...this.dev, settings: { ...this.dev.settings, pages: { ...this.pages, [key]: !!on } } };
+      this.savePatch({ settings: { pages: { [key]: !!on } } }, 'pages').catch(() => {
+        if (this.dev) this.dev = { ...this.dev, settings: { ...this.dev.settings, pages: before } };
+      });
     },
 
     // ------------------------------------------------------------------ alarms
@@ -2046,6 +2097,20 @@ export default {
   .el-switch,
   .el-input-number {
     flex: none;
+  }
+  &__text {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.cm-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nx-space-2);
+
+  .el-button + .el-button {
+    margin-left: 0;
   }
 }
 

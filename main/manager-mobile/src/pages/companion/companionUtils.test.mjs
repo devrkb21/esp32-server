@@ -8,9 +8,12 @@ import {
   describeDays,
   hasDay,
   isHHMM,
+  isLastPageOn,
   newReminder,
   nextPrayer,
   removeById,
+  ROBOT_PAGES,
+  robotPages,
   sortByTime,
   stripAlarm,
   stripReminder,
@@ -91,4 +94,14 @@ test('validation helpers and reminder defaults', () => {
   assert.equal(newReminder('water').mode, 'interval')
   assert.equal(newReminder('medicine').time, '21:00')
   assert.equal(newReminder('custom').kind, 'custom')
+})
+
+test('robot pages helpers', () => {
+  assert.deepEqual(Object.keys(robotPages(undefined)), ROBOT_PAGES)
+  assert.equal(robotPages({ games: false }).games, false)
+  assert.equal(robotPages({ games: false }).bond, true)
+  const one = Object.fromEntries(ROBOT_PAGES.map(k => [k, k === 'bond']))
+  assert.equal(isLastPageOn(one, 'bond'), true)
+  assert.equal(isLastPageOn(one, 'clock'), false)
+  assert.equal(isLastPageOn({}, 'clock'), false)
 })

@@ -232,3 +232,31 @@ export function clampInt(value, lo, hi, fallback) {
     return fallback
   return Math.min(hi, Math.max(lo, n))
 }
+
+/** The robot's info pages, in the order the robot cycles through them. */
+export const ROBOT_PAGES = ['clock', 'weather', 'prayer', 'focus', 'games', 'breathe', 'story', 'night', 'status', 'bond']
+
+/**
+ * Every robot page with its on/off state; missing or non-false values count as on.
+ * @param {Record<string, boolean> | null | undefined} pages
+ * @returns {Record<string, boolean>}
+ */
+export function robotPages(pages) {
+  const source = pages && typeof pages === 'object' ? pages : {}
+  /** @type {Record<string, boolean>} */
+  const all = {}
+  ROBOT_PAGES.forEach((key) => {
+    all[key] = source[key] !== false
+  })
+  return all
+}
+
+/**
+ * True when `key` is the only page still on (its switch must stay on).
+ * @param {Record<string, boolean> | null | undefined} pages
+ * @param {string} key
+ */
+export function isLastPageOn(pages, key) {
+  const all = robotPages(pages)
+  return all[key] && ROBOT_PAGES.filter(k => all[k]).length === 1
+}

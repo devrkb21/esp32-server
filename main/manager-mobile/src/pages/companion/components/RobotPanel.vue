@@ -1,6 +1,8 @@
 <script lang="ts" setup>
+import type { RobotPage } from '@/api/companion'
 import { computed, ref, watch } from 'vue'
 import { t } from '@/i18n'
+import { isLastPageOn, ROBOT_PAGES, robotPages } from '../companionUtils.mjs'
 import { useCompanion } from './context'
 
 defineOptions({
@@ -55,6 +57,17 @@ async function setSounds(on: boolean) {
   if (dev.value)
     dev.value.settings.sounds = on
   await save({ settings: { sounds: on } })
+}
+
+// robot info pages: every key present (missing = shown); at least one stays on
+const pageKeys = ROBOT_PAGES as RobotPage[]
+const pages = computed(() => robotPages(dev.value?.settings?.pages))
+
+async function setPage(key: RobotPage, on: boolean) {
+  if (!dev.value || (!on && isLastPageOn(pages.value, key)))
+    return
+  dev.value.settings.pages = { ...pages.value, [key]: on } as Record<RobotPage, boolean> // optimistic; replaced by the server response
+  await save({ settings: { pages: { [key]: on } } })
 }
 </script>
 
@@ -130,6 +143,36 @@ async function setSounds(on: boolean) {
         {{ t('companion.robot.id', { id: dev.id }) }}
       </view>
     </view>
+
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.pages.title') }}
+      </view>
+      <view class="nx-group__body">
+        <view v-for="p in pageKeys" :key="p" class="nx-row">
+          <view class="nx-row__main">
+            <view class="nx-row__title">
+              {{ t(`companion.pages.${p}`) }}
+            </view>
+            <view class="nx-row__subtitle">
+              {{ t(`companion.pages.${p}Hint`) }}
+            </view>
+            <view v-if="isLastPageOn(pages, p)" class="robot__hint nx-caption">
+              {{ t('companion.pages.lastOn') }}
+            </view>
+          </view>
+          <wd-switch
+            :model-value="pages[p]"
+            size="22px"
+            :disabled="isLastPageOn(pages, p)"
+            @change="({ value }) => setPage(p, !!value)"
+          />
+        </view>
+      </view>
+      <view class="nx-group__footer">
+        {{ t('companion.pages.footer') }}
+      </view>
+    </view>
   </view>
 </template>
 
@@ -164,6 +207,10 @@ async function setSounds(on: boolean) {
 
   &__muted {
     color: var(--nx-text-3);
+  }
+
+  &__hint {
+    margin-top: 4rpx;
   }
 }
 

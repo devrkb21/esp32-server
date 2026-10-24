@@ -1,3 +1,4 @@
+import asyncio
 """Companion service: ties the store, prayer times, weather and TTS audio together."""
 
 import hashlib
@@ -52,6 +53,11 @@ def bn_weather(w: Optional[Dict]) -> str:
     return out
 
 
+# Longest a device sync may be held open, and how long a message waits for its spoken audio
+LONG_POLL_MAX_S = 25
+MESSAGE_AUDIO_WAIT_S = 15
+
+
 class CompanionService:
     def __init__(self, config: Dict, synthesize=None):
         self.config = config
@@ -66,6 +72,8 @@ class CompanionService:
             self.cfg.get("asr_method", "Hanafi"),
             self.cfg.get("prayer_offsets") or {},
         )
+        # Long-poll waiters: one pending device sync per robot (see wait_for_news)
+        self._waiters: Dict[str, asyncio.Event] = {}
         self.prayer_say = dict(PRAYER_SAY)
         self.prayer_say.update(self.cfg.get("prayer_say") or {})
         self.rain_say = self.cfg.get("rain_say") or RAIN_SAY
@@ -194,7 +202,10 @@ class CompanionService:
                 "sounds": s.get("sounds", True),
                 "night": dict(s.get("night", {})),
                 "care": dict(s.get("care", {})),
+                "pages": dict(schema.default_pages(), **(s.get("pages") or {})),
             },
+            # The robot may hold its next sync open this long (seconds): see wait_for_news
+            "long_poll": LONG_POLL_MAX_S,
             "pomodoro": dict(dev["pomodoro"]),
             "alarms": sched["alarms"],
             "reminders": sched["reminders"],
@@ -208,7 +219,7 @@ class CompanionService:
                     "ask": m.get("ask", False), "ts": m["ts"],
                 }
                 for m in dev["messages"]
-                if m["status"] == "pending"
+                if m["status"] == "pending" and self._message_ready(m)
             ],
             "commands": [
                 {"id": c["id"], "type": c["type"], "arg": c.get("arg", "")}
@@ -284,6 +295,7 @@ class CompanionService:
     async def update_config(self, device_id: str, patch: Dict) -> Dict:
         dev = await self.store.update_config(device_id, patch)
         self.prerender(dev)
+        self.notify(device_id)
         return dev
 
     def prerender(self, dev: Dict):
@@ -309,14 +321,73 @@ class CompanionService:
             sender_ascii=body.get("from_ascii") if isinstance(body.get("from_ascii"), str) else None,
             text_ascii=body.get("text_ascii") if isinstance(body.get("text_ascii"), str) else None,
         )
-        self.audio.schedule(say)
+        task = self.audio.schedule(say)
+        if task is not None:
+            task.add_done_callback(lambda _t: self.notify(device_id))
+        self.notify(device_id)
         return self.message_view(msg)
 
     async def send_command(self, device_id: str, body: Dict) -> Dict:
         cmd = schema.command(body)
         if self.store.get(device_id) is None:
             raise KeyError(device_id)
-        return await self.store.add_command(device_id, cmd)
+        out = await self.store.add_command(device_id, cmd)
+        self.notify(device_id)
+        return out
+
+    # --- long-poll -------------------------------------------------------------------------
+    def _message_ready(self, msg: Dict) -> bool:
+        """Deliver a message once its spoken audio is ready (or rendering takes too long): sent
+        earlier, the robot would only show text."""
+        if self.audio.url(msg.get("say") or msg["text"], render=False):
+            return True
+        return time.time() - float(msg.get("ts") or 0) > MESSAGE_AUDIO_WAIT_S
+
+    def _has_news(self, dev: Dict, rev: str) -> bool:
+        if rev and str(dev.get("rev")) != str(rev):
+            return True
+        if any(c["status"] == "pending" for c in dev.get("commands", [])):
+            return True
+        return any(m["status"] == "pending" and self._message_ready(m) for m in dev.get("messages", []))
+
+    def notify(self, device_id: str):
+        """Wake a robot that is waiting in wait_for_news."""
+        event = self._waiters.get(device_id)
+        if event is not None:
+            event.set()
+
+    async def wait_for_news(self, device_id: str, rev: str, timeout: float):
+        """Hold a device sync until something changed for it (config, a command, a message whose
+        audio is ready) or `timeout` seconds passed, so commands reach the robot within about a
+        second instead of at the next poll."""
+        timeout = max(0.0, min(float(timeout), LONG_POLL_MAX_S))
+        dev = self.store.get(device_id)
+        if dev is None or timeout <= 0 or self._has_news(dev, rev):
+            return
+        old = self._waiters.get(device_id)
+        if old is not None:
+            old.set()  # a newer request replaces an abandoned one
+        event = asyncio.Event()
+        self._waiters[device_id] = event
+        try:
+            deadline = time.monotonic() + timeout
+            while True:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return
+                try:
+                    await asyncio.wait_for(event.wait(), min(left, 2.0))
+                except asyncio.TimeoutError:
+                    pass
+                if self._waiters.get(device_id) is not event:
+                    return  # replaced by a newer request
+                event.clear()
+                dev = self.store.get(device_id)
+                if dev is None or self._has_news(dev, rev):
+                    return
+        finally:
+            if self._waiters.get(device_id) is event:
+                del self._waiters[device_id]
 
     # --- voice tool helpers ----------------------------------------------------------------
     async def add_alarm(self, device_id: str, time_str: str, days: int = 127, label: str = "",
