@@ -189,6 +189,8 @@ LOOK_CHOICES = {
     "mouth": ("none", "smile", "cat", "dot"),
     "blink": ("slow", "normal", "fast"),
     "energy": ("calm", "normal", "playful"),
+    # Chat subtitle fonts built into the TinyBot firmware (tinybot_display.cc ApplyChatFont)
+    "chat_font": ("pixel", "pixel_large", "clean_small", "clean", "clean_large"),
 }
 LOOK_RANGES = {"size": (75, 125), "spacing": (-10, 10), "height": (-6, 6)}
 
@@ -239,6 +241,7 @@ def default_look() -> Dict[str, Any]:
     return {
         "shape": "rounded", "size": 100, "spacing": 0, "height": 0, "eyes": "plain",
         "mouth": "none", "blush": False, "blink": "normal", "energy": "normal", "hands": True,
+        "chat_font": "pixel",
     }
 
 
