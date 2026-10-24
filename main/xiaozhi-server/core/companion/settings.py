@@ -111,6 +111,10 @@ def companion_config(config: Dict) -> Dict:
     secret = str(manager.get("secret") or "") if isinstance(manager, dict) else ""
     cfg["manager_secret"] = "" if not secret or "你" in secret or "your" in secret.lower() else secret
     cfg["poll_s"] = int(cfg.get("poll_s") or 30)
+    # MQTT gateway management API, for pushing to robots (see mqtt_push.py). companion.mqtt_api
+    # overrides server.mqtt_manager_api, e.g. when this server runs outside the Docker network.
+    cfg["mqtt_api"] = str(cfg.get("mqtt_api") or server.get("mqtt_manager_api") or "")
+    cfg["mqtt_signature_key"] = str(cfg.get("mqtt_signature_key") or server.get("mqtt_signature_key") or "")
     return cfg
 
 

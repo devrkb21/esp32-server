@@ -9,7 +9,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from core.companion import schema
+from loguru import logger
 from core.companion.audio import AudioRenderer
+from core.companion.mqtt_push import MqttPush
 from core.companion.prayer import PrayTimes
 from core.companion.settings import companion_config
 from core.companion.store import CompanionStore
@@ -56,6 +58,10 @@ def bn_weather(w: Optional[Dict]) -> str:
 # Longest a device sync may be held open, and how long a message waits for its spoken audio
 LONG_POLL_MAX_S = 25
 MESSAGE_AUDIO_WAIT_S = 15
+# How long a robot's MQTT gateway connection check is trusted
+MQTT_ONLINE_CACHE_S = 20
+
+TAG = __name__
 
 
 class CompanionService:
@@ -74,6 +80,12 @@ class CompanionService:
         )
         # Long-poll waiters: one pending device sync per robot (see wait_for_news)
         self._waiters: Dict[str, asyncio.Event] = {}
+        # MQTT pushes (see mqtt_push.py): one running push per robot, re-run when asked again
+        self.mqtt = MqttPush.from_config(self.cfg)
+        self._mqtt_online: Dict[str, tuple] = {}  # device id -> (online, checked at)
+        self._push_tasks: Dict[str, asyncio.Task] = {}
+        self._push_again: set = set()
+        self._pushed: Dict[str, tuple] = {}  # device id -> (rev, message ids) last pushed
         self.prayer_say = dict(PRAYER_SAY)
         self.prayer_say.update(self.cfg.get("prayer_say") or {})
         self.rain_say = self.cfg.get("rain_say") or RAIN_SAY
@@ -183,8 +195,9 @@ class CompanionService:
         out["rain_audio"] = self.audio.url(self.rain_say) if (out.get("rain_prob") or 0) >= RAIN_PROB_MIN else None
         return out
 
-    async def sync(self, device_id: str, client_id: str = "", user_agent: str = "") -> Dict:
-        dev = await self.store.touch(device_id, client_id, user_agent)
+    async def sync(self, device_id: str, client_id: str = "", user_agent: str = "",
+                   mqtt_client_id: str = "") -> Dict:
+        dev = await self.store.touch(device_id, client_id, user_agent, mqtt_client_id)
         weather = self.weather_for(dev)
         sched = self._schedule(dev, weather)
         # rev also changes when derived schedule data changes (audio rendered, new prayer day)
@@ -227,6 +240,8 @@ class CompanionService:
                 if c["status"] == "pending"
             ],
         }
+        if await self.mqtt_online(dev):
+            snapshot["push"] = "mqtt"  # the robot stops long-polling; we push instead
         # Optional: send robots to another server (e.g. from this standalone server to
         # manager-api for OTA, with the companion API staying here). See companion.move_to.
         move = self.cfg.get("move_to") or {}
@@ -351,10 +366,73 @@ class CompanionService:
         return any(m["status"] == "pending" and self._message_ready(m) for m in dev.get("messages", []))
 
     def notify(self, device_id: str):
-        """Wake a robot that is waiting in wait_for_news."""
+        """Tell a robot that something changed: push it over MQTT when it is connected to the
+        gateway, and wake its long-poll (if it is waiting in wait_for_news)."""
         event = self._waiters.get(device_id)
         if event is not None:
             event.set()
+        if self.mqtt is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        task = self._push_tasks.get(device_id)
+        if task is not None and not task.done():
+            self._push_again.add(device_id)
+            return
+        self._push_tasks[device_id] = loop.create_task(self._push(device_id))
+
+    # --- MQTT push -------------------------------------------------------------------------
+    async def mqtt_online(self, dev: Dict) -> bool:
+        """True when the robot is connected to the MQTT gateway (checked at most every 20 s)."""
+        cid = dev.get("mqtt_client_id")
+        if self.mqtt is None or not cid:
+            return False
+        cached = self._mqtt_online.get(dev["id"])
+        if cached and time.monotonic() - cached[1] < MQTT_ONLINE_CACHE_S:
+            return cached[0]
+        try:
+            online = (await self.mqtt.online([cid])).get(cid, False)
+        except Exception as e:
+            logger.bind(tag=TAG).debug(f"MQTT gateway status failed: {e}")
+            online = False
+        self._mqtt_online[dev["id"]] = (online, time.monotonic())
+        return online
+
+    async def _push(self, device_id: str):
+        try:
+            while True:
+                self._push_again.discard(device_id)
+                await self._push_once(device_id)
+                if device_id not in self._push_again:
+                    return
+        finally:
+            self._push_tasks.pop(device_id, None)
+
+    async def _push_once(self, device_id: str):
+        dev = self.store.get(device_id)
+        if dev is None or not await self.mqtt_online(dev):
+            return
+        cid = dev["mqtt_client_id"]
+        try:
+            # Commands run on the robot straight from the push and count as delivered
+            for c in [c for c in dev.get("commands", []) if c["status"] == "pending"]:
+                await self.mqtt.call(cid, "self.companion.command",
+                                     {"id": c["id"], "type": c["type"], "arg": c.get("arg", "")})
+                await self.store.apply_report(device_id, {"acks": [c["id"]]})
+            # Config and messages are fetched by the robot itself (they are too big for MQTT)
+            dev = self.store.get(device_id)
+            ready = tuple(sorted(m["id"] for m in dev.get("messages", [])
+                                 if m["status"] == "pending" and self._message_ready(m)))
+            state = (dev.get("rev"), ready)
+            if state != self._pushed.get(device_id):
+                await self.mqtt.call(cid, "self.companion.sync")
+                self._pushed[device_id] = state
+        except Exception as e:
+            # The robot falls back to its HTTP poll; check the connection again next time
+            logger.bind(tag=TAG).warning(f"MQTT push to {device_id} failed: {e}")
+            self._mqtt_online.pop(device_id, None)
 
     async def wait_for_news(self, device_id: str, rev: str, timeout: float):
         """Hold a device sync until something changed for it (config, a command, a message whose
