@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
 import { exitPortal, probePortal, ssidError, submitCredentials, wifiPasswordError } from '../utils/hotspotClient'
+import PairPattern from './pair-pattern.vue'
 
 // Type definitions
 interface WiFiNetwork {
@@ -26,6 +27,9 @@ const configuring = ref(false)
 // Outcome of the last attempt: shown as a card under the button
 const result = ref<'' | 'success' | 'unconfirmed' | 'failed'>('')
 const resultMessage = ref('')
+// Pairing: match the pattern on the robot's face before it accepts Wi-Fi (null = not done yet)
+const pairing = ref(false)
+const pairToken = ref<string | null>(null)
 
 // What is wrong with the input before we even try (wrong password length, name too long)
 const inputError = computed(() => {
@@ -58,6 +62,12 @@ function tx(key: string, fallback: string) {
   return text === key ? fallback : text
 }
 
+function onPaired(token: string) {
+  pairToken.value = token
+  pairing.value = false
+  submitConfig()
+}
+
 // Submit provisioning
 async function submitConfig() {
   const net = props.selectedNetwork
@@ -75,9 +85,20 @@ async function submitConfig() {
     return
   }
 
+  if (pairToken.value === null) {
+    pairing.value = true
+    return
+  }
+
   configuring.value = true
   try {
-    const res = await submitCredentials(net.ssid, net.authmode > 0 ? props.password : '', Boolean(net.hidden))
+    const res = await submitCredentials(net.ssid, net.authmode > 0 ? props.password : '', Boolean(net.hidden), pairToken.value)
+    if (res.pairRequired) {
+      // The robot restarted setup (or this is its first answer): match the new pattern
+      pairToken.value = null
+      pairing.value = true
+      return
+    }
     if (res.ok) {
       result.value = res.unconfirmed ? 'unconfirmed' : 'success'
       resultMessage.value = res.unconfirmed
@@ -123,8 +144,11 @@ async function submitConfig() {
       </view>
     </view>
 
-    <!-- Provisioning button -->
-    <view class="prov__action">
+    <!-- Pairing step, then the provisioning button -->
+    <view v-if="pairing" class="prov__action">
+      <pair-pattern @paired="onPaired" />
+    </view>
+    <view v-else class="prov__action">
       <wd-button
         type="primary"
         size="large"

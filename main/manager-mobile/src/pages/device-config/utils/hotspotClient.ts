@@ -1,7 +1,8 @@
 // Client for the robot's Wi-Fi setup hotspot (esp-wifi-connect portal at http://192.168.4.1).
 //
 // The phone joins the robot's open hotspot ("TinyBot-XXXX"), then this talks to the portal's JSON
-// API: GET /scan (nearby networks), POST /submit (credentials), POST /exit (leave setup mode).
+// API: GET /scan (nearby networks), GET/POST /pair (match the pattern on the robot's face, see
+// pairingUtils.mjs), POST /submit (credentials + pair token), POST /exit (leave setup mode).
 //
 // Things that break this on the web (H5) build, handled here:
 // - An https page may not call http://192.168.4.1 at all (mixed content): detect it and offer the
@@ -11,6 +12,7 @@
 //   reading a response is blocked we fall back to an opaque `no-cors` request.
 
 import { t } from '@/i18n'
+import { normalizePairState } from './pairingUtils.mjs'
 
 export const PORTAL_URL = 'http://192.168.4.1'
 
@@ -28,7 +30,25 @@ export interface SubmitResult {
   ok: boolean
   /** Sent, but the browser could not read the answer (older firmware without CORS). */
   unconfirmed?: boolean
+  /** The robot wants the pattern on its face matched first (missing or stale pair token). */
+  pairRequired?: boolean
   error?: string
+}
+
+export interface PairOption {
+  id: number
+  name: string
+  rows: string[]
+}
+
+export interface PairState {
+  /** False: this robot has no pairing step (no screen, or firmware from before it). */
+  required: boolean
+  success: boolean
+  token: string
+  attemptsLeft: number
+  lockedMs: number
+  options: PairOption[]
 }
 
 /** True for the web build (H5). */
@@ -134,6 +154,37 @@ export async function scanNetworks(timeoutMs = 10000): Promise<PortalNetwork[]> 
 }
 
 /**
+ * Current pairing challenge; the robot puts the pattern on its face when this is first called.
+ * Firmware without the step (404 or an unreadable answer) counts as "not required".
+ */
+export async function fetchPairState(timeoutMs = 5000): Promise<PairState> {
+  try {
+    const res = await request({ url: `${PORTAL_URL}/pair`, method: 'GET', timeout: timeoutMs })
+    if (res.statusCode === 200)
+      return normalizePairState(parseJson(res.data))
+  }
+  catch {
+    // fall through
+  }
+  return normalizePairState({ required: false })
+}
+
+/** Send the pattern the person tapped. A wrong pick comes back with a new challenge (or a lockout). */
+export async function answerPairing(id: number, timeoutMs = 5000): Promise<PairState> {
+  const res = await request({
+    url: `${PORTAL_URL}/pair`,
+    method: 'POST',
+    header: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    data: JSON.stringify({ id }),
+    dataType: 'text',
+    timeout: timeoutMs,
+  })
+  if (res.statusCode !== 200)
+    throw new Error(`HTTP ${res.statusCode}`)
+  return normalizePairState(parseJson(res.data))
+}
+
+/**
  * Wi-Fi password rules the robot enforces (WPA2): 8–63 characters, or a 64-digit hex key.
  * Returns an error message, or '' when the password is acceptable.
  */
@@ -168,8 +219,8 @@ function friendlyPortalError(raw: string): string {
  * Send the home Wi-Fi to the robot. The robot tries to join before it answers, so this can take
  * up to ~15 s; a wrong password comes back as an error instead of a silent failure.
  */
-export async function submitCredentials(ssid: string, password: string, hidden = false): Promise<SubmitResult> {
-  const body = JSON.stringify({ ssid, password: password || '', hidden })
+export async function submitCredentials(ssid: string, password: string, hidden = false, pairToken = ''): Promise<SubmitResult> {
+  const body = JSON.stringify({ ssid, password: password || '', hidden, pair_token: pairToken })
   try {
     const res = await request({
       url: `${PORTAL_URL}/submit`,
@@ -183,6 +234,8 @@ export async function submitCredentials(ssid: string, password: string, hidden =
     const data = parseJson(res.data)
     if (res.statusCode === 200 && data?.success)
       return { ok: true }
+    if (data?.pair_required)
+      return { ok: false, pairRequired: true, error: t('deviceConfig.configFailed') }
     return { ok: false, error: friendlyPortalError(data?.error || (res.statusCode !== 200 ? `HTTP ${res.statusCode}` : '')) }
   }
   catch (err: any) {
