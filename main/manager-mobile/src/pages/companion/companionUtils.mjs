@@ -350,6 +350,92 @@ export function proactiveProblem(proactive) {
   return ''
 }
 
+// TinyBot's memory: after each voice chat it notes a few lasting things about the family
+// (detail.memories, newest first) and uses them in later chats; settings.memory.enabled switches it.
+export const MEMORY_KINDS = /** @type {const} */ (['person', 'like', 'dislike', 'event', 'fact', 'routine'])
+export const MEMORY_DEFAULTS = { enabled: true }
+const MEMORY_DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+const MEMORY_STAMP_RE = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?)?$/
+
+/** @typedef {'person' | 'like' | 'dislike' | 'event' | 'fact' | 'routine'} MemoryKind */
+/** @typedef {{ id: string, text: string, kind: MemoryKind, created: string, updated: string, until?: string }} MemoryNote */
+
+/**
+ * The memory settings with the default for a missing or invalid value.
+ * @param {{ enabled?: unknown } | null | undefined} memory
+ * @returns {{ enabled: boolean }} complete settings
+ */
+export function memorySettings(memory) {
+  const source = memory && typeof memory === 'object' ? memory : {}
+  return { enabled: typeof source.enabled === 'boolean' ? source.enabled : MEMORY_DEFAULTS.enabled }
+}
+
+/**
+ * @param {unknown} kind
+ * @returns {kind is MemoryKind} whether it is a known note kind
+ */
+function isMemoryKind(kind) {
+  return typeof kind === 'string' && /** @type {readonly string[]} */ (MEMORY_KINDS).includes(kind)
+}
+
+/**
+ * The notes TinyBot keeps, in the server's order (newest first): entries without an id or text
+ * are dropped (and repeated ids), an unknown kind becomes 'fact', bad dates become '' and a bad
+ * "until" is left out.
+ * @param {unknown} list
+ * @returns {MemoryNote[]} clean notes
+ */
+export function memoryList(list) {
+  if (!Array.isArray(list))
+    return []
+  /** @type {Set<string>} */
+  const seen = new Set()
+  /** @type {MemoryNote[]} */
+  const out = []
+  for (const m of list) {
+    if (!m || typeof m !== 'object')
+      continue
+    const id = typeof m.id === 'string' ? m.id.trim() : ''
+    const text = typeof m.text === 'string' ? m.text.trim() : ''
+    if (!id || !text || seen.has(id))
+      continue
+    seen.add(id)
+    /** @param {unknown} v */
+    const stamp = v => typeof v === 'string' && MEMORY_STAMP_RE.test(v) ? v : ''
+    /** @type {MemoryNote} */
+    const note = {
+      id,
+      text,
+      kind: isMemoryKind(m.kind) ? m.kind : 'fact',
+      created: stamp(m.created),
+      updated: stamp(m.updated),
+    }
+    if (typeof m.until === 'string' && MEMORY_DAY_RE.test(m.until))
+      note.until = m.until
+    out.push(note)
+  }
+  return out
+}
+
+/**
+ * The i18n key of a note's kind tag (unknown kinds read as 'fact').
+ * @param {unknown} kind
+ * @returns {string} key like 'companion.memory.kind.like'
+ */
+export function memoryKindKey(kind) {
+  return `companion.memory.kind.${isMemoryKind(kind) ? kind : 'fact'}`
+}
+
+/**
+ * The day a note was noted ("YYYY-MM-DD"): when it last changed, else when it was made, else ''.
+ * @param {{ created?: string, updated?: string } | null | undefined} note
+ * @returns {string} the day or ''
+ */
+export function memoryDay(note) {
+  const stamp = (note && (note.updated || note.created)) || ''
+  return typeof stamp === 'string' && MEMORY_STAMP_RE.test(stamp) ? stamp.slice(0, 10) : ''
+}
+
 /**
  * The robot's volume from a companion view: what it last reported (stats.volume), else the
  * volume the app asked for (settings.volume), else null.

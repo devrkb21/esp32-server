@@ -303,6 +303,22 @@ class ConnectionHandler:
 
                 threading.Thread(target=generate_title_task, daemon=True).start()
 
+            # TinyBot's own notes about its family (core/companion/memory.py)
+            if self.llm is not None and self.device_id:
+                dialogue = list(self.dialogue.dialogue)
+
+                def companion_memory_task():
+                    try:
+                        from core.companion import get_service
+
+                        service = get_service(self.config)
+                        if service is not None:
+                            service.learn(self.device_id, dialogue, self.llm)
+                    except Exception as e:
+                        self.logger.bind(tag=TAG).warning(f"TinyBot memory update failed: {e}")
+
+                threading.Thread(target=companion_memory_task, daemon=True).start()
+
             # Daemon thread 2: Traditional memory save (memory only, without title)
             if self.memory:
                 # Save memory asynchronously using thread pool

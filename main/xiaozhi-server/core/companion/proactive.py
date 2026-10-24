@@ -112,12 +112,14 @@ def build_prompt(service, config: Dict, device_id: str, kind: str) -> str:
         task = (
             f"Say a warm good morning to {who}. Mention today's weather in a few words and, if there "
             "is one, the next alarm or reminder. Then ask one short, cheerful question about their "
-            "plans for today."
+            "plans for today. If your notes say something is on today (an exam, a visit), wish them "
+            "luck or ask about it."
         )
     else:
         task = (
             f"Greet {who} for the evening and ask how their day went. You may tell one short, fun "
-            "thing about your own day first. Show you care and want to hear about it."
+            "thing about your own day first. If your notes mention something that was on today, ask "
+            "how it went. Show you care and want to hear about it."
         )
     return (
         "[TinyBot starts this chat by itself; the user has not said anything yet.]\n"

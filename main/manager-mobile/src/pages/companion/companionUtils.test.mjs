@@ -15,6 +15,12 @@ import {
   isHHMM,
   isLastPageOn,
   isMinutes,
+  MEMORY_DEFAULTS,
+  MEMORY_KINDS,
+  memoryDay,
+  memoryKindKey,
+  memoryList,
+  memorySettings,
   newReminder,
   nextPrayer,
   NIGHT_LIGHT_MAX,
@@ -151,4 +157,36 @@ test('proactive talk helpers', () => {
   assert.equal(proactiveProblem({ morning: '7:30', evening: '19:30' }), 'morningTime')
   assert.equal(proactiveProblem({ morning: '07:30', evening: '' }), 'eveningTime')
   assert.equal(proactiveProblem(undefined), 'morningTime')
+})
+
+test('memory helpers', () => {
+  assert.deepEqual(MEMORY_DEFAULTS, { enabled: true })
+  assert.deepEqual(memorySettings(undefined), { enabled: true })
+  assert.deepEqual(memorySettings({ enabled: false }), { enabled: false })
+  assert.deepEqual(memorySettings({ enabled: 'no' }), { enabled: true })
+
+  const notes = memoryList([
+    { id: 'm3', text: 'রিমির শুক্রবার গণিত পরীক্ষা', kind: 'event', created: '2026-10-20T18:01:02', updated: '2026-10-21T08:00:00', until: '2026-10-30' },
+    null,
+    'text',
+    { id: '', text: 'no id', kind: 'fact' },
+    { id: 'm4', text: '   ', kind: 'fact' },
+    { id: 'm2', text: ' Likes mangoes ', kind: 'strange', created: 'yesterday', updated: 5, until: '30/10' },
+    { id: 'm3', text: 'duplicate id', kind: 'fact' },
+    { id: 7, text: 'number id' },
+    { id: 'm1', text: 'Rimi is 9', kind: 'person', created: '2026-10-01T09:00:00', updated: '2026-10-01T09:00:00' },
+  ])
+  assert.deepEqual(notes.map(n => n.id), ['m3', 'm2', 'm1'])
+  assert.deepEqual(notes[0], { id: 'm3', text: 'রিমির শুক্রবার গণিত পরীক্ষা', kind: 'event', created: '2026-10-20T18:01:02', updated: '2026-10-21T08:00:00', until: '2026-10-30' })
+  assert.deepEqual(notes[1], { id: 'm2', text: 'Likes mangoes', kind: 'fact', created: '', updated: '' })
+  assert.deepEqual(memoryList(undefined), [])
+  assert.deepEqual(memoryList({ id: 'x' }), [])
+
+  assert.deepEqual([...MEMORY_KINDS], ['person', 'like', 'dislike', 'event', 'fact', 'routine'])
+  assert.equal(memoryKindKey('dislike'), 'companion.memory.kind.dislike')
+  assert.equal(memoryKindKey('other'), 'companion.memory.kind.fact')
+  assert.equal(memoryDay({ created: '2026-10-01T09:00:00', updated: '2026-10-21T08:00:00' }), '2026-10-21')
+  assert.equal(memoryDay({ created: '2026-10-01T09:00:00', updated: '' }), '2026-10-01')
+  assert.equal(memoryDay({ created: 'bad' }), '')
+  assert.equal(memoryDay(null), '')
 })

@@ -74,6 +74,27 @@ export interface ProactiveSettings {
   evening: string
 }
 
+/** TinyBot notes lasting things about the family after voice chats (settings.memory) */
+export interface MemorySettings {
+  /** default true; off = no new notes and the notes are not used (they stay until deleted) */
+  enabled: boolean
+}
+
+export type MemoryKind = 'person' | 'like' | 'dislike' | 'event' | 'fact' | 'routine'
+
+/** One thing TinyBot remembers (usually Bangla text) */
+export interface MemoryNote {
+  id: string
+  text: string
+  kind: MemoryKind
+  /** local "YYYY-MM-DDTHH:MM:SS" */
+  created: string
+  /** local "YYYY-MM-DDTHH:MM:SS" */
+  updated: string
+  /** "YYYY-MM-DD": events disappear by themselves after this day */
+  until?: string
+}
+
 export interface CareSettings {
   enabled: boolean
   /** 10-1440 */
@@ -156,6 +177,8 @@ export interface CompanionSettings {
   display?: Partial<DisplaySettings>
   /** missing on older servers: the defaults */
   proactive?: Partial<ProactiveSettings>
+  /** missing on older servers: the defaults */
+  memory?: Partial<MemorySettings>
   /** missing on older robots: the default day */
   routine?: Partial<RoutineSettings>
 }
@@ -304,6 +327,8 @@ export interface CompanionDevice {
   messages: CompanionMessage[]
   /** newest first */
   commands: CompanionCommand[]
+  /** What TinyBot remembers about the family, newest first (missing on older servers) */
+  memories?: MemoryNote[]
 }
 
 export interface LocationPatch {
@@ -325,6 +350,7 @@ export interface CompanionConfigPatch {
     look?: Partial<FaceLook>
     display?: Partial<DisplaySettings>
     proactive?: Partial<ProactiveSettings>
+    memory?: Partial<MemorySettings>
     /** `items` replaces the whole list */
     routine?: Partial<RoutineSettings>
   }
@@ -335,6 +361,8 @@ export interface CompanionConfigPatch {
   reminders?: CompanionReminder[]
   prayer?: LocationPatch & { enabled?: boolean, remind?: boolean }
   weather?: LocationPatch
+  /** Delete some notes by id, or all of them with `clear` */
+  memories?: { delete?: string[], clear?: boolean }
 }
 
 export interface SendMessageBody {

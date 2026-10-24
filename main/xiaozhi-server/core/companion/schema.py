@@ -242,6 +242,11 @@ def default_proactive() -> Dict[str, Any]:
     return {"enabled": True, "morning_on": True, "morning": "07:30", "evening_on": True, "evening": "19:30"}
 
 
+def default_memory() -> Dict[str, Any]:
+    # TinyBot keeps short notes about its family between chats (core/companion/memory.py)
+    return {"enabled": True}
+
+
 def default_look() -> Dict[str, Any]:
     return {
         "shape": "rounded", "size": 100, "spacing": 0, "height": 0, "eyes": "plain",
@@ -308,6 +313,13 @@ def settings(old: Dict, patch: Any) -> Dict:
             patch["proactive"],
             "settings.proactive",
             {"enabled": boolean, "morning_on": boolean, "morning": hhmm, "evening_on": boolean, "evening": hhmm},
+        )
+    if "memory" in patch:
+        out["memory"] = _merge_section(
+            dict(default_memory(), **(old.get("memory") or {})),
+            patch["memory"],
+            "settings.memory",
+            {"enabled": boolean},
         )
     if "pages" in patch:
         out["pages"] = _merge_section(

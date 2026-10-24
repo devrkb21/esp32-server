@@ -13,6 +13,7 @@ from loguru import logger
 from core.companion.audio import AudioRenderer
 from core.companion.mqtt_push import MqttPush
 from core.companion.prayer import PrayTimes
+from core.companion.memory import MemoryBook
 from core.companion.proactive import ProactiveScheduler
 from core.companion.settings import companion_config
 from core.companion.store import CompanionStore
@@ -111,6 +112,8 @@ class CompanionService:
         self._last_url: Dict[tuple, str] = {}
         # Morning / evening greetings the robot starts by itself (see proactive.py)
         self.proactive = ProactiveScheduler(self, data_dir)
+        # What TinyBot remembers about its family between chats (see memory.py)
+        self.memory = MemoryBook(data_dir, today=lambda: self.local_now().date())
 
     def start_background(self):
         """Start the background loops; call once the event loop runs (HTTP server start)."""
@@ -321,8 +324,12 @@ class CompanionService:
             {
                 "rev": dev.get("rev", 0),
                 "created": dev.get("created", 0),
-                "settings": dict(dev["settings"], proactive=dict(
-                    schema.default_proactive(), **(dev["settings"].get("proactive") or {}))),
+                "settings": dict(
+                    dev["settings"],
+                    proactive=dict(schema.default_proactive(), **(dev["settings"].get("proactive") or {})),
+                    memory=dict(schema.default_memory(), **(dev["settings"].get("memory") or {})),
+                ),
+                "memories": list(reversed(self.memory.items(dev["id"]))),
                 "pomodoro": dev["pomodoro"],
                 "alarms": alarms,
                 "reminders": reminders,
@@ -336,10 +343,45 @@ class CompanionService:
         return out
 
     async def update_config(self, device_id: str, patch: Dict) -> Dict:
+        if isinstance(patch, dict) and "memories" in patch:
+            patch = dict(patch)
+            self._edit_memories(device_id, patch.pop("memories"))
+            if not patch:
+                dev = self.store.get(device_id)
+                if dev is None:
+                    raise KeyError(device_id)
+                return dev
         dev = await self.store.update_config(device_id, patch)
         self.prerender(dev)
         self.notify(device_id)
         return dev
+
+    def _edit_memories(self, device_id: str, edit) -> None:
+        """App edits of TinyBot's notes: {"delete": [ids]} or {"clear": true}."""
+        if self.store.get(device_id) is None:
+            raise KeyError(device_id)
+        if not isinstance(edit, dict):
+            raise schema.ValidationError("memories must be an object")
+        if edit.get("clear") is True:
+            self.memory.clear(device_id)
+        ids = edit.get("delete", [])
+        if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+            raise schema.ValidationError("memories.delete must be a list of ids")
+        if ids:
+            self.memory.delete(device_id, ids)
+
+    def memory_enabled(self, device_id: str) -> bool:
+        dev = self.store.get((device_id or "").strip().lower())
+        if dev is None:
+            return False
+        return bool(dict(schema.default_memory(), **((dev.get("settings") or {}).get("memory") or {}))["enabled"])
+
+    def learn(self, device_id: str, messages, llm):
+        """Update TinyBot's notes from a finished chat (blocking; call from a worker thread)."""
+        device_id = (device_id or "").strip().lower()
+        if not self.memory_enabled(device_id):
+            return None
+        return self.memory.learn(device_id, messages, llm)
 
     def prerender(self, dev: Dict):
         """Start rendering every spoken line of the device's config in the background."""
@@ -413,9 +455,17 @@ class CompanionService:
 
     # --- TinyBot's day, for the voice chat ---------------------------------------------------
     def ai_context(self, device_id: str) -> str:
-        """What TinyBot is busy with today (its routine), for the system prompt of the voice chat,
-        so "what are you doing?" or "what did you do today?" get an answer from its own day."""
-        dev = self.store.get((device_id or "").strip().lower())
+        """TinyBot's day and what it remembers about its family, for the voice chat's system prompt."""
+        device_id = (device_id or "").strip().lower()
+        blocks = [self._day_context(device_id)]
+        if self.memory_enabled(device_id):
+            blocks.append(self.memory.context(device_id))
+        return "\n".join(b for b in blocks if b)
+
+    def _day_context(self, device_id: str) -> str:
+        """What TinyBot is busy with today (its routine), so "what are you doing?" or "what did you
+        do today?" get an answer from its own day."""
+        dev = self.store.get(device_id)
         if dev is None:
             return ""
         routine = dict(schema.default_routine(), **((dev.get("settings") or {}).get("routine") or {}))

@@ -9,6 +9,11 @@ import {
   presetChoice,
   proactiveProblem,
   proactiveSettings,
+  MEMORY_KINDS,
+  memoryDay,
+  memoryKindKey,
+  memoryList,
+  memorySettings,
   volumeSaveOutcome,
   ageOf,
   alarmPayload,
@@ -246,6 +251,43 @@ describe('display, night light and volume helpers', () => {
     expect(proactiveProblem({ morning: '07:30', evening: '' })).toBe('eveningTime');
     expect(proactiveProblem({ morning: null, evening: null })).toBe('morningTime');
     expect(proactiveProblem(undefined)).toBe('morningTime');
+  });
+
+  it('fills the memory switch default', () => {
+    expect(memorySettings(undefined)).toEqual({ enabled: true });
+    expect(memorySettings({ enabled: false })).toEqual({ enabled: false });
+    expect(memorySettings({ enabled: 'no', extra: 1 })).toEqual({ enabled: true });
+  });
+
+  it('cleans the memory notes and keeps their order', () => {
+    const notes = memoryList([
+      { id: 'm3', text: 'রিমির শুক্রবার গণিত পরীক্ষা', kind: 'event', created: '2026-10-20T18:01:02', updated: '2026-10-21T08:00:00', until: '2026-10-30' },
+      null,
+      'text',
+      { id: '', text: 'no id', kind: 'fact' },
+      { id: 'm4', text: '   ', kind: 'fact' },
+      { id: 'm2', text: ' Likes mangoes ', kind: 'strange', created: 'yesterday', updated: 5, until: '30/10' },
+      { id: 'm3', text: 'duplicate id', kind: 'fact' },
+      { id: 7, text: 'number id' },
+      { id: 'm1', text: 'Rimi is 9', kind: 'person', created: '2026-10-01T09:00:00', updated: '2026-10-01T09:00:00' },
+    ]);
+    expect(notes.map((n) => n.id)).toEqual(['m3', 'm2', 'm1']);
+    expect(notes[0]).toEqual({
+      id: 'm3', text: 'রিমির শুক্রবার গণিত পরীক্ষা', kind: 'event', created: '2026-10-20T18:01:02', updated: '2026-10-21T08:00:00', until: '2026-10-30',
+    });
+    expect(notes[1]).toEqual({ id: 'm2', text: 'Likes mangoes', kind: 'fact', created: '', updated: '' });
+    expect(memoryList(undefined)).toEqual([]);
+    expect(memoryList({ id: 'x' })).toEqual([]);
+  });
+
+  it('names the memory kind tag and the day a note was made', () => {
+    expect(MEMORY_KINDS).toEqual(['person', 'like', 'dislike', 'event', 'fact', 'routine']);
+    expect(memoryKindKey('dislike')).toBe('companion.memory.kind.dislike');
+    expect(memoryKindKey('other')).toBe('companion.memory.kind.fact');
+    expect(memoryDay({ created: '2026-10-01T09:00:00', updated: '2026-10-21T08:00:00' })).toBe('2026-10-21');
+    expect(memoryDay({ created: '2026-10-01T09:00:00', updated: '' })).toBe('2026-10-01');
+    expect(memoryDay({ created: 'bad' })).toBe('');
+    expect(memoryDay(null)).toBe('');
   });
 
   it('maps a value to its preset or custom', () => {

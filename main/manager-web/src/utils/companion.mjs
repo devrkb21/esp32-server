@@ -270,6 +270,58 @@ export function proactiveProblem(proactive) {
   return '';
 }
 
+// ------------------------------------------------------------------ TinyBot's memory
+// After each voice chat TinyBot notes a few lasting things about the family (detail.memories,
+// newest first) and uses them in later chats; settings.memory.enabled switches it off.
+export const MEMORY_KINDS = ['person', 'like', 'dislike', 'event', 'fact', 'routine'];
+export const MEMORY_DEFAULTS = { enabled: true };
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const STAMP_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/;
+
+/** The memory settings with the default for a missing or invalid value. */
+export function memorySettings(memory) {
+  const source = memory && typeof memory === 'object' ? memory : {};
+  return { enabled: typeof source.enabled === 'boolean' ? source.enabled : MEMORY_DEFAULTS.enabled };
+}
+
+/**
+ * The notes TinyBot keeps, in the server's order (newest first): entries without an id or text
+ * are dropped, an unknown kind becomes 'fact', bad dates become '' and a bad "until" is left out.
+ */
+export function memoryList(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  list.forEach((m) => {
+    if (!m || typeof m !== 'object') return;
+    const id = typeof m.id === 'string' ? m.id.trim() : '';
+    const text = typeof m.text === 'string' ? m.text.trim() : '';
+    if (!id || !text || seen.has(id)) return;
+    seen.add(id);
+    const note = {
+      id,
+      text,
+      kind: MEMORY_KINDS.includes(m.kind) ? m.kind : 'fact',
+      created: typeof m.created === 'string' && STAMP_RE.test(m.created) ? m.created : '',
+      updated: typeof m.updated === 'string' && STAMP_RE.test(m.updated) ? m.updated : '',
+    };
+    if (typeof m.until === 'string' && DAY_RE.test(m.until)) note.until = m.until;
+    out.push(note);
+  });
+  return out;
+}
+
+/** The i18n key of a note's kind tag (unknown kinds read as 'fact'). */
+export function memoryKindKey(kind) {
+  return 'companion.memory.kind.' + (MEMORY_KINDS.includes(kind) ? kind : 'fact');
+}
+
+/** The day a note was noted ("YYYY-MM-DD"): when it last changed, else when it was made, else ''. */
+export function memoryDay(note) {
+  const stamp = (note && (note.updated || note.created)) || '';
+  return typeof stamp === 'string' && STAMP_RE.test(stamp) ? stamp.slice(0, 10) : '';
+}
+
 /** The preset a minutes value matches, or 'custom'. */
 export function presetChoice(value, presets) {
   return presets.includes(value) ? value : 'custom';
