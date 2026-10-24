@@ -60,13 +60,15 @@ class ASRProvider(ASRProviderBase):
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
 
-        # Ensure model.pt exists and is valid (> 900MB)
+        # Ensure model.pt exists and is complete. The real file is 936,291,369 bytes (~893 MiB): the
+        # check used to compare with 900 MiB, so a good model was deleted and downloaded again on
+        # every start
         if self.model_dir:
             os.makedirs(self.model_dir, exist_ok=True)
             model_pt = os.path.join(self.model_dir, "model.pt")
 
             # Check if existing file is incomplete (< 900 MB)
-            if os.path.exists(model_pt) and os.path.getsize(model_pt) < 900 * 1024 * 1024:
+            if os.path.exists(model_pt) and os.path.getsize(model_pt) < 930 * 1000 * 1000:
                 logger.bind(tag=TAG).warning(
                     f"Corrupted or incomplete SenseVoiceSmall model.pt ({os.path.getsize(model_pt)} bytes). Removing and redownloading..."
                 )

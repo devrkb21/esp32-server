@@ -216,6 +216,8 @@ class CompanionService:
                 "night": dict(s.get("night", {})),
                 "care": dict(s.get("care", {})),
                 "pages": dict(schema.default_pages(), **(s.get("pages") or {})),
+                "look": dict(schema.default_look(), **(s.get("look") or {})),
+                "display": dict(schema.default_display(), **(s.get("display") or {})),
             },
             # The robot may hold its next sync open this long (seconds): see wait_for_news
             "long_poll": LONG_POLL_MAX_S,

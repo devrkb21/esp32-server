@@ -48,13 +48,15 @@ public class DeviceController {
     private final DeviceAddressBookService deviceAddressBookService;
     private final RedisUtils redisUtils;
     private final SysParamsService sysParamsService;
+    private final CompanionController companionController;
 
     public DeviceController(DeviceService deviceService, DeviceAddressBookService deviceAddressBookService,
-            RedisUtils redisUtils, SysParamsService sysParamsService) {
+            RedisUtils redisUtils, SysParamsService sysParamsService, CompanionController companionController) {
         this.deviceService = deviceService;
         this.deviceAddressBookService = deviceAddressBookService;
         this.redisUtils = redisUtils;
         this.sysParamsService = sysParamsService;
+        this.companionController = companionController;
     }
 
     @PostMapping("/bind/{agentId}/{deviceCode}")
@@ -214,18 +216,24 @@ public class DeviceController {
             return new Result<Object>().error("Invalid volume number: " + volumeVal);
         }
 
+        // One volume for the robot: set it now over MQTT and also store it as the companion volume,
+        // so the companion page shows the same value and an offline robot picks it up later
+        Object result = null;
         try {
-            Object result = deviceService.callDeviceTool(deviceId, "self.audio_speaker.set_volume", Collections.singletonMap("volume", intVol));
-            if (result == null) {
-                return new Result<Object>().error("Device is offline or did not respond to volume command");
-            }
-            Result<Object> response = new Result<Object>();
-            response.setMsg("Volume updated successfully");
-            return response.ok(result);
+            result = deviceService.callDeviceTool(deviceId, "self.audio_speaker.set_volume", Collections.singletonMap("volume", intVol));
         } catch (Exception e) {
-            log.error("Error setting volume for device {}: {}", deviceId, e.getMessage());
-            return new Result<Object>().error("Failed to update volume: " + e.getMessage());
+            log.warn("Error setting volume for device {}: {}", deviceId, e.getMessage());
         }
+        Result<Object> saved = companionController.updateConfig(deviceId,
+                Collections.singletonMap("settings", Collections.singletonMap("volume", intVol)));
+        boolean stored = saved != null && saved.getCode() == 0;
+        if (result == null && !stored) {
+            return new Result<Object>().error("Device is offline or did not respond to volume command");
+        }
+        Result<Object> response = new Result<Object>();
+        response.setMsg(result != null ? "Volume updated successfully"
+                : "Volume saved; the robot changes it when it is online");
+        return response.ok(result != null ? result : intVol);
     }
 
     @GetMapping("/address-book/{macAddress}")
