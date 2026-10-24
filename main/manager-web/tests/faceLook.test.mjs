@@ -122,6 +122,29 @@ describe('face drawing', () => {
     expect(getPixel(pupil, 25, 30)).toBe(true); // eye edge still lit
   });
 
+  it('the pupil rolls with the robot\'s tilt (look_x / look_y), within the eye', () => {
+    const tilt = (lx, ly) => renderFace({ ...evaluateMood('neutral', 0), look_x: lx, look_y: ly }, { eyes: 'pupil' });
+    // eye 27 x 29.7 at (38, 30): px = clamp(0.24 * 27 * look_x, ±6.48), py = clamp(0.22 * 29.7 * look_y, -5.94..7.13)
+    const level = tilt(0, 0);
+    expect(lit(level)).toEqual(lit(face({ eyes: 'pupil' })));
+    const right = tilt(1, 0); // centre (44.48, 31.5)
+    expect(getPixel(level, 49, 33)).toBe(true);
+    expect(getPixel(right, 49, 33)).toBe(false);
+    const left = tilt(-1, 0); // centre (31.52, 31.5)
+    expect(getPixel(level, 27, 33)).toBe(true);
+    expect(getPixel(left, 27, 33)).toBe(false);
+    const down = tilt(0, 1); // centre (38, 38.03)
+    expect(getPixel(level, 40, 44)).toBe(true);
+    expect(getPixel(down, 40, 44)).toBe(false);
+    const up = tilt(0, -1); // clamped at -0.2 h: centre (38, 25.56)
+    expect(getPixel(up, 40, 19)).toBe(false);
+    expect(getPixel(level, 40, 19)).toBe(true);
+    // -1..1 only, and both eyes roll the same way
+    expect(lit(tilt(5, 0))).toEqual(lit(right));
+    expect(lit(tilt('x', null))).toEqual(lit(level));
+    expect(getPixel(right, 90 + 11, 33)).toBe(false);
+  });
+
   it('draws no detail while the lid is mostly closed (sleepy)', () => {
     expect(lit(face({ eyes: 'pupil' }, 'sleepy'))).toEqual(lit(face({}, 'sleepy')));
   });

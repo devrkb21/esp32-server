@@ -23,7 +23,7 @@ function makeVm(view) {
       geocodeCity: vi.fn(),
     },
   };
-  const component = new Function('Api', 'HeaderBar', 'VersionFooter', 'utils', prelude + script)(Api, {}, {}, utils);
+  const component = new Function('Api', 'HeaderBar', 'VersionFooter', 'TinyBotDayPreview', 'TinyBotLiveScreen', 'utils', prelude + script)(Api, {}, {}, {}, {}, utils);
   const vm = new Vue({
     ...component,
     mixins: [{
@@ -234,5 +234,84 @@ describe('companion page volume, display and night light', () => {
     expect(vm.focusMinutes).toBe(40);
     vm.sendCommand(focus.type, vm.actionArg(focus), null, focus.type + focus.arg);
     expect(Api.companion.sendCompanionCommand.mock.calls[0].slice(0, 3)).toEqual(['dev1', 'pomodoro', '40']);
+  });
+});
+
+describe('TinyBot day routine', () => {
+  const day = (items, enabled = true) => deviceView({
+    settings: { ...deviceView().settings, routine: { enabled, items } },
+  });
+
+  it('shows the default day when the server sends none, without unsaved changes', () => {
+    const { vm } = makeVm(deviceView());
+    expect(vm.forms.routine).toEqual(utils.defaultRoutine());
+    expect(vm.isDirty('routine')).toBe(false);
+    expect(vm.isDefaultDay).toBe(true);
+    expect(vm.sections.map((s) => s.key)).toContain('day');
+  });
+
+  it('adds, edits and removes activities locally, then saves the whole sorted list', () => {
+    const { vm, Api } = makeVm(day([{ start: '09:00', end: '10:00', activity: 'work' }]));
+    vm.openDayItem(-1);
+    expect(vm.dayDialog.form).toEqual({ start: '10:00', end: '10:30', activity: 'tea' });
+    vm.dayDialog.form.start = '07:00';
+    vm.dayDialog.form.end = '07:20';
+    vm.dayDialog.form.activity = 'exercise';
+    vm.applyDayItem();
+    expect(vm.forms.routine.items.map((i) => i.activity)).toEqual(['exercise', 'work']);
+    expect(vm.isDirty('routine')).toBe(true);
+    expect(vm.dayPreview).toBe('exercise');
+    vm.openDayItem(1);
+    vm.dayDialog.form.activity = 'art';
+    vm.applyDayItem();
+    vm.removeDayItem(0);
+    vm.saveSection('routine');
+    expect(Api.companion.updateCompanionConfig.mock.calls[0][1]).toEqual({
+      settings: { routine: { enabled: true, items: [{ start: '09:00', end: '10:00', activity: 'art' }] } },
+    });
+  });
+
+  it('refuses an item that starts and ends at the same time', () => {
+    const { vm } = makeVm(day([]));
+    vm.openDayItem(-1);
+    vm.dayDialog.form.end = vm.dayDialog.form.start;
+    expect(vm.dayDialogProblem).toBe('companion.routine.sameTime');
+    vm.applyDayItem();
+    expect(vm.forms.routine.items).toEqual([]);
+  });
+
+  it('warns about overlaps, undoes and resets to the default day', () => {
+    const { vm, Api } = makeVm(day([
+      { start: '09:00', end: '10:00', activity: 'work' },
+      { start: '09:30', end: '09:45', activity: 'tea' },
+    ], false));
+    expect(vm.dayOverlaps).toEqual([[0, 1]]);
+    expect(vm.dayOverlapRows).toEqual({ 0: true, 1: true });
+    vm.resetDay();
+    expect(vm.forms.routine.items).toEqual(utils.defaultRoutine().items);
+    expect(vm.forms.routine.enabled).toBe(false);
+    expect(vm.isDirty('routine')).toBe(true);
+    vm.revertSection('routine');
+    expect(vm.forms.routine.items).toHaveLength(2);
+    vm.forms.routine.items = Array.from({ length: 25 }, () => ({ start: '09:00', end: '10:00', activity: 'tea' }));
+    vm.saveSection('routine');
+    expect(Api.companion.updateCompanionConfig).not.toHaveBeenCalled();
+    expect(vm.$message.warning).toHaveBeenCalledWith('companion.routine.tooMany');
+  });
+
+  it('previews what TinyBot is doing, else what is scheduled now', () => {
+    const { vm } = makeVm(deviceView({ stats: { activity: 'tea' } }));
+    expect(vm.previewActivity).toBe('tea');
+    vm.applyDevice(deviceView({ stats: {} }));
+    const d = new Date(vm.now);
+    const start = `${String(d.getHours()).padStart(2, '0')}:00`;
+    vm.forms.routine.items = [{ start, end: `${String((d.getHours() + 1) % 24).padStart(2, '0')}:00`, activity: 'book' }];
+    expect(vm.dayNowActivity).toBe('book');
+    expect(vm.dayNowIndex).toBe(0);
+    expect(vm.previewActivity).toBe('book');
+    vm.dayPreview = 'boxing';
+    expect(vm.previewActivity).toBe('boxing');
+    vm.forms.routine.enabled = false;
+    expect(vm.dayNowActivity).toBe('');
   });
 });

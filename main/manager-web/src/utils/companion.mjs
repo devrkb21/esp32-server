@@ -275,3 +275,24 @@ export function volumeSaveOutcome(data) {
   if (!msg || /^success$/i.test(msg) || /updated successfully/i.test(msg)) return 'now';
   return 'other';
 }
+
+// ---------------------------------------------------------------- TinyBot's day (settings.routine)
+// Shared with the face preview (one module in both apps): see faceLook.mjs
+export {
+  ACTIVITIES,
+  ACTIVITY_ICON,
+  MAX_ROUTINE,
+  cleanHHMM,
+  defaultRoutine,
+  minuteOfDay,
+  newRoutineItem,
+  normalizeRoutine,
+  routineItemMinutes,
+  routineItemProblem,
+  routineOverlaps,
+  routinePayload,
+  routineProblem,
+  sameRoutine,
+  scheduledActivity,
+  sortRoutine,
+} from './faceLook.mjs';

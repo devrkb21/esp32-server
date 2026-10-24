@@ -23,7 +23,7 @@ function makeVm({ deviceId = 'dev1', get, put } = {}) {
       updateCompanionConfig: vi.fn(put || ((id, patch, ok) => ok({ data: { code: 0, data: view(patch.settings.look) } }))),
     },
   };
-  const component = new Function('Api', 'face', prelude + script)(Api, face);
+  const component = new Function('Api', 'face', 'TinyBotLiveScreen', prelude + script)(Api, face, {});
   const vm = new Vue({
     ...component,
     propsData: { deviceId },

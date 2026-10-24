@@ -100,6 +100,25 @@ export function callDeviceTool(deviceId: string, name: string, args: Record<stri
 }
 
 /**
+ * The robot's real screen right now: the user-only tool `self.screen.preview`
+ * ({width, height, jpeg} as parsed JSON, a JSON string or the raw MCP result).
+ * Polled in the background, so errors are not toasted.
+ * @param deviceId Device ID
+ * @param quality JPEG quality 1..100
+ */
+export function getScreenPreview(deviceId: string, quality = 90) {
+  return http.Post<unknown>(`/device/tools/call/${deviceId}`, {
+    name: 'self.screen.preview',
+    arguments: { quality },
+  }, {
+    meta: {
+      ignoreAuth: false,
+      toast: false,
+    },
+  })
+}
+
+/**
  * Send reboot command to device
  * @param deviceId Device ID
  */
