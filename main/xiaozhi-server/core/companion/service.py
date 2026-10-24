@@ -185,7 +185,7 @@ class CompanionService:
             await self.store.bump_rev(device_id, sig)
             dev = self.store.get(device_id)
         s = dev["settings"]
-        return {
+        snapshot = {
             "rev": dev["rev"],
             "server_time": int(time.time()),
             "poll_s": self.cfg["poll_s"],
@@ -216,6 +216,12 @@ class CompanionService:
                 if c["status"] == "pending"
             ],
         }
+        # Optional: send robots to another server (e.g. from this standalone server to
+        # manager-api for OTA, with the companion API staying here). See companion.move_to.
+        move = self.cfg.get("move_to") or {}
+        if isinstance(move, dict) and (move.get("ota_url") or move.get("companion_url")):
+            snapshot["move_to"] = {k: str(move[k]) for k in ("ota_url", "companion_url") if move.get(k)}
+        return snapshot
 
     async def report(self, device_id: str, body: Dict) -> Dict:
         await self.store.touch(device_id)
