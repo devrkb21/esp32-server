@@ -73,3 +73,8 @@ def test_demo_command():
     assert schema.command({"type": "demo", "arg": "life"}) == {"type": "demo", "arg": "life"}
     with pytest.raises(schema.ValidationError):
         schema.command({"type": "demo", "arg": "everything"})
+
+
+def test_update_command():
+    # TinyBot restarts and installs a newer firmware from the OTA server (updater/README.md)
+    assert schema.command({"type": "update", "arg": "x"}) == {"type": "update", "arg": ""}

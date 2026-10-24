@@ -16,7 +16,7 @@ MAX_ARG = 64
 
 REMINDER_KINDS = ("water", "medicine", "custom")
 REMINDER_MODES = ("interval", "time")
-COMMAND_TYPES = ("story", "pomodoro", "lullaby", "ring", "breathe", "night_light", "game", "stop", "night", "demo")
+COMMAND_TYPES = ("story", "pomodoro", "lullaby", "ring", "breathe", "night_light", "game", "stop", "night", "demo", "update")
 # Info pages on the robot (hold the head 3 s); each can be switched off from the app
 # "demo": the robot shows these face animations one after another, with their names
 DEMO_SETS = ("all", "life", "emotions", "hands")
@@ -413,6 +413,6 @@ def command(raw: Any) -> Dict:
         arg = arg.lower() or "all"
         if arg not in DEMO_SETS:
             raise ValidationError(f"arg must be one of {', '.join(DEMO_SETS)}")
-    elif ctype in ("lullaby", "ring", "breathe", "stop"):
+    elif ctype in ("lullaby", "ring", "breathe", "stop", "update"):
         arg = ""
     return {"type": ctype, "arg": arg}
