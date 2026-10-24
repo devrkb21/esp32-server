@@ -136,8 +136,24 @@ class TTSProviderBase(ABC):
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
                     if audio_bytes:
+                        sentence_id = getattr(self, 'current_sentence_id', None)
+                        if opus_handler == self.handle_opus:
+                            # The whole sentence is synthesized already: send its packets with
+                            # FIRST, so sentence_start can tell the device how long it will play
+                            # (the robot scrolls long subtitle lines along with the voice)
+                            packets = []
+                            audio_bytes_to_data_stream(
+                                audio_bytes,
+                                file_type=self.audio_file_type,
+                                is_opus=True,
+                                callback=packets.append,
+                                sample_rate=self.conn.sample_rate,
+                                opus_encoder=self.opus_encoder,
+                            )
+                            self.tts_audio_queue.put((SentenceType.FIRST, packets, original_text, sentence_id))
+                            break
                         # Use original text for display/reporting
-                        self.tts_audio_queue.put((SentenceType.FIRST, None, original_text, getattr(self, 'current_sentence_id', None)))
+                        self.tts_audio_queue.put((SentenceType.FIRST, None, original_text, sentence_id))
                         audio_bytes_to_data_stream(
                             audio_bytes,
                             file_type=self.audio_file_type,
@@ -455,6 +471,8 @@ class TTSProviderBase(ABC):
                 # Collect reporting audio data
                 if isinstance(audio_datas, bytes):
                     enqueue_audio.append(audio_datas)
+                elif isinstance(audio_datas, list) and sentence_type == SentenceType.FIRST:
+                    enqueue_audio.extend(audio_datas)
 
                 # Send audio
                 future = asyncio.run_coroutine_threadsafe(
