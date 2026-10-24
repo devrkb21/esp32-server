@@ -110,7 +110,14 @@ class CompanionHandler(BaseHandler):
         dev_id = self._device_id(request.headers.get("Device-Id", ""))
         if not dev_id:
             return self._error(400, "missing or invalid Device-Id header")
+        # Long-poll: ?wait=<s>&rev=<rev the robot has> holds the answer until something changes
         try:
+            wait = float(request.query.get("wait", "0") or 0)
+        except ValueError:
+            wait = 0.0
+        try:
+            if wait > 0 and self.service.store.get(dev_id) is not None:
+                await self.service.wait_for_news(dev_id, request.query.get("rev", ""), wait)
             snap = await self.service.sync(
                 dev_id, request.headers.get("Client-Id", ""), request.headers.get("User-Agent", "")
             )

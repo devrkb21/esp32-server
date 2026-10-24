@@ -62,6 +62,7 @@ def default_device(device_id: str, defaults: Optional[Dict] = None) -> Dict:
                 "light": False,
             },
             "care": {"enabled": True, "lonely_after_min": 180},
+            "pages": {page: True for page in schema.PAGES},
         },
         "pomodoro": {"work_min": 25, "short_break_min": 5, "long_break_min": 15, "rounds": 4},
         "alarms": [],

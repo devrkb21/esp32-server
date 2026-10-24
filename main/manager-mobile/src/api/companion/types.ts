@@ -56,6 +56,10 @@ export interface CareSettings {
   lonely_after_min: number
 }
 
+/** The robot's info pages (shown when you hold its head); all default true */
+export type RobotPage = 'clock' | 'weather' | 'prayer' | 'focus' | 'games' | 'breathe' | 'story' | 'night' | 'status' | 'bond'
+export type RobotPages = Record<RobotPage, boolean>
+
 export interface CompanionSettings {
   /** null = the robot keeps its own volume */
   volume: number | null
@@ -63,6 +67,7 @@ export interface CompanionSettings {
   owner_name?: string
   night: NightSettings
   care: CareSettings
+  pages?: RobotPages
 }
 
 export interface PomodoroConfig {
@@ -170,7 +175,8 @@ export interface CompanionMessage {
   audio?: string | null
 }
 
-export type CommandType = 'story' | 'pomodoro' | 'lullaby' | 'ring' | 'breathe' | 'night_light' | 'game'
+/** `stop` closes whatever the robot shows; `night` takes 'on' | 'off' */
+export type CommandType = 'story' | 'pomodoro' | 'lullaby' | 'ring' | 'breathe' | 'night_light' | 'game' | 'stop' | 'night'
 export type GameName = 'catch' | 'simon' | 'dice' | 'reaction'
 
 export interface CompanionCommand {
@@ -222,6 +228,7 @@ export interface CompanionConfigPatch {
     owner_name?: string
     night?: Partial<NightSettings>
     care?: Partial<CareSettings>
+    pages?: Partial<RobotPages>
   }
   pomodoro?: Partial<PomodoroConfig>
   /** Replaces the whole list */

@@ -190,3 +190,18 @@ export function messageStatus(message) {
   if (message && ['yes', 'no', 'seen'].includes(message.answer)) return message.answer;
   return message && message.status === 'delivered' ? 'delivered' : 'pending';
 }
+
+/** The robot's info pages, in the order the robot cycles through them. */
+export const ROBOT_PAGES = ['clock', 'weather', 'prayer', 'focus', 'games', 'breathe', 'story', 'night', 'status', 'bond'];
+
+/** Every robot page with its on/off state; missing or non-false values count as on. */
+export function robotPages(pages) {
+  const source = pages && typeof pages === 'object' ? pages : {};
+  return ROBOT_PAGES.reduce((all, key) => ({ ...all, [key]: source[key] !== false }), {});
+}
+
+/** True when `key` is the only page still on (its switch must stay on). */
+export function isLastPageOn(pages, key) {
+  const all = robotPages(pages);
+  return all[key] && ROBOT_PAGES.filter((k) => all[k]).length === 1;
+}

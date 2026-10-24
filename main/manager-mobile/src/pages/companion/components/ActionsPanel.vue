@@ -21,6 +21,7 @@ const actions: { type: CommandType, arg: string, icon: string, label: string }[]
   { type: 'night_light', arg: 'on', icon: 'star-filled', label: 'companion.act.lightOn' },
   { type: 'night_light', arg: 'off', icon: 'star', label: 'companion.act.lightOff' },
   { type: 'pomodoro', arg: '', icon: 'time', label: 'companion.act.focus' },
+  { type: 'stop', arg: '', icon: 'pause-circle', label: 'companion.act.stop' },
 ]
 
 const games: { name: GameName, icon: string }[] = [

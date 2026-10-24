@@ -9,7 +9,7 @@ defineOptions({
   name: 'CompanionNightCarePanel',
 })
 
-const { dev, save } = useCompanion()
+const { dev, save, command } = useCompanion()
 
 const night = computed<Partial<NightSettings>>(() => dev.value?.settings?.night || {})
 const care = computed<Partial<CareSettings>>(() => dev.value?.settings?.care || {})
@@ -39,6 +39,16 @@ async function setNight(patch: Partial<NightSettings>) {
 function onTime(key: 'start' | 'end', value: unknown) {
   if (isHHMM(value) && value !== night.value[key])
     setNight({ [key]: value })
+}
+
+// start night mode now (until the end time) or end tonight's early
+const nightBusy = ref('')
+async function nightNow(arg: 'on' | 'off') {
+  if (nightBusy.value)
+    return
+  nightBusy.value = arg
+  await command('night', arg, t(arg === 'on' ? 'companion.night.startedNow' : 'companion.night.endedNow'))
+  nightBusy.value = ''
 }
 
 async function setCareEnabled(enabled: boolean) {
@@ -108,6 +118,17 @@ onBeforeUnmount(() => clearTimeout(lonelyTimer))
           <wd-switch :model-value="!!night[item.key]" size="22px" @change="({ value }) => setNight({ [item.key]: !!value })" />
         </view>
       </view>
+      <view class="night__now">
+        <wd-button block type="info" :loading="nightBusy === 'on'" :disabled="nightBusy === 'off'" @click="nightNow('on')">
+          {{ t('companion.night.startNow') }}
+        </wd-button>
+        <wd-button block type="info" :loading="nightBusy === 'off'" :disabled="nightBusy === 'on'" @click="nightNow('off')">
+          {{ t('companion.night.endNow') }}
+        </wd-button>
+      </view>
+      <view class="nx-group__footer">
+        {{ t('companion.night.nowHint') }}
+      </view>
     </view>
 
     <view class="nx-group">
@@ -145,6 +166,13 @@ onBeforeUnmount(() => clearTimeout(lonelyTimer))
 
   &__muted {
     color: var(--nx-text-3);
+  }
+
+  &__now {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--nx-space-2);
+    margin-top: var(--nx-space-3);
   }
 }
 </style>

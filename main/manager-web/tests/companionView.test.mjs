@@ -111,3 +111,34 @@ describe('companion page forms', () => {
     expect(vm.$message.warning).toHaveBeenCalled();
   });
 });
+
+describe('companion page robot pages and commands', () => {
+  it('hides a page optimistically and reverts when the save fails', () => {
+    const { vm, Api } = makeVm(deviceView());
+    expect(vm.pages.games).toBe(true);
+    vm.setPage('games', false);
+    expect(vm.pages.games).toBe(false);
+    const [, patch, , fail] = Api.companion.updateCompanionConfig.mock.calls[0];
+    expect(patch).toEqual({ settings: { pages: { games: false } } });
+    fail({ data: { msg: 'nope' } });
+    return Promise.resolve().then(() => {
+      expect(vm.pages.games).toBe(true);
+      expect(vm.$message.error).toHaveBeenCalled();
+    });
+  });
+
+  it('never turns off the last page that is still on', () => {
+    const pages = { clock: true, weather: false, prayer: false, focus: false, games: false,
+      breathe: false, story: false, night: false, status: false, bond: false };
+    const { vm, Api } = makeVm(deviceView({ settings: { ...deviceView().settings, pages } }));
+    vm.setPage('clock', false);
+    expect(Api.companion.updateCompanionConfig).not.toHaveBeenCalled();
+  });
+
+  it('sends the stop and night commands', () => {
+    const { vm, Api } = makeVm(deviceView());
+    vm.sendCommand('night', 'on', 'ok', 'night:on');
+    expect(Api.companion.sendCompanionCommand.mock.calls[0].slice(0, 3)).toEqual(['dev1', 'night', 'on']);
+    expect(vm.quickActions.some((a) => a.type === 'stop' && a.icon === 'el-icon-video-pause')).toBe(true);
+  });
+});
