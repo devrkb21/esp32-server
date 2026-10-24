@@ -103,40 +103,8 @@ export const WAKE_WORDS = [
   { id: 'wn9_linaiban_tts2', phrase: 'Linaiban', lang: 'zh', size: 290880 },
 ];
 
-// Chat text fonts. TinyBot draws its subtitle in an 11 px strip with the built-in 8 px pixel font
-// (CONFIG_LV_FONT_UNSCII_8), and TinyBotDisplay::SetTextFont() refuses replacement fonts, so the
-// prebuilt 14 px cbin fonts are listed but marked unsupported: packing one would only cost flash.
-// Flip `tinybot` to true once the firmware accepts a custom text font.
-export const BUILTIN_FONT = 'builtin';
-
-export const TEXT_FONTS = [
-  { id: BUILTIN_FONT, file: null, px: 8, bpp: 1, size: 0, tinybot: true },
-  {
-    id: 'font_puhui_deepseek_14_1',
-    file: 'font_puhui_deepseek_14_1.bin',
-    px: 14,
-    bpp: 1,
-    charset: 'deepseek',
-    size: 272172,
-    tinybot: false,
-  },
-  {
-    id: 'font_noto_qwen_14_1',
-    file: 'font_noto_qwen_14_1.bin',
-    px: 14,
-    bpp: 1,
-    charset: 'qwen',
-    size: 641408,
-    tinybot: false,
-  },
-];
-
 export function findWakeWord(id) {
   return WAKE_WORDS.find((w) => w.id === id) || null;
-}
-
-export function findFont(id) {
-  return TEXT_FONTS.find((f) => f.id === id) || null;
 }
 
 // ------------------------------------------------------------------ helpers
@@ -356,21 +324,23 @@ export function parseAssets(input, { partitionSize = ASSETS_PARTITION_SIZE } = {
 // ------------------------------------------------------------------ TinyBot theme
 
 // Bytes the finished file will take, from catalog sizes (before any model is downloaded).
-export function estimateTinybotAssets({ wakeWord, font, display } = {}) {
+// The TinyBot page packs no text font: the firmware has its chat fonts built in and picks one
+// from settings.look.chat_font. `font` ({ file, size, px, bpp }) stays for other boards.
+export function estimateTinybotAssets({ wakeWord, font = null, display } = {}) {
   const parts = [];
   const ww = wakeWord ? findWakeWord(wakeWord) : null;
   if (ww) {
     const sr = 4 + MODEL_ENTRY_SIZE + WAKENET_FILES.length * MODEL_FILE_ENTRY_SIZE + ww.size;
     parts.push({ name: SRMODELS_FILE, size: sr });
   }
-  const f = font ? findFont(font) : null;
-  if (f && f.file) parts.push({ name: f.file, size: f.size });
+  const f = font && font.file ? font : null;
+  if (f) parts.push({ name: f.file, size: f.size });
   const index = buildIndexJson({ srmodels: ww ? SRMODELS_FILE : null, textFont: f, display });
   parts.push({ name: INDEX_FILE, size: encoder.encode(JSON.stringify(index)).length });
   return { parts, total: assetsSize(parts.map((p) => p.size)) };
 }
 
-// wakeModel: { name, files: [{ name, data }] } or null; font: catalog font + { data } or null
+// wakeModel: { name, files: [{ name, data }] } or null; font: { file, px, bpp, data } or null (unused by TinyBot)
 export function buildTinybotAssets({ wakeModel = null, font = null, display = null, limit = ASSETS_PARTITION_SIZE } = {}) {
   const files = [];
   if (wakeModel) files.push({ name: SRMODELS_FILE, data: packSrmodels([wakeModel]) });

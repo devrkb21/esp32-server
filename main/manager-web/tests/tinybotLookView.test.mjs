@@ -103,3 +103,38 @@ describe('TinyBotLook state', () => {
     expect(vm.canSave).toBe(false);
   });
 });
+
+describe('TinyBotLook chat font', () => {
+  it('shows one sample tile per firmware font', () => {
+    const tpl = sfc.template.content;
+    expect(tpl).toMatch(/v-for="f in chatFonts"/);
+    expect(tpl).toMatch(/look\.fontLabel/);
+    expect(tpl).toMatch(/look\.fontApprox/);
+    const { vm } = makeVm();
+    expect(vm.chatFonts.map((f) => f.id)).toEqual(['pixel', 'pixel_large', 'clean_small', 'clean', 'clean_large']);
+    expect(vm.fontSample).toBe("Hello! I'm TinyBot");
+  });
+
+  it('saves the chosen font with the rest of the look', async () => {
+    const { vm, Api } = makeVm();
+    vm.load();
+    expect(vm.form.chat_font).toBe('pixel');
+    vm.form.chat_font = 'clean';
+    expect(vm.dirty).toBe(true);
+    await expect(vm.save()).resolves.toBe(true);
+    const [, patch] = Api.companion.updateCompanionConfig.mock.calls[0];
+    expect(patch).toEqual({ settings: { look: { ...face.defaultLook(), mouth: 'smile', chat_font: 'clean' } } });
+    expect(vm.form.chat_font).toBe('clean');
+    expect(vm.dirty).toBe(false);
+  });
+
+  it('loads a saved font and resets it to pixel', () => {
+    const { vm } = makeVm({ get: (id, ok) => ok({ data: { code: 0, data: view({ chat_font: 'pixel_large' }) } }) });
+    vm.load();
+    expect(vm.form.chat_font).toBe('pixel_large');
+    expect(vm.isDefault).toBe(false);
+    vm.reset();
+    expect(vm.form.chat_font).toBe('pixel');
+    expect(vm.isDefault).toBe(true);
+  });
+});

@@ -3,6 +3,8 @@ import type { FaceLook } from '@/api/companion'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { t } from '@/i18n'
 import {
+  CHAT_FONT_SAMPLE,
+  CHAT_FONTS,
   createCanvas,
   createLiveliness,
   defaultLook,
@@ -33,6 +35,7 @@ type Mood = (typeof MOODS)[number]
 type Choice = 'shape' | 'eyes' | 'mouth' | 'blink' | 'energy'
 
 const moods = MOODS as Mood[]
+const chatFonts = CHAT_FONTS as { id: FaceLook['chat_font'], style: 'pixel' | 'clean', px: number, strip: number }[]
 const choiceRows: { key: Choice, label: string, hint?: string }[] = [
   { key: 'shape', label: 'companion.look.shapeLabel' },
   { key: 'eyes', label: 'companion.look.eyesLabel' },
@@ -67,6 +70,10 @@ function choices(key: Choice): string[] {
 
 function pick(key: Choice, value: string) {
   form.value = { ...form.value, [key]: value } as FaceLook
+}
+
+function pickFont(id: FaceLook['chat_font']) {
+  form.value = { ...form.value, chat_font: id }
 }
 
 function signed(n: number) {
@@ -280,6 +287,51 @@ onBeforeUnmount(() => {
       </view>
     </view>
 
+    <!-- Chat font -->
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.look.fontLabel') }}
+      </view>
+      <view class="nx-group__body">
+        <view class="nx-row look__field">
+          <view class="nx-caption">
+            {{ t('companion.look.fontHint') }}
+          </view>
+          <view class="look__fonts" role="radiogroup" :aria-label="t('companion.look.fontLabel')">
+            <view
+              v-for="f in chatFonts"
+              :key="f.id"
+              class="look__font"
+              :class="{ 'is-active': form.chat_font === f.id }"
+              role="radio"
+              :aria-checked="form.chat_font === f.id"
+              @click="pickFont(f.id)"
+            >
+              <!-- 128 px wide black strip, drawn at 2x: an approximation of the robot's subtitle -->
+              <view class="look__font-strip" aria-hidden="true">
+                <view
+                  class="look__font-line"
+                  :class="`is-${f.style}`"
+                  :style="{ height: `${f.strip}px`, lineHeight: `${f.strip}px`, fontSize: `${f.px}px` }"
+                >
+                  {{ CHAT_FONT_SAMPLE }}
+                </view>
+              </view>
+              <view class="look__font-name">
+                {{ t(`companion.look.font.${f.id}`) }}
+              </view>
+              <view class="nx-caption">
+                {{ t(`companion.look.fontStyle.${f.style}`) }} · {{ t('companion.look.fontSize', { n: f.px }) }}
+              </view>
+            </view>
+          </view>
+          <view class="nx-caption">
+            {{ t('companion.look.fontApprox') }}
+          </view>
+        </view>
+      </view>
+    </view>
+
     <view class="look__actions">
       <view v-if="dirty" class="look__unsaved" role="status">
         {{ t('companion.look.unsaved') }}
@@ -375,6 +427,66 @@ onBeforeUnmount(() => {
   &__ends {
     display: flex;
     justify-content: space-between;
+  }
+
+  // Chat font tiles: the sample sits on a 128 px black strip (the OLED is 128 px wide), shown at 2x
+  &__fonts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-2);
+  }
+
+  &__font {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-1);
+    padding: var(--nx-space-2);
+    border: 1px solid var(--nx-border);
+    border-radius: var(--nx-radius);
+    background: var(--nx-surface);
+
+    &.is-active {
+      border-color: var(--nx-accent);
+      background: var(--nx-accent-soft);
+    }
+  }
+
+  &__font-strip {
+    width: 256px;
+    max-width: 100%;
+    height: 44px; // tallest strip (22 px) at 2x
+    overflow: hidden;
+    border-radius: var(--nx-radius-sm);
+    background: #06080b; // OLED panel, hardware colour
+  }
+
+  &__font-line {
+    display: flex;
+    align-items: center;
+    justify-content: safe center;
+    width: 128px;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #f2f6fa; // lit OLED pixels, hardware colour
+    background: #000;
+    transform: scale(2);
+    transform-origin: 0 0;
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+
+    &.is-pixel {
+      font-family: 'Cascadia Mono', Consolas, 'Lucida Console', 'Courier New', monospace;
+    }
+
+    &.is-clean {
+      font-family: Montserrat, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+  }
+
+  &__font-name {
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    color: var(--nx-text);
   }
 
   &__actions {

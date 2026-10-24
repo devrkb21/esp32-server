@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import * as assets from '../src/utils/tinybotAssets.mjs';
 import {
   ASSETS_PARTITION_SIZE,
-  BUILTIN_FONT,
   DEFAULT_WAKE_WORD,
   HEADER_SIZE,
   TABLE_ENTRY_SIZE,
-  TEXT_FONTS,
   WAKENET_FILES,
   WAKE_WORDS,
   assetsPartitionSize,
@@ -15,7 +14,6 @@ import {
   buildTinybotAssets,
   checksum16,
   estimateTinybotAssets,
-  findFont,
   isTinybot,
   packAssets,
   packSrmodels,
@@ -157,10 +155,13 @@ describe('index.json', () => {
     expect(index).not.toHaveProperty('skin');
   });
 
+  // TinyBot itself no longer takes a text font (its chat fonts are built in), but the builder
+  // still can, for other boards
   it('adds text_font and its meta only for a real font file', () => {
-    const font = findFont('font_puhui_deepseek_14_1');
-    expect(buildIndexJson({ textFont: font })).toMatchObject({ text_font: font.file, text_font_meta: { size: 14, bpp: 1 } });
-    expect(buildIndexJson({ textFont: findFont(BUILTIN_FONT) })).not.toHaveProperty('text_font');
+    const font = { file: 'font_puhui_deepseek_14_1.bin', px: 14, bpp: 1, charset: 'deepseek' };
+    expect(buildIndexJson({ textFont: font }))
+      .toMatchObject({ text_font: font.file, text_font_meta: { size: 14, bpp: 1, charset: 'deepseek' } });
+    expect(buildIndexJson({ textFont: { file: null, px: 8, bpp: 1 } })).not.toHaveProperty('text_font');
   });
 });
 
@@ -191,9 +192,13 @@ describe('buildTinybotAssets with the real Hi ESP model', () => {
     expect(result.size).toBeLessThan(ASSETS_PARTITION_SIZE);
   });
 
-  it('a wake word plus the largest 1bpp font still fits', () => {
-    const big = TEXT_FONTS.reduce((a, b) => (b.size > a.size ? b : a));
-    expect(estimateTinybotAssets({ wakeWord: DEFAULT_WAKE_WORD, font: big.id, display }).total).toBeLessThanOrEqual(ASSETS_PARTITION_SIZE);
+  it('can still pack a font file when one is given', () => {
+    const data = new Uint8Array(fs.readFileSync(`${STATIC}fonts/font_puhui_deepseek_14_1.bin`));
+    const font = { file: 'font_puhui_deepseek_14_1.bin', px: 14, bpp: 1, size: data.length, data };
+    const withFont = buildTinybotAssets({ wakeModel: readModel(DEFAULT_WAKE_WORD), font, display });
+    expect(parseAssets(withFont.bytes).files.map((f) => f.name).sort()).toEqual([font.file, 'index.json', 'srmodels.bin']);
+    expect(withFont.index.text_font).toBe(font.file);
+    expect(estimateTinybotAssets({ wakeWord: DEFAULT_WAKE_WORD, font, display }).total).toBe(withFont.size);
   });
 });
 
@@ -207,11 +212,11 @@ describe('catalog', () => {
     expect(new Set(WAKE_WORDS.map((w) => w.id)).size).toBe(WAKE_WORDS.length);
   });
 
-  it('fonts are 1bpp files that exist', () => {
-    TEXT_FONTS.filter((f) => f.file).forEach((f) => {
-      expect(f.bpp).toBe(1);
-      expect(fs.statSync(`${STATIC}fonts/${f.file}`).size).toBe(f.size);
-    });
+  it('offers no text fonts: TinyBot picks its chat font from settings.look.chat_font', () => {
+    expect(assets).not.toHaveProperty('TEXT_FONTS');
+    expect(assets).not.toHaveProperty('BUILTIN_FONT');
+    expect(assets).not.toHaveProperty('findFont');
+    expect(estimateTinybotAssets({ wakeWord: DEFAULT_WAKE_WORD }).parts.map((p) => p.name)).toEqual(['srmodels.bin', 'index.json']);
   });
 });
 

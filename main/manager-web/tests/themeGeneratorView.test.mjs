@@ -74,11 +74,28 @@ describe('ThemeGenerator template', () => {
   });
 });
 
+describe('ThemeGenerator chat font', () => {
+  // The chat font moved to the TinyBot look editor (settings.look.chat_font, built into the firmware)
+  it('no longer offers a text font section', () => {
+    expect(sfc.template.content).not.toMatch(/tg-font|themeGen\.font|name="tg-font"/);
+    expect(source).not.toMatch(/TEXT_FONTS|BUILTIN_FONT|findFont|fonts\//);
+    const { vm } = makeVm();
+    expect(vm.font).toBeUndefined();
+    expect(vm.fonts).toBeUndefined();
+  });
+
+  it('locales drop the old font strings', () => {
+    for (const loc of ['en', 'de', 'vi', 'pt_BR']) {
+      const text = fs.readFileSync(path.resolve(process.cwd(), `src/i18n/${loc}.js`), 'utf8');
+      expect(text).not.toMatch(/'themeGen\.font\.|'themeGen\.summary\.font'/);
+    }
+  });
+});
+
 describe('ThemeGenerator state', () => {
-  it('defaults to Hi ESP and the built-in font, sized under 1 MB', () => {
+  it('defaults to Hi ESP, sized under 1 MB', () => {
     const { vm } = makeVm();
     expect(vm.wakeWord).toBe('wn9_hiesp');
-    expect(vm.font).toBe('builtin');
     expect(vm.estimate.parts.map((p) => p.name)).toEqual(['srmodels.bin', 'index.json']);
     expect(vm.tooLarge).toBe(false);
   });
@@ -144,6 +161,7 @@ describe('ThemeGenerator install flow', () => {
     const bytes = await readBlob(blob);
     const parsed = utils.parseAssets(bytes);
     expect(parsed.files.map((f) => f.name)).toEqual(['srmodels.bin', 'index.json']);
+    expect(JSON.parse(new TextDecoder().decode(parsed.files[1].data))).not.toHaveProperty('text_font');
     expect(vm.steps.every((s) => s.status === 'done')).toBe(true);
     expect(vm.installDone).toBe(true);
     expect(vm.installing).toBe(false);

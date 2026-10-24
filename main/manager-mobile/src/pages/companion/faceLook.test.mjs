@@ -1,10 +1,14 @@
 /* eslint-disable test/no-import-node-test -- this zero-dependency gate intentionally uses Node's built-in runner */
 // faceLook.mjs is a copy of manager-web/src/utils/faceLook.mjs (full vitest suite there: tests/faceLook.test.mjs)
 import assert from 'node:assert/strict'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 import {
   ACTIVITIES,
   activityAnim,
+  CHAT_FONT_SAMPLE,
+  CHAT_FONTS,
   countPixels,
   createCanvas,
   createLiveliness,
@@ -15,9 +19,12 @@ import {
   fillRoundRect,
   getPixel,
   H,
+  isDefaultLook,
   LIFE_DURATION,
   LIFE_STILL_T,
   litBounds,
+  LOOK_CHOICES,
+  LOOK_KEYS,
   MAX_ROUTINE,
   normalizeLook,
   normalizeRoutine,
@@ -33,6 +40,8 @@ import {
   toSvgDataUri,
   W,
 } from './faceLook.mjs'
+
+const SCHEMA = fileURLToPath(new URL('../../../../xiaozhi-server/core/companion/schema.py', import.meta.url))
 
 function face(look = {}, mood = 'neutral', t = 0) {
   return renderFace(evaluateMood(mood, t), { ...defaultLook(), ...look })
@@ -52,6 +61,33 @@ function lit(c) {
 test('look: missing keys are the original face, bad values are clamped', () => {
   assert.deepEqual(normalizeLook(null), defaultLook())
   assert.deepEqual(normalizeLook({ size: 10, height: 9, eyes: 'laser' }), { ...defaultLook(), size: 75, height: 6 })
+})
+
+test('look: chat font choices and default follow the server schema', () => {
+  const ids = ['pixel', 'pixel_large', 'clean_small', 'clean', 'clean_large']
+  assert.deepEqual(LOOK_CHOICES.chat_font, ids)
+  assert.deepEqual(CHAT_FONTS.map(f => f.id), ids)
+  assert.equal(defaultLook().chat_font, 'pixel')
+  assert.ok(LOOK_KEYS.includes('chat_font'))
+  if (existsSync(SCHEMA)) {
+    const src = readFileSync(SCHEMA, 'utf8')
+    const tuple = src.match(/"chat_font":\s*\(([^)]*)\)/)[1]
+    assert.deepEqual(LOOK_CHOICES.chat_font, [...tuple.matchAll(/"(\w+)"/g)].map(m => m[1]))
+    const body = src.match(/def default_look\(\)[\s\S]*?return \{([\s\S]*?)\}/)[1]
+    assert.match(body, /"chat_font":\s*"pixel"/)
+    assert.deepEqual([...body.matchAll(/"(\w+)":/g)].map(m => m[1]).sort(), [...LOOK_KEYS].sort())
+  }
+})
+
+test('look: chat font normalizes and does not touch the face drawing', () => {
+  assert.equal(normalizeLook({ chat_font: 'clean_small' }).chat_font, 'clean_small')
+  assert.equal(normalizeLook({ chat_font: 'comic' }).chat_font, 'pixel')
+  assert.equal(isDefaultLook({ chat_font: 'clean' }), false)
+  assert.deepEqual(lit(face({ chat_font: 'pixel_large' }, 'happy', 300)), lit(face({}, 'happy', 300)))
+  for (const f of CHAT_FONTS) {
+    assert.ok(f.strip >= f.px + 3 && f.strip <= 22)
+  }
+  assert.ok([...CHAT_FONT_SAMPLE].every(ch => ch.charCodeAt(0) >= 32 && ch.charCodeAt(0) < 127))
 })
 
 test('default neutral face = the two firmware round rects', () => {

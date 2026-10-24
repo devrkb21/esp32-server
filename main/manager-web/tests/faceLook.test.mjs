@@ -1,6 +1,12 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  CHAT_FONTS,
+  CHAT_FONT_SAMPLE,
   H,
+  LOOK_CHOICES,
+  LOOK_KEYS,
   MOOD_DURATION,
   MOODS,
   W,
@@ -22,6 +28,9 @@ import {
   toAscii,
   toSvg,
 } from '../src/utils/faceLook.mjs';
+
+// vitest runs from manager-web/
+const SCHEMA = resolve(process.cwd(), '../xiaozhi-server/core/companion/schema.py');
 
 function face(look = {}, mood = 'neutral', t = 0) {
   return renderFace(evaluateMood(mood, t), { ...defaultLook(), ...look });
@@ -54,6 +63,57 @@ describe('look settings', () => {
     expect(normalizeLook({ hands: false }).hands).toBe(false);
     expect(normalizeLook({ hands: 'no' }).hands).toBe(true);
     expect(sameLook({ hands: false }, {})).toBe(false);
+  });
+});
+
+describe('chat font (settings.look.chat_font)', () => {
+  const IDS = ['pixel', 'pixel_large', 'clean_small', 'clean', 'clean_large'];
+
+  it('offers exactly the server choices, in order', () => {
+    expect(LOOK_CHOICES.chat_font).toEqual(IDS);
+    expect(CHAT_FONTS.map((f) => f.id)).toEqual(IDS);
+    if (existsSync(SCHEMA)) {
+      const src = readFileSync(SCHEMA, 'utf8');
+      const tuple = src.match(/"chat_font":\s*\(([^)]*)\)/)[1];
+      expect(LOOK_CHOICES.chat_font).toEqual([...tuple.matchAll(/"(\w+)"/g)].map((m) => m[1]));
+    }
+  });
+
+  it('defaults to the retro pixel font like the server', () => {
+    expect(defaultLook().chat_font).toBe('pixel');
+    if (existsSync(SCHEMA)) {
+      const body = readFileSync(SCHEMA, 'utf8').match(/def default_look\(\)[\s\S]*?return \{([\s\S]*?)\}/)[1];
+      expect(body).toMatch(/"chat_font":\s*"pixel"/);
+      // every server default key is part of the look the apps save
+      expect([...body.matchAll(/"(\w+)":/g)].map((m) => m[1]).sort()).toEqual([...LOOK_KEYS].sort());
+    }
+  });
+
+  it('normalizes: keeps a known font, falls back to pixel otherwise', () => {
+    expect(normalizeLook({ chat_font: 'clean_large' }).chat_font).toBe('clean_large');
+    expect(normalizeLook({ chat_font: 'comic' }).chat_font).toBe('pixel');
+    expect(normalizeLook({ chat_font: null }).chat_font).toBe('pixel');
+    expect(LOOK_KEYS).toContain('chat_font');
+    expect(sameLook({ chat_font: 'clean' }, {})).toBe(false);
+    expect(isDefaultLook({ chat_font: 'pixel' })).toBe(true);
+    expect(isDefaultLook({ chat_font: 'clean' })).toBe(false);
+  });
+
+  it('tile sizes follow the firmware: 8/16 px unscii, 10/12/14 px Montserrat, strip at most 22 px', () => {
+    expect(CHAT_FONTS.map((f) => [f.style, f.px])).toEqual([['pixel', 8], ['pixel', 16], ['clean', 10], ['clean', 12], ['clean', 14]]);
+    CHAT_FONTS.forEach((f) => {
+      expect(f.strip).toBeGreaterThanOrEqual(f.px + 3);
+      expect(f.strip).toBeLessThanOrEqual(22);
+    });
+    expect(CHAT_FONTS[0].strip).toBe(11); // the original 11 px strip
+    expect(CHAT_FONT_SAMPLE).toBe("Hello! I'm TinyBot");
+    expect(CHAT_FONT_SAMPLE).toMatch(/^[ -~]+$/); // Latin only, like the robot can draw
+  });
+
+  it('does not change the face drawing', () => {
+    for (const mood of ['neutral', 'happy', 'hello']) {
+      expect(lit(face({ chat_font: 'clean_large' }, mood, 300))).toEqual(lit(face({}, mood, 300)));
+    }
   });
 });
 
