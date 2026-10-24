@@ -2,8 +2,9 @@
 
 The companion API lets the TinyBot firmware fetch its schedule (alarms, reminders, focus timer,
 night mode, prayer times, weather) and pending phone messages/commands from xiaozhi-server, and
-lets the mobile web app (`/app/`) configure all of it. It is served by the xiaozhi-server HTTP
-server (port 8003, same as OTA), in standalone mode as well as with manager-api.
+lets manager-web and manager-mobile configure all of it through manager-api. It is served by the
+xiaozhi-server HTTP server (port 8003, same as OTA), in standalone mode as well as with
+manager-api.
 
 Everything the robot needs to work offline (alarms, reminders, focus timer, prayer times for
 today and tomorrow, last weather) is cached on the device; the server only has to be reachable
@@ -152,7 +153,6 @@ the LLM for a short (6-8 sentence) children's story in the configured TTS langua
 | GET | `/companion/v1/devices/{id}/events` | Recent device events (`?limit=50`) |
 | GET | `/companion/v1/geocode?q=Dhaka` | City search for the app (Open-Meteo geocoding) |
 | GET | `/companion/v1/audio/{name}.ogg` | Rendered TTS audio (no token: the robot fetches it) |
-| GET | `/app/` | Mobile web app (installable PWA) |
 
 App response shapes (all JSON; errors are `{"ok": false, "error": "..."}` with 400 for invalid
 input, 401 without a valid token, 404 for an unknown robot, 502 when geocoding is down):
@@ -177,9 +177,28 @@ input, 401 without a valid token, 404 for an unknown robot, 502 when geocoding i
   server receive time).
 * `GET /geocode?q=` → `{"results": [{name, country, admin1, lat, lon, timezone}]}`.
 
-The web app keeps the token in `localStorage`. Its service worker (offline app shell) only
-registers in a secure context (https or localhost); over plain LAN http the app still works and
-can be added to the home screen.
+The app endpoints accept `Authorization: Bearer <token>` where the token is `companion.app_token`
+or, when xiaozhi-server runs with manager-api, the shared `manager-api.secret`. With neither set
+they are open (standalone LAN testing only).
+
+## manager-api, manager-web and manager-mobile
+
+manager-api forwards the app endpoints for the logged-in user's own devices
+(`modules/device/controller/CompanionController.java`), authenticated with `server.secret`:
+
+| Method | manager-api path | Forwards to |
+| --- | --- | --- |
+| GET | `/device/companion/{deviceId}` | `GET /companion/v1/devices/{mac}` |
+| PUT | `/device/companion/{deviceId}/config` | `PUT .../config` |
+| GET, POST | `/device/companion/{deviceId}/messages` | `.../messages` |
+| POST | `/device/companion/{deviceId}/commands` | `.../commands` |
+| GET | `/device/companion/{deviceId}/events?limit=50` | `.../events` |
+| GET | `/device/companion/geocode?q=` | `/companion/v1/geocode` |
+
+`deviceId` is manager-api's device id; it must belong to the user (else `DEVICE_NOT_EXIST`). The
+xiaozhi-server address comes from the `server.companion_api` param when set, otherwise from the
+host of `server.vision_explain`. Responses use the usual `Result` wrapper with the xiaozhi-server
+JSON as `data`. manager-web and manager-mobile open the Companion screens from the device list.
 
 ## Server config
 

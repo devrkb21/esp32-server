@@ -1,4 +1,5 @@
-"""aiohttp handlers for the companion API (/companion/v1/...) and the mobile web app (/app/)."""
+"""aiohttp handlers for the companion API (/companion/v1/...), used by the robot and by
+manager-api (which serves manager-web and manager-mobile)."""
 
 import hmac
 import json
@@ -16,20 +17,9 @@ from core.companion import get_service, schema
 TAG = __name__
 
 API = "/companion/v1"
-WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 DEVICE_ID_RE = re.compile(r"^[0-9a-z:._-]{1,64}$")
 MAX_BODY = 64 * 1024
 ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS"
-STATIC_TYPES = {
-    ".html": "text/html",
-    ".js": "application/javascript",
-    ".css": "text/css",
-    ".webmanifest": "application/manifest+json",
-    ".json": "application/json",
-    ".svg": "image/svg+xml",
-    ".png": "image/png",
-    ".ico": "image/x-icon",
-}
 
 
 def _app(handler):
@@ -81,13 +71,14 @@ class CompanionHandler(BaseHandler):
         return response
 
     def _authorized(self, request) -> bool:
-        token = self.service.app_token
-        if not token:
+        tokens = self.service.app_tokens
+        if not tokens:
             return True
         header = request.headers.get("Authorization", "")
         if not header.lower().startswith("bearer "):
             return False
-        return hmac.compare_digest(header[7:].strip().encode("utf-8"), token.encode("utf-8"))
+        given = header[7:].strip().encode("utf-8")
+        return any(hmac.compare_digest(given, t.encode("utf-8")) for t in tokens)
 
     async def _body(self, request) -> Optional[dict]:
         if request.content_length is not None and request.content_length > MAX_BODY:
@@ -214,23 +205,6 @@ class CompanionHandler(BaseHandler):
             return self._error(502, "geocoding service unavailable")
         return self._json({"results": results})
 
-    # --- web app ---------------------------------------------------------------------------
-    async def app_redirect(self, request):
-        raise web.HTTPFound("/app/")
-
-    async def app_static(self, request):
-        name = request.match_info.get("path", "") or "index.html"
-        if not re.match(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9]+)+$", name):
-            return web.Response(status=404, text="not found")
-        ext = os.path.splitext(name)[1]
-        path = os.path.join(WEB_DIR, name)
-        if ext not in STATIC_TYPES or not os.path.isfile(path):
-            return web.Response(status=404, text="not found")
-        headers = {"Content-Type": STATIC_TYPES[ext], "Cache-Control": "no-cache"}
-        if name == "sw.js":
-            headers["Service-Worker-Allowed"] = "/app/"
-        return web.FileResponse(path, headers=headers)
-
     # --- routes ----------------------------------------------------------------------------
     def routes(self):
         return [
@@ -247,9 +221,6 @@ class CompanionHandler(BaseHandler):
             web.get(f"{API}/geocode", self.geocode),
             web.get(f"{API}/audio/{{filename}}", self.audio),
             web.options(API + "/{tail:.*}", self.handle_options),
-            web.get("/app", self.app_redirect),
-            web.get("/app/", self.app_static),
-            web.get("/app/{path}", self.app_static),
         ]
 
 

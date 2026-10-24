@@ -5,3 +5,10 @@ __pycache__
 Dockerfile
 tmp/
 data/
+# Host build output: never copy into images (Windows node_modules breaks the Linux build)
+**/node_modules
+main/manager-web/dist
+main/manager-mobile/dist
+main/manager-mobile/unpackage
+main/manager-api/target
+**/.venv

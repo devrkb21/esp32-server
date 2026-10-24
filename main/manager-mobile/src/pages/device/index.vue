@@ -225,6 +225,15 @@ function onVolumeChange(device: Device, volume: number) {
   }, 400)
 }
 
+// Open the companion screens of a device
+function openCompanion(device: Device) {
+  // the page shows the robot name from the companion server once loaded; the alias is a placeholder
+  const name = device.alias ? `&name=${encodeURIComponent(device.alias)}` : ''
+  uni.navigateTo({
+    url: `/pages/companion/index?deviceId=${encodeURIComponent(device.id)}${name}`,
+  })
+}
+
 // Refresh method exposed to parent
 async function refresh() {
   await loadDeviceList()
@@ -583,6 +592,20 @@ defineExpose({
                     >
                       <wd-icon name="refresh" size="14" class="mr-[6rpx]" />
                       {{ t('device.reboot') }}
+                    </wd-button>
+                  </view>
+
+                  <!-- Companion: alarms, reminders, prayer, focus, messages, night mode -->
+                  <view class="mt-[16rpx]">
+                    <wd-button
+                      size="small"
+                      type="primary"
+                      plain
+                      block
+                      class="!h-[68rpx] !rounded-[12rpx]"
+                      @click.stop="openCompanion(device)"
+                    >
+                      🤖 {{ t('companion.open') }}
                     </wd-button>
                   </view>
                 </view>

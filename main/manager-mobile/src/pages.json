@@ -115,6 +115,15 @@
       "type": "page"
     },
     {
+      "path": "pages/companion/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationBarTitleText": "Companion",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/device/index",
       "type": "page"
     },

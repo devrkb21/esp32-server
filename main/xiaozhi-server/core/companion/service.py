@@ -81,6 +81,13 @@ class CompanionService:
     def app_token(self) -> str:
         return self.cfg.get("app_token", "")
 
+    @property
+    def app_tokens(self) -> List[str]:
+        """Bearer tokens accepted on the app endpoints: `companion.app_token` and, when the
+        server runs with manager-api, its shared secret (manager-api forwards the requests of
+        manager-web and manager-mobile with it). Empty = open (standalone LAN testing)."""
+        return [t for t in (self.app_token, self.cfg.get("manager_secret", "")) if t]
+
     def local_now(self) -> datetime:
         tz = timezone(timedelta(hours=self.cfg["timezone_offset"]))
         return datetime.now(tz)
