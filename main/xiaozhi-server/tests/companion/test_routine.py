@@ -66,3 +66,10 @@ async def test_ai_context_tells_what_tinybot_is_doing(make_service):
     await svc.update_config(DEV, {"settings": {"routine": {"enabled": False}}})
     assert svc.ai_context(DEV) == ""
     assert svc.ai_context("aa:bb:cc:dd:ee:99") == ""
+
+
+def test_demo_command():
+    assert schema.command({"type": "demo"}) == {"type": "demo", "arg": "all"}
+    assert schema.command({"type": "demo", "arg": "life"}) == {"type": "demo", "arg": "life"}
+    with pytest.raises(schema.ValidationError):
+        schema.command({"type": "demo", "arg": "everything"})
