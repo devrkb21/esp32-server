@@ -91,6 +91,8 @@ export interface FaceLook {
   blink: LookBlink
   /** how often it looks around and does idle habits */
   energy: LookEnergy
+  /** little paws in some expressions (yawn, like, wave, thinking, surprised, shy); default true */
+  hands: boolean
 }
 
 export interface CompanionSettings {

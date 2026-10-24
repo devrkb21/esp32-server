@@ -109,6 +109,14 @@
           <el-switch v-model="form.blush" :disabled="busy" aria-labelledby="tl-blush" />
         </div>
 
+        <div class="tl-field tl-switch">
+          <span class="tl-switch__text">
+            <span id="tl-hands" class="tl-label">{{ $t('look.hands') }}</span>
+            <span class="tl-help">{{ $t('look.handsHint') }}</span>
+          </span>
+          <el-switch v-model="form.hands" :disabled="busy" aria-labelledby="tl-hands" />
+        </div>
+
         <div class="tl-field">
           <span id="tl-blink" class="tl-label">{{ $t('look.blinkLabel') }}</span>
           <div class="nx-segmented tl-seg" role="radiogroup" aria-labelledby="tl-blink">
@@ -157,6 +165,7 @@ import {
   normalizeLook,
   paintToContext,
   renderMoodFrame,
+  renderMoodStill,
   sameLook,
 } from '@/utils/faceLook.mjs';
 
@@ -301,7 +310,7 @@ export default {
       if (!ctx) return;
       const now = nowMs === undefined ? this.now() : nowMs;
       if (this.reducedMotion) {
-        renderMoodFrame(this.mood, this.form, 0, null, 0, this.frame);
+        renderMoodStill(this.mood, this.form, this.frame);
       } else {
         renderMoodFrame(this.mood, this.form, now - this.moodStart, this.live, now, this.frame);
       }
