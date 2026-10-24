@@ -608,6 +608,17 @@ class ConnectionHandler:
                 )
             )
 
+    def _companion_context(self) -> str:
+        """TinyBot's day for the system prompt (empty when the companion API is off)."""
+        try:
+            from core.companion import get_service
+
+            service = get_service(self.config)
+            return service.ai_context(self.device_id or "") if service else ""
+        except Exception as e:
+            self.logger.bind(tag=TAG).debug(f"Companion context unavailable: {e}")
+            return ""
+
     def _initialize_components(self):
         try:
             if self.tts is None:
@@ -1135,7 +1146,8 @@ class ConnectionHandler:
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
                     self.dialogue.get_llm_dialogue_with_memory(
-                        memory_str, self.config.get("voiceprint", {}), speaker_for_system
+                        memory_str, self.config.get("voiceprint", {}), speaker_for_system,
+                        self._companion_context(),
                     ),
                     functions=functions,
                 )
@@ -1143,7 +1155,8 @@ class ConnectionHandler:
                 llm_responses = self.llm.response(
                     self.session_id,
                     self.dialogue.get_llm_dialogue_with_memory(
-                        memory_str, self.config.get("voiceprint", {}), speaker_for_system
+                        memory_str, self.config.get("voiceprint", {}), speaker_for_system,
+                        self._companion_context(),
                     ),
                 )
         except Exception as e:
