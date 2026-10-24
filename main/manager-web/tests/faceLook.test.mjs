@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   H,
+  MOOD_DURATION,
+  MOODS,
   W,
   countPixels,
   createCanvas,
@@ -15,7 +17,9 @@ import {
   pixelRuns,
   renderFace,
   renderMoodFrame,
+  renderMoodStill,
   sameLook,
+  toAscii,
   toSvg,
 } from '../src/utils/faceLook.mjs';
 
@@ -46,6 +50,10 @@ describe('look settings', () => {
     expect(isDefaultLook({})).toBe(true);
     expect(sameLook({ size: 100 }, {})).toBe(true);
     expect(sameLook({ blush: true }, {})).toBe(false);
+    expect(defaultLook().hands).toBe(true);
+    expect(normalizeLook({ hands: false }).hands).toBe(false);
+    expect(normalizeLook({ hands: 'no' }).hands).toBe(true);
+    expect(sameLook({ hands: false }, {})).toBe(false);
   });
 });
 
@@ -203,5 +211,114 @@ describe('liveliness', () => {
     const runs = pixelRuns(c);
     expect(runs.reduce((n, r) => n + r[2], 0)).toBe(countPixels(c));
     expect(toSvg(c)).toContain('viewBox="0 0 128 64"');
+  });
+});
+
+describe('hands', () => {
+  // Pixels lit with the paws that are not lit without them (the paws also cut dark rims)
+  function handPixels(mood, t, pose) {
+    const p = pose || evaluateMood(mood, t);
+    const on = renderFace(p, defaultLook());
+    const off = renderFace(p, { ...defaultLook(), hands: false });
+    const c = createCanvas();
+    for (let i = 0; i < W * H; i++) c.bits[i] = on.bits[i] && !off.bits[i] ? 1 : 0;
+    return { on, off, added: c };
+  }
+
+  it('every mood is listed with its firmware duration', () => {
+    expect(MOODS).toEqual(['neutral', 'happy', 'sleepy', 'sad', 'love', 'surprised', 'like', 'thinking', 'shy', 'hello', 'yawn']);
+    expect(MOODS.every((m) => MOOD_DURATION[m] > 0)).toBe(true);
+    expect(MOOD_DURATION.hello).toBe(1.1);
+    expect(MOOD_DURATION.yawn).toBe(3);
+  });
+
+  it('hands off draws nothing new: the frame equals the pose without hands', () => {
+    for (const [mood, t] of [['like', 1], ['thinking', 1], ['surprised', 0.8], ['shy', 0.6], ['hello', 0.5], ['yawn', 1.6]]) {
+      const pose = evaluateMood(mood, t);
+      const off = renderFace(pose, { ...defaultLook(), hands: false });
+      const none = renderFace({ ...pose, hands: 'none' }, defaultLook());
+      expect(lit(off)).toEqual(lit(none));
+      expect(lit(off)).not.toEqual(lit(renderFace(pose, defaultLook())));
+    }
+    // moods without paws are unchanged by the switch
+    expect(lit(face({ hands: false }, 'happy'))).toEqual(lit(face({}, 'happy')));
+  });
+
+  it('hand_k 0 draws no hand', () => {
+    const pose = { ...evaluateMood('like', 1), hand_k: 0 };
+    expect(lit(renderFace(pose, defaultLook()))).toEqual(lit(renderFace({ ...pose, hands: 'none' }, defaultLook())));
+    // the like paw is still below the screen at the start
+    expect(evaluateMood('like', 0).hand_k).toBe(0);
+    expect(evaluateMood('hello', 1.1).hand_k).toBe(0);
+  });
+
+  it('thumbs up: on the right side', () => {
+    const box = litBounds(handPixels('like', 1).added);
+    expect(box).not.toBeNull();
+    expect(box.x0).toBeGreaterThan(95);
+    expect(box.y1).toBe(H - 1); // the arm comes up from the bottom edge
+  });
+
+  it('cheeks: near both edges, below the eyes', () => {
+    const { added } = handPixels('surprised', 0.8);
+    const left = litBounds(added, 0, 0, 63, H - 1);
+    const right = litBounds(added, 64, 0, W - 1, H - 1);
+    expect(left.x1).toBeLessThan(24);
+    expect(right.x0).toBeGreaterThan(103);
+    expect(left.y0).toBeGreaterThanOrEqual(38); // below the middle of the ring eyes
+  });
+
+  it('cover eyes: over both eye boxes', () => {
+    const p = evaluateMood('shy', 0.6);
+    const { added, off } = handPixels('shy', 0.6);
+    const eyeL = litBounds(off, 0, 0, 63, 46);
+    const eyeR = litBounds(off, 64, 0, 100, 46);
+    // the paws light pixels inside both eye boxes and cover most of each eye
+    expect(countPixels(added, eyeL.x0, eyeL.y0, eyeL.x1, eyeL.y1)).toBeGreaterThan(0);
+    expect(countPixels(added, eyeR.x0, eyeR.y0, eyeR.x1, eyeR.y1)).toBeGreaterThan(0);
+    const pawL = litBounds(added, 0, 0, 63, H - 1);
+    expect(pawL.x0).toBeLessThanOrEqual(eyeL.x0 + 6) // where the paw overlaps the eye it adds no pixels;
+    expect(pawL.x1).toBeGreaterThanOrEqual(eyeL.x1 - 4);
+    expect(p.hand_k).toBe(1);
+  });
+
+  it('chin: one paw below the eyes, a little right of centre', () => {
+    const { added, off } = handPixels('thinking', 1);
+    const eyes = litBounds(off, 0, 0, 100, H - 1);
+    const paw = litBounds(added, 0, 0, 100, H - 1);
+    expect(paw.y0).toBeGreaterThan(eyes.y1);
+    expect(paw.x0).toBeGreaterThan(55);
+    expect(paw.x1).toBeLessThan(85);
+  });
+
+  it('cover mouth: bottom centre', () => {
+    const paw = litBounds(handPixels('yawn', 1.6).added);
+    expect(paw.x0).toBeGreaterThan(50);
+    expect(paw.x1).toBeLessThan(78);
+    expect(paw.y0).toBeGreaterThanOrEqual(34); // under the squeezed eyes
+    expect(paw.y1).toBe(H - 1);
+  });
+
+  it('wave and wave both: paws at the sides', () => {
+    const one = litBounds(handPixels('hello', 0.5).added);
+    expect(one.x0).toBeGreaterThan(100);
+    const pose = { ...evaluateMood('hello', 0.5), hands: 'waveBoth' };
+    const both = handPixels(null, 0, pose).added;
+    expect(litBounds(both, 0, 0, 40, H - 1).x1).toBeLessThan(28);
+    expect(litBounds(both, 88, 0, W - 1, H - 1).x0).toBeGreaterThan(100);
+  });
+
+  it('reduced motion shows a still frame with the paw fully up', () => {
+    for (const mood of ['like', 'thinking', 'surprised', 'shy', 'hello', 'yawn']) {
+      expect(lit(renderMoodStill(mood, defaultLook()))).not.toEqual(lit(renderMoodStill(mood, { hands: false })));
+    }
+    expect(lit(renderMoodStill('neutral', {}))).toEqual(lit(face()));
+  });
+
+  it('animated moods loop on their firmware duration', () => {
+    const a = renderMoodFrame('hello', {}, 500, null);
+    const b = renderMoodFrame('hello', {}, 1600, null);
+    expect(lit(a)).toEqual(lit(b));
+    expect(toAscii(a).split(String.fromCharCode(10))).toHaveLength(H);
   });
 });

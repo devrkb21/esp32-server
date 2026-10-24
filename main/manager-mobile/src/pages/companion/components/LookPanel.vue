@@ -12,6 +12,7 @@ import {
   MOODS,
   normalizeLook,
   renderMoodFrame,
+  renderMoodStill,
   sameLook,
   toSvgDataUri,
 } from '../faceLook.mjs'
@@ -104,7 +105,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
 function draw() {
   const now = Date.now()
   if (reducedMotion)
-    renderMoodFrame(mood.value, form.value, 0, null, 0, frame)
+    renderMoodStill(mood.value, form.value, frame)
   else
     renderMoodFrame(mood.value, form.value, now - moodStart, live, now, frame)
   const uri = toSvgDataUri(frame, PIXEL_ON, PIXEL_OFF)
@@ -236,6 +237,18 @@ onBeforeUnmount(() => {
             </view>
           </view>
           <wd-switch :model-value="form.blush" size="24px" @change="({ value }) => (form = { ...form, blush: !!value })" />
+        </view>
+
+        <view class="nx-row">
+          <view class="nx-row__main">
+            <view class="nx-row__title">
+              {{ t('companion.look.hands') }}
+            </view>
+            <view class="nx-row__subtitle">
+              {{ t('companion.look.handsHint') }}
+            </view>
+          </view>
+          <wd-switch :model-value="form.hands" size="24px" @change="({ value }) => (form = { ...form, hands: !!value })" />
         </view>
       </view>
     </view>
