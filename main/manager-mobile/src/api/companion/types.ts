@@ -76,6 +76,8 @@ export type LookEyes = 'plain' | 'shine' | 'pupil'
 export type LookMouth = 'none' | 'smile' | 'cat' | 'dot'
 export type LookBlink = 'slow' | 'normal' | 'fast'
 export type LookEnergy = 'calm' | 'normal' | 'playful'
+/** Chat subtitle font built into the firmware: unscii 8 / 16 (retro) or Montserrat 10 / 12 / 14 */
+export type LookChatFont = 'pixel' | 'pixel_large' | 'clean_small' | 'clean' | 'clean_large'
 
 export interface FaceLook {
   shape: LookShape
@@ -93,6 +95,8 @@ export interface FaceLook {
   energy: LookEnergy
   /** little paws in some expressions (yawn, like, wave, thinking, surprised, shy); default true */
   hands: boolean
+  /** font of the chat subtitle strip; default 'pixel' */
+  chat_font: LookChatFont
 }
 
 /** TinyBot's day (settings.routine): what it is busy with while nobody plays with it */

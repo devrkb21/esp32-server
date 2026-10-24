@@ -143,6 +143,27 @@
           </div>
           <p class="tl-help">{{ $t('look.energyHint') }}</p>
         </div>
+
+        <div class="tl-field">
+          <span id="tl-font" class="tl-label">{{ $t('look.fontLabel') }}</span>
+          <p class="tl-help">{{ $t('look.fontHint') }}</p>
+          <div class="tl-fonts" role="radiogroup" aria-labelledby="tl-font">
+            <button v-for="f in chatFonts" :key="f.id" type="button" role="radio" class="tl-font" :disabled="busy"
+              :aria-checked="form.chat_font === f.id ? 'true' : 'false'" :class="{ 'is-active': form.chat_font === f.id }"
+              @click="form.chat_font = f.id">
+              <!-- 128 px wide black strip, drawn at 2x: an approximation of the robot's subtitle -->
+              <span class="tl-font__strip" aria-hidden="true">
+                <span class="tl-font__line" :class="'is-' + f.style"
+                  :style="{ height: f.strip + 'px', fontSize: f.px + 'px', lineHeight: f.strip + 'px' }">{{ fontSample }}</span>
+              </span>
+              <span class="tl-font__text">
+                <span class="tl-font__name">{{ $t('look.font.' + f.id) }}</span>
+                <span class="tl-font__meta">{{ $t('look.fontStyle.' + f.style) }} · {{ $t('look.fontSize', { n: f.px }) }}</span>
+              </span>
+            </button>
+          </div>
+          <p class="tl-help">{{ $t('look.fontApprox') }}</p>
+        </div>
       </div>
     </div>
 
@@ -162,6 +183,8 @@
 import Api from '@/apis/api';
 import TinyBotLiveScreen from '@/components/TinyBotLiveScreen.vue';
 import {
+  CHAT_FONTS,
+  CHAT_FONT_SAMPLE,
   H,
   LOOK_CHOICES,
   LOOK_RANGES,
@@ -197,6 +220,8 @@ export default {
       moods: MOODS,
       choices: LOOK_CHOICES,
       ranges: LOOK_RANGES,
+      chatFonts: CHAT_FONTS,
+      fontSample: CHAT_FONT_SAMPLE,
       mood: 'neutral',
       form: defaultLook(),
       serverLook: defaultLook(),
@@ -501,6 +526,99 @@ export default {
   color: var(--nx-text-3);
 }
 
+// Chat font tiles: the sample sits on a 128 px black strip (the OLED is 128 px wide), shown at 2x
+.tl-fonts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(268px, 100%), 1fr));
+  gap: var(--nx-space-2);
+}
+
+.tl-font {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--nx-space-2);
+  min-width: 0;
+  padding: var(--nx-space-2);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface);
+  color: var(--nx-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--nx-dur-1) var(--nx-ease), border-color var(--nx-dur-1) var(--nx-ease);
+
+  &:hover {
+    background: var(--nx-surface-2);
+  }
+
+  &.is-active {
+    border-color: var(--nx-accent);
+    background: var(--nx-accent-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--nx-accent);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.tl-font__strip {
+  display: block;
+  width: 256px;
+  max-width: 100%;
+  height: 44px; // tallest strip (22 px) at 2x
+  overflow: hidden;
+  border-radius: var(--nx-radius-sm);
+  background: #06080b; // OLED panel, hardware colour
+}
+
+.tl-font__line {
+  display: flex;
+  justify-content: safe center;
+  align-items: center;
+  width: 128px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #f2f6fa; // lit OLED pixels, hardware colour
+  background: #000;
+  transform: scale(2);
+  transform-origin: 0 0;
+  image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+
+  &.is-pixel {
+    font-family: 'Cascadia Mono', Consolas, 'Lucida Console', 'Courier New', monospace;
+  }
+
+  &.is-clean {
+    font-family: Montserrat, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+}
+
+.tl-font__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tl-font__name {
+  font-size: var(--nx-text-callout);
+  font-weight: 600;
+}
+
+.tl-font__meta {
+  font-size: var(--nx-text-caption);
+  color: var(--nx-text-3);
+}
+
 .tl-foot {
   display: flex;
   align-items: center;
@@ -546,6 +664,12 @@ export default {
 .tl-note__text {
   flex: 1;
   min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-font {
+    transition: none;
+  }
 }
 
 @media (max-width: 900px) {

@@ -108,34 +108,6 @@
               {{ tx('themeGen.wake.help', 'Hi ESP is what TinyBot uses out of the box. Pick a phrase that is easy to say in your home.') }}
             </p>
           </section>
-
-          <!-- ============================================================ Font -->
-          <section class="nx-card" aria-labelledby="tg-font-title">
-            <header class="nx-card__header">
-              <div class="tg-min">
-                <h2 id="tg-font-title" class="tg-card-title">{{ tx('themeGen.font.title', 'Chat text font') }}</h2>
-                <p class="tg-sub">{{ tx('themeGen.font.desc', 'The one-line subtitle under TinyBot\'s face.') }}</p>
-              </div>
-            </header>
-            <div class="tg-choices" role="radiogroup" aria-labelledby="tg-font-title">
-              <label v-for="f in fonts" :key="f.id" class="tg-choice"
-                :class="{ 'is-active': font === f.id, 'is-disabled': !f.tinybot || installing }">
-                <input v-model="font" class="nx-visually-hidden" type="radio" name="tg-font" :value="f.id"
-                  :disabled="!f.tinybot || installing">
-                <span class="tg-choice__radio" aria-hidden="true"></span>
-                <span class="tg-choice__text">
-                  <span class="tg-choice__title">{{ fontName(f) }}</span>
-                  <span class="tg-choice__meta">
-                    {{ f.file ? formatBytes(f.size) : tx('themeGen.font.noSpace', 'No extra space') }}
-                    <template v-if="!f.tinybot"> · {{ tx('themeGen.font.unsupported', 'Not used by the current TinyBot firmware') }}</template>
-                  </span>
-                </span>
-              </label>
-            </div>
-            <p class="tg-help">
-              {{ tx('themeGen.font.help', 'TinyBot keeps its crisp 8 px pixel font: the subtitle strip is only 11 px tall, and the firmware does not load a replacement font yet.') }}
-            </p>
-          </section>
         </div>
 
         <!-- ============================================================ Preview + summary -->
@@ -232,17 +204,14 @@ import VersionFooter from '@/components/VersionFooter.vue';
 import TinyBotLook from '@/components/TinyBotLook.vue';
 import {
   ASSETS_PARTITION_SIZE,
-  BUILTIN_FONT,
   DEFAULT_WAKE_WORD,
   SRMODELS_FILE,
   INDEX_FILE,
-  TEXT_FONTS,
   WAKENET_FILES,
   WAKE_WORDS,
   assetsPartitionSize,
   buildTinybotAssets,
   estimateTinybotAssets,
-  findFont,
   findWakeWord,
   formatBytes,
   isTinybot,
@@ -269,8 +238,6 @@ export default {
       screen: null,
       wakeWord: DEFAULT_WAKE_WORD,
       defaultWakeWord: DEFAULT_WAKE_WORD,
-      font: BUILTIN_FONT,
-      fonts: TEXT_FONTS,
       building: false,
       installing: false,
       installDone: false,
@@ -292,14 +259,11 @@ export default {
     selectedWake() {
       return findWakeWord(this.wakeWord);
     },
-    selectedFont() {
-      return findFont(this.font) || findFont(BUILTIN_FONT);
-    },
     limit() {
       return this.systemInfo ? assetsPartitionSize(this.systemInfo) : ASSETS_PARTITION_SIZE;
     },
     estimate() {
-      return estimateTinybotAssets({ wakeWord: this.wakeWord, font: this.font, display: DISPLAY });
+      return estimateTinybotAssets({ wakeWord: this.wakeWord, display: DISPLAY });
     },
     tooLarge() {
       return this.estimate.total > this.limit;
@@ -350,9 +314,6 @@ export default {
       this.scrollX = 0;
       this.drawOled();
     },
-    font() {
-      this.drawOled();
-    },
   },
   mounted() {
     this.reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -386,17 +347,12 @@ export default {
     wakeLabel(w) {
       return w.native ? `${w.phrase} · ${w.native}` : w.phrase;
     },
-    fontName(f) {
-      if (f.id === BUILTIN_FONT) return this.tx('themeGen.font.builtin', 'Built-in pixel font (8 px)');
-      const family = f.id.includes('puhui') ? 'Alibaba PuHuiTi' : 'Noto Sans';
-      return `${family} ${f.px} px`;
-    },
     partLabel(name) {
       if (name === SRMODELS_FILE) {
         return this.tx('themeGen.summary.wakeModel', 'Wake word "{wake}"', { wake: this.selectedWake ? this.selectedWake.phrase : '' });
       }
       if (name === INDEX_FILE) return this.tx('themeGen.summary.index', 'Theme settings');
-      return this.tx('themeGen.summary.font', 'Chat font');
+      return name;
     },
     stepLabel(key) {
       const labels = {
@@ -457,10 +413,8 @@ export default {
       const ww = this.selectedWake;
       const files = await Promise.all(WAKENET_FILES.map((name) => this.fetchBytes(`wakenet_model/${ww.id}/${name}`)
         .then((data) => ({ name, data }))));
-      let font = null;
-      const f = this.selectedFont;
-      if (f && f.file && f.tinybot) font = { ...f, data: await this.fetchBytes(`fonts/${f.file}`) };
-      const result = buildTinybotAssets({ wakeModel: { name: ww.id, files }, font, display: DISPLAY, limit: this.limit });
+      // No text font: TinyBot's chat fonts are built into the firmware (TinyBot look > Chat font)
+      const result = buildTinybotAssets({ wakeModel: { name: ww.id, files }, display: DISPLAY, limit: this.limit });
       parseAssets(result.bytes, { partitionSize: this.limit }); // same checks the firmware makes
       return new Blob([result.bytes], { type: 'application/octet-stream' });
     },
@@ -595,9 +549,9 @@ export default {
       this.roundRect(ctx, 73, 12, 22, 28, 7);
       ctx.fillRect(58, 45, 12, 2);
 
-      // Subtitle strip: y 53..63, 1 px side padding, text centred, scrolls when too wide
-      const px = this.selectedFont ? this.selectedFont.px : 8;
-      ctx.font = `${px}px "Cascadia Mono", Consolas, "Courier New", monospace`;
+      // Subtitle strip with the default chat font: y 53..63, 1 px side padding, text centred,
+      // scrolls when too wide
+      ctx.font = '8px "Cascadia Mono", Consolas, "Courier New", monospace';
       ctx.textBaseline = 'top';
       const text = this.previewText;
       const width = Math.ceil(ctx.measureText(text).width);
@@ -783,71 +737,6 @@ export default {
   }
 }
 
-.tg-choices {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nx-space-2);
-}
-.tg-choice {
-  display: flex;
-  align-items: center;
-  gap: var(--nx-space-3);
-  min-height: 44px;
-  padding: var(--nx-space-3) var(--nx-space-4);
-  border: 1px solid var(--nx-border);
-  border-radius: var(--nx-radius);
-  background: var(--nx-surface);
-  cursor: pointer;
-  transition: background-color var(--nx-dur-1) var(--nx-ease), border-color var(--nx-dur-1) var(--nx-ease);
-
-  &:hover {
-    background: var(--nx-surface-2);
-  }
-  &.is-active {
-    border-color: var(--nx-accent);
-    background: var(--nx-accent-soft);
-  }
-  &.is-disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-    &:hover {
-      background: var(--nx-surface);
-    }
-  }
-  &:focus-within {
-    outline: 2px solid var(--nx-accent);
-    outline-offset: 2px;
-  }
-
-  &__radio {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--nx-border-strong);
-    border-radius: 50%;
-    background: var(--nx-surface);
-  }
-  &.is-active &__radio {
-    border-color: var(--nx-accent);
-    box-shadow: inset 0 0 0 3px var(--nx-surface);
-    background: var(--nx-accent);
-  }
-  &__text {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  &__title {
-    font-size: var(--nx-text-callout);
-    font-weight: 500;
-    color: var(--nx-text);
-  }
-  &__meta {
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-}
-
 // ------------------------------------------------------------------ preview
 
 .tg-oled {
@@ -1016,8 +905,7 @@ export default {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tg-meter__fill,
-  .tg-choice {
+  .tg-meter__fill {
     transition: none;
   }
 }

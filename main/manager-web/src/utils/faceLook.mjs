@@ -43,6 +43,9 @@ export const LOOK_CHOICES = Object.freeze({
   mouth: ['none', 'smile', 'cat', 'dot'],
   blink: ['slow', 'normal', 'fast'],
   energy: ['calm', 'normal', 'playful'],
+  // Chat subtitle font built into the firmware (tinybot_display.cc ApplyChatFont); not drawn
+  // by the face preview
+  chat_font: ['pixel', 'pixel_large', 'clean_small', 'clean', 'clean_large'],
 })
 
 export const LOOK_RANGES = Object.freeze({
@@ -51,7 +54,23 @@ export const LOOK_RANGES = Object.freeze({
   height: [-6, 6],
 })
 
-export const LOOK_KEYS = ['shape', 'size', 'spacing', 'height', 'eyes', 'mouth', 'blush', 'blink', 'energy', 'hands']
+export const LOOK_KEYS = ['shape', 'size', 'spacing', 'height', 'eyes', 'mouth', 'blush', 'blink', 'energy', 'hands', 'chat_font']
+
+/**
+ * The chat fonts for the sample tiles. `px` is the firmware font size, `strip` the height of the
+ * subtitle strip it gets (line height + 3, at most 22). `pixel` fonts are unscii (retro), `clean`
+ * ones Montserrat. A browser cannot draw these exact fonts: the tiles only approximate them.
+ */
+export const CHAT_FONTS = Object.freeze([
+  { id: 'pixel', style: 'pixel', px: 8, strip: 11 },
+  { id: 'pixel_large', style: 'pixel', px: 16, strip: 19 },
+  { id: 'clean_small', style: 'clean', px: 10, strip: 15 },
+  { id: 'clean', style: 'clean', px: 12, strip: 18 },
+  { id: 'clean_large', style: 'clean', px: 14, strip: 19 },
+])
+
+/** Sample line of the font tiles (Latin only: the OLED cannot shape Bangla) */
+export const CHAT_FONT_SAMPLE = 'Hello! I\'m TinyBot'
 
 /** The original face (schema.py default_look) */
 export function defaultLook() {
@@ -66,6 +85,7 @@ export function defaultLook() {
     blink: 'normal',
     energy: 'normal',
     hands: true,
+    chat_font: 'pixel',
   }
 }
 
