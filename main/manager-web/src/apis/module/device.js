@@ -158,6 +158,27 @@ export default {
                 });
             }).send();
     },
+    // Call a device tool once, as a promise. Unlike callDeviceTool it never retries on a
+    // network error (a retried self.reboot would reboot the robot twice). Resolves with the
+    // response body {code, msg, data}; rejects with {msg} when the robot does not answer.
+    callDeviceToolOnce(deviceId, name, args) {
+        return new Promise((resolve, reject) => {
+            RequestService.sendRequest()
+                .url(`${getServiceUrl()}/device/tools/call/${deviceId}`)
+                .method('POST')
+                .data({ name, arguments: args || {} })
+                .success((res) => {
+                    RequestService.clearRequestTime();
+                    resolve(res.data);
+                })
+                .fail((res) => {
+                    reject((res && res.data) || { msg: '' });
+                })
+                .networkFail((err) => {
+                    reject({ msg: (err && err.message) || '', network: true });
+                }).send();
+        });
+    },
     // Reboot device
     rebootDevice(deviceId, callback) {
         RequestService.sendRequest()

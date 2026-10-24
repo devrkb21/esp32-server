@@ -571,11 +571,13 @@ export default {
       });
     },
     handleGenertor(row) {
-      const pathname = window.location.pathname;
-      const basePath = pathname.split('/').slice(0, -1).join('/');
-      const url = `${window.location.origin}${basePath}/generator/?deviceId=${row.device_id}`;
-      sessionStorage.setItem('devicePath', window.location.href);
-      window.location.href = url;
+      this.$router.push({
+        name: 'ThemeGenerator',
+        query: {
+          deviceId: row.device_id,
+          agentId: this.currentAgentId,
+        },
+      });
     },
     goToPage(page) {
       this.currentPage = page;
