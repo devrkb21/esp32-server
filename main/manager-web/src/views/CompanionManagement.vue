@@ -786,6 +786,52 @@
                   </footer>
                 </article>
 
+                <article class="nx-card cm-memory">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ tx('companion.memory.title', 'TinyBot’s memory') }}</h2>
+                    <span v-if="memories.length" class="nx-caption nx-num">{{ tx('companion.memory.count', 'Notes: {n}', { n: memories.length }) }}</span>
+                  </header>
+                  <p class="cm-help">{{ tx('companion.memory.intro', 'After each voice chat TinyBot notes a few lasting things about your family (names, likes, school, upcoming events like an exam) and brings them up in later chats, for example by asking how the exam went.') }}</p>
+                  <div class="cm-settings cm-gap-top">
+                    <div class="cm-setting">
+                      <span class="cm-setting__text">
+                        <span>{{ tx('companion.memory.enabled', 'TinyBot remembers things from chats') }}</span>
+                        <span v-if="!forms.memory.enabled" class="cm-help">{{ tx('companion.memory.offNote', 'Off: TinyBot notes nothing new and does not use these notes. The notes stay until you delete them.') }}</span>
+                      </span>
+                      <el-switch v-model="forms.memory.enabled" :aria-label="tx('companion.memory.enabled', 'TinyBot remembers things from chats')" />
+                    </div>
+                  </div>
+                  <div v-if="!memories.length" class="nx-empty cm-empty-sm">
+                    <span class="nx-icon-tile nx-icon-tile--neutral" aria-hidden="true"><i class="el-icon-notebook-2"></i></span>
+                    <h3 class="nx-empty__title">{{ tx('companion.memory.empty', 'Nothing noted yet') }}</h3>
+                    <p class="nx-empty__text">{{ tx('companion.memory.emptyText', 'Talk with TinyBot, and what it learns about your family shows up here.') }}</p>
+                  </div>
+                  <ul v-else class="cm-memory__list" :class="{ 'cm-memory__list--off': !forms.memory.enabled }">
+                    <li v-for="m in memories" :key="m.id" class="cm-memory__item">
+                      <div class="cm-memory__body">
+                        <p class="cm-memory__text">{{ m.text }}</p>
+                        <div class="cm-memory__meta">
+                          <span class="nx-badge" :class="m.kind === 'event' ? 'nx-badge--accent' : ''">{{ memoryKindText(m.kind) }}</span>
+                          <span v-if="memoryDay(m)" class="nx-num">{{ tx('companion.memory.noted', 'Noted {date}', { date: memoryDay(m) }) }}</span>
+                          <span v-if="m.until" class="nx-num">· {{ tx('companion.memory.until', 'Until {date}', { date: m.until }) }}</span>
+                        </div>
+                      </div>
+                      <el-button type="text" icon="el-icon-delete" class="cm-memory__delete" :disabled="saving.memories"
+                        :aria-label="tx('companion.memory.deleteNote', 'Delete this note')" :title="tx('companion.memory.deleteNote', 'Delete this note')"
+                        @click="deleteMemory(m)">{{ tx('companion.memory.delete', 'Delete') }}</el-button>
+                    </li>
+                  </ul>
+                  <p class="cm-help cm-gap-top">{{ tx('companion.memory.hint', 'Notes about events disappear by themselves after their date. TinyBot never keeps passwords or addresses. You can delete any note.') }}</p>
+                  <footer class="nx-card__footer">
+                    <el-button v-if="memories.length" type="text" class="cm-memory__forget" :disabled="saving.memories"
+                      @click="forgetMemories">{{ tx('companion.memory.forgetAll', 'Forget everything') }}</el-button>
+                    <span v-if="isDirty('memory')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('memory')" type="text" @click="revertSection('memory')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
+                    <el-button type="primary" :disabled="!isDirty('memory')" :loading="saving.memory"
+                      @click="saveSection('memory')">{{ $t('companion.save') }}</el-button>
+                  </footer>
+                </article>
+
                 <article class="nx-card">
                   <header class="nx-card__header">
                     <h2 class="nx-headline">{{ $t('companion.robot.title') }}</h2>
@@ -1094,6 +1140,7 @@ import {
   NIGHT_LIGHT_PRESETS,
   OFF_PRESETS,
   PRAYER_ROWS,
+  MEMORY_DEFAULTS,
   PROACTIVE_DEFAULTS,
   REMINDER_KINDS,
   ROBOT_PAGES,
@@ -1121,6 +1168,10 @@ import {
   presetChoice,
   proactiveProblem,
   proactiveSettings,
+  memoryDay,
+  memoryKindKey,
+  memoryList,
+  memorySettings,
   reminderPayload,
   removeById,
   robotPages,
@@ -1140,7 +1191,7 @@ import { createUpdateFlow, initialUpdateState } from '@/utils/firmwareUpdate.mjs
 
 const REFRESH_MS = 10000;
 const FROM_KEY = 'companion_message_from';
-const FORM_SECTIONS = ['pomodoro', 'routine', 'night', 'care', 'sound', 'display', 'proactive', 'robot'];
+const FORM_SECTIONS = ['pomodoro', 'routine', 'night', 'care', 'sound', 'display', 'proactive', 'memory', 'robot'];
 // Minute pickers with presets: which form field each one edits
 const MINUTE_PICKERS = {
   dim: { section: 'display', field: 'dim_after_min', presets: DIM_PRESETS, max: DISPLAY_MAX.dim_after_min },
@@ -1192,6 +1243,7 @@ export default {
         sound: { controlVolume: false, volume: 70, sounds: true },
         display: { ...DISPLAY_DEFAULTS },
         proactive: { ...PROACTIVE_DEFAULTS },
+        memory: { ...MEMORY_DEFAULTS },
         robot: { name: '', owner_name: '' },
       },
       baseline: {},
@@ -1199,8 +1251,8 @@ export default {
       customPick: { dim: false, off: false, light: false },
       minutePickers: MINUTE_PICKERS,
       saving: {
-        pomodoro: false, routine: false, night: false, care: false, sound: false, display: false, proactive: false, robot: false,
-        alarms: false, reminders: false, prayer: false, pages: false,
+        pomodoro: false, routine: false, night: false, care: false, sound: false, display: false, proactive: false, memory: false, robot: false,
+        alarms: false, reminders: false, prayer: false, pages: false, memories: false,
       },
       alarmDialog: { visible: false, isNew: true, form: null },
       reminderDialog: { visible: false, isNew: true, form: null },
@@ -1275,6 +1327,10 @@ export default {
     },
     reminders() {
       return (this.dev && this.dev.reminders) || [];
+    },
+    // What TinyBot remembers about the family, newest first (missing on older servers)
+    memories() {
+      return memoryList(this.dev && this.dev.memories);
     },
     messages() {
       return (this.dev && this.dev.messages) || [];
@@ -1507,6 +1563,8 @@ export default {
           return displaySettings(settings.display);
         case 'proactive':
           return proactiveSettings(settings.proactive);
+        case 'memory':
+          return memorySettings(settings.memory);
         case 'sound': {
           const manual = settings.volume !== null && settings.volume !== undefined;
           const fallback = this.stats.volume !== undefined ? this.stats.volume : 70;
@@ -1577,6 +1635,8 @@ export default {
               },
             },
           };
+        case 'memory':
+          return { settings: { memory: { enabled: !!form.enabled } } };
         case 'robot':
           return {
             name: (form.name || '').trim() || 'TinyBot',
@@ -1697,6 +1757,31 @@ export default {
       this.savePatch({ settings: { pages: { [key]: !!on } } }, 'pages').catch(() => {
         if (this.dev) this.dev = { ...this.dev, settings: { ...this.dev.settings, pages: before } };
       });
+    },
+
+    // ------------------------------------------------------------------ TinyBot's memory
+    memoryDay,
+    memoryKindText(kind) {
+      const key = memoryKindKey(kind);
+      const fallback = { person: 'Person', like: 'Likes', dislike: 'Dislikes', event: 'Event', fact: 'Fact', routine: 'Routine' };
+      return this.tx(key, fallback[key.split('.').pop()]);
+    },
+    // One note goes at once (a small, quick tidy-up); the server answers with the updated device
+    deleteMemory(note) {
+      if (!note || !note.id) return;
+      this.savePatch({ memories: { delete: [note.id] } }, 'memories', this.$t('companion.deleted')).catch(() => {});
+    },
+    forgetMemories() {
+      const n = this.memories.length;
+      if (!n) return;
+      this.$confirm(
+        this.tx('companion.memory.confirmForget', 'TinyBot will forget all {n} notes. This cannot be undone.', { n }),
+        this.$t('message.warning'),
+        { confirmButtonText: this.$t('button.ok'), cancelButtonText: this.$t('button.cancel'), type: 'warning' },
+      ).then(() => {
+        this.savePatch({ memories: { clear: true } }, 'memories',
+          this.tx('companion.memory.forgot', 'TinyBot forgot everything')).catch(() => {});
+      }).catch(() => {});
     },
 
     // ------------------------------------------------------------------ TinyBot's day
@@ -2688,6 +2773,59 @@ export default {
   align-items: center;
   gap: var(--nx-space-3);
   flex: none;
+}
+
+// TinyBot's memory: the notes it keeps (usually Bangla; long words wrap)
+.cm-memory__list {
+  list-style: none;
+  margin: var(--nx-space-3) 0 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  transition: opacity 0.2s ease;
+
+  &--off {
+    opacity: 0.6;
+  }
+}
+.cm-memory__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-3) 0;
+
+  & + & {
+    border-top: 1px solid var(--nx-border);
+  }
+}
+.cm-memory__body {
+  flex: 1;
+  min-width: 0;
+}
+.cm-memory__text {
+  margin: 0;
+  font-size: var(--nx-text-callout);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.cm-memory__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--nx-space-2);
+  margin-top: var(--nx-space-1);
+  font-size: var(--nx-text-caption);
+  color: var(--nx-text-3);
+}
+.cm-memory__delete.el-button,
+.cm-memory__forget.el-button {
+  flex: none;
+  color: var(--nx-danger);
+}
+.cm-memory__forget.el-button {
+  margin-right: auto;
 }
 
 .cm-proactive-time.el-date-editor {

@@ -251,6 +251,63 @@ describe('companion page volume, display and night light', () => {
     expect(vm.$message.warning).toHaveBeenNthCalledWith(2, 'Evening chat: choose a time (HH:MM)');
   });
 
+  it('lists the memory notes from the device detail', () => {
+    const { vm } = makeVm(deviceView({
+      memories: [
+        { id: 'm2', text: 'রিমির শুক্রবার গণিত পরীক্ষা', kind: 'event', created: '2026-10-20T18:00:00', updated: '2026-10-20T18:00:00', until: '2026-10-30' },
+        { id: '', text: 'broken' },
+        { id: 'm1', text: 'Rimi likes mangoes', kind: 'like', created: '2026-10-01T09:00:00', updated: '2026-10-01T09:00:00' },
+      ],
+    }));
+    expect(vm.memories.map((m) => m.id)).toEqual(['m2', 'm1']);
+    expect(vm.memories[0].until).toBe('2026-10-30');
+    expect(vm.memoryKindText('like')).toBe('Likes');
+    expect(vm.forms.memory).toEqual({ enabled: true });
+    expect(makeVm(deviceView()).vm.memories).toEqual([]);
+  });
+
+  it('saves the memory switch as a settings patch', () => {
+    const view = deviceView();
+    view.settings.memory = { enabled: true };
+    const { vm, Api } = makeVm(view);
+    expect(vm.isDirty('memory')).toBe(false);
+    vm.forms.memory.enabled = false;
+    expect(vm.isDirty('memory')).toBe(true);
+    vm.saveSection('memory');
+    expect(Api.companion.updateCompanionConfig.mock.calls[0][1]).toEqual({ settings: { memory: { enabled: false } } });
+  });
+
+  it('deletes one memory note and reloads the device from the answer', () => {
+    const notes = [
+      { id: 'm2', text: 'two', kind: 'fact', created: '2026-10-20T18:00:00', updated: '2026-10-20T18:00:00' },
+      { id: 'm1', text: 'one', kind: 'fact', created: '2026-10-01T09:00:00', updated: '2026-10-01T09:00:00' },
+    ];
+    const { vm, Api } = makeVm(deviceView({ memories: notes }));
+    vm.deleteMemory(vm.memories[0]);
+    const [deviceId, patch, ok] = Api.companion.updateCompanionConfig.mock.calls[0];
+    expect(deviceId).toBe('dev1');
+    expect(patch).toEqual({ memories: { delete: ['m2'] } });
+    ok({ data: { data: deviceView({ memories: [notes[1]] }) } });
+    expect(vm.memories.map((m) => m.id)).toEqual(['m1']);
+    expect(vm.$message.success).toHaveBeenCalledWith('companion.deleted');
+  });
+
+  it('asks before forgetting everything and then clears the notes', async () => {
+    const notes = [{ id: 'm1', text: 'one', kind: 'fact', created: '2026-10-01T09:00:00', updated: '2026-10-01T09:00:00' }];
+    const { vm, Api } = makeVm(deviceView({ memories: notes }));
+    vm.$confirm = vi.fn(() => Promise.reject(new Error('cancel')));
+    vm.forgetMemories();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(vm.$confirm).toHaveBeenCalledTimes(1);
+    expect(vm.$confirm.mock.calls[0][0]).toBe('TinyBot will forget all 1 notes. This cannot be undone.');
+    expect(Api.companion.updateCompanionConfig).not.toHaveBeenCalled();
+
+    vm.$confirm = vi.fn(() => Promise.resolve('confirm'));
+    vm.forgetMemories();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(Api.companion.updateCompanionConfig.mock.calls[0][1]).toEqual({ memories: { clear: true } });
+  });
+
   it('saves the night light minutes with the night section', () => {
     const { vm, Api } = makeVm(deviceView());
     expect(vm.forms.night.light_minutes).toBe(0);
