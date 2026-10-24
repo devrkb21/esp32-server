@@ -28,6 +28,9 @@ async def sendAudioMessage(conn: "ConnectionHandler", sentenceType, audios, text
         conn.logger.bind(tag=TAG).info(f"Sending first audio segment: {text}")
         conn.tts.tts_audio_first_sentence = False
 
+    # How long this sentence plays, so the robot can scroll its text along with the voice
+    audio_ms = len(audios) * AUDIO_FRAME_DURATION if isinstance(audios, list) and audios else None
+
     if sentenceType == SentenceType.FIRST:
         # Subsequent messages of the same sentence enter flow control queue; others sent immediately
         if (
@@ -37,11 +40,11 @@ async def sendAudioMessage(conn: "ConnectionHandler", sentenceType, audios, text
             == conn.sentence_id
         ):
             conn.audio_rate_controller.add_message(
-                lambda: send_tts_message(conn, "sentence_start", text)
+                lambda: send_tts_message(conn, "sentence_start", text, audio_ms)
             )
         else:
             # New sentence or flow controller not initialized, send immediately
-            await send_tts_message(conn, "sentence_start", text)
+            await send_tts_message(conn, "sentence_start", text, audio_ms)
 
     await sendAudio(conn, audios)
     # Send sentence start message
@@ -282,7 +285,7 @@ async def _do_send_audio(conn: "ConnectionHandler", opus_packet, flow_control):
     flow_control["sequence"] = sequence + 1
 
 
-async def send_tts_message(conn: "ConnectionHandler", state, text=None):
+async def send_tts_message(conn: "ConnectionHandler", state, text=None, audio_ms=None):
     """Send TTS status message"""
     if text is None and state == "sentence_start":
         return
@@ -292,6 +295,8 @@ async def send_tts_message(conn: "ConnectionHandler", state, text=None):
         # Lines the robot's fonts cannot shape (Bangla) also go as pixels
         bitmap = bitmap_payload(message["text"])
         if bitmap:
+            if audio_ms:
+                bitmap["ms"] = int(audio_ms)  # the line scrolls by within this time
             message["text_bitmap"] = bitmap
 
     # TTS playback finished

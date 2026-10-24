@@ -988,7 +988,7 @@ export default {
   'companion.proactive.evening': 'À noite: “Como foi seu dia?”',
   'companion.proactive.morningAt': 'Horário do bom-dia',
   'companion.proactive.eveningAt': 'Horário da conversa da noite',
-  'companion.proactive.hint': 'O TinyBot espera enquanto está ocupado (um jogo, um timer ou uma conversa) e durante o horário noturno, e continua tentando por até 45 minutos após o horário definido.',
+  'companion.proactive.hint': 'O TinyBot não fala com uma sala vazia: até duas horas após o horário definido, ele espera alguém tocá-lo, pegá-lo ou falar por perto e então cumprimenta. Não durante a noite nem quando está ocupado.',
   'companion.proactive.morningTime': 'Bom-dia: escolha um horário (HH:MM)',
   'companion.proactive.eveningTime': 'Conversa da noite: escolha um horário (HH:MM)',
   'companion.night.lightFor': 'Luz noturna fica acesa',

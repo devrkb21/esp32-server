@@ -988,7 +988,7 @@ export default {
   'companion.proactive.evening': 'Abends „Wie war dein Tag?“',
   'companion.proactive.morningAt': 'Uhrzeit des Morgengrußes',
   'companion.proactive.eveningAt': 'Uhrzeit des Abendgesprächs',
-  'companion.proactive.hint': 'TinyBot wartet, solange er beschäftigt ist (Spiel, Timer oder Gespräch) und während der Nachtstunden, und versucht es bis zu 45 Minuten nach der eingestellten Zeit.',
+  'companion.proactive.hint': 'TinyBot spricht nicht in einen leeren Raum: Bis zu zwei Stunden nach der eingestellten Zeit wartet er, bis ihn jemand berührt, hochhebt oder in der Nähe spricht, und grüßt dann. Nicht in den Nachtstunden und nicht, wenn er beschäftigt ist.',
   'companion.proactive.morningTime': 'Morgengruß: Uhrzeit wählen (HH:MM)',
   'companion.proactive.eveningTime': 'Abendgespräch: Uhrzeit wählen (HH:MM)',
   'companion.night.lightFor': 'Nachtlicht bleibt an',

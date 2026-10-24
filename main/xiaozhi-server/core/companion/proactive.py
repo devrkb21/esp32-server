@@ -1,8 +1,10 @@
 """Proactive talk: TinyBot starts a chat by itself in the morning and in the evening.
 
-At the times set in the app (settings.proactive) the server asks the robot over MQTT
-(`self.companion.greet`), which opens a voice session with `[proactive]<kind>` (refused while the
-robot is busy: in a chat, a game, a timer or its night). The robot sends that text back as a listen/detect
+At the times set in the app (settings.proactive) the server leaves the greeting pending on the
+robot over MQTT (`self.companion.greet`). The robot does not talk to an empty room: it waits for
+the first sign of someone around within the window (a touch, being picked up or moved, a voice
+nearby) and only then opens a voice session with `[proactive]<kind>`; otherwise the greeting
+lapses. The robot sends that text back as a listen/detect
 message, the server turns it into an LLM prompt with what TinyBot knows about the day (weather,
 alarms, reminders, its own routine) and the robot speaks the greeting and keeps listening for the
 answer, so the chat simply goes on.
@@ -22,8 +24,8 @@ from core.companion.settings import tts_language
 TAG = __name__
 PROACTIVE_TAG = "[proactive]"
 KINDS = ("morning", "evening")
-# A greeting is still tried this long after its time (the robot may be busy or offline at first)
-WINDOW_MIN = 45
+# How long after its time a greeting may still happen (someone has to come by within it)
+WINDOW_MIN = 120
 TICK_S = 30
 # The robot shows this as the user line while the greeting is generated
 DISPLAY = {"morning": "শুভ সকাল!", "evening": "দিন কেমন গেল?"}
@@ -170,15 +172,19 @@ class ProactiveScheduler:
             if dev is None:
                 continue
             done = self.done.setdefault(dev["id"], {})
-            kind = due_kind(dev.get("settings") or {}, now, done)
+            settings = dev.get("settings") or {}
+            kind = due_kind(settings, now, done)
             if kind is None or not await svc.mqtt_online(dev):
                 continue
+            p = dict(schema.default_proactive(), **(settings.get("proactive") or {}))
+            wait_min = max(1, _mins(p[kind]) + WINDOW_MIN - (now.hour * 60 + now.minute))
             try:
-                await svc.mqtt.call(dev["mqtt_client_id"], "self.companion.greet", {"kind": kind})
+                await svc.mqtt.call(dev["mqtt_client_id"], "self.companion.greet",
+                                    {"kind": kind, "wait_min": wait_min})
             except Exception as e:
-                # Busy (in a chat, playing a story) or just gone: try again at the next tick
+                # Just gone (or an old firmware): try again at the next tick
                 logger.bind(tag=TAG).info(f"Proactive {kind} for {dev['id']} not yet: {e}")
                 continue
             done[kind] = now.date().isoformat()
             self._save()
-            logger.bind(tag=TAG).info(f"Proactive {kind} greeting started on {dev['id']}")
+            logger.bind(tag=TAG).info(f"Proactive {kind} greeting pending on {dev['id']} for {wait_min} min")
