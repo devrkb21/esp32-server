@@ -39,8 +39,11 @@ public class AgentMcpAccessPointServiceImpl implements AgentMcpAccessPointServic
         URI uri = getURI(url);
         // Get agentmcpurlPrefix
         String agentMcpUrl = getAgentMcpUrl(uri);
-        // GetSecret key
+        // GetSecret key; an address without "?key=" is not a usable MCP endpoint
         String key = getSecretKey(uri);
+        if (StringUtils.isBlank(key)) {
+            return null;
+        }
         // GetEncrypttoken
         String encryptToken = encryptToken(id, key);
         // fortokenPerformURLCode
@@ -198,6 +201,9 @@ public class AgentMcpAccessPointServiceImpl implements AgentMcpAccessPointServic
         String query = uri.getQuery();
         // GetaesEncryptSecret key
         String str = "key=";
+        if (query == null || !query.contains(str)) {
+            return null;
+        }
         return query.substring(query.indexOf(str) + str.length());
     }
 
