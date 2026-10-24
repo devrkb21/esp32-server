@@ -252,7 +252,11 @@ robot that has never synced.
 ## LAN setup with manager-api (one PC)
 
 1. `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build xiaozhi-esp32-server-db xiaozhi-esp32-server-redis xiaozhi-esp32-server-web`
-   (`MQTT_ENABLED=false`: devices get only the WebSocket address).
+   Then the MQTT gateway: `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build --no-deps xiaozhi-esp32-server-mqtt`
+   (TCP 1883, UDP 8884; it bridges to the native xiaozhi-server through
+   `main/mqtt-gateway/config-lan`). Robots get `<LAN_IP>:1883` from OTA (`LAN_IP`, default
+   192.168.0.123). The device menu's Volume and Restart and the theme generator call the robot's
+   MCP tools through it; companion data still syncs over HTTP long-poll.
 2. In manager-web (`http://<pc>:18002`) set the params `server.websocket`
    (`ws://<pc>:8000/xiaozhi/v1/`), `server.ota` (`http://<pc>:18002/xiaozhi/ota/`) and
    `server.vision_explain` (`http://<pc>:8003/mcp/vision/explain`); add the robot to an agent.

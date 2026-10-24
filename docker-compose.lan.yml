@@ -1,14 +1,27 @@
-# LAN test setup on one PC: manager-api + manager-web, MySQL and Redis in Docker, xiaozhi-server
-# running natively (run-manager.ps1, ports 8000/8003), no MQTT gateway and no voiceprint service.
+# LAN test setup on one PC: manager-api + manager-web, MySQL, Redis and the MQTT gateway in
+# Docker, xiaozhi-server running natively (run-manager.ps1, ports 8000/8003), no voiceprint service.
 #
 #   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build \
 #     xiaozhi-esp32-server-db xiaozhi-esp32-server-redis xiaozhi-esp32-server-web
+#   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build --no-deps \
+#     xiaozhi-esp32-server-mqtt
 #
-# Then open http://<this-pc-ip>:18002. Point robots' OTA URL at
+# (--no-deps: the gateway would otherwise also start the Dockerised xiaozhi-server; on the LAN it
+# talks to the native one through host.docker.internal, see main/mqtt-gateway/config-lan.)
+#
+# LAN_IP is this PC's address on the LAN (default 192.168.0.123): robots get it as the MQTT and
+# UDP gateway. Then open http://<this-pc-ip>:18002. Point robots' OTA URL at
 # http://<this-pc-ip>:18002/xiaozhi/ota/ (or let the standalone server move them, see
 # companion.move_to in docs/companion-api.md).
 services:
   xiaozhi-esp32-server-web:
     environment:
-      - MQTT_ENABLED=false
+      - MQTT_ENABLED=true
+      - MQTT_PUBLIC_IP=${LAN_IP:-192.168.0.123}
       - VOICEPRINT_KEY=
+
+  xiaozhi-esp32-server-mqtt:
+    environment:
+      - PUBLIC_IP=${LAN_IP:-192.168.0.123}
+    volumes:
+      - ./main/mqtt-gateway/config-lan:/app/config
