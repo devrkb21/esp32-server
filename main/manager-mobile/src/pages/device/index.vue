@@ -2,6 +2,7 @@
 import type { Device, FirmwareType } from '@/api/device'
 import { computed, onMounted, ref } from 'vue'
 import { useMessage } from 'wot-design-uni/components/wd-message-box'
+import { getCompanion } from '@/api/companion'
 import {
   bindDevice,
   bindDeviceManual,
@@ -15,6 +16,7 @@ import {
 } from '@/api/device'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
+import { companionVolume } from '../companion/companionUtils.mjs'
 import { parseDeviceLastConnectedAtTimestamp } from './deviceTimeUtils.mjs'
 
 defineOptions({
@@ -49,6 +51,8 @@ const deviceStatusMap = ref<Record<string, boolean>>({})
 const deviceVolumes = ref<Record<string, number>>({})
 const isRebooting = ref<Record<string, boolean>>({})
 const isUpdatingVolume = ref<Record<string, boolean>>({})
+/** Volume each robot last reported (companion stats); null = unknown */
+const robotVolumeNow = ref<Record<string, number | null>>({})
 const volumeTimers = ref<Record<string, any>>({})
 
 // Device detail sheet
@@ -225,10 +229,15 @@ function onVolumeChange(device: Device, volume: number) {
     clearTimeout(volumeTimers.value[device.id])
   }
   volumeTimers.value[device.id] = setTimeout(async () => {
+    volumeTimers.value[device.id] = null
     try {
       isUpdatingVolume.value[device.id] = true
-      await setDeviceVolume(device.id, volume)
-      toast.success(t('device.volumeSetSuccess'))
+      const result = await setDeviceVolume(device.id, volume)
+      // An offline robot gets the volume later: the server then answers with just the number
+      toast.success(typeof result === 'number'
+        ? tx('device.volumeSavedOffline', 'Volume set to {n}%. TinyBot changes it as soon as it is back online.', { n: volume })
+        : tx('device.volumeSetTo', 'Volume set to {n}%', { n: volume }))
+      setTimeout(() => loadRobotVolume(device), 1500)
     }
     catch (err: any) {
       toast.error(err?.message || t('device.volumeSetFailed'))
@@ -251,6 +260,21 @@ function openCompanion(device: Device) {
 
 function openDetail(device: Device) {
   activeDeviceId.value = device.id
+  loadRobotVolume(device)
+}
+
+// The robot's real volume: what it last reported, else the volume the app asked for
+async function loadRobotVolume(device: Device) {
+  try {
+    const view = await getCompanion(device.id, true)
+    const volume = companionVolume(view)
+    if (volume !== null && !volumeTimers.value[device.id] && !isUpdatingVolume.value[device.id])
+      deviceVolumes.value[device.id] = volume
+    robotVolumeNow.value[device.id] = companionVolume({ stats: view?.stats })
+  }
+  catch {
+    // not a TinyBot or companion server unreachable: keep the current value
+  }
 }
 
 // Refresh method exposed to parent
@@ -728,6 +752,12 @@ defineExpose({
                 hide-min-max
                 @change="(val: any) => onVolumeChange(activeDevice!, typeof val === 'object' ? val.value : val)"
               />
+              <view class="nx-num devices__volume-note">
+                {{ robotVolumeNow[activeDevice.id] === null || robotVolumeNow[activeDevice.id] === undefined
+                  ? tx('device.volumeNowUnknown', 'TinyBot now: –')
+                  : tx('device.volumeNow', 'TinyBot now: {n}%', { n: robotVolumeNow[activeDevice.id] as number }) }}
+                · {{ tx('device.volumeHint', 'TinyBot changes its volume right away; if it is offline, as soon as it is back.') }}
+              </view>
             </view>
             <view class="nx-row">
               <view class="nx-row__main">
@@ -1071,6 +1101,11 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  &__volume-note {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
   }
 
   &__empty-btn {

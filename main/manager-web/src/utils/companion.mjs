@@ -205,3 +205,73 @@ export function isLastPageOn(pages, key) {
   const all = robotPages(pages);
   return all[key] && ROBOT_PAGES.filter((k) => all[k]).length === 1;
 }
+
+// ------------------------------------------------------------------ screen and night light timeouts
+// Minutes without touch or talk before the OLED dims / turns off (settings.display); 0 = never.
+export const DISPLAY_DEFAULTS = { dim_after_min: 3, off_after_min: 20 };
+export const DISPLAY_MAX = { dim_after_min: 120, off_after_min: 600 };
+export const DIM_PRESETS = [0, 1, 3, 5, 10, 20, 30, 60];
+export const OFF_PRESETS = [0, 5, 10, 20, 30, 60, 120, 240];
+// Night light (settings.night.light_minutes): 0 = until the night ends (1 hour when started by hand)
+export const NIGHT_LIGHT_MAX = 600;
+export const NIGHT_LIGHT_PRESETS = [0, 15, 30, 45, 60, 90, 120];
+
+/** True for a whole number of minutes in 0..max. */
+export function isMinutes(value, max) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max;
+}
+
+/** The display timeouts with defaults for missing or invalid values. */
+export function displaySettings(display) {
+  const source = display && typeof display === 'object' ? display : {};
+  return Object.keys(DISPLAY_DEFAULTS).reduce((all, key) => ({
+    ...all,
+    [key]: isMinutes(source[key], DISPLAY_MAX[key]) ? source[key] : DISPLAY_DEFAULTS[key],
+  }), {});
+}
+
+/**
+ * What is wrong with the display timeouts: '' (fine), 'dimRange', 'offRange', or 'offBeforeDim'
+ * (the screen would turn off before it dims).
+ */
+export function displayProblem(display) {
+  const d = display || {};
+  if (!isMinutes(d.dim_after_min, DISPLAY_MAX.dim_after_min)) return 'dimRange';
+  if (!isMinutes(d.off_after_min, DISPLAY_MAX.off_after_min)) return 'offRange';
+  if (d.dim_after_min > 0 && d.off_after_min > 0 && d.off_after_min <= d.dim_after_min) return 'offBeforeDim';
+  return '';
+}
+
+/** The preset a minutes value matches, or 'custom'. */
+export function presetChoice(value, presets) {
+  return presets.includes(value) ? value : 'custom';
+}
+
+// ------------------------------------------------------------------ volume
+function percentOrNull(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n) : null;
+}
+
+/**
+ * The robot's volume from a companion view: what it last reported (stats.volume), else the
+ * volume the app asked for (settings.volume), else null.
+ */
+export function companionVolume(view) {
+  const v = view || {};
+  const reported = percentOrNull(v.stats && v.stats.volume);
+  if (reported !== null) return reported;
+  return percentOrNull(v.settings && v.settings.volume);
+}
+
+/**
+ * How the device Volume command went (a code-0 answer): 'now' (the robot changed it), 'offline'
+ * (saved; the robot changes it when it is online) or 'other' (show the server's message as is).
+ */
+export function volumeSaveOutcome(data) {
+  const msg = String((data && data.msg) || '').trim();
+  if (/when it is online|saved/i.test(msg)) return 'offline';
+  if (!msg || /^success$/i.test(msg) || /updated successfully/i.test(msg)) return 'now';
+  return 'other';
+}

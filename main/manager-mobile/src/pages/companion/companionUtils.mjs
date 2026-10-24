@@ -260,3 +260,72 @@ export function isLastPageOn(pages, key) {
   const all = robotPages(pages)
   return all[key] && ROBOT_PAGES.filter(k => all[k]).length === 1
 }
+
+// Screen timeouts (settings.display): minutes without touch or talk before the OLED dims / turns off; 0 = never.
+export const DISPLAY_DEFAULTS = { dim_after_min: 3, off_after_min: 20 }
+export const DISPLAY_MAX = { dim_after_min: 120, off_after_min: 600 }
+export const DIM_PRESETS = [0, 1, 3, 5, 10, 20, 30, 60]
+export const OFF_PRESETS = [0, 5, 10, 20, 30, 60, 120, 240]
+/** Night light (settings.night.light_minutes): 0 = until the night ends (1 hour when started by hand) */
+export const NIGHT_LIGHT_MAX = 600
+export const NIGHT_LIGHT_PRESETS = [0, 15, 30, 45, 60, 90, 120]
+
+/**
+ * True for a whole number of minutes in 0..max.
+ * @param {unknown} value
+ * @param {number} max
+ * @returns {boolean} whether the value is valid
+ */
+export function isMinutes(value, max) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max
+}
+
+/**
+ * The display timeouts with defaults for missing or invalid values.
+ * @param {{ dim_after_min?: number, off_after_min?: number } | null | undefined} display
+ * @returns {{ dim_after_min: number, off_after_min: number }} complete settings
+ */
+export function displaySettings(display) {
+  const source = display && typeof display === 'object' ? display : {}
+  return {
+    dim_after_min: isMinutes(source.dim_after_min, DISPLAY_MAX.dim_after_min) ? /** @type {number} */ (source.dim_after_min) : DISPLAY_DEFAULTS.dim_after_min,
+    off_after_min: isMinutes(source.off_after_min, DISPLAY_MAX.off_after_min) ? /** @type {number} */ (source.off_after_min) : DISPLAY_DEFAULTS.off_after_min,
+  }
+}
+
+/**
+ * What is wrong with the display timeouts: '' (fine), 'dimRange', 'offRange', or 'offBeforeDim'
+ * (the screen would turn off before it dims).
+ * @param {{ dim_after_min?: number, off_after_min?: number }} display
+ * @returns {'' | 'dimRange' | 'offRange' | 'offBeforeDim'} the problem
+ */
+export function displayProblem(display) {
+  const d = display || {}
+  if (!isMinutes(d.dim_after_min, DISPLAY_MAX.dim_after_min))
+    return 'dimRange'
+  if (!isMinutes(d.off_after_min, DISPLAY_MAX.off_after_min))
+    return 'offRange'
+  const dim = /** @type {number} */ (d.dim_after_min)
+  const off = /** @type {number} */ (d.off_after_min)
+  if (dim > 0 && off > 0 && off <= dim)
+    return 'offBeforeDim'
+  return ''
+}
+
+/**
+ * The robot's volume from a companion view: what it last reported (stats.volume), else the
+ * volume the app asked for (settings.volume), else null.
+ * @param {{ stats?: { volume?: number | null }, settings?: { volume?: number | null } } | null | undefined} view
+ * @returns {number | null} percent
+ */
+export function companionVolume(view) {
+  /** @param {unknown} value */
+  const percent = (value) => {
+    if (value === null || value === undefined || value === '')
+      return null
+    const n = Number(value)
+    return Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n) : null
+  }
+  const reported = percent(view?.stats?.volume)
+  return reported !== null ? reported : percent(view?.settings?.volume)
+}

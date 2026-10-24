@@ -29,7 +29,7 @@ function makeVm({ query = { deviceId: 'dev1', agentId: 'agent1' }, tools = {} } 
     },
     ota: { uploadAssetsBin: vi.fn(() => Promise.resolve('http://server/xiaozhi/otaMag/download/abc')) },
   };
-  const component = new Function('Api', 'HeaderBar', 'VersionFooter', 'utils', prelude + script)(Api, {}, {}, utils);
+  const component = new Function('Api', 'HeaderBar', 'VersionFooter', 'TinyBotLook', 'utils', prelude + script)(Api, {}, {}, {}, utils);
   const vm = new Vue({
     ...component,
     mixins: [{

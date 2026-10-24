@@ -5,12 +5,21 @@ import {
   agoParts,
   asciiLabel,
   clampInt,
+  companionVolume,
   describeDays,
+  DIM_PRESETS,
+  DISPLAY_DEFAULTS,
+  displayProblem,
+  displaySettings,
   hasDay,
   isHHMM,
   isLastPageOn,
+  isMinutes,
   newReminder,
   nextPrayer,
+  NIGHT_LIGHT_MAX,
+  NIGHT_LIGHT_PRESETS,
+  OFF_PRESETS,
   removeById,
   ROBOT_PAGES,
   robotPages,
@@ -104,4 +113,24 @@ test('robot pages helpers', () => {
   assert.equal(isLastPageOn(one, 'bond'), true)
   assert.equal(isLastPageOn(one, 'clock'), false)
   assert.equal(isLastPageOn({}, 'clock'), false)
+})
+
+test('display, night light and volume helpers', () => {
+  assert.deepEqual(displaySettings(undefined), DISPLAY_DEFAULTS)
+  assert.deepEqual(displaySettings({ dim_after_min: 0, off_after_min: 600 }), { dim_after_min: 0, off_after_min: 600 })
+  assert.deepEqual(displaySettings({ dim_after_min: 121, off_after_min: 2.5 }), DISPLAY_DEFAULTS)
+  assert.equal(isMinutes(600, NIGHT_LIGHT_MAX), true)
+  assert.equal(isMinutes(601, NIGHT_LIGHT_MAX), false)
+  assert.equal(displayProblem({ dim_after_min: 3, off_after_min: 20 }), '')
+  assert.equal(displayProblem({ dim_after_min: 10, off_after_min: 0 }), '')
+  assert.equal(displayProblem({ dim_after_min: 10, off_after_min: 5 }), 'offBeforeDim')
+  assert.equal(displayProblem({ dim_after_min: -1, off_after_min: 5 }), 'dimRange')
+  assert.equal(displayProblem({ dim_after_min: 1, off_after_min: 700 }), 'offRange')
+  assert.equal(DIM_PRESETS.includes(DISPLAY_DEFAULTS.dim_after_min), true)
+  assert.equal(OFF_PRESETS.includes(DISPLAY_DEFAULTS.off_after_min), true)
+  assert.equal(NIGHT_LIGHT_PRESETS[0], 0)
+  assert.equal(companionVolume({ stats: { volume: 100 }, settings: { volume: 50 } }), 100)
+  assert.equal(companionVolume({ stats: {}, settings: { volume: 50 } }), 50)
+  assert.equal(companionVolume({ stats: { volume: null }, settings: { volume: null } }), null)
+  assert.equal(companionVolume(null), null)
 })

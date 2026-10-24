@@ -1,15 +1,27 @@
 <script lang="ts" setup>
-import type { RobotPage } from '@/api/companion'
-import { computed, ref, watch } from 'vue'
+import type { DisplaySettings, RobotPage } from '@/api/companion'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { t } from '@/i18n'
-import { isLastPageOn, ROBOT_PAGES, robotPages } from '../companionUtils.mjs'
+import { toast } from '@/utils/toast'
+import {
+  companionVolume,
+  DIM_PRESETS,
+  DISPLAY_MAX,
+  displayProblem,
+  displaySettings,
+  isLastPageOn,
+  OFF_PRESETS,
+  ROBOT_PAGES,
+  robotPages,
+} from '../companionUtils.mjs'
 import { useCompanion } from './context'
+import MinutesChips from './MinutesChips.vue'
 
 defineOptions({
   name: 'CompanionRobotPanel',
 })
 
-const { dev, save } = useCompanion()
+const { dev, save, reload } = useCompanion()
 
 // name and owner name: local drafts that follow the server until edited
 const name = ref('')
@@ -41,8 +53,30 @@ watch(() => [dev.value?.settings?.volume, dev.value?.stats?.volume], ([v, report
   volume.value = (v ?? reported ?? 70) as number
 }, { immediate: true })
 
+// the robot's real speaker volume as it last reported it
+const robotNow = computed(() => companionVolume({ stats: dev.value?.stats }))
+const robotNowText = computed(() => robotNow.value === null
+  ? t('companion.sound.robotNowUnknown')
+  : t('companion.sound.robotNow', { n: robotNow.value }))
+
+function volumeSavedText(v: number) {
+  return dev.value?.online === false
+    ? t('companion.robot.volumeSetOffline', { n: v })
+    : t('companion.robot.volumeSet', { n: v })
+}
+
+// TinyBot reports its new volume right after changing it: show it before the next poll
+let reloadTimer: ReturnType<typeof setTimeout> | undefined
+function reloadSoon() {
+  clearTimeout(reloadTimer)
+  reloadTimer = setTimeout(() => reload(), 1500)
+}
+onBeforeUnmount(() => clearTimeout(reloadTimer))
+
 async function setFromPhone(on: boolean) {
-  await save({ settings: { volume: on ? volume.value : null } })
+  const ok = await save({ settings: { volume: on ? volume.value : null } }, on ? volumeSavedText(volume.value) : undefined)
+  if (ok && on)
+    reloadSoon()
 }
 
 async function onVolumeEnd(value: unknown) {
@@ -50,7 +84,46 @@ async function onVolumeEnd(value: unknown) {
   if (!Number.isFinite(v))
     return
   volume.value = v
-  await save({ settings: { volume: v } }, t('companion.robot.volumeSet', { n: v }))
+  if (await save({ settings: { volume: v } }, volumeSavedText(v)))
+    reloadSoon()
+}
+
+// display timeouts: a draft that follows the server until edited, saved with the button
+const display = ref<DisplaySettings>(displaySettings(undefined))
+const displayDirty = ref(false)
+const savingDisplay = ref(false)
+const dimChips = ref<{ reset: () => void } | null>(null)
+const offChips = ref<{ reset: () => void } | null>(null)
+watch(() => dev.value?.settings?.display, (d) => {
+  if (!displayDirty.value)
+    display.value = displaySettings(d)
+}, { immediate: true, deep: true })
+
+function setDisplay(key: keyof DisplaySettings, value: number) {
+  display.value = { ...display.value, [key]: value }
+  const saved = displaySettings(dev.value?.settings?.display)
+  displayDirty.value = saved.dim_after_min !== display.value.dim_after_min || saved.off_after_min !== display.value.off_after_min
+}
+
+function revertDisplay() {
+  displayDirty.value = false
+  display.value = displaySettings(dev.value?.settings?.display)
+  dimChips.value?.reset()
+  offChips.value?.reset()
+}
+
+async function saveDisplay() {
+  const problem = displayProblem(display.value)
+  if (problem) {
+    const max = problem === 'dimRange' ? DISPLAY_MAX.dim_after_min : DISPLAY_MAX.off_after_min
+    toast.warning(t(`companion.display.${problem}`, { max }))
+    return
+  }
+  savingDisplay.value = true
+  const ok = await save({ settings: { display: { ...display.value } } })
+  savingDisplay.value = false
+  if (ok)
+    displayDirty.value = false
 }
 
 async function setSounds(on: boolean) {
@@ -121,6 +194,9 @@ async function setPage(key: RobotPage, on: boolean) {
               {{ fromPhone ? `${volume}%` : t('companion.sound.auto') }}
             </view>
           </view>
+          <view class="nx-num robot__now" aria-live="polite">
+            {{ robotNowText }}
+          </view>
           <wd-slider
             v-model="volume"
             :min="0"
@@ -141,6 +217,51 @@ async function setPage(key: RobotPage, on: boolean) {
       </view>
       <view class="nx-group__footer nx-mono nx-break">
         {{ t('companion.robot.id', { id: dev.id }) }}
+      </view>
+    </view>
+
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.display.title') }}
+      </view>
+      <view class="nx-group__body">
+        <view class="nx-row robot__minutes">
+          <view class="nx-row__title">
+            {{ t('companion.display.dimAfter') }}
+          </view>
+          <MinutesChips
+            ref="dimChips"
+            :model-value="display.dim_after_min"
+            :presets="DIM_PRESETS"
+            :max="DISPLAY_MAX.dim_after_min"
+            :zero-label="t('companion.display.never')"
+            @update:model-value="(v: number) => setDisplay('dim_after_min', v)"
+          />
+        </view>
+        <view class="nx-row robot__minutes">
+          <view class="nx-row__title">
+            {{ t('companion.display.offAfter') }}
+          </view>
+          <MinutesChips
+            ref="offChips"
+            :model-value="display.off_after_min"
+            :presets="OFF_PRESETS"
+            :max="DISPLAY_MAX.off_after_min"
+            :zero-label="t('companion.display.never')"
+            @update:model-value="(v: number) => setDisplay('off_after_min', v)"
+          />
+        </view>
+      </view>
+      <view class="nx-group__footer">
+        {{ t('companion.display.hint') }}
+      </view>
+      <view class="robot__save robot__save-row">
+        <wd-button v-if="displayDirty" type="info" @click="revertDisplay">
+          {{ t('companion.revert') }}
+        </wd-button>
+        <wd-button block :loading="savingDisplay" :disabled="!displayDirty" @click="saveDisplay">
+          {{ t('companion.save') }}
+        </wd-button>
       </view>
     </view>
 
@@ -207,6 +328,22 @@ async function setPage(key: RobotPage, on: boolean) {
 
   &__muted {
     color: var(--nx-text-3);
+  }
+
+  &__now {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+
+  &__minutes {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--nx-space-2);
+  }
+
+  &__save-row {
+    display: flex;
+    gap: var(--nx-space-2);
   }
 
   &__hint {

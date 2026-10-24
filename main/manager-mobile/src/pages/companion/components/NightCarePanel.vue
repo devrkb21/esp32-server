@@ -2,8 +2,9 @@
 import type { CareSettings, NightSettings } from '@/api/companion'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { t } from '@/i18n'
-import { clampInt, isHHMM } from '../companionUtils.mjs'
+import { clampInt, isHHMM, isMinutes, NIGHT_LIGHT_MAX, NIGHT_LIGHT_PRESETS } from '../companionUtils.mjs'
 import { useCompanion } from './context'
+import MinutesChips from './MinutesChips.vue'
 
 defineOptions({
   name: 'CompanionNightCarePanel',
@@ -40,6 +41,27 @@ function onTime(key: 'start' | 'end', value: unknown) {
   if (isHHMM(value) && value !== night.value[key])
     setNight({ [key]: value })
 }
+
+// night light timeout: 0 = until the night ends (1 hour when started by hand)
+const lightMinutes = ref(0)
+let lightEditing = false
+watch(() => night.value.light_minutes, (v) => {
+  if (!lightEditing)
+    lightMinutes.value = isMinutes(v, NIGHT_LIGHT_MAX) ? v as number : 0
+}, { immediate: true })
+
+let lightTimer: ReturnType<typeof setTimeout> | undefined
+function onLightMinutes(value: number) {
+  lightMinutes.value = value
+  lightEditing = true
+  clearTimeout(lightTimer)
+  lightTimer = setTimeout(async () => {
+    if (isMinutes(value, NIGHT_LIGHT_MAX) && value !== night.value.light_minutes)
+      await setNight({ light_minutes: value })
+    lightEditing = false
+  }, 700)
+}
+onBeforeUnmount(() => clearTimeout(lightTimer))
 
 // start night mode now (until the end time) or end tonight's early
 const nightBusy = ref('')
@@ -117,6 +139,21 @@ onBeforeUnmount(() => clearTimeout(lonelyTimer))
           </view>
           <wd-switch :model-value="!!night[item.key]" size="22px" @change="({ value }) => setNight({ [item.key]: !!value })" />
         </view>
+        <view class="nx-row night__minutes">
+          <view class="nx-row__title">
+            {{ t('companion.night.lightFor') }}
+          </view>
+          <MinutesChips
+            :model-value="lightMinutes"
+            :presets="NIGHT_LIGHT_PRESETS"
+            :max="NIGHT_LIGHT_MAX"
+            :zero-label="t('companion.night.lightUntilMorning')"
+            @update:model-value="onLightMinutes"
+          />
+          <view class="nx-row__subtitle">
+            {{ t('companion.night.lightForHint') }}
+          </view>
+        </view>
       </view>
       <view class="night__now">
         <wd-button block type="info" :loading="nightBusy === 'on'" :disabled="nightBusy === 'off'" @click="nightNow('on')">
@@ -166,6 +203,12 @@ onBeforeUnmount(() => clearTimeout(lonelyTimer))
 
   &__muted {
     color: var(--nx-text-3);
+  }
+
+  &__minutes {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--nx-space-2);
   }
 
   &__now {

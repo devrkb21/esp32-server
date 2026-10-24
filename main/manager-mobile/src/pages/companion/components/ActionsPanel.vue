@@ -13,14 +13,14 @@ const { dev, command } = useCompanion()
 const topic = ref('')
 const busy = ref('')
 
-/** `icon` is a wot-design-uni icon name */
-const actions: { type: CommandType, arg: string, icon: string, label: string }[] = [
+/** `icon` is a wot-design-uni icon name; `focus` = starts the Focus timer with its saved work minutes */
+const actions: { type: CommandType, arg: string, icon: string, label: string, focus?: boolean }[] = [
   { type: 'lullaby', arg: '', icon: 'sound', label: 'companion.act.lullaby' },
   { type: 'ring', arg: '', icon: 'notification', label: 'companion.act.ring' },
   { type: 'breathe', arg: '', icon: 'heart', label: 'companion.act.breathe' },
   { type: 'night_light', arg: 'on', icon: 'star-filled', label: 'companion.act.lightOn' },
   { type: 'night_light', arg: 'off', icon: 'star', label: 'companion.act.lightOff' },
-  { type: 'pomodoro', arg: '', icon: 'time', label: 'companion.act.focus' },
+  { type: 'pomodoro', arg: '', icon: 'time', label: 'companion.act.focus', focus: true },
   { type: 'stop', arg: '', icon: 'pause-circle', label: 'companion.act.stop' },
 ]
 
@@ -30,6 +30,16 @@ const games: { name: GameName, icon: string }[] = [
   { name: 'dice', icon: 'view-module' },
   { name: 'reaction', icon: 'tips' },
 ]
+
+// work minutes the Focus timer starts with (Focus timer settings)
+const focusMinutes = computed(() => {
+  const work = Number(dev.value?.pomodoro?.work_min)
+  return work > 0 ? work : 25
+})
+
+function argOf(a: { arg: string, focus?: boolean }) {
+  return a.focus ? String(focusMinutes.value) : a.arg
+}
 
 const recent = computed(() => (dev.value?.commands || []).slice(0, 8))
 
@@ -65,17 +75,22 @@ function commandText(c: CompanionCommand) {
           v-for="a in actions"
           :key="`${a.type}-${a.arg}`"
           class="actions__tile"
-          :class="{ 'is-busy': busy === `${a.type}:${a.arg}` }"
+          :class="{ 'is-busy': busy === `${a.type}:${argOf(a)}` }"
           role="button"
-          :aria-label="t(a.label)"
-          @click="run(a.type, a.arg)"
+          :aria-label="a.focus ? `${t(a.label)}, ${t('companion.act.focusMinutes', { n: focusMinutes })}` : t(a.label)"
+          @click="run(a.type, argOf(a), a.focus ? t('companion.focus.started') : undefined)"
         >
           <view class="nx-icon-tile actions__icon">
-            <wd-loading v-if="busy === `${a.type}:${a.arg}`" size="18px" />
+            <wd-loading v-if="busy === `${a.type}:${argOf(a)}`" size="18px" />
             <wd-icon v-else :name="a.icon" size="22px" />
           </view>
-          <view class="actions__label">
-            {{ t(a.label) }}
+          <view class="actions__text">
+            <view class="actions__label">
+              {{ t(a.label) }}
+            </view>
+            <view v-if="a.focus" class="nx-num actions__sub">
+              {{ t('companion.act.focusMinutes', { n: focusMinutes }) }}
+            </view>
           </view>
         </view>
       </view>
@@ -188,6 +203,19 @@ function commandText(c: CompanionCommand) {
     font-weight: 600;
     line-height: 1.3;
     color: var(--nx-text);
+    overflow-wrap: anywhere;
+  }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4rpx;
+    min-width: 0;
+  }
+
+  &__sub {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
     overflow-wrap: anywhere;
   }
 
