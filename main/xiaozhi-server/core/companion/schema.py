@@ -191,6 +191,43 @@ LOOK_CHOICES = {
 LOOK_RANGES = {"size": (75, 125), "spacing": (-10, 10), "height": (-6, 6)}
 
 
+# TinyBot's day (firmware daily_life.cc): what it is busy with while nobody plays with it
+ACTIVITIES = ("exercise", "boxing", "breakfast", "lunch", "dinner", "newspaper", "chat", "work",
+              "nap", "tea", "art", "tv", "book")
+MAX_ROUTINE = 24
+
+
+def default_routine() -> Dict[str, Any]:
+    items = [
+        ("08:00", "08:15", "exercise"), ("08:15", "08:30", "boxing"), ("08:30", "09:00", "breakfast"),
+        ("09:00", "09:20", "newspaper"), ("09:20", "09:30", "chat"), ("09:30", "11:00", "work"),
+        ("11:40", "12:00", "chat"), ("13:00", "13:30", "lunch"), ("13:30", "14:00", "nap"),
+        ("14:00", "15:30", "work"), ("15:30", "16:00", "tea"), ("17:00", "18:00", "art"),
+        ("18:30", "19:00", "dinner"), ("19:00", "20:00", "tv"), ("20:00", "21:00", "book"),
+    ]
+    return {"enabled": True, "items": [{"start": a, "end": b, "activity": c} for a, b, c in items]}
+
+
+def routine_items(value: Any, field: str) -> List[Dict[str, str]]:
+    if not isinstance(value, list):
+        raise ValidationError(f"{field} must be a list")
+    if len(value) > MAX_ROUTINE:
+        raise ValidationError(f"{field} has more than {MAX_ROUTINE} items")
+    out = []
+    for i, item in enumerate(value):
+        f = f"{field}[{i}]"
+        if not isinstance(item, dict):
+            raise ValidationError(f"{f} must be an object")
+        start, end = hhmm(item.get("start"), f + ".start"), hhmm(item.get("end"), f + ".end")
+        if start == end:
+            raise ValidationError(f"{f} must not start and end at the same time")
+        act = item.get("activity")
+        if act not in ACTIVITIES:
+            raise ValidationError(f"{f}.activity must be one of {', '.join(ACTIVITIES)}")
+        out.append({"start": start, "end": end, "activity": act})
+    return sorted(out, key=lambda r: r["start"])
+
+
 def default_display() -> Dict[str, int]:
     # Minutes without touch or talk before the OLED dims / turns off (0 = never)
     return {"dim_after_min": 3, "off_after_min": 20}
@@ -237,6 +274,13 @@ def settings(old: Dict, patch: Any) -> Dict:
                 # or after an hour when started by hand)
                 "light_minutes": lambda v, f: integer(v, 0, 600, f),
             },
+        )
+    if "routine" in patch:
+        out["routine"] = _merge_section(
+            dict(default_routine(), **(old.get("routine") or {})),
+            patch["routine"],
+            "settings.routine",
+            {"enabled": boolean, "items": routine_items},
         )
     if "display" in patch:
         out["display"] = _merge_section(

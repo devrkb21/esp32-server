@@ -93,7 +93,7 @@ class Dialogue:
 
     def get_llm_dialogue_with_memory(
             self, memory_str: str = None, voiceprint_config: dict = None,
-            current_speaker: str = None,
+            current_speaker: str = None, extra_context: str = None,
     ) -> List[Dict[str, str]]:
         # Build dialogue
         dialogue = []
@@ -110,6 +110,10 @@ class Dialogue:
             full_prompt = full_prompt.replace(
                 "{{current_time}}", datetime.now().strftime("%H:%M")
             )
+
+            # Context that changes during the chat (e.g. TinyBot's day)
+            if extra_context:
+                full_prompt += "\n" + extra_context
 
             # Populate memory
             if memory_str is not None:

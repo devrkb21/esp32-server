@@ -55,6 +55,23 @@ def bn_weather(w: Optional[Dict]) -> str:
     return out
 
 
+# How the routine's activities read in the voice chat's system prompt
+ACTIVITY_TEXT = {
+    "exercise": "doing morning exercise with your little dumbbells",
+    "boxing": "boxing practice with your gloves",
+    "breakfast": "having breakfast",
+    "lunch": "having lunch",
+    "dinner": "having dinner",
+    "newspaper": "reading the newspaper",
+    "chat": "chatting with friends on your phone",
+    "work": "working on your laptop",
+    "nap": "taking an afternoon nap",
+    "tea": "having afternoon tea",
+    "art": "painting a picture on your easel",
+    "tv": "watching TV with popcorn",
+    "book": "reading a storybook",
+}
+
 # Longest a device sync may be held open, and how long a message waits for its spoken audio
 LONG_POLL_MAX_S = 25
 MESSAGE_AUDIO_WAIT_S = 15
@@ -218,6 +235,7 @@ class CompanionService:
                 "pages": dict(schema.default_pages(), **(s.get("pages") or {})),
                 "look": dict(schema.default_look(), **(s.get("look") or {})),
                 "display": dict(schema.default_display(), **(s.get("display") or {})),
+                "routine": dict(schema.default_routine(), **(s.get("routine") or {})),
             },
             # The robot may hold its next sync open this long (seconds): see wait_for_news
             "long_poll": LONG_POLL_MAX_S,
@@ -384,6 +402,53 @@ class CompanionService:
             self._push_again.add(device_id)
             return
         self._push_tasks[device_id] = loop.create_task(self._push(device_id))
+
+    # --- TinyBot's day, for the voice chat ---------------------------------------------------
+    def ai_context(self, device_id: str) -> str:
+        """What TinyBot is busy with today (its routine), for the system prompt of the voice chat,
+        so "what are you doing?" or "what did you do today?" get an answer from its own day."""
+        dev = self.store.get((device_id or "").strip().lower())
+        if dev is None:
+            return ""
+        routine = dict(schema.default_routine(), **((dev.get("settings") or {}).get("routine") or {}))
+        if not routine.get("enabled") or not routine.get("items"):
+            return ""
+        now = self.local_now()
+        minute = now.hour * 60 + now.minute
+
+        def mins(hhmm: str) -> int:
+            h, m = hhmm.split(":")
+            return int(h) * 60 + int(m)
+
+        def inside(item) -> bool:
+            a, b = mins(item["start"]), mins(item["end"])
+            return a <= minute < b if a < b else (minute >= a or minute < b)
+
+        items = sorted(routine["items"], key=lambda r: r["start"])
+        current = next((r for r in items if inside(r)), None)
+        done = [r for r in items if mins(r["end"]) <= minute and mins(r["start"]) < mins(r["end"])]
+        later = [r for r in items if mins(r["start"]) > minute][:3]
+        lines = [
+            "<tinybot_day>",
+            "You are TinyBot and you have your own little day: when nobody plays with you, your screen "
+            "shows you busy with your routine (the paws hold the things).",
+        ]
+        if current:
+            lines.append(f"Right now ({now:%H:%M}) you were {ACTIVITY_TEXT[current['activity']]} "
+                         f"(until {current['end']}) and you stopped to talk with your friend.")
+        else:
+            lines.append(f"Right now ({now:%H:%M}) you have free time.")
+        if done:
+            lines.append("Earlier today you: " + "; ".join(
+                f"{r['start']} {ACTIVITY_TEXT[r['activity']]}" for r in done) + ".")
+        if later:
+            lines.append("Later today: " + "; ".join(
+                f"{r['start']} {ACTIVITY_TEXT[r['activity']]}" for r in later) + ".")
+        lines.append("When asked what you are doing or what you did today, answer from this, briefly "
+                     "and in character, and ask back about their day. Do not bring it up on your own "
+                     "every time.")
+        lines.append("</tinybot_day>")
+        return "\n".join(lines)
 
     # --- MQTT push -------------------------------------------------------------------------
     async def mqtt_online(self, dev: Dict) -> bool:
