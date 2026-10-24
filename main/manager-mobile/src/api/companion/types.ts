@@ -95,6 +95,37 @@ export interface FaceLook {
   hands: boolean
 }
 
+/** TinyBot's day (settings.routine): what it is busy with while nobody plays with it */
+export type RoutineActivity
+  = | 'exercise'
+    | 'boxing'
+    | 'breakfast'
+    | 'lunch'
+    | 'dinner'
+    | 'newspaper'
+    | 'chat'
+    | 'work'
+    | 'nap'
+    | 'tea'
+    | 'art'
+    | 'tv'
+    | 'book'
+
+export interface RoutineItem {
+  /** HH:MM */
+  start: string
+  /** HH:MM, != start; earlier than start = crosses midnight */
+  end: string
+  activity: RoutineActivity
+}
+
+export interface RoutineSettings {
+  /** default true */
+  enabled: boolean
+  /** at most 24; the server sorts them by start */
+  items: RoutineItem[]
+}
+
 export interface CompanionSettings {
   /** null = the robot keeps its own volume */
   volume: number | null
@@ -105,6 +136,8 @@ export interface CompanionSettings {
   pages?: RobotPages
   look?: Partial<FaceLook>
   display?: Partial<DisplaySettings>
+  /** missing on older robots: the default day */
+  routine?: Partial<RoutineSettings>
 }
 
 export interface PomodoroConfig {
@@ -170,6 +203,8 @@ export interface CompanionStats {
   pomodoros_today?: number
   last_touch_s?: number
   high_scores?: Record<string, number>
+  /** TinyBot's day: the activity it shows right now ('' = not busy) */
+  activity?: RoutineActivity | ''
 }
 
 export type CompanionEventType
@@ -268,6 +303,8 @@ export interface CompanionConfigPatch {
     pages?: Partial<RobotPages>
     look?: Partial<FaceLook>
     display?: Partial<DisplaySettings>
+    /** `items` replaces the whole list */
+    routine?: Partial<RoutineSettings>
   }
   pomodoro?: Partial<PomodoroConfig>
   /** Replaces the whole list */

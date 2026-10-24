@@ -19,6 +19,7 @@ import { toast } from '@/utils/toast'
 import ActionsPanel from './components/ActionsPanel.vue'
 import AlarmsPanel from './components/AlarmsPanel.vue'
 import { agoText, companionKey, MOOD_EMOJI, moodText, notifyError } from './components/context'
+import DayPanel from './components/DayPanel.vue'
 import FocusPanel from './components/FocusPanel.vue'
 import LookPanel from './components/LookPanel.vue'
 import MessagesPanel from './components/MessagesPanel.vue'
@@ -52,6 +53,7 @@ const tabs = [
   { name: 'prayer', title: 'companion.tab.prayer' },
   { name: 'focus', title: 'companion.tab.focus' },
   { name: 'messages', title: 'companion.tab.messages' },
+  { name: 'day', title: 'companion.tab.day' },
   { name: 'night', title: 'companion.tab.night' },
   { name: 'look', title: 'companion.tab.look' },
   { name: 'robot', title: 'companion.tab.robot' },
@@ -350,6 +352,7 @@ function retry() {
         <PrayerPanel v-else-if="activeTab === 'prayer'" />
         <FocusPanel v-else-if="activeTab === 'focus'" />
         <MessagesPanel v-else-if="activeTab === 'messages'" />
+        <DayPanel v-else-if="activeTab === 'day'" />
         <NightCarePanel v-else-if="activeTab === 'night'" />
         <LookPanel v-else-if="activeTab === 'look'" />
         <RobotPanel v-else-if="activeTab === 'robot'" />

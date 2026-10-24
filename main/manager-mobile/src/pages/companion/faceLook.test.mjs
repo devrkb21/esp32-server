@@ -3,18 +3,33 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  ACTIVITIES,
+  activityAnim,
   countPixels,
   createCanvas,
   createLiveliness,
   defaultLook,
+  defaultRoutine,
+  evaluateLife,
   evaluateMood,
   fillRoundRect,
   getPixel,
   H,
+  LIFE_DURATION,
+  LIFE_STILL_T,
   litBounds,
+  MAX_ROUTINE,
   normalizeLook,
+  normalizeRoutine,
+  renderActivityStill,
   renderFace,
+  renderLife,
   renderMoodStill,
+  routineOverlaps,
+  routinePayload,
+  routineProblem,
+  scheduledActivity,
+  textWidth,
   toSvgDataUri,
   W,
 } from './faceLook.mjs'
@@ -107,4 +122,68 @@ test('hands: hand_k 0 draws no hand; reduced motion still has the paw up', () =>
   const pose = { ...evaluateMood('like', 1), hand_k: 0 }
   assert.deepEqual(lit(renderFace(pose, {})), lit(renderFace({ ...pose, hands: 'none' }, {})))
   assert.notDeepEqual(lit(renderMoodStill('hello', {})), lit(renderMoodStill('hello', { hands: false })))
+})
+
+// ---------------------------------------------------------------- TinyBot's day
+const LIFE_ANIMS = Object.keys(LIFE_DURATION)
+
+test('day: activities map to the firmware animations; meals pick the three foods', () => {
+  assert.equal(ACTIVITIES.length, 13)
+  assert.equal(activityAnim('nap'), 'Sleeping')
+  for (const meal of ['breakfast', 'lunch', 'dinner'])
+    assert.deepEqual([0, 1, 2].map(v => evaluateLife(activityAnim(meal, v), 0).prop), ['bowl', 'sandwich', 'apple'])
+})
+
+test('day: every activity draws under the eyes, which stay up', () => {
+  for (const anim of LIFE_ANIMS) {
+    const c = renderLife(anim, defaultLook(), LIFE_STILL_T[anim])
+    if (anim === 'Sleeping') {
+      assert.ok(countPixels(c, 100, 0, W - 1, H - 1) > 10, 'Zzz')
+      continue
+    }
+    assert.ok(countPixels(c, 0, 36, W - 1, H - 1) > 40, `${anim} prop`)
+    for (let t = 0; t < LIFE_DURATION[anim]; t += 0.25) {
+      const eyes = renderFace({ ...evaluateLife(anim, t), prop: 'none', fx: 0 }, defaultLook())
+      assert.ok(litBounds(eyes).y1 <= 31, `${anim} eyes up at t=${t}`)
+    }
+  }
+})
+
+test('day: hands off draws no paws; the prop replaces the mouth', () => {
+  for (const anim of ['LifeEatSandwich', 'LifeEatApple', 'LifeWork', 'LifeTea']) {
+    const t = LIFE_STILL_T[anim]
+    assert.ok(countPixels(renderLife(anim, { hands: true }, t), 0, H - 1, W - 1, H - 1) > 0, `${anim} arms`)
+    assert.equal(countPixels(renderLife(anim, { hands: false }, t), 0, H - 1, W - 1, H - 1), 0, `${anim} no arms`)
+  }
+  assert.deepEqual(lit(renderActivityStill('work', { mouth: 'smile' })), lit(renderActivityStill('work', {})))
+})
+
+test('day: firmware life eyes Eye(15, 14, 5) at y -9 and the 3x5 text', () => {
+  const p = evaluateLife('LifeExercise', 0)
+  assert.deepEqual([p.l.w, p.l.h, p.l.r, p.l.x, p.l.y], [15, 14, 5, 0, -9])
+  assert.equal(evaluateLife('LifeBoxing', 0).l.x, 4)
+  assert.equal(textWidth('DAILY NEWS'), 39)
+  const c = renderLife('LifeBoxing', {}, 0.3)
+  assert.ok(countPixels(c, 70, 52, 80, 56) > 10, 'POW')
+})
+
+test('pupil rolls with the tilt (look_x / look_y)', () => {
+  const pose = evaluateLife('none', 0) // the neutral eyes (20 x 22)
+  const tilt = (x, y) => renderFace({ ...pose, look_x: x, look_y: y }, { eyes: 'pupil' })
+  assert.equal(getPixel(tilt(0, 0), 49, 33), true)
+  assert.equal(getPixel(tilt(1, 0), 49, 33), false) // pupil 0.24 w to the right
+  assert.equal(getPixel(tilt(0, 0), 40, 44), true)
+  assert.equal(getPixel(tilt(0, 1), 40, 44), false) // and 0.22 h down
+  assert.deepEqual(lit(tilt(3, 0)), lit(tilt(1, 0)))
+})
+
+test('day: routine helpers follow the server', () => {
+  assert.deepEqual(normalizeRoutine(undefined), defaultRoutine())
+  assert.equal(defaultRoutine().items.length, 15)
+  assert.equal(routineProblem(defaultRoutine()), null)
+  assert.deepEqual(routineProblem({ items: [{ start: '09:00', end: '09:00', activity: 'tea' }] }), { code: 'sameTime', index: 0 })
+  assert.equal(routineProblem({ items: Array.from({ length: MAX_ROUTINE + 1 }, () => ({ start: '09:00', end: '10:00', activity: 'tea' })) }).code, 'tooMany')
+  assert.deepEqual(routineOverlaps([{ start: '23:00', end: '01:00', activity: 'tv' }, { start: '00:30', end: '02:00', activity: 'book' }]), [[0, 1]])
+  assert.equal(scheduledActivity(defaultRoutine(), 13 * 60 + 45), 'nap')
+  assert.deepEqual(routinePayload({ enabled: true, items: [{ start: '9:00', end: '10:00', activity: 'work' }, { start: '08:00', end: '08:30', activity: 'tea' }] }).items.map(i => i.start), ['08:00', '09:00'])
 })

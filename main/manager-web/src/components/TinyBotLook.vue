@@ -27,9 +27,17 @@
     <div class="tl-layout">
       <!-- ============================================================ Preview -->
       <div class="tl-preview">
-        <div class="tl-oled">
-          <canvas ref="oled" class="tl-oled__screen" :width="W * SCALE" :height="H * SCALE" role="img"
-            :aria-label="$t('look.previewAlt', { mood: $t('look.mood.' + mood) })"></canvas>
+        <div class="tl-screens">
+          <!-- Simulated: drawn here from the settings being edited -->
+          <div class="tl-sim">
+            <h3 class="tl-screen-label">{{ $t('look.previewLabel') }}</h3>
+            <div class="tl-oled">
+              <canvas ref="oled" class="tl-oled__screen" :width="W * SCALE" :height="H * SCALE" role="img"
+                :aria-label="$t('look.previewAlt', { mood: $t('look.mood.' + mood) })"></canvas>
+            </div>
+          </div>
+          <!-- Real: what the robot shows right now (saved settings) -->
+          <TinyBotLiveScreen v-if="deviceId" compact :device-id="deviceId" />
         </div>
         <div class="nx-segmented tl-moods" role="radiogroup" :aria-label="$t('look.moodLabel')">
           <button v-for="m in moods" :key="m" type="button" role="radio" :aria-checked="mood === m ? 'true' : 'false'"
@@ -152,6 +160,7 @@
 
 <script>
 import Api from '@/apis/api';
+import TinyBotLiveScreen from '@/components/TinyBotLiveScreen.vue';
 import {
   H,
   LOOK_CHOICES,
@@ -176,6 +185,7 @@ const PIXEL_OFF = '#06080b';
 
 export default {
   name: 'TinyBotLook',
+  components: { TinyBotLiveScreen },
   props: {
     deviceId: { type: String, default: '' },
   },
@@ -365,6 +375,30 @@ export default {
   flex-direction: column;
   gap: var(--nx-space-3);
   min-width: 0;
+}
+
+.tl-screens {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--nx-space-4);
+  align-items: start;
+}
+
+.tl-sim {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-3);
+  min-width: 0;
+}
+
+// Same size as the live screen's compact title, so the two screens line up
+.tl-screen-label {
+  margin: 0;
+  min-height: 22px;
+  font-size: var(--nx-text-callout);
+  font-weight: 600;
+  line-height: 22px;
+  color: var(--nx-text);
 }
 
 .tl-oled {

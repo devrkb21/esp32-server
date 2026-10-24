@@ -5,6 +5,7 @@ import { getCompanionEvents } from '@/api/companion'
 import { t } from '@/i18n'
 import { nextPrayer } from '../companionUtils.mjs'
 import { agoText, notifyError, useCompanion, WEATHER_EMOJI } from './context'
+import LiveScreen from './LiveScreen.vue'
 
 defineOptions({
   name: 'CompanionStatusPanel',
@@ -102,6 +103,9 @@ function eventText(e: CompanionEvent): string {
 
 <template>
   <view v-if="dev">
+    <!-- The robot's real screen (self.screen.preview), polled while shown -->
+    <LiveScreen :device-id="deviceId" />
+
     <!-- Today: weather and next prayer -->
     <view class="nx-group">
       <view class="nx-group__body">

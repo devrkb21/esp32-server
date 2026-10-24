@@ -89,6 +89,10 @@
             <transition name="nx-fade" mode="out-in">
               <!-- ============================================================ Status -->
               <section v-if="activeTab === 'status'" key="status" class="cm-section">
+                <!-- The robot's real screen (self.screen.preview), polled while visible -->
+                <article class="nx-card cm-live">
+                  <TinyBotLiveScreen :device-id="deviceId" />
+                </article>
                 <div class="cm-tiles">
                   <div class="nx-card cm-tile">
                     <span class="nx-stat__label">{{ tx('companion.status.mood', 'Mood') }}</span>
@@ -486,6 +490,94 @@
                 </article>
               </section>
 
+              <!-- ============================================================ TinyBot's day -->
+              <section v-else-if="activeTab === 'day'" key="day" class="cm-section cm-grid cm-grid--day">
+                <article class="nx-card nx-card--flush">
+                  <header class="cm-card-head">
+                    <div class="cm-min">
+                      <h2 class="nx-headline">{{ $t('companion.routine.title') }}</h2>
+                      <p class="nx-caption nx-num">{{ tx('companion.countOf', '{n} of {max}', { n: forms.routine.items.length, max: maxRoutine }) }}</p>
+                    </div>
+                    <el-button type="primary" icon="el-icon-plus" :disabled="forms.routine.items.length >= maxRoutine"
+                      @click="openDayItem(-1)">{{ $t('companion.routine.add') }}</el-button>
+                  </header>
+                  <div class="cm-day-intro">
+                    <p class="cm-help">{{ $t('companion.routine.desc') }}</p>
+                    <div class="cm-settings">
+                      <div class="cm-setting">
+                        <span class="cm-setting__text">
+                          <span>{{ $t('companion.routine.enabled') }}</span>
+                          <span v-if="!forms.routine.enabled" class="cm-help">{{ $t('companion.routine.offNote') }}</span>
+                        </span>
+                        <el-switch v-model="forms.routine.enabled" :aria-label="$t('companion.routine.enabled')" />
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="!forms.routine.items.length" class="nx-empty cm-empty-sm">
+                    <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-coffee-cup"></i></span>
+                    <h3 class="nx-empty__title">{{ $t('companion.routine.empty') }}</h3>
+                    <p class="nx-empty__text">{{ $t('companion.routine.emptyText') }}</p>
+                  </div>
+                  <ul v-else class="cm-rows" :class="{ 'is-off': !forms.routine.enabled }">
+                    <li v-for="(item, i) in forms.routine.items" :key="i + '-' + item.start + '-' + item.activity"
+                      class="cm-alarm cm-day-row" :class="{ 'is-now': i === dayNowIndex, 'is-shown': item.activity === previewActivity }">
+                      <button type="button" class="cm-alarm__main cm-day-row__main" :aria-pressed="item.activity === previewActivity ? 'true' : 'false'"
+                        :title="$t('companion.routine.showPreview')" @click="dayPreview = item.activity">
+                        <span class="cm-day-row__time nx-num">
+                          {{ item.start }}<span class="cm-day-row__dash" aria-hidden="true">–</span>{{ item.end }}
+                        </span>
+                        <span class="cm-day-row__icon" aria-hidden="true">{{ activityIcons[item.activity] }}</span>
+                        <span class="cm-alarm__body">
+                          <span class="cm-alarm__label nx-truncate">{{ activityName(item.activity) }}</span>
+                          <span class="cm-alarm__meta">
+                            {{ durationText(item) }}
+                            <span v-if="dayOverlapRows[i]" class="cm-day-row__warn">· {{ $t('companion.routine.overlapShort') }}</span>
+                          </span>
+                        </span>
+                        <span v-if="i === dayNowIndex && forms.routine.enabled" class="nx-badge nx-badge--success">{{ $t('companion.routine.now') }}</span>
+                      </button>
+                      <div class="cm-row-actions">
+                        <button type="button" class="nx-icon-btn" :aria-label="$t('companion.routine.edit')" @click="openDayItem(i)">
+                          <i class="el-icon-edit" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="nx-icon-btn nx-icon-btn--danger" :aria-label="$t('companion.routine.remove')" @click="removeDayItem(i)">
+                          <i class="el-icon-delete" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    </li>
+                  </ul>
+                  <div class="cm-day-notes">
+                    <div v-for="pair in dayOverlaps" :key="'o' + pair[0] + '-' + pair[1]" class="cm-banner cm-banner--warning" role="status">
+                      <i class="el-icon-warning-outline" aria-hidden="true"></i>
+                      <span class="cm-banner__text">{{ overlapText(pair) }}</span>
+                    </div>
+                    <p class="nx-footnote">{{ $t('companion.routine.note') }}</p>
+                    <p class="nx-footnote">{{ $t('companion.routine.voiceNote') }}</p>
+                  </div>
+                  <footer class="nx-card__footer cm-day-foot">
+                    <el-button type="text" icon="el-icon-refresh-left" class="cm-day-foot__reset" :disabled="isDefaultDay"
+                      @click="resetDay">{{ $t('companion.routine.reset') }}</el-button>
+                    <span v-if="isDirty('routine')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('routine')" type="text" @click="revertSection('routine')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
+                    <el-button type="primary" :disabled="!isDirty('routine')" :loading="saving.routine"
+                      @click="saveSection('routine')">{{ $t('companion.save') }}</el-button>
+                  </footer>
+                </article>
+
+                <article class="nx-card cm-day-preview">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.routine.previewTitle') }}</h2>
+                  </header>
+                  <p v-if="stats.activity" class="cm-chip cm-day-now" role="status">
+                    <span aria-hidden="true">{{ activityIcons[stats.activity] || '•' }}</span>
+                    {{ $t('companion.routine.nowDoing', { activity: activityName(stats.activity) }) }}
+                  </p>
+                  <p class="cm-help cm-day-scheduled">{{ dayScheduledText }}</p>
+                  <TinyBotDayPreview :value="previewActivity" :look="dev.settings && dev.settings.look"
+                    :now-activity="dayNowActivity" @input="(a) => dayPreview = a" />
+                </article>
+              </section>
+
               <!-- ============================================================ Night & care -->
               <section v-else-if="activeTab === 'night'" key="night" class="cm-section cm-grid">
                 <article class="nx-card">
@@ -822,6 +914,37 @@
       </span>
     </el-dialog>
 
+    <!-- TinyBot's day: one activity -->
+    <el-dialog :title="dayDialog.index < 0 ? $t('companion.routine.add') : $t('companion.routine.edit')"
+      :visible.sync="dayDialog.visible" :width="dialogWidth" top="0" :append-to-body="true"
+      :close-on-click-modal="false" class="cm-dialog" custom-class="cm-sheet">
+      <el-form v-if="dayDialog.form" label-position="top" @submit.native.prevent>
+        <div class="cm-times">
+          <el-form-item :label="$t('companion.routine.start')">
+            <el-time-picker v-model="dayDialog.form.start" value-format="HH:mm" format="HH:mm" :clearable="false"
+              class="cm-time-input" />
+          </el-form-item>
+          <i class="el-icon-right cm-times__arrow" aria-hidden="true"></i>
+          <el-form-item :label="$t('companion.routine.end')">
+            <el-time-picker v-model="dayDialog.form.end" value-format="HH:mm" format="HH:mm" :clearable="false"
+              class="cm-time-input" />
+          </el-form-item>
+        </div>
+        <p v-if="dayDialogProblem" class="cm-day-error" role="alert">{{ dayDialogProblem }}</p>
+        <p v-else-if="dayDialogNextDay" class="cm-help">{{ $t('companion.routine.nextDayHint') }}</p>
+        <el-form-item :label="$t('companion.routine.activityLabel')">
+          <el-select v-model="dayDialog.form.activity" class="cm-day-select" :aria-label="$t('companion.routine.activityLabel')">
+            <el-option v-for="a in activities" :key="a" :value="a" :label="activityIcons[a] + '  ' + activityName(a)" />
+          </el-select>
+          <div v-if="isMealActivity(dayDialog.form.activity)" class="cm-help">{{ $t('companion.routine.mealHint') }}</div>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="cm-sheet__footer">
+        <el-button @click="dayDialog.visible = false">{{ $t('button.cancel') }}</el-button>
+        <el-button type="primary" :disabled="!!dayDialogProblem" @click="applyDayItem">{{ $t('companion.routine.apply') }}</el-button>
+      </span>
+    </el-dialog>
+
     <!-- Reminder sheet -->
     <el-dialog :title="reminderDialog.isNew ? $t('companion.reminder.add') : $t('companion.reminder.edit')"
       :visible.sync="reminderDialog.visible" :width="dialogWidth" top="0" :append-to-body="true"
@@ -908,7 +1031,11 @@
 import Api from '@/apis/api';
 import HeaderBar from '@/components/HeaderBar.vue';
 import VersionFooter from '@/components/VersionFooter.vue';
+import TinyBotDayPreview from '@/components/TinyBotDayPreview.vue';
+import TinyBotLiveScreen from '@/components/TinyBotLiveScreen.vue';
 import {
+  ACTIVITIES,
+  ACTIVITY_ICON,
   DAY_PRESETS,
   DIM_PRESETS,
   DISPLAY_DEFAULTS,
@@ -919,6 +1046,7 @@ import {
   MAX_MESSAGE,
   MAX_NAME,
   MAX_REMINDERS,
+  MAX_ROUTINE,
   MAX_SAY,
   NIGHT_LIGHT_MAX,
   NIGHT_LIGHT_PRESETS,
@@ -931,6 +1059,7 @@ import {
   asciiLabel,
   daysOf,
   daysPreset,
+  defaultRoutine,
   displayProblem,
   displaySettings,
   formatClock,
@@ -940,27 +1069,40 @@ import {
   isMinutes,
   isTime,
   messageStatus,
+  minuteOfDay,
   newAlarm,
   newReminder,
+  newRoutineItem,
   nextPrayer,
+  normalizeRoutine,
   presetChoice,
   reminderPayload,
   removeById,
   robotPages,
+  routineItemMinutes,
+  routineItemProblem,
+  routineOverlaps,
+  routinePayload,
+  routineProblem,
+  sameRoutine,
+  scheduledActivity,
   setEnabled,
+  sortRoutine,
   toggleDay,
   upsertById,
 } from '@/utils/companion.mjs';
 
 const REFRESH_MS = 10000;
 const FROM_KEY = 'companion_message_from';
-const FORM_SECTIONS = ['pomodoro', 'night', 'care', 'sound', 'display', 'robot'];
+const FORM_SECTIONS = ['pomodoro', 'routine', 'night', 'care', 'sound', 'display', 'robot'];
 // Minute pickers with presets: which form field each one edits
 const MINUTE_PICKERS = {
   dim: { section: 'display', field: 'dim_after_min', presets: DIM_PRESETS, max: DISPLAY_MAX.dim_after_min },
   off: { section: 'display', field: 'off_after_min', presets: OFF_PRESETS, max: DISPLAY_MAX.off_after_min },
   light: { section: 'night', field: 'light_minutes', presets: NIGHT_LIGHT_PRESETS, max: NIGHT_LIGHT_MAX },
 };
+
+const MEAL_ACTIVITIES = ['breakfast', 'lunch', 'dinner'];
 
 const MOOD_EMOJI = {
   Happy: '😊', Sad: '😢', Sleepy: '😴', Bored: '😐', Excited: '🤩', Angry: '😠', Lonely: '🥺', Love: '🥰', Calm: '🙂',
@@ -980,7 +1122,7 @@ function clone(value) {
 
 export default {
   name: 'CompanionManagement',
-  components: { HeaderBar, VersionFooter },
+  components: { HeaderBar, VersionFooter, TinyBotDayPreview, TinyBotLiveScreen },
   data() {
     return {
       deviceId: this.$route.query.deviceId || '',
@@ -995,6 +1137,7 @@ export default {
       // Editable copies of the config; refreshed from the server only while unchanged.
       forms: {
         pomodoro: {},
+        routine: { enabled: true, items: [] },
         night: {},
         care: {},
         sound: { controlVolume: false, volume: 70, sounds: true },
@@ -1006,11 +1149,17 @@ export default {
       customPick: { dim: false, off: false, light: false },
       minutePickers: MINUTE_PICKERS,
       saving: {
-        pomodoro: false, night: false, care: false, sound: false, display: false, robot: false,
+        pomodoro: false, routine: false, night: false, care: false, sound: false, display: false, robot: false,
         alarms: false, reminders: false, prayer: false, pages: false,
       },
       alarmDialog: { visible: false, isNew: true, form: null },
       reminderDialog: { visible: false, isNew: true, form: null },
+      // TinyBot's day: add / edit one activity (index -1 = new), and the activity in the preview
+      dayDialog: { visible: false, index: -1, form: null },
+      dayPreview: '',
+      activities: ACTIVITIES,
+      activityIcons: ACTIVITY_ICON,
+      maxRoutine: MAX_ROUTINE,
       cityQuery: '',
       cityResults: [],
       citySearching: false,
@@ -1101,6 +1250,7 @@ export default {
         { key: 'prayer', icon: 'el-icon-sunrise', label: 'companion.tab.prayer' },
         { key: 'focus', icon: 'el-icon-timer', label: 'companion.tab.focus' },
         { key: 'messages', icon: 'el-icon-chat-line-round', label: 'companion.tab.messages' },
+        { key: 'day', icon: 'el-icon-coffee-cup', label: 'companion.tab.day' },
         { key: 'night', icon: 'el-icon-moon', label: 'companion.tab.night' },
         { key: 'sound', icon: 'el-icon-headset', label: 'companion.tab.sound' },
         { key: 'actions', icon: 'el-icon-magic-stick', label: 'companion.tab.actions' },
@@ -1135,6 +1285,60 @@ export default {
       return settings.volume !== null && settings.volume !== undefined
         ? this.tx('companion.status.volumeManual', 'Set from here')
         : this.tx('companion.status.volumeAuto', 'Set on the robot');
+    },
+    // ------------------------------------------------------------------ TinyBot's day
+    // Minute of the day on this computer's clock (refreshed with every poll)
+    dayMinute() {
+      const d = new Date(this.now);
+      return d.getHours() * 60 + d.getMinutes();
+    },
+    // What the edited day has scheduled right now ('' = nothing or switched off)
+    dayNowActivity() {
+      return scheduledActivity(this.forms.routine, this.dayMinute);
+    },
+    // Row of that activity (the first one covering now, like the robot)
+    dayNowIndex() {
+      if (!this.dayNowActivity) return -1;
+      const m = this.dayMinute;
+      return this.forms.routine.items.findIndex((item) => {
+        const s = minuteOfDay(item.start);
+        const e = minuteOfDay(item.end);
+        return s < e ? m >= s && m < e : s > e && (m >= s || m < e);
+      });
+    },
+    dayScheduledText() {
+      return this.dayNowActivity
+        ? this.$t('companion.routine.scheduledNow', { activity: this.activityName(this.dayNowActivity) })
+        : this.$t('companion.routine.nothingNow');
+    },
+    // Preview: the picked activity, else what TinyBot shows now, else what is scheduled now
+    previewActivity() {
+      const shown = ACTIVITIES.includes(this.stats.activity) ? this.stats.activity : '';
+      return this.dayPreview || shown || this.dayNowActivity || 'exercise';
+    },
+    dayOverlaps() {
+      return routineOverlaps(this.forms.routine.items);
+    },
+    dayOverlapRows() {
+      const rows = {};
+      this.dayOverlaps.forEach(([a, b]) => { rows[a] = true; rows[b] = true; });
+      return rows;
+    },
+    isDefaultDay() {
+      return sameRoutine(this.forms.routine, { enabled: this.forms.routine.enabled, items: defaultRoutine().items });
+    },
+    dayDialogProblem() {
+      const form = this.dayDialog.form;
+      if (!form) return '';
+      const code = routineItemProblem(form);
+      if (code === 'time') return this.$t('companion.timeRequired');
+      if (code === 'sameTime') return this.$t('companion.routine.sameTime');
+      if (code === 'activity') return this.$t('companion.routine.badActivity');
+      return '';
+    },
+    dayDialogNextDay() {
+      const form = this.dayDialog.form;
+      return !!form && minuteOfDay(form.end) < minuteOfDay(form.start);
     },
     wifiQuality() {
       const rssi = Number(this.stats.rssi);
@@ -1219,6 +1423,9 @@ export default {
       switch (section) {
         case 'pomodoro':
           return clone(dev.pomodoro || {});
+        case 'routine':
+          // missing on older servers and robots: the default day
+          return normalizeRoutine(settings.routine);
         case 'night': {
           const night = clone(settings.night || {});
           // 0 = until the night ends (missing on older servers)
@@ -1276,6 +1483,9 @@ export default {
       switch (section) {
         case 'pomodoro':
           return { pomodoro: { ...form } };
+        case 'routine':
+          // the server replaces the whole list
+          return { settings: { routine: routinePayload(form) } };
         case 'night':
           return { settings: { night: { ...form } } };
         case 'care':
@@ -1301,6 +1511,13 @@ export default {
         if (!isMinutes(form.light_minutes, NIGHT_LIGHT_MAX)) {
           return this.tx('companion.night.lightRange', 'Night light: choose 0 to {max} minutes', { max: NIGHT_LIGHT_MAX });
         }
+      }
+      if (section === 'routine') {
+        const problem = routineProblem(form);
+        if (problem && problem.code === 'tooMany') return this.$t('companion.routine.tooMany', { max: MAX_ROUTINE });
+        if (problem && problem.code === 'sameTime') return this.$t('companion.routine.sameTime');
+        if (problem && problem.code === 'activity') return this.$t('companion.routine.badActivity');
+        if (problem) return this.$t('companion.timeRequired');
       }
       if (section === 'display') {
         const problem = displayProblem(form);
@@ -1388,6 +1605,54 @@ export default {
       this.savePatch({ settings: { pages: { [key]: !!on } } }, 'pages').catch(() => {
         if (this.dev) this.dev = { ...this.dev, settings: { ...this.dev.settings, pages: before } };
       });
+    },
+
+    // ------------------------------------------------------------------ TinyBot's day
+    activityName(activity) {
+      return this.tx('companion.routine.activity.' + activity, activity || '-');
+    },
+    isMealActivity(activity) {
+      return MEAL_ACTIVITIES.includes(activity);
+    },
+    durationText(item) {
+      const n = routineItemMinutes(item);
+      const h = Math.floor(n / 60);
+      const m = n % 60;
+      let text = this.$t('companion.routine.durationMin', { n });
+      if (h && m) text = this.$t('companion.routine.durationHours', { h, m });
+      else if (h) text = this.$t('companion.routine.durationHoursOnly', { h });
+      return minuteOfDay(item.end) < minuteOfDay(item.start) ? text + ' · ' + this.$t('companion.routine.nextDay') : text;
+    },
+    overlapText([a, b]) {
+      const items = this.forms.routine.items;
+      const label = (item) => item.start + '–' + item.end + ' ' + this.activityName(item.activity);
+      return this.$t('companion.routine.overlap', { a: label(items[a]), b: label(items[b]) });
+    },
+    openDayItem(index) {
+      const items = this.forms.routine.items;
+      if (index < 0 && items.length >= MAX_ROUTINE) return;
+      const form = index < 0 ? newRoutineItem(items) : { ...items[index] };
+      this.dayDialog = { visible: true, index, form };
+    },
+    // Apply the dialog to the edited day (sent with the card's Save button)
+    applyDayItem() {
+      const { form, index } = this.dayDialog;
+      if (!form || routineItemProblem(form)) return;
+      const item = { start: form.start, end: form.end, activity: form.activity };
+      const items = this.forms.routine.items.slice();
+      if (index < 0) items.push(item);
+      else items.splice(index, 1, item);
+      this.forms.routine.items = sortRoutine(items);
+      this.dayPreview = item.activity;
+      this.dayDialog.visible = false;
+    },
+    removeDayItem(index) {
+      const items = this.forms.routine.items.slice();
+      items.splice(index, 1);
+      this.forms.routine.items = items;
+    },
+    resetDay() {
+      this.forms.routine.items = defaultRoutine().items;
     },
 
     // ------------------------------------------------------------------ alarms
@@ -1911,6 +2176,14 @@ export default {
 // ------------------------------------------------------------------ status
 
 // Six tiles: 3 + 3 on wide screens, 2 + 2 + 2 below, never a lone orphan tile
+.cm-live {
+  margin-bottom: var(--nx-space-4);
+
+  .tls {
+    max-width: 640px;
+  }
+}
+
 .cm-tiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2357,6 +2630,140 @@ export default {
   font-size: var(--nx-text-caption);
   font-weight: 600;
   color: var(--nx-warning);
+}
+
+// ------------------------------------------------------------------ TinyBot's day
+
+.cm-min {
+  min-width: 0;
+}
+
+.cm-grid--day {
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+}
+
+.cm-banner--warning {
+  margin-bottom: var(--nx-space-3);
+  background: var(--nx-warning-soft);
+  color: var(--nx-text);
+  font-size: var(--nx-text-footnote);
+
+  > i {
+    color: var(--nx-warning);
+  }
+}
+
+.cm-day-intro {
+  padding: var(--nx-space-4) var(--nx-space-5);
+  border-bottom: 1px solid var(--nx-border);
+
+  .cm-help {
+    margin: 0 0 var(--nx-space-3);
+  }
+}
+
+.cm-day-row {
+  &__main {
+    gap: var(--nx-space-3);
+  }
+  &__time {
+    flex: none;
+    min-width: 7.6em;
+    font-size: var(--nx-text-headline);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--nx-text);
+  }
+  &__dash {
+    padding: 0 3px;
+    color: var(--nx-text-3);
+  }
+  &__icon {
+    flex: none;
+    width: 28px;
+    font-size: 18px;
+    line-height: 1;
+    text-align: center;
+  }
+  &__warn {
+    color: var(--nx-warning);
+    font-weight: 600;
+  }
+  &.is-shown .cm-day-row__main {
+    background: var(--nx-accent-soft);
+  }
+  &.is-now .cm-day-row__time {
+    color: var(--nx-success);
+  }
+}
+
+.cm-rows.is-off .cm-day-row {
+  .cm-day-row__time,
+  .cm-alarm__label {
+    color: var(--nx-text-3);
+  }
+}
+
+.cm-day-notes {
+  padding: var(--nx-space-4) var(--nx-space-5) 0;
+
+  .nx-footnote {
+    margin: 0 0 var(--nx-space-2);
+  }
+}
+
+.cm-day-foot {
+  flex-wrap: wrap;
+  margin-top: var(--nx-space-3);
+  padding: var(--nx-space-4) var(--nx-space-5);
+
+  &__reset {
+    margin-right: auto;
+  }
+  &__reset + .cm-unsaved {
+    margin-right: 0;
+  }
+}
+
+.cm-day-preview {
+  position: sticky;
+  top: calc(var(--nx-topbar-h) + var(--nx-space-4));
+}
+
+.cm-day-now {
+  margin: 0 0 var(--nx-space-2);
+}
+
+.cm-day-scheduled {
+  margin: 0 0 var(--nx-space-3);
+}
+
+.cm-day-error {
+  margin: calc(var(--nx-space-2) * -1) 0 var(--nx-space-3);
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-danger);
+}
+
+.cm-day-select {
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .cm-grid--day {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cm-day-preview {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .cm-day-row__time {
+    min-width: 0;
+    font-size: var(--nx-text-callout);
+  }
 }
 
 .cm-inline-form {
