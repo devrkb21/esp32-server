@@ -14,6 +14,9 @@ from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.textMessageHandler import TextMessageHandler
 from core.handle.textMessageType import TextMessageType
 from core.companion.story import is_story_request, build_story_prompt
+from core.companion import get_service
+from core.companion.proactive import DISPLAY as PROACTIVE_DISPLAY, build_prompt as build_proactive_prompt
+from core.companion.proactive import is_proactive_request, request_kind
 from core.utils.util import remove_punctuation_and_length, is_wakeup_word
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 
@@ -102,6 +105,15 @@ class ListenTextMessageHandler(TextMessageHandler):
                     enqueue_asr_report(conn, original_text, [])
                     # Show a short title on the robot, not the long LLM instructions
                     await startToChat(conn, prompt, display_text="Story time!")
+                    return
+
+                # TinyBot greets by itself (morning / evening): [proactive]<kind>
+                if is_proactive_request(original_text):
+                    kind = request_kind(original_text)
+                    prompt = build_proactive_prompt(get_service(conn.config), conn.config, conn.device_id, kind)
+                    conn.logger.bind(tag=TAG).info(f"Companion proactive {kind} greeting")
+                    conn.just_woken_up = True
+                    await startToChat(conn, prompt, display_text=PROACTIVE_DISPLAY[kind])
                     return
 
                 # Check if wake word

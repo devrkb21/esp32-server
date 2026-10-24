@@ -67,6 +67,7 @@ def default_device(device_id: str, defaults: Optional[Dict] = None) -> Dict:
             "look": schema.default_look(),
             "display": schema.default_display(),
             "routine": schema.default_routine(),
+            "proactive": schema.default_proactive(),
         },
         "pomodoro": {"work_min": 25, "short_break_min": 5, "long_break_min": 15, "rounds": 4},
         "alarms": [],

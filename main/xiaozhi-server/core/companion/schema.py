@@ -237,6 +237,11 @@ def default_display() -> Dict[str, int]:
     return {"dim_after_min": 3, "off_after_min": 20}
 
 
+def default_proactive() -> Dict[str, Any]:
+    # TinyBot starts a chat by itself: a morning greeting and an evening "how was your day?"
+    return {"enabled": True, "morning_on": True, "morning": "07:30", "evening_on": True, "evening": "19:30"}
+
+
 def default_look() -> Dict[str, Any]:
     return {
         "shape": "rounded", "size": 100, "spacing": 0, "height": 0, "eyes": "plain",
@@ -296,6 +301,13 @@ def settings(old: Dict, patch: Any) -> Dict:
                 "dim_after_min": lambda v, f: integer(v, 0, 120, f),
                 "off_after_min": lambda v, f: integer(v, 0, 600, f),
             },
+        )
+    if "proactive" in patch:
+        out["proactive"] = _merge_section(
+            dict(default_proactive(), **(old.get("proactive") or {})),
+            patch["proactive"],
+            "settings.proactive",
+            {"enabled": boolean, "morning_on": boolean, "morning": hhmm, "evening_on": boolean, "evening": hhmm},
         )
     if "pages" in patch:
         out["pages"] = _merge_section(

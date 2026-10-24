@@ -751,6 +751,43 @@
 
                 <article class="nx-card">
                   <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ tx('companion.proactive.title', 'Proactive talk') }}</h2>
+                  </header>
+                  <p class="cm-help">{{ tx('companion.proactive.intro', 'TinyBot starts a chat by itself: a morning greeting with the weather, your next alarm or reminder and a question about your plans, and an evening “How was your day?”.') }}</p>
+                  <div class="cm-settings cm-gap-top">
+                    <div class="cm-setting">
+                      <span>{{ tx('companion.proactive.enabled', 'TinyBot starts a chat by itself') }}</span>
+                      <el-switch v-model="forms.proactive.enabled" :aria-label="tx('companion.proactive.enabled', 'TinyBot starts a chat by itself')" />
+                    </div>
+                    <div v-for="key in ['morning', 'evening']" :key="key" class="cm-setting">
+                      <span>{{ key === 'morning'
+                        ? tx('companion.proactive.morning', 'Morning greeting')
+                        : tx('companion.proactive.evening', 'Evening “How was your day?”') }}</span>
+                      <span class="cm-proactive-row">
+                        <el-time-picker v-model="forms.proactive[key]" value-format="HH:mm" format="HH:mm" :clearable="false"
+                          class="cm-time-input cm-proactive-time"
+                          :disabled="!forms.proactive.enabled || !forms.proactive[key + '_on']"
+                          :aria-label="key === 'morning'
+                            ? tx('companion.proactive.morningAt', 'Morning greeting time')
+                            : tx('companion.proactive.eveningAt', 'Evening chat time')" />
+                        <el-switch v-model="forms.proactive[key + '_on']" :disabled="!forms.proactive.enabled"
+                          :aria-label="key === 'morning'
+                            ? tx('companion.proactive.morning', 'Morning greeting')
+                            : tx('companion.proactive.evening', 'Evening “How was your day?”')" />
+                      </span>
+                    </div>
+                  </div>
+                  <p class="cm-help cm-gap-top">{{ tx('companion.proactive.hint', 'TinyBot waits while it is busy (a game, a timer or a chat) and during night hours, and keeps trying for up to 45 minutes after the set time.') }}</p>
+                  <footer class="nx-card__footer">
+                    <span v-if="isDirty('proactive')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button v-if="isDirty('proactive')" type="text" @click="revertSection('proactive')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
+                    <el-button type="primary" :disabled="!isDirty('proactive')" :loading="saving.proactive"
+                      @click="saveSection('proactive')">{{ $t('companion.save') }}</el-button>
+                  </footer>
+                </article>
+
+                <article class="nx-card">
+                  <header class="nx-card__header">
                     <h2 class="nx-headline">{{ $t('companion.robot.title') }}</h2>
                   </header>
                   <el-form label-position="top" @submit.native.prevent>
@@ -1057,6 +1094,7 @@ import {
   NIGHT_LIGHT_PRESETS,
   OFF_PRESETS,
   PRAYER_ROWS,
+  PROACTIVE_DEFAULTS,
   REMINDER_KINDS,
   ROBOT_PAGES,
   ageOf,
@@ -1081,6 +1119,8 @@ import {
   nextPrayer,
   normalizeRoutine,
   presetChoice,
+  proactiveProblem,
+  proactiveSettings,
   reminderPayload,
   removeById,
   robotPages,
@@ -1100,7 +1140,7 @@ import { createUpdateFlow, initialUpdateState } from '@/utils/firmwareUpdate.mjs
 
 const REFRESH_MS = 10000;
 const FROM_KEY = 'companion_message_from';
-const FORM_SECTIONS = ['pomodoro', 'routine', 'night', 'care', 'sound', 'display', 'robot'];
+const FORM_SECTIONS = ['pomodoro', 'routine', 'night', 'care', 'sound', 'display', 'proactive', 'robot'];
 // Minute pickers with presets: which form field each one edits
 const MINUTE_PICKERS = {
   dim: { section: 'display', field: 'dim_after_min', presets: DIM_PRESETS, max: DISPLAY_MAX.dim_after_min },
@@ -1151,6 +1191,7 @@ export default {
         care: {},
         sound: { controlVolume: false, volume: 70, sounds: true },
         display: { ...DISPLAY_DEFAULTS },
+        proactive: { ...PROACTIVE_DEFAULTS },
         robot: { name: '', owner_name: '' },
       },
       baseline: {},
@@ -1158,7 +1199,7 @@ export default {
       customPick: { dim: false, off: false, light: false },
       minutePickers: MINUTE_PICKERS,
       saving: {
-        pomodoro: false, routine: false, night: false, care: false, sound: false, display: false, robot: false,
+        pomodoro: false, routine: false, night: false, care: false, sound: false, display: false, proactive: false, robot: false,
         alarms: false, reminders: false, prayer: false, pages: false,
       },
       alarmDialog: { visible: false, isNew: true, form: null },
@@ -1464,6 +1505,8 @@ export default {
           return clone(settings.care || {});
         case 'display':
           return displaySettings(settings.display);
+        case 'proactive':
+          return proactiveSettings(settings.proactive);
         case 'sound': {
           const manual = settings.volume !== null && settings.volume !== undefined;
           const fallback = this.stats.volume !== undefined ? this.stats.volume : 70;
@@ -1522,6 +1565,18 @@ export default {
           return { settings: { volume: form.controlVolume ? form.volume : null, sounds: !!form.sounds } };
         case 'display':
           return { settings: { display: { dim_after_min: form.dim_after_min, off_after_min: form.off_after_min } } };
+        case 'proactive':
+          return {
+            settings: {
+              proactive: {
+                enabled: !!form.enabled,
+                morning_on: !!form.morning_on,
+                morning: form.morning,
+                evening_on: !!form.evening_on,
+                evening: form.evening,
+              },
+            },
+          };
         case 'robot':
           return {
             name: (form.name || '').trim() || 'TinyBot',
@@ -1558,6 +1613,15 @@ export default {
         if (problem === 'offBeforeDim') {
           return this.tx('companion.display.offBeforeDim',
             'The screen dims first: pick a later “Turn off” time, or “Never” for one of them.');
+        }
+      }
+      if (section === 'proactive') {
+        const problem = proactiveProblem(form);
+        if (problem === 'morningTime') {
+          return this.tx('companion.proactive.morningTime', 'Morning greeting: choose a time (HH:MM)');
+        }
+        if (problem === 'eveningTime') {
+          return this.tx('companion.proactive.eveningTime', 'Evening chat: choose a time (HH:MM)');
         }
       }
       return '';
@@ -2619,6 +2683,17 @@ export default {
     color: var(--nx-text-3);
   }
 }
+.cm-proactive-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  flex: none;
+}
+
+.cm-proactive-time.el-date-editor {
+  width: 110px;
+}
+
 .cm-time-input {
   width: 132px;
 }

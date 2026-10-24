@@ -214,6 +214,43 @@ describe('companion page volume, display and night light', () => {
     expect(vm.$message.warning).toHaveBeenCalledTimes(3);
   });
 
+  it('fills proactive talk with defaults and saves it', () => {
+    const { vm, Api } = makeVm(deviceView());
+    expect(vm.forms.proactive).toEqual({ enabled: true, morning_on: true, morning: '07:30', evening_on: true, evening: '19:30' });
+    expect(vm.isDirty('proactive')).toBe(false);
+    vm.forms.proactive.morning = '06:45';
+    vm.forms.proactive.evening_on = false;
+    expect(vm.isDirty('proactive')).toBe(true);
+    vm.saveSection('proactive');
+    expect(Api.companion.updateCompanionConfig.mock.calls[0][1]).toEqual({
+      settings: { proactive: { enabled: true, morning_on: true, morning: '06:45', evening_on: false, evening: '19:30' } },
+    });
+  });
+
+  it('reads saved proactive talk values and undoes edits', () => {
+    const view = deviceView();
+    view.settings.proactive = { enabled: false, morning_on: true, morning: '08:00', evening_on: false, evening: '21:15' };
+    const { vm } = makeVm(view);
+    expect(vm.forms.proactive).toEqual(view.settings.proactive);
+    vm.forms.proactive.enabled = true;
+    expect(vm.isDirty('proactive')).toBe(true);
+    vm.revertSection('proactive');
+    expect(vm.forms.proactive.enabled).toBe(false);
+    expect(vm.isDirty('proactive')).toBe(false);
+  });
+
+  it('refuses proactive talk without valid times', () => {
+    const { vm, Api } = makeVm(deviceView());
+    vm.forms.proactive.morning = '';
+    vm.saveSection('proactive');
+    vm.forms.proactive.morning = '07:00';
+    vm.forms.proactive.evening = '25:00';
+    vm.saveSection('proactive');
+    expect(Api.companion.updateCompanionConfig).not.toHaveBeenCalled();
+    expect(vm.$message.warning).toHaveBeenNthCalledWith(1, 'Morning greeting: choose a time (HH:MM)');
+    expect(vm.$message.warning).toHaveBeenNthCalledWith(2, 'Evening chat: choose a time (HH:MM)');
+  });
+
   it('saves the night light minutes with the night section', () => {
     const { vm, Api } = makeVm(deviceView());
     expect(vm.forms.night.light_minutes).toBe(0);

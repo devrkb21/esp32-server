@@ -20,6 +20,9 @@ import {
   NIGHT_LIGHT_MAX,
   NIGHT_LIGHT_PRESETS,
   OFF_PRESETS,
+  PROACTIVE_DEFAULTS,
+  proactiveProblem,
+  proactiveSettings,
   removeById,
   ROBOT_PAGES,
   robotPages,
@@ -133,4 +136,19 @@ test('display, night light and volume helpers', () => {
   assert.equal(companionVolume({ stats: {}, settings: { volume: 50 } }), 50)
   assert.equal(companionVolume({ stats: { volume: null }, settings: { volume: null } }), null)
   assert.equal(companionVolume(null), null)
+})
+
+test('proactive talk helpers', () => {
+  assert.deepEqual(PROACTIVE_DEFAULTS, { enabled: true, morning_on: true, morning: '07:30', evening_on: true, evening: '19:30' })
+  assert.deepEqual(proactiveSettings(undefined), PROACTIVE_DEFAULTS)
+  assert.deepEqual(
+    proactiveSettings({ enabled: false, morning_on: false, morning: '06:05', evening_on: false, evening: '23:59' }),
+    { enabled: false, morning_on: false, morning: '06:05', evening_on: false, evening: '23:59' },
+  )
+  assert.deepEqual(proactiveSettings({ enabled: 'no', morning_on: 0, morning: '7:30', evening_on: null, evening: '24:00' }), PROACTIVE_DEFAULTS)
+  assert.deepEqual(Object.keys(proactiveSettings({ extra: 1 })), Object.keys(PROACTIVE_DEFAULTS))
+  assert.equal(proactiveProblem({ morning: '07:30', evening: '19:30' }), '')
+  assert.equal(proactiveProblem({ morning: '7:30', evening: '19:30' }), 'morningTime')
+  assert.equal(proactiveProblem({ morning: '07:30', evening: '' }), 'eveningTime')
+  assert.equal(proactiveProblem(undefined), 'morningTime')
 })

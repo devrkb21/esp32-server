@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { DisplaySettings, RobotPage } from '@/api/companion'
+import type { DisplaySettings, ProactiveSettings, RobotPage } from '@/api/companion'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
@@ -9,8 +9,11 @@ import {
   DISPLAY_MAX,
   displayProblem,
   displaySettings,
+  isHHMM,
   isLastPageOn,
   OFF_PRESETS,
+  proactiveProblem,
+  proactiveSettings,
   ROBOT_PAGES,
   robotPages,
 } from '../companionUtils.mjs'
@@ -125,6 +128,48 @@ async function saveDisplay() {
   savingDisplay.value = false
   if (ok)
     displayDirty.value = false
+}
+
+// proactive talk: a draft that follows the server until edited, saved with the button
+const proactive = ref<ProactiveSettings>(proactiveSettings(undefined))
+const proactiveDirty = ref(false)
+const savingProactive = ref(false)
+const proactiveRows = [
+  { on: 'morning_on', time: 'morning', label: 'companion.proactive.morning', timeLabel: 'companion.proactive.morningAt' },
+  { on: 'evening_on', time: 'evening', label: 'companion.proactive.evening', timeLabel: 'companion.proactive.eveningAt' },
+] as const
+watch(() => dev.value?.settings?.proactive, (p) => {
+  if (!proactiveDirty.value)
+    proactive.value = proactiveSettings(p)
+}, { immediate: true, deep: true })
+
+function setProactive(patch: Partial<ProactiveSettings>) {
+  proactive.value = { ...proactive.value, ...patch }
+  const saved = proactiveSettings(dev.value?.settings?.proactive)
+  proactiveDirty.value = (Object.keys(saved) as (keyof ProactiveSettings)[]).some(k => saved[k] !== proactive.value[k])
+}
+
+function onProactiveTime(key: 'morning' | 'evening', value: unknown) {
+  if (isHHMM(value))
+    setProactive({ [key]: value })
+}
+
+function revertProactive() {
+  proactiveDirty.value = false
+  proactive.value = proactiveSettings(dev.value?.settings?.proactive)
+}
+
+async function saveProactive() {
+  const problem = proactiveProblem(proactive.value)
+  if (problem) {
+    toast.warning(t(`companion.proactive.${problem}`))
+    return
+  }
+  savingProactive.value = true
+  const ok = await save({ settings: { proactive: { ...proactive.value } } })
+  savingProactive.value = false
+  if (ok)
+    proactiveDirty.value = false
 }
 
 async function setSounds(on: boolean) {
@@ -261,6 +306,59 @@ async function setPage(key: RobotPage, on: boolean) {
           {{ t('companion.revert') }}
         </wd-button>
         <wd-button block :loading="savingDisplay" :disabled="!displayDirty" @click="saveDisplay">
+          {{ t('companion.save') }}
+        </wd-button>
+      </view>
+    </view>
+
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.proactive.title') }}
+      </view>
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-row__main">
+            <view class="nx-row__title">
+              {{ t('companion.proactive.enabled') }}
+            </view>
+            <view class="nx-row__subtitle">
+              {{ t('companion.proactive.intro') }}
+            </view>
+          </view>
+          <wd-switch :model-value="proactive.enabled" size="24px" @change="({ value }) => setProactive({ enabled: !!value })" />
+        </view>
+        <template v-for="row in proactiveRows" :key="row.on">
+          <view class="nx-row">
+            <view class="nx-row__main nx-row__title" :class="{ robot__muted: !proactive.enabled }">
+              {{ t(row.label) }}
+            </view>
+            <wd-switch
+              :model-value="proactive[row.on]"
+              size="22px"
+              :disabled="!proactive.enabled"
+              @change="({ value }) => setProactive({ [row.on]: !!value })"
+            />
+          </view>
+          <wd-datetime-picker
+            :model-value="proactive[row.time]"
+            type="time"
+            :label="t(row.timeLabel)"
+            :disabled="!proactive.enabled || !proactive[row.on]"
+            :cancel-button-text="t('common.cancel')"
+            :confirm-button-text="t('common.confirm')"
+            custom-class="cmp-picker"
+            @confirm="({ value }) => onProactiveTime(row.time, value)"
+          />
+        </template>
+      </view>
+      <view class="nx-group__footer">
+        {{ t('companion.proactive.hint') }}
+      </view>
+      <view class="robot__save robot__save-row">
+        <wd-button v-if="proactiveDirty" type="info" @click="revertProactive">
+          {{ t('companion.revert') }}
+        </wd-button>
+        <wd-button block :loading="savingProactive" :disabled="!proactiveDirty" @click="saveProactive">
           {{ t('companion.save') }}
         </wd-button>
       </view>

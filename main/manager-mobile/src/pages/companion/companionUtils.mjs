@@ -312,6 +312,44 @@ export function displayProblem(display) {
   return ''
 }
 
+// Proactive talk (settings.proactive): TinyBot starts a chat by itself, a morning greeting and an
+// evening "how was your day?", each at a 24h "HH:MM" time.
+export const PROACTIVE_DEFAULTS = { enabled: true, morning_on: true, morning: '07:30', evening_on: true, evening: '19:30' }
+
+/**
+ * The proactive talk settings with defaults for missing or invalid values.
+ * @param {{ enabled?: boolean, morning_on?: boolean, morning?: string, evening_on?: boolean, evening?: string } | null | undefined} proactive
+ * @returns {{ enabled: boolean, morning_on: boolean, morning: string, evening_on: boolean, evening: string }} complete settings
+ */
+export function proactiveSettings(proactive) {
+  const source = proactive && typeof proactive === 'object' ? proactive : {}
+  /** @param {'enabled' | 'morning_on' | 'evening_on'} key */
+  const flag = key => typeof source[key] === 'boolean' ? /** @type {boolean} */ (source[key]) : PROACTIVE_DEFAULTS[key]
+  /** @param {'morning' | 'evening'} key */
+  const time = key => isHHMM(source[key]) ? /** @type {string} */ (source[key]) : PROACTIVE_DEFAULTS[key]
+  return {
+    enabled: flag('enabled'),
+    morning_on: flag('morning_on'),
+    morning: time('morning'),
+    evening_on: flag('evening_on'),
+    evening: time('evening'),
+  }
+}
+
+/**
+ * What is wrong with the proactive talk times: '' (fine), 'morningTime' or 'eveningTime'.
+ * @param {{ morning?: string, evening?: string } | null | undefined} proactive
+ * @returns {'' | 'morningTime' | 'eveningTime'} the problem
+ */
+export function proactiveProblem(proactive) {
+  const p = proactive || {}
+  if (!isHHMM(p.morning))
+    return 'morningTime'
+  if (!isHHMM(p.evening))
+    return 'eveningTime'
+  return ''
+}
+
 /**
  * The robot's volume from a companion view: what it last reported (stats.volume), else the
  * volume the app asked for (settings.volume), else null.
