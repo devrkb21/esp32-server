@@ -1,45 +1,34 @@
-import './styles/element-variables.scss';
-import 'normalize.css/normalize.css'; // A modern alternative to CSS resets
-import Vue from 'vue';
-import ElementUI from 'element-ui';
+import { createApp } from 'vue';
+import './styles/tb/fonts.js';
+import './styles/tb/tokens.css';
+import './styles/tb/base.css';
 import App from './App.vue';
 import router from './router';
 import store from './store';
 import i18n from './i18n';
-import locale from 'element-ui/lib/locale'
-import './styles/nobix/index.scss';
-import './styles/global.scss';
-import { register as registerServiceWorker } from './registerServiceWorker';
-import featureManager from './utils/featureManager';
+import kit from './kit';
 import { initTheme } from './utils/theme';
+import { DEMO, DEMO_TOKEN, DEMO_USER } from './apis/demo/index';
 
-// Initialize dark/light theme
 initTheme();
 
-// Create event bus for inter-component communication
-Vue.prototype.$eventBus = new Vue();
-
-Vue.use(ElementUI);
-locale.i18n((key, value) => i18n.t(key, value))
-
-Vue.config.productionTip = false
-document.title = process.env.VUE_APP_TITLE || 'Nobix Console';
-
-// Register Service Worker
-registerServiceWorker();
-
-// On startup, copy the token from localStorage into the store so the first request after the
-// router guard lets us through carries the Authorization header (otherwise state.token is null,
-// the request gets a 401 and the user is sent to the login page)
-const cachedToken = localStorage.getItem('token')
-if (cachedToken) {
-  store.commit('setToken', cachedToken)
+// Demo build: signed in as a sample owner, every API call answered from fixtures.
+if (DEMO) {
+  try {
+    if (!localStorage.getItem('token')) localStorage.setItem('token', DEMO_TOKEN);
+    localStorage.setItem('userInfo', JSON.stringify(DEMO_USER));
+  } catch (e) { /* private mode */ }
 }
 
-// Create Vue instance
-new Vue({
-  router,
-  store,
-  i18n,
-  render: function (h) { return h(App) }
-}).$mount('#app')
+// Copy the token into the store before the first request, so it carries the Authorization header.
+try {
+  const cachedToken = localStorage.getItem('token');
+  if (cachedToken) store.commit('setToken', cachedToken);
+} catch (e) { /* private mode */ }
+
+const app = createApp(App);
+app.use(router);
+app.use(store);
+app.use(i18n);
+app.use(kit);
+app.mount('#app');

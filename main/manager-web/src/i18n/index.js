@@ -1,67 +1,74 @@
-import Vue from 'vue';
-import VueI18n from 'vue-i18n';
-import zhCN from './zh_CN';
-import zhTW from './zh_TW';
+import { createI18n } from 'vue-i18n';
+import { reactive } from 'vue';
+import bn from './bn';
 import en from './en';
 import de from './de';
 import vi from './vi';
 import ptBR from './pt_BR';
+import zhCN from './zh_CN';
+import zhTW from './zh_TW';
 
-import enLocale from 'element-ui/lib/locale/lang/en'
-import zhLocale from 'element-ui/lib/locale/lang/zh-CN'
-import twLocale from 'element-ui/lib/locale/lang/zh-TW'
-import deLocale from 'element-ui/lib/locale/lang/de'
-import viLocale from 'element-ui/lib/locale/lang/vi'
-import ptBRLocale from 'element-ui/lib/locale/lang/pt-br'
+// Each page keeps its own new strings in src/i18n/pages/<page>.js, exporting
+// { bn: {...}, en: {...}, de: {...}, ... }, so page work never edits the shared locale files.
+const pageFiles = import.meta.glob('./pages/*.js', { eager: true });
 
+export const LANGUAGES = [
+  { code: 'bn', label: 'বাংলা' },
+  { code: 'en', label: 'English' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'pt_BR', label: 'Português (BR)' },
+  { code: 'vi', label: 'Tiếng Việt' },
+  { code: 'zh_CN', label: '简体中文' },
+  { code: 'zh_TW', label: '繁體中文' },
+];
 
-Vue.use(VueI18n);
+const base = { bn, en, de, vi, pt_BR: ptBR, zh_CN: zhCN, zh_TW: zhTW };
 
-// Get language setting from local storage, or use browser/default language
-const getDefaultLanguage = () => {
-  const savedLang = localStorage.getItem('userLanguage');
-  if (savedLang) {
-    if (savedLang === 'zh_CN' || savedLang === 'zh_TW') {
-      localStorage.setItem('userLanguage', 'en');
-      return 'en';
+function buildMessages() {
+  const messages = {};
+  for (const [code, table] of Object.entries(base)) messages[code] = { ...table };
+  for (const mod of Object.values(pageFiles)) {
+    const tables = mod.default || {};
+    for (const [code, table] of Object.entries(tables)) {
+      messages[code] = { ...(messages[code] || {}), ...table };
     }
-    return savedLang;
   }
-  const browserLang = navigator.language || navigator.userLanguage;
-  if (browserLang.indexOf('zh') === 0) {
-    return 'en';
-  }
-  if (browserLang.indexOf('de') === 0) {
-    return 'de';
-  }
-  if (browserLang.indexOf('vi') === 0) {
-    return 'vi';
-  }
-  if (browserLang === 'pt-BR' || browserLang === 'pt') {
-    return 'pt_BR';
-  }
-  return 'en';
-};
+  return messages;
+}
 
-const i18n = new VueI18n({
+// Bangla is the default; a saved choice wins.
+export function getDefaultLanguage() {
+  let saved = null;
+  try { saved = localStorage.getItem('userLanguage'); } catch (e) { /* private mode */ }
+  if (saved && base[saved]) return saved;
+  return 'bn';
+}
+
+const i18n = createI18n({
+  legacy: true,
+  allowComposition: true, // pages may use either this.$t (options API) or useI18n (script setup)
   locale: getDefaultLanguage(),
   fallbackLocale: 'en',
-  messages: {
-    'zh_CN': { ...enLocale, ...zhCN },
-    'zh_TW': { ...enLocale, ...zhTW },
-    'en': { ...en, ...enLocale },
-    'de': { ...de, ...deLocale },
-    'vi': { ...vi, ...viLocale },
-    'pt_BR': { ...ptBR, ...ptBRLocale }
-  }
+  messages: buildMessages(),
+  warnHtmlInMessage: 'off',
+  silentTranslationWarn: true,
+  silentFallbackWarn: true,
 });
 
-export default i18n;
+// A tiny reactive mirror other modules can watch without an event bus.
+export const languageState = reactive({ current: i18n.global.locale });
 
-// Method to switch language
+export function applyDocumentLanguage(lang) {
+  document.documentElement.lang = lang === 'bn' ? 'bn' : lang.replace('_', '-');
+}
+
 export const changeLanguage = (lang) => {
-  i18n.locale = lang;
-  localStorage.setItem('userLanguage', lang);
-  // Notify components that language has changed
-  Vue.prototype.$eventBus.$emit('languageChanged', lang);
+  i18n.global.locale = lang;
+  languageState.current = lang;
+  try { localStorage.setItem('userLanguage', lang); } catch (e) { /* private mode */ }
+  applyDocumentLanguage(lang);
 };
+
+applyDocumentLanguage(i18n.global.locale);
+
+export default i18n;

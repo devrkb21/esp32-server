@@ -4,6 +4,7 @@ import Constant from '../utils/constant';
 import { getServiceUrl } from '../apis/api';
 import { goToPage, isNotNull, showDanger, showWarning } from '../utils/index';
 import i18n from '../i18n/index';
+import { DEMO, demoReply } from './demo/index';
 
 const fly = new Fly()
 // Set timeout
@@ -115,7 +116,7 @@ function sendRequest() {
         _responseType: undefined, // Added response type field
         'send'() {
             // Set language request header
-            const currentLang = i18n.locale || 'en';
+            const currentLang = i18n.global.locale || 'en';
             // Convert language code format, e.g. zh_CN to zh-CN
             let acceptLanguage = currentLang.replace('_', '-');
             // Add default locale code for English
@@ -123,6 +124,17 @@ function sendRequest() {
                 acceptLanguage = 'en-US';
             }
             this._header['Accept-Language'] = acceptLanguage;
+
+            if (DEMO) {
+                // Demo build: answer from the fixtures (src/apis/demo), never the network
+                const res = demoReply({ url: this._url, method: this._method, data: this._data })
+                setTimeout(() => {
+                    if (!httpHandlerError(res, this._failCallback, this._networkFailCallback) && this._sucCallback) {
+                        this._sucCallback(res)
+                    }
+                }, 120)
+                return this
+            }
 
             const doSend = () => {
                 if (isNotNull(store.getters.getToken)) {

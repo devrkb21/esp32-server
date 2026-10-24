@@ -11,8 +11,12 @@ const themeVars: ConfigProviderThemeVars = nobixThemeVars
 
 <template>
   <wd-config-provider :theme="themeStore.currentTheme" :theme-vars="themeVars">
-    <slot />
-    <FgTabbar />
+    <view class="tb-page" :class="{ 'is-dark': themeStore.currentTheme === 'dark', 'has-tabbar': true }">
+      <slot />
+      <tb-toast-host />
+      <tb-confirm-host />
+      <FgTabbar />
+    </view>
     <wd-toast />
     <wd-message-box />
   </wd-config-provider>

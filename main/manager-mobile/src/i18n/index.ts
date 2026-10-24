@@ -2,6 +2,7 @@ import type { Language } from '@/store/lang'
 import { ref } from 'vue'
 import { useLangStore } from '@/store/lang'
 
+import bn from './bn'
 import de from './de'
 import en from './en'
 import pt_BR from './pt_BR'
@@ -11,7 +12,8 @@ import zh_CN from './zh_CN'
 import zh_TW from './zh_TW'
 
 // Language pack mapping
-const messages = {
+const base: Record<string, Record<string, string>> = {
+  bn,
   zh_CN,
   en,
   zh_TW,
@@ -20,8 +22,18 @@ const messages = {
   pt_BR,
 }
 
+// Each page keeps its new strings in src/i18n/pages/<page>.ts, exporting
+// { bn: {...}, en: {...}, ... }, so page work never edits the shared locale files.
+const pageFiles = import.meta.glob('./pages/*.ts', { eager: true }) as Record<string, { default: Record<string, Record<string, string>> }>
+const messages: Record<string, Record<string, string>> = {}
+for (const [code, table] of Object.entries(base)) messages[code] = { ...table }
+for (const mod of Object.values(pageFiles)) {
+  for (const [code, table] of Object.entries(mod.default || {}))
+    messages[code] = { ...(messages[code] || {}), ...table }
+}
+
 // Current active language
-const currentLang = ref<Language>('en')
+const currentLang = ref<Language>('bn')
 
 // Initialize language
 export function initI18n() {
@@ -38,7 +50,7 @@ export function changeLanguage(lang: Language) {
 
 // Get translated text
 export function t(key: string, params?: Record<string, string | number>): string {
-  const langMessages = messages[currentLang.value]
+  const langMessages = (key in (messages[currentLang.value] || {})) ? messages[currentLang.value] : messages.en
 
   // Look up flat keys directly
   if (langMessages && typeof langMessages === 'object' && key in langMessages) {
@@ -69,6 +81,7 @@ export function getCurrentLanguage(): Language {
 // Get supported language list
 export function getSupportedLanguages(): { code: Language, name: string }[] {
   return [
+    { code: 'bn', name: 'বাংলা' },
     { code: 'zh_CN', name: 'Chinese (Simplified)' },
     { code: 'en', name: 'English' },
     { code: 'zh_TW', name: 'Chinese (Traditional)' },

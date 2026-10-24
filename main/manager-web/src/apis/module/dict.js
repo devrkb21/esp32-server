@@ -1,3 +1,4 @@
+import { toast } from '@/kit/toast'
 import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
@@ -20,7 +21,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to get dictionary type list:', err)
-                this.$message.error(err.msg || 'Failed to get dictionary type list')
+                toast.error(err.msg || 'Failed to get dictionary type list')
                 RequestService.reAjaxFun(() => {
                     this.getDictTypeList(params, callback)
                 })
@@ -38,7 +39,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to get dictionary type details:', err)
-                this.$message.error(err.msg || 'Failed to get dictionary type details')
+                toast.error(err.msg || 'Failed to get dictionary type details')
                 RequestService.reAjaxFun(() => {
                     this.getDictTypeDetail(id, callback)
                 })
@@ -57,7 +58,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to add dictionary type:', err)
-                this.$message.error(err.msg || 'Failed to add dictionary type')
+                toast.error(err.msg || 'Failed to add dictionary type')
                 RequestService.reAjaxFun(() => {
                     this.addDictType(data, callback)
                 })
@@ -76,7 +77,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to update dictionary type:', err)
-                this.$message.error(err.msg || 'Failed to update dictionary type')
+                toast.error(err.msg || 'Failed to update dictionary type')
                 RequestService.reAjaxFun(() => {
                     this.updateDictType(data, callback)
                 })
@@ -95,7 +96,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to delete dictionary type:', err)
-                this.$message.error(err.msg || 'Failed to delete dictionary type')
+                toast.error(err.msg || 'Failed to delete dictionary type')
                 RequestService.reAjaxFun(() => {
                     this.deleteDictType(ids, callback)
                 })
@@ -121,7 +122,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to get dictionary data list:', err)
-                this.$message.error(err.msg || 'Failed to get dictionary data list')
+                toast.error(err.msg || 'Failed to get dictionary data list')
                 RequestService.reAjaxFun(() => {
                     this.getDictDataList(params, callback)
                 })
@@ -139,7 +140,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to get dictionary data details:', err)
-                this.$message.error(err.msg || 'Failed to get dictionary data details')
+                toast.error(err.msg || 'Failed to get dictionary data details')
                 RequestService.reAjaxFun(() => {
                     this.getDictDataDetail(id, callback)
                 })
@@ -158,7 +159,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to add dictionary data:', err)
-                this.$message.error(err.msg || 'Failed to add dictionary data')
+                toast.error(err.msg || 'Failed to add dictionary data')
                 RequestService.reAjaxFun(() => {
                     this.addDictData(data, callback)
                 })
@@ -177,7 +178,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to update dictionary data:', err)
-                this.$message.error(err.msg || 'Failed to update dictionary data')
+                toast.error(err.msg || 'Failed to update dictionary data')
                 RequestService.reAjaxFun(() => {
                     this.updateDictData(data, callback)
                 })
@@ -196,7 +197,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to delete dictionary data:', err)
-                this.$message.error(err.msg || 'Failed to delete dictionary data')
+                toast.error(err.msg || 'Failed to delete dictionary data')
                 RequestService.reAjaxFun(() => {
                     this.deleteDictData(ids, callback)
                 })

@@ -1,3 +1,4 @@
+import { toast } from '@/kit/toast'
 import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
@@ -56,7 +57,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to get provider list:', err)
-        this.$message.error('Failed to get provider list')
+        toast.error('Failed to get provider list')
         RequestService.reAjaxFun(() => {
           this.getModelProviders(modelType, callback)
         })
@@ -88,7 +89,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to add model:', err)
-        this.$message.error(err.msg || 'Failed to add model')
+        toast.error(err.msg || 'Failed to add model')
         RequestService.reAjaxFun(() => {
           this.addModel(params, callback)
         })
@@ -105,7 +106,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to delete model:', err)
-        this.$message.error(err.msg || 'Failed to delete model')
+        toast.error(err.msg || 'Failed to delete model')
         RequestService.reAjaxFun(() => {
           this.deleteModel(id, callback)
         })
@@ -228,7 +229,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to get model configuration:', err)
-        this.$message.error(err.msg || 'Failed to get model configuration')
+        toast.error(err.msg || 'Failed to get model configuration')
         RequestService.reAjaxFun(() => {
           this.getModelConfig(id, callback)
         })
@@ -245,7 +246,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to update model status:', err)
-        this.$message.error(err.msg || 'Failed to update model status')
+        toast.error(err.msg || 'Failed to update model status')
         RequestService.reAjaxFun(() => {
           this.updateModelStatus(id, status, callback)
         })
@@ -268,7 +269,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to update model:', err);
-        this.$message.error(err.msg || 'Failed to update model');
+        toast.error(err.msg || 'Failed to update model');
         RequestService.reAjaxFun(() => {
           this.updateModel(params, callback);
         });
@@ -285,7 +286,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to set default model:', err)
-        this.$message.error(err.msg || 'Failed to set default model')
+        toast.error(err.msg || 'Failed to set default model')
         RequestService.reAjaxFun(() => {
           this.setDefaultModel(id, callback)
         })
@@ -313,7 +314,7 @@ export default {
         callback(res);
       })
       .networkFail((err) => {
-        this.$message.error(err.msg || 'Failed to get provider list');
+        toast.error(err.msg || 'Failed to get provider list');
         RequestService.reAjaxFun(() => {
           this.getModelProviders(params, callback);
         });
@@ -344,7 +345,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to add model provider:', err)
-        this.$message.error(err.msg || 'Failed to add model provider')
+        toast.error(err.msg || 'Failed to add model provider')
         RequestService.reAjaxFun(() => {
           this.addModelProvider(params, callback);
         });
@@ -375,7 +376,7 @@ export default {
         callback(res);
       })
       .networkFail((err) => {
-        this.$message.error(err.msg || 'Failed to update model provider')
+        toast.error(err.msg || 'Failed to update model provider')
         RequestService.reAjaxFun(() => {
           this.updateModelProvider(params, callback);
         });
@@ -392,7 +393,7 @@ export default {
         callback(res);
       })
       .networkFail((err) => {
-        this.$message.error(err.msg || 'Failed to delete model provider')
+        toast.error(err.msg || 'Failed to delete model provider')
         RequestService.reAjaxFun(() => {
           this.deleteModelProviderByIds(ids, callback)
         })
@@ -410,7 +411,7 @@ export default {
       })
       .networkFail((err) => {
         if (!onTerminalFailure && this.$message) {
-          this.$message.error(err.msg || 'Failed to get plugin list');
+          toast.error(err.msg || 'Failed to get plugin list');
         }
         retryCallbackRequest(
           (nextRetryCount, nextRetryStartedAt) => this.getPluginFunctionList(
@@ -446,7 +447,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('Failed to get RAG model list:', err)
-        this.$message.error(err.msg || 'Failed to get RAG model list')
+        toast.error(err.msg || 'Failed to get RAG model list')
         RequestService.reAjaxFun(() => {
           this.getRAGModels(callback)
         })

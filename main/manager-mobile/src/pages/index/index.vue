@@ -1,899 +1,237 @@
-<!-- Home page configured via type="home" attribute -->
+<!-- Today: the almanac page for this robot (signature surface, owner: foundation) -->
 <route lang="jsonc" type="home">
 {
   "layout": "tabbar",
   "style": {
-    // 'custom' enables custom navbar, default 'default'
     "navigationStyle": "custom",
-    "navigationBarTitleText": "Home"
+    "navigationBarTitleText": "TinyBot"
   }
 }
 </route>
 
 <script lang="ts" setup>
-import type { Agent } from '@/api/agent/types'
-import { computed, onMounted, ref } from 'vue'
-// Set navbar title after mount
-import { useMessage } from 'wot-design-uni/components/wd-message-box'
-import useZPaging from 'z-paging/components/z-paging/js/hooks/useZPaging.js'
-import { createAgent, deleteAgent, getAgentList } from '@/api/agent/agent'
-import { t } from '@/i18n'
+import { onHide, onShow } from '@dcloudio/uni-app'
+import { computed, ref, watch } from 'vue'
+import { getCompanion, sendCompanionCommand, sendCompanionMessage } from '@/api/companion/companion'
+import { getCurrentLanguage, t } from '@/i18n'
 import { useUserStore } from '@/store'
+import { digits, timeText } from '@/utils/calendar.mjs'
+import { loadRobots, robot } from '@/utils/tbRobot'
+import { dayRows, daysTogether, isoDate, robotState } from '@/utils/todayModel.mjs'
 import { toast } from '@/utils/toast'
 
-defineOptions({
-  name: 'Home',
-})
+defineOptions({ name: 'Today' })
 
-// Get distance from screen boundary to safe area
-let safeAreaInsets: any
-let systemInfo: any
-
-// #ifdef MP-WEIXIN
-// Mini-program uses new API
-systemInfo = uni.getWindowInfo()
-safeAreaInsets = systemInfo.safeArea
-  ? {
-      top: systemInfo.safeArea.top,
-      right: systemInfo.windowWidth - systemInfo.safeArea.right,
-      bottom: systemInfo.windowHeight - systemInfo.safeArea.bottom,
-      left: systemInfo.safeArea.left,
-    }
-  : null
-// #endif
-
-// #ifndef MP-WEIXIN
-// Other platforms continue using uni API
-systemInfo = uni.getSystemInfoSync()
-safeAreaInsets = systemInfo.safeAreaInsets
-// #endif
-
-// Agent data
-const agentList = ref<Agent[]>([])
-// Becomes true after the first list request settles (drives the skeleton)
-const firstLoaded = ref(false)
-const pagingRef = ref()
-useZPaging(pagingRef)
-// Message component
-const message = useMessage()
-const deleteDialogVisible = ref(false)
-const deleteTargetAgent = ref<Agent | null>(null)
-const deleteConfirmText = ref('')
-const deleteAgentLoading = ref(false)
-
-const isDeleteAgentNameMatched = computed(() => {
-  return !!deleteTargetAgent.value?.agentName && deleteConfirmText.value === deleteTargetAgent.value.agentName
-})
-
-// z-paging query list data
-async function queryList(pageNo: number, pageSize: number) {
-  try {
-    console.log('z-paging get agent list')
-
-    const response = await getAgentList()
-
-    // Update local list
-    agentList.value = response
-
-    // Return all data directly without pagination
-    pagingRef.value.complete(response)
-  }
-  catch (error) {
-    console.error('Failed to get agent list:', error)
-    // Notify z-paging of data loading failure
-    pagingRef.value.complete(false)
-  }
-  finally {
-    firstLoaded.value = true
-  }
-}
-
-// Create agent
-async function handleCreateAgent(agentName: string) {
-  try {
-    await createAgent({ agentName: agentName.trim() })
-    // Refresh list after successful creation
-    pagingRef.value.reload()
-    toast.success(`${t('home.agentName')}"${agentName}"${t('message.saveSuccess')}`)
-  }
-  catch (error: any) {
-    console.error('Failed to create agent:', error)
-    const errorMessage = error?.message || t('message.saveFail')
-    toast.error(errorMessage)
-  }
-}
-
-function openDeleteAgentDialog(agent: Agent) {
-  if (!agent.id || !agent.agentName) {
-    toast.error(t('home.deleteAgentMissingInfo'))
-    return
-  }
-
-  deleteTargetAgent.value = agent
-  deleteConfirmText.value = ''
-  deleteDialogVisible.value = true
-}
-
-function closeDeleteAgentDialog() {
-  if (deleteAgentLoading.value)
-    return
-
-  deleteDialogVisible.value = false
-  deleteTargetAgent.value = null
-  deleteConfirmText.value = ''
-}
-
-function handleDeleteAgentPaste() {
-  toast.warning(t('home.deleteAgentPasteForbidden'))
-}
-
-// Delete agent
-async function handleDeleteAgent() {
-  if (!deleteTargetAgent.value || !isDeleteAgentNameMatched.value || deleteAgentLoading.value)
-    return
-
-  try {
-    deleteAgentLoading.value = true
-    await deleteAgent(deleteTargetAgent.value.id)
-    // Refresh list after successful deletion
-    pagingRef.value.reload()
-    toast.success(t('home.deleteAgentSuccess'))
-    deleteDialogVisible.value = false
-    deleteTargetAgent.value = null
-    deleteConfirmText.value = ''
-  }
-  catch (error: any) {
-    console.error('Failed to delete agent:', error)
-    const errorMessage = error?.message || t('message.deleteFail')
-    toast.error(errorMessage)
-  }
-  finally {
-    deleteAgentLoading.value = false
-  }
-}
-
-// Enter edit page
-function goToEditAgent(agent: Agent) {
-  // Pass agent ID to edit page
-  uni.navigateTo({
-    url: `/pages/agent/index?agentId=${agent.id}`,
-  })
-}
-
-// Click card to edit
-function handleCardClick(agent: Agent) {
-  goToEditAgent(agent)
-}
-
-// Open creation dialog
-function openCreateDialog() {
-  message
-    .prompt({
-      title: t('home.dialogTitle'),
-      msg: '',
-      inputPlaceholder: t('home.inputPlaceholder'),
-      inputValue: '',
-      inputPattern: /^.{1,64}$/,
-      inputError: t('home.createError'),
-      confirmButtonText: t('home.createNow'),
-      cancelButtonText: t('common.cancel'),
-    })
-    .then(async (result: any) => {
-      if (result.value && String(result.value).trim()) {
-        await handleCreateAgent(String(result.value).trim())
-      }
-    })
-    .catch(() => {
-      // User cancelled operation
-    })
-}
-
-// Format time
-function formatTime(timeStr: string) {
-  const date = new Date(timeStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-
-  if (diff < 60000)
-    return t('home.justNow')
-  if (diff < 3600000)
-    return `${Math.floor(diff / 60000)} ${t('home.minutesAgo')}`
-  if (diff < 86400000)
-    return `${Math.floor(diff / 3600000)} ${t('home.hoursAgo')}`
-  return `${Math.floor(diff / 86400000)} ${t('home.daysAgo')}`
-}
-
-// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
-function tx(key: string, fallback: string, params?: Record<string, string | number>) {
-  const value = t(key, params)
-  if (value !== key)
-    return value
-  if (!params)
-    return fallback
-  return Object.entries(params).reduce((text, [name, val]) => text.replace(`{${name}}`, String(val)), fallback)
-}
-
-// ---- Layout helpers (display only) ----
 const userStore = useUserStore()
+const lang = computed(() => getCurrentLanguage())
+const num = (n: any) => digits(n ?? '–', lang.value)
 
-const ACTIVE_WINDOW_MS = 10 * 60 * 1000
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function msSince(timeStr: string | null) {
-  if (!timeStr)
-    return Number.POSITIVE_INFINITY
-  const time = new Date(timeStr).getTime()
-  return Number.isFinite(time) ? Date.now() - time : Number.POSITIVE_INFINITY
-}
-
-// Talked to a robot in the last few minutes: shown as "active now" with the online dot
-function isActiveNow(agent: Agent) {
-  return agent.deviceCount > 0 && msSince(agent.lastConnectedAt) < ACTIVE_WINDOW_MS
-}
-
-const greeting = computed(() => {
-  const hour = new Date().getHours()
-  if (hour < 12)
-    return tx('home.greetingMorning', 'Good morning')
-  if (hour < 18)
-    return tx('home.greetingAfternoon', 'Good afternoon')
-  return tx('home.greetingEvening', 'Good evening')
+const offset = ref(0)
+const clock = ref(new Date())
+const date = computed(() => {
+  const d = new Date(clock.value)
+  d.setDate(d.getDate() + offset.value)
+  return d
 })
+const isToday = computed(() => offset.value === 0)
+const nowMinutes = computed(() => clock.value.getHours() * 60 + clock.value.getMinutes())
 
-const displayName = computed(() => userStore.userInfo?.realName || userStore.userInfo?.username || '')
+const view = ref<any>(null)
+const loading = ref(false)
+const failed = ref(false)
+const line = ref('')
+const sending = ref(false)
+const pulse = ref(false)
+const busy = ref('')
 
-const summary = computed(() => {
-  const list = agentList.value || []
-  return {
-    agents: list.length,
-    devices: list.reduce((sum, agent) => sum + (Number(agent.deviceCount) || 0), 0),
-    activeToday: list.filter(agent => msSince(agent.lastConnectedAt) < DAY_MS).length,
+const botName = computed(() => view.value?.name || robot.name || t('nav.robotFallback'))
+const state = computed(() => robotState(view.value, clock.value))
+const faceMood = computed(() => (({ offline: 'offline', sleeping: 'sleepy' } as Record<string, string>)[state.value] || 'awake'))
+const doingNow = computed(() => {
+  const a = view.value?.stats?.activity
+  return a ? t(`today.activity.${a}`) : (state.value === 'online' ? t('today.free') : '')
+})
+const together = computed(() => {
+  const n = daysTogether(view.value)
+  return n ? t('today.daysTogether', { n: num(n) }) : ''
+})
+const sunrise = computed(() => {
+  const d = (view.value?.prayer?.days || []).find((x: any) => x.date === isoDate(date.value))
+  return d?.sunrise ? t('today.sunrise', { time: timeText(d.sunrise, lang.value, lang.value === 'bn') }) : ''
+})
+const weather = computed(() => (view.value?.weather?.ok ? view.value.weather : null))
+const rows = computed(() => dayRows(view.value, date.value, (k: string, p?: any) => {
+  if (p && p.time)
+    p = { ...p, time: timeText(p.time, lang.value, lang.value === 'bn') }
+  return t(k, p || {})
+}))
+
+const commands = [
+  { type: 'story', icon: 'story', label: 'today.cmd.story' },
+  { type: 'lullaby', icon: 'lullaby', label: 'today.cmd.lullaby' },
+  { type: 'pomodoro', icon: 'focus', label: 'today.cmd.focus', arg: 25 },
+  { type: 'game', icon: 'game', label: 'today.cmd.game', arg: 'catch' },
+  { type: 'breathe', icon: 'breathe', label: 'today.cmd.breathe' },
+  { type: 'night_light', icon: 'light', label: 'today.cmd.light' },
+]
+
+async function refresh(quiet = false) {
+  if (!robot.deviceId)
+    return
+  if (!quiet)
+    loading.value = true
+  try {
+    view.value = await getCompanion(robot.deviceId, true)
+    failed.value = false
   }
-})
-
-function agentInitial(agent: Agent) {
-  const name = (agent.agentName || '').trim()
-  return name ? Array.from(name)[0].toUpperCase() : '?'
-}
-
-function agentModelLine(agent: Agent) {
-  const voice = agent.ttsVoiceName || agent.ttsModelName
-  return [agent.llmModelName, voice].filter(Boolean).join(' · ')
-}
-
-function agentTagText(agent: Agent) {
-  return (agent.tags || []).map(tag => tag.tagName).filter(Boolean).join(', ')
-}
-
-function formatCount(value: number) {
-  return Number(value || 0).toLocaleString()
-}
-
-// Refresh list on page show
-onShow(() => {
-  console.log('Home onShow, refresh agent list')
-  if (pagingRef.value) {
-    pagingRef.value.refresh()
+  catch {
+    failed.value = true
   }
-})
+  loading.value = false
+}
 
-onMounted(() => {
-  uni.setNavigationBarTitle({
-    title: t('home.pageTitle'),
-  })
+async function say() {
+  const text = line.value.trim()
+  if (!text || !robot.deviceId)
+    return
+  sending.value = true
+  try {
+    const from = (userStore.userInfo as any)?.realName || (userStore.userInfo as any)?.username || ''
+    await sendCompanionMessage(robot.deviceId, { from, text, ask: false } as any)
+    line.value = ''
+    pulse.value = false
+    setTimeout(() => { pulse.value = true }, 16)
+    toast.success(state.value === 'offline' ? t('today.sentLater') : t('today.sent'))
+  }
+  catch {
+    toast.error(t('today.sendFailed'))
+  }
+  sending.value = false
+}
+
+async function run(c: any) {
+  if (!robot.deviceId)
+    return
+  busy.value = c.type
+  try {
+    await sendCompanionCommand(robot.deviceId, { type: c.type, arg: c.arg === undefined ? '' : String(c.arg) } as any)
+    toast.success(t('today.cmdSent', { name: t(c.label) }))
+  }
+  catch {
+    toast.error(t('today.sendFailed'))
+  }
+  busy.value = ''
+}
+
+function turn(dir: number) { offset.value = Math.max(-1, Math.min(6, offset.value + dir)) }
+function openRow(r: any) { uni.navigateTo({ url: `/pages/day/index?focus=${encodeURIComponent(r.key)}` }) }
+function go(url: string) { uni.navigateTo({ url }) }
+function goRobots() { uni.navigateTo({ url: '/pages/robots/index' }) }
+
+let tick: any = null
+let poll: any = null
+onShow(async () => {
+  clock.value = new Date()
+  await loadRobots()
+  refresh(Boolean(view.value))
+  tick = setInterval(() => { clock.value = new Date() }, 30000)
+  poll = setInterval(() => refresh(true), 20000)
+})
+onHide(() => {
+  clearInterval(tick)
+  clearInterval(poll)
+})
+watch(() => robot.deviceId, () => {
+  view.value = null
+  refresh()
 })
 </script>
 
 <template>
-  <z-paging
-    ref="pagingRef" v-model="agentList" :refresher-enabled="true" :auto-show-back-to-top="true"
-    :loading-more-enabled="false" :show-loading-more="false" :hide-empty-view="false" :empty-view-text="t('home.emptyState')"
-    empty-view-img="" :refresher-threshold="80"
-    :paging-style="{ background: 'var(--nx-bg)' }"
-    :back-to-top-style="{
-      backgroundColor: 'var(--nx-surface)',
-      borderRadius: '50%',
-      width: '48px',
-      height: '48px',
-      boxShadow: 'var(--nx-shadow-2)',
-    }" @query="queryList"
-  >
-    <!-- Large title header -->
-    <template #top>
-      <view class="home-header" :style="{ paddingTop: `${safeAreaInsets?.top || 0}px` }">
-        <view class="home-header__row">
-          <view class="home-header__text">
-            <text class="home-header__eyebrow">
-              {{ displayName ? `${greeting}, ${displayName}` : greeting }}
-            </text>
-            <text class="home-header__title">
-              {{ tx('home.title', 'Your robots') }}
-            </text>
-          </view>
-          <view
-            class="home-header__add"
-            role="button"
-            :aria-label="t('home.createAgent')"
-            @click="openCreateDialog"
-          >
-            <wd-icon name="add" size="22px" />
-          </view>
-        </view>
-      </view>
-    </template>
+  <view class="today tb-wrap">
+    <view class="today__top" />
+    <tb-month-band :date="date" :lang="lang" sticky />
 
-    <view class="home-body">
-      <!-- First load: skeleton -->
-      <template v-if="!firstLoaded">
-        <view class="nx-card home-summary">
-          <view v-for="n in 3" :key="n" class="home-stat">
-            <view class="nx-skeleton home-skel-label" />
-            <view class="nx-skeleton home-skel-value" />
-          </view>
-        </view>
-        <view v-for="n in 3" :key="`s${n}`" class="nx-card agent-card agent-card--skeleton">
-          <view class="nx-skeleton agent-card__avatar" />
-          <view class="agent-card__main">
-            <view class="nx-skeleton home-skel-title" />
-            <view class="nx-skeleton home-skel-line" />
-          </view>
-        </view>
-      </template>
-
-      <template v-else-if="agentList.length">
-        <!-- Summary -->
-        <view class="nx-card home-summary">
-          <view class="home-stat">
-            <text class="home-stat__label">
-              {{ tx('home.statAgents', 'Agents') }}
-            </text>
-            <text class="nx-num home-stat__value">
-              {{ formatCount(summary.agents) }}
-            </text>
-          </view>
-          <view class="home-stat">
-            <text class="home-stat__label">
-              {{ tx('home.statDevices', 'Devices') }}
-            </text>
-            <text class="home-stat__value nx-num">
-              {{ formatCount(summary.devices) }}
-            </text>
-          </view>
-          <view class="home-stat">
-            <text class="home-stat__label">
-              {{ tx('home.statActiveToday', 'Active today') }}
-            </text>
-            <text class="home-stat__value nx-num">
-              {{ formatCount(summary.activeToday) }}
-            </text>
-          </view>
-        </view>
-
-        <view class="nx-group__header home-section">
-          {{ tx('home.agentsSection', 'Agents') }}
-        </view>
-
-        <!-- Agent cards -->
-        <view class="agent-list">
-          <view v-for="agent in agentList" :key="agent.id" class="agent-item">
-            <wd-swipe-action>
-              <view class="agent-card" @click="handleCardClick(agent)">
-                <view class="agent-card__avatar">
-                  {{ agentInitial(agent) }}
-                </view>
-                <view class="agent-card__main">
-                  <text class="nx-truncate agent-card__name" :title="agent.agentName">
-                    {{ agent.agentName }}
-                  </text>
-                  <text v-if="agentModelLine(agent)" class="nx-truncate agent-card__models">
-                    {{ agentModelLine(agent) }}
-                  </text>
-                  <view class="agent-card__meta">
-                    <view class="agent-card__status">
-                      <view class="nx-dot" :class="{ 'nx-dot--online agent-card__pulse': isActiveNow(agent) }" />
-                      <text class="nx-num">
-                        {{ tx('home.deviceCount', '{count} devices', { count: formatCount(agent.deviceCount) }) }}
-                      </text>
-                    </view>
-                    <text v-if="agent.lastConnectedAt" class="nx-truncate agent-card__time">
-                      {{ isActiveNow(agent) ? tx('home.activeNow', 'Active now') : formatTime(agent.lastConnectedAt) }}
-                    </text>
-                  </view>
-                  <text v-if="agentTagText(agent)" class="nx-truncate agent-card__tags">
-                    {{ agentTagText(agent) }}
-                  </text>
-                </view>
-                <wd-icon name="arrow-right" size="16px" custom-class="agent-card__chevron" />
-              </view>
-
-              <template #right>
-                <view class="swipe-actions">
-                  <view class="swipe-actions__delete" role="button" @click.stop="openDeleteAgentDialog(agent)">
-                    <wd-icon name="delete" size="20px" />
-                    <text>{{ t('home.delete') }}</text>
-                  </view>
-                </view>
-              </template>
-            </wd-swipe-action>
-          </view>
-        </view>
-        <view class="nx-group__footer home-hint">
-          {{ tx('home.swipeHint', 'Swipe left on an agent to delete it.') }}
-        </view>
-      </template>
+    <view v-if="!robot.deviceId && robot.loaded" class="today__none">
+      <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
+        <tb-button variant="primary" icon="robots" @click="goRobots">{{ t('common.goRobots') }}</tb-button>
+      </tb-empty>
     </view>
 
-    <!-- Empty and error states -->
-    <template #empty="{ isLoadFailed }">
-      <view class="nx-empty">
-        <view class="nx-icon-tile nx-icon-tile--lg" :class="{ 'nx-icon-tile--neutral': isLoadFailed }">
-          <wd-icon :name="isLoadFailed ? 'warning' : 'chat'" size="28px" />
-        </view>
-        <text class="nx-empty__title">
-          {{ isLoadFailed ? tx('home.loadFailedTitle', 'Couldn’t load your agents') : t('home.emptyState') }}
-        </text>
-        <text class="nx-empty__text">
-          {{ isLoadFailed
-            ? tx('home.loadFailedText', 'Check your connection and try again.')
-            : tx('home.emptyText', 'Create your first agent to give your robot a personality and a voice.') }}
-        </text>
-        <view
-          class="nx-btn nx-btn--primary home-empty-btn"
-          role="button"
-          @click="isLoadFailed ? pagingRef?.reload() : openCreateDialog()"
-        >
-          <wd-icon :name="isLoadFailed ? 'refresh' : 'add'" size="18px" />
-          {{ isLoadFailed ? tx('home.retry', 'Try again') : t('home.createAgent') }}
+    <block v-else>
+      <view class="today__hero">
+        <tb-date-block class="today__date" :date="date" :lang="lang" :extra="sunrise" @turn="turn" />
+        <view class="today__bot" @click="goRobots">
+          <tb-face :mood="faceMood" :pulse="pulse" :alt="t('today.faceAlt', { name: botName })" />
+          <tb-name-plate :name="botName" :doing="doingNow" :detail="together" :state="state" :state-text="t(`today.state.${state}`)" />
         </view>
       </view>
-    </template>
 
-    <!-- MessageBox component -->
-    <wd-message-box />
-  </z-paging>
-
-  <wd-popup
-    v-model="deleteDialogVisible"
-    position="center"
-    custom-class="nx-dialog"
-    :close-on-click-modal="!deleteAgentLoading"
-    safe-area-inset-bottom
-    @close="closeDeleteAgentDialog"
-  >
-    <view class="delete-agent-dialog">
-      <view class="delete-agent-header">
-        <view class="nx-icon-tile delete-agent-icon">
-          <wd-icon name="delete" size="22px" />
+      <view class="today__act">
+        <view class="today__say">
+          <tb-input v-model="line" class="today__sayin" size="l" :maxlength="200" confirm-type="send"
+            :placeholder="t('today.sayPlaceholder')" :aria-label="t('today.sayLabel')" @confirm="say" />
+          <tb-button variant="primary" size="l" :loading="sending" :disabled="!line.trim()" @click="say">{{ t('today.sayButton') }}</tb-button>
         </view>
-        <text class="delete-agent-title">
-          {{ t('home.deleteConfirmTitle') }}
-        </text>
+        <text v-if="state === 'offline'" class="today__note">{{ t('today.offlineNote') }}</text>
+        <scroll-view scroll-x class="today__deckwrap" :show-scrollbar="false">
+          <view class="today__deck" role="group" :aria-label="t('today.deckLabel')">
+            <tb-button v-for="c in commands" :key="c.type" :icon="c.icon" :loading="busy === c.type" @click="run(c)">{{ t(c.label) }}</tb-button>
+          </view>
+        </scroll-view>
       </view>
 
-      <view class="delete-agent-body">
-        <text
-          class="delete-agent-copy-guard delete-agent-tip"
-          @copy.stop.prevent
-          @cut.stop.prevent
-          @contextmenu.stop.prevent
-          @longpress.stop.prevent
-        >
-          {{ t('home.confirmDeleteAgent', { agentName: deleteTargetAgent?.agentName || '' }) }}
-        </text>
-        <view
-          class="delete-agent-copy-guard delete-agent-target"
-          @copy.stop.prevent
-          @cut.stop.prevent
-          @contextmenu.stop.prevent
-          @longpress.stop.prevent
-        >
-          <text>{{ deleteTargetAgent?.agentName || '' }}</text>
+      <view class="today__day">
+        <view class="today__dayhead">
+          <text class="tb-h2">{{ isToday ? t('today.dayTitle') : t('today.dayTitleOther') }}</text>
+          <text class="today__dayhint">{{ t('today.dayHint') }}</text>
         </view>
-
-        <input
-          v-model="deleteConfirmText"
-          class="delete-agent-input"
-          type="text"
-          :maxlength="deleteTargetAgent?.agentName?.length || 64"
-          :placeholder="t('home.deleteAgentNamePlaceholder')"
-          placeholder-class="delete-agent-placeholder"
-          :disabled="deleteAgentLoading"
-          @paste.stop.prevent="handleDeleteAgentPaste"
-          @drop.stop.prevent="handleDeleteAgentPaste"
-          @contextmenu.stop.prevent
-        >
-        <text v-if="deleteConfirmText && !isDeleteAgentNameMatched" class="delete-agent-helper">
-          {{ t('home.deleteAgentNameMismatch') }}
-        </text>
-      </view>
-
-      <view class="delete-agent-footer">
-        <view
-          class="nx-btn delete-agent-button"
-          :class="{ 'is-disabled': deleteAgentLoading }"
-          role="button"
-          @click="closeDeleteAgentDialog"
-        >
-          {{ t('common.cancel') }}
-        </view>
-        <view
-          class="nx-btn delete-agent-button delete-agent-button--danger"
-          :class="{ 'is-disabled': !isDeleteAgentNameMatched || deleteAgentLoading }"
-          role="button"
-          @click="handleDeleteAgent"
-        >
-          <wd-loading v-if="deleteAgentLoading" size="16px" custom-class="delete-agent-spinner" />
-          {{ t('common.delete') }}
+        <tb-day-table :rows="rows" :lang="lang" :now-minutes="isToday ? nowMinutes : -1" :now-label="t('common.now')"
+          :empty-text="loading ? t('common.loading') : t('today.dayEmpty')" clickable @select="openRow" />
+        <view v-if="failed" class="today__fail" role="alert">
+          <text>{{ t('common.loadFailed') }}</text>
+          <tb-button size="s" variant="quiet" icon="refresh" @click="refresh()">{{ t('common.retry') }}</tb-button>
         </view>
       </view>
-    </view>
-  </wd-popup>
+
+      <view v-if="weather" class="today__weather">
+        <tb-icon name="weather" :size="22" />
+        <text class="today__temp tb-num">{{ num(weather.temp) }}°</text>
+        <view class="today__wtext"><text>{{ weather.text || '' }}</text><text v-if="weather.city" class="tb-small tb-muted">{{ weather.city }}</text></view>
+      </view>
+      <view class="today__more">
+        <view class="today__link" style="--ink: var(--tb-message)" @click="go('/pages/messages/index')">
+          <tb-icon name="message" /><text>{{ t('today.linkMessages') }}</text><tb-icon name="chevron-right" :size="16" />
+        </view>
+        <view class="today__link" @click="go('/pages/agent/index')">
+          <tb-icon name="agent" /><text>{{ t('today.linkCharacter') }}</text><tb-icon name="chevron-right" :size="16" />
+        </view>
+      </view>
+    </block>
+  </view>
 </template>
 
-<style lang="scss" scoped>
-// ---------- Header
-.home-header {
-  padding-left: var(--nx-gutter);
-  padding-right: var(--nx-gutter);
-  background: var(--nx-bg);
-
-  &__row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: var(--nx-space-3);
-    padding: var(--nx-space-5) 0 var(--nx-space-4);
-  }
-  &__text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  &__eyebrow {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: var(--nx-text-callout);
-    font-weight: 500;
-    color: var(--nx-text-2);
-  }
-  &__title {
-    margin-top: var(--nx-space-1);
-    font-size: var(--nx-text-display);
-    font-weight: 700;
-    letter-spacing: -0.022em;
-    line-height: 1.15;
-    color: var(--nx-text);
-  }
-  &__add {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: var(--nx-touch);
-    height: var(--nx-touch);
-    border-radius: 50%;
-    background: var(--nx-accent);
-    color: var(--nx-on-accent);
-    box-shadow: var(--nx-shadow-2);
-    transition: transform var(--nx-dur-1) var(--nx-ease);
-    &:active {
-      transform: scale(0.94);
-      background: var(--nx-accent-hover);
-    }
-  }
-}
-
-.home-body {
-  padding: 0 var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
-}
-
-// ---------- Summary
-.home-summary {
-  display: flex;
-  margin-bottom: var(--nx-space-5);
-  padding: var(--nx-space-4) 0;
-}
-.home-stat {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--nx-space-1);
-  padding: 0 var(--nx-space-4);
-  &:not(:last-child) {
-    border-right: 1rpx solid var(--nx-border);
-  }
-  &__label {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: var(--nx-text-footnote);
-    color: var(--nx-text-2);
-  }
-  &__value {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: var(--nx-text-title);
-    font-weight: 700;
-    letter-spacing: -0.018em;
-    color: var(--nx-text);
-  }
-}
-
-.home-section {
-  padding-left: var(--nx-space-2);
-}
-.home-hint {
-  margin-top: var(--nx-space-2);
-  text-align: center;
-}
-
-.home-skel-label {
-  width: 70%;
-  height: 24rpx;
-}
-.home-skel-value {
-  width: 40%;
-  height: 44rpx;
-}
-.home-skel-title {
-  width: 55%;
-  height: 32rpx;
-}
-.home-skel-line {
-  width: 80%;
-  height: 24rpx;
-  margin-top: var(--nx-space-2);
-}
-
-// ---------- Agent cards
-.agent-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nx-space-3);
-}
-
-.agent-item {
-  overflow: hidden;
-  border-radius: var(--nx-radius-lg);
-  background: var(--nx-surface);
-  box-shadow: var(--nx-shadow-1);
-}
-
-.agent-card {
-  display: flex;
-  align-items: center;
-  gap: var(--nx-space-3);
-  padding: var(--nx-space-4);
-  background: var(--nx-surface);
-  transition: background var(--nx-dur-1) var(--nx-ease);
-  &:active {
-    background: var(--nx-surface-2);
-  }
-  &--skeleton {
-    margin-bottom: var(--nx-space-3);
-  }
-
-  &__avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: 88rpx;
-    height: 88rpx;
-    border-radius: var(--nx-radius);
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-headline);
-    font-weight: 700;
-  }
-  &__main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  &__name {
-    display: block;
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--nx-text);
-  }
-  &__models {
-    display: block;
-    margin-top: 4rpx;
-    font-size: var(--nx-text-footnote);
-    color: var(--nx-text-2);
-  }
-  &__meta {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-3);
-    min-width: 0;
-    margin-top: var(--nx-space-2);
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-2);
-  }
-  &__status {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-1);
-    flex: none;
-    font-weight: 500;
-  }
-  &__time {
-    flex: 1;
-    color: var(--nx-text-3);
-  }
-  &__tags {
-    display: block;
-    margin-top: var(--nx-space-1);
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-}
-
-:deep(.agent-card__chevron) {
-  flex: none;
-  color: var(--nx-text-3);
-}
-
-.agent-card__pulse {
-  animation: nx-pulse 2.4s ease-in-out infinite;
-}
-@keyframes nx-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .agent-card__pulse {
-    animation: none;
-  }
-}
-
-.swipe-actions {
-  display: flex;
-  height: 100%;
-  &__delete {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--nx-space-1);
-    width: 144rpx;
-    background: var(--nx-danger);
-    color: var(--nx-on-accent);
-    font-size: var(--nx-text-caption);
-    font-weight: 600;
-    &:active {
-      opacity: 0.85;
-    }
-  }
-}
-
-.home-empty-btn {
-  margin-top: var(--nx-space-3);
-}
-
-// ---------- Delete dialog
-:deep(.wd-popup.nx-dialog) {
-  width: 86%;
-  max-width: 840rpx;
-  overflow: hidden;
-  border-radius: var(--nx-radius-xl);
-  background: var(--nx-surface);
-  box-shadow: var(--nx-shadow-3);
-}
-
-.delete-agent-dialog {
-  background: var(--nx-surface);
-}
-
-.delete-agent-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--nx-space-3);
-  padding: var(--nx-space-5) var(--nx-space-5) 0;
-}
-
-.delete-agent-icon {
-  background: var(--nx-danger-soft);
-  color: var(--nx-danger);
-}
-
-.delete-agent-title {
-  font-size: var(--nx-text-headline);
-  font-weight: 600;
-  color: var(--nx-text);
-}
-
-.delete-agent-body {
-  padding: var(--nx-space-3) var(--nx-space-5) var(--nx-space-4);
-}
-
-.delete-agent-tip {
-  display: block;
-  color: var(--nx-text-2);
-  font-size: var(--nx-text-callout);
-  line-height: 1.5;
-}
-
-.delete-agent-target {
-  box-sizing: border-box;
-  width: 100%;
-  margin-top: var(--nx-space-3);
-  padding: var(--nx-space-2) var(--nx-space-3);
-  border-radius: var(--nx-radius-sm);
-  background: var(--nx-surface-2);
-  color: var(--nx-text);
-  font-size: var(--nx-text-body);
-  font-weight: 600;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.delete-agent-copy-guard {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.delete-agent-input {
-  box-sizing: border-box;
-  width: 100%;
-  height: var(--nx-touch);
-  margin-top: var(--nx-space-3);
-  padding: 0 var(--nx-space-3);
-  border: 1rpx solid var(--nx-border-strong);
-  border-radius: var(--nx-radius);
-  background: var(--nx-surface-2);
-  color: var(--nx-text);
-  font-size: var(--nx-text-body);
-}
-
-:deep(.delete-agent-placeholder) {
-  color: var(--nx-text-3);
-}
-
-.delete-agent-helper {
-  display: block;
-  margin-top: var(--nx-space-1);
-  color: var(--nx-danger);
-  font-size: var(--nx-text-caption);
-  line-height: 1.4;
-}
-
-.delete-agent-footer {
-  display: flex;
-  gap: var(--nx-space-2);
-  padding: 0 var(--nx-space-5) var(--nx-space-5);
-}
-
-.delete-agent-button {
-  flex: 1;
-  min-width: 0;
-  padding: 0 var(--nx-space-3);
-  &--danger {
-    background: var(--nx-danger);
-    color: var(--nx-on-accent);
-  }
-  &.is-disabled {
-    opacity: 0.45;
-    pointer-events: none;
-  }
-}
-
-:deep(.delete-agent-spinner) {
-  margin-right: var(--nx-space-1);
-}
+<style lang="scss">
+.today__top { height: env(safe-area-inset-top); }
+.today__none { padding: 40px 0; }
+.today__hero { display: flex; border-bottom: 1px solid var(--tb-rule); }
+.today__date { flex: 1; min-width: 0; padding: 6px 14px 14px 0; border-right: 1px solid var(--tb-rule); }
+.today__bot { width: 44%; max-width: 190px; display: flex; flex-direction: column; gap: 10px; padding: 14px 0 14px 14px; }
+.today__act { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--tb-rule); }
+.today__say { display: flex; gap: 8px; }
+.today__sayin { flex: 1; }
+.today__note { color: var(--tb-ink-2); font-size: 13px; }
+.today__deckwrap { white-space: nowrap; width: 100%; }
+.today__deck { display: inline-flex; gap: 8px; }
+.today__day { padding-top: 12px; }
+.today__dayhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0 8px; }
+.today__dayhint { font-size: 12px; color: var(--tb-ink-2); }
+.today__fail { display: flex; align-items: center; gap: 8px; color: var(--tb-danger); font-size: 14px; padding-top: 8px; }
+.today__weather { display: flex; align-items: center; gap: 10px; margin-top: 24px; padding: 12px 0; border-top: 3px solid var(--tb-rule); border-bottom: 1px solid var(--tb-rule); }
+.today__temp { font-family: var(--tb-font-display); font-weight: 700; font-size: 24px; }
+.today__wtext { display: flex; flex-direction: column; }
+.today__more { display: flex; flex-direction: column; }
+.today__link { --ink: var(--tb-ink); display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid var(--tb-rule-soft); font-weight: 600; }
+.today__link text { flex: 1; }
+.today__link .tb-icon:first-child { color: var(--ink); }
 </style>

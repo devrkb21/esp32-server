@@ -1,0 +1,106 @@
+/*
+ * TinyBot design tokens for the phone app: the Panjika world (the Bangla household almanac),
+ * the same values as manager-web/src/styles/tb/tokens.css. White newsprint, ink rules, one ink
+ * per area, Nobix orange for the one action and "now". Every page renders inside <tb-page>,
+ * which carries these properties (and `.is-dark` for the dark set).
+ */
+@font-face { font-family: 'Hind Siliguri'; font-weight: 400; font-display: swap; src: url('/static/fonts/hind-siliguri-bengali-400-normal.woff2') format('woff2'); unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+1CD0, U+1CD5-1CD6, U+1CD8, U+1CE1, U+1CEA, U+1CED, U+1CF2, U+1CF5-1CF7, U+200C-200D, U+20B9, U+25CC, U+A8F1; }
+@font-face { font-family: 'Hind Siliguri'; font-weight: 500; font-display: swap; src: url('/static/fonts/hind-siliguri-bengali-500-normal.woff2') format('woff2'); unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+@font-face { font-family: 'Hind Siliguri'; font-weight: 600; font-display: swap; src: url('/static/fonts/hind-siliguri-bengali-600-normal.woff2') format('woff2'); unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+@font-face { font-family: 'Anek Bangla'; font-weight: 700; font-display: swap; src: url('/static/fonts/anek-bangla-bengali-700-normal.woff2') format('woff2'); unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+@font-face { font-family: 'Anek Bangla'; font-weight: 800; font-display: swap; src: url('/static/fonts/anek-bangla-bengali-800-normal.woff2') format('woff2'); unicode-range: U+0951-0952, U+0964-0965, U+0980-09FE, U+200C-200D, U+25CC; }
+@font-face { font-family: 'Public Sans'; font-weight: 400; font-display: swap; src: url('/static/fonts/public-sans-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Public Sans'; font-weight: 500; font-display: swap; src: url('/static/fonts/public-sans-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Public Sans'; font-weight: 600; font-display: swap; src: url('/static/fonts/public-sans-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Public Sans'; font-weight: 700; font-display: swap; src: url('/static/fonts/public-sans-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Libre Franklin'; font-weight: 700; font-display: swap; src: url('/static/fonts/libre-franklin-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Libre Franklin'; font-weight: 800; font-display: swap; src: url('/static/fonts/libre-franklin-latin-800-normal.woff2') format('woff2'); }
+
+.tb-page {
+  --tb-paper: #FBFAF7;
+  --tb-paper-2: #F3F1EC;
+  --tb-ink: #1B1714;
+  --tb-ink-2: #5A524C;
+  --tb-ink-3: #7A716A;
+  --tb-rule: #1B1714;
+  --tb-rule-soft: #DCD8D1;
+  --tb-face: #000000;
+  --tb-orange: #E8613A;
+  --tb-action: #C2451C;
+  --tb-action-hover: #A93A16;
+  --tb-on-action: #FFFFFF;
+  --tb-prayer: #0B7A4A;
+  --tb-alarm: #D4231C;
+  --tb-routine: #8F5F08;
+  --tb-routine-mark: #C98A12;
+  --tb-message: #1F4FA3;
+  --tb-look: #6B3FA0;
+  --tb-ok: #0B7A4A;
+  --tb-warn: #8F5F08;
+  --tb-danger: #B81E18;
+  --tb-focus: #1F4FA3;
+  --tb-font-display: "Libre Franklin", "Anek Bangla", "Hind Siliguri", system-ui, sans-serif;
+  --tb-font-text: "Public Sans", "Hind Siliguri", system-ui, sans-serif;
+  --tb-lh-text: 1.55;
+  --tb-gutter: 20px;
+  --tb-radius-s: 6px;
+  --tb-radius-m: 10px;
+  --tb-ease: cubic-bezier(.2, .7, .2, 1);
+  --tb-ease-in: cubic-bezier(.4, 0, 1, 1);
+  --tb-t-hover: 120ms;
+  --tb-t-fast: 160ms;
+  --tb-t-row: 180ms;
+  --tb-t-sheet: 220ms;
+  --tb-t-day: 240ms;
+  --tb-shadow-sheet: 0 12px 32px rgba(27, 23, 20, .18), 0 2px 6px rgba(27, 23, 20, .08);
+
+  min-height: 100vh;
+  background: var(--tb-paper);
+  color: var(--tb-ink);
+  font-family: var(--tb-font-text);
+  font-size: 15px;
+  line-height: var(--tb-lh-text);
+  box-sizing: border-box;
+}
+
+.tb-page.is-dark {
+  --tb-paper: #171310;
+  --tb-paper-2: #221D19;
+  --tb-ink: #EDE8E0;
+  --tb-ink-2: #C3BAB0;
+  --tb-ink-3: #A89F96;
+  --tb-rule: #EDE8E0;
+  --tb-rule-soft: #3A332D;
+  --tb-orange: #F2794F;
+  --tb-action: #F2794F;
+  --tb-action-hover: #F58E69;
+  --tb-on-action: #171310;
+  --tb-prayer: #3DBE84;
+  --tb-alarm: #FF5A4E;
+  --tb-routine: #E3A73A;
+  --tb-routine-mark: #E3A73A;
+  --tb-message: #7BA2F0;
+  --tb-look: #B293E8;
+  --tb-ok: #3DBE84;
+  --tb-warn: #E3A73A;
+  --tb-danger: #FF5A4E;
+  --tb-focus: #7BA2F0;
+  --tb-shadow-sheet: 0 12px 32px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3);
+}
+
+.tb-page view, .tb-page text { box-sizing: border-box; }
+.tb-num { font-variant-numeric: tabular-nums; }
+.tb-display { font-family: var(--tb-font-display); font-weight: 700; }
+.tb-h1 { font-family: var(--tb-font-display); font-weight: 800; font-size: 26px; line-height: 1.15; }
+.tb-h2 { font-family: var(--tb-font-display); font-weight: 700; font-size: 20px; line-height: 1.2; }
+.tb-muted { color: var(--tb-ink-2); }
+.tb-small { font-size: 13px; }
+.tb-rule-band { border-top: 3px solid var(--tb-rule); }
+.tb-rule { border-top: 1px solid var(--tb-rule); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-page *, .tb-page *::before, .tb-page *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+.tb-page.has-tabbar { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+.tb-wrap { padding: 0 var(--tb-gutter); }

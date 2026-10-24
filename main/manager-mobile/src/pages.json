@@ -15,7 +15,7 @@
     }
   },
   "tabBar": {
-    "custom": false,
+    "custom": true,
     "color": "#8E857B",
     "selectedColor": "#E2603A",
     "backgroundColor": "#FFFFFF",
@@ -26,28 +26,40 @@
     "spacing": "3px",
     "list": [
       {
-        "iconPath": "static/tabbar/robot.png",
-        "selectedIconPath": "static/tabbar/robot_activate.png",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/homeHL.png",
         "pagePath": "pages/index/index",
-        "text": "Home",
-        "icon": "home",
-        "iconType": "uiLib"
+        "text": "Today",
+        "labelKey": "nav.today",
+        "icon": "today",
+        "iconType": "tb"
       },
       {
-        "iconPath": "static/tabbar/network.png",
-        "selectedIconPath": "static/tabbar/network_activate.png",
-        "pagePath": "pages/device-config/index",
-        "text": "Network",
-        "icon": "i-carbon-network-3",
-        "iconType": "uiLib"
+        "iconPath": "static/tabbar/example.png",
+        "selectedIconPath": "static/tabbar/exampleHL.png",
+        "pagePath": "pages/day/index",
+        "text": "Day",
+        "labelKey": "nav.day",
+        "icon": "day",
+        "iconType": "tb"
+      },
+      {
+        "iconPath": "static/tabbar/robot.png",
+        "selectedIconPath": "static/tabbar/robot_activate.png",
+        "pagePath": "pages/look/index",
+        "text": "Look",
+        "labelKey": "nav.look",
+        "icon": "look",
+        "iconType": "tb"
       },
       {
         "iconPath": "static/tabbar/system.png",
         "selectedIconPath": "static/tabbar/system_activate.png",
         "pagePath": "pages/settings/index",
-        "text": "System",
-        "icon": "i-carbon-settings",
-        "iconType": "uiLib"
+        "text": "More",
+        "labelKey": "nav.more",
+        "icon": "more",
+        "iconType": "tb"
       }
     ]
   },
@@ -58,7 +70,7 @@
       "layout": "tabbar",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "Home"
+        "navigationBarTitleText": "TinyBot"
       }
     },
     {
@@ -121,6 +133,15 @@
       "style": {
         "navigationBarTitleText": "Companion",
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/day/index",
+      "type": "page",
+      "layout": "tabbar",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
       }
     },
     {
@@ -190,12 +211,48 @@
       }
     },
     {
+      "path": "pages/look/index",
+      "type": "page",
+      "layout": "tabbar",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
+      }
+    },
+    {
+      "path": "pages/messages/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
+      }
+    },
+    {
       "path": "pages/register/index",
       "type": "page",
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "Register"
+      }
+    },
+    {
+      "path": "pages/robot/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
+      }
+    },
+    {
+      "path": "pages/robots/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
       }
     },
     {
