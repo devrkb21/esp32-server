@@ -25,7 +25,7 @@ def test_morning_is_due_once_inside_its_window():
     assert due_kind(s, MON_0740, {"morning": "2026-10-26"}) is None
     assert due_kind(s, MON_0740, {"morning": "2026-10-25"}) == "morning"
     assert due_kind(s, datetime(2026, 10, 26, 7, 29), {}) is None
-    assert due_kind(s, datetime(2026, 10, 26, 8, 15), {}) is None  # window over
+    assert due_kind(s, datetime(2026, 10, 26, 9, 30), {}) is None  # window over
 
 
 def test_evening_and_switches():

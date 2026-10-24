@@ -1903,7 +1903,7 @@ export default {
   'companion.proactive.evening': 'Buổi tối: “Hôm nay của bạn thế nào?”',
   'companion.proactive.morningAt': 'Giờ chào buổi sáng',
   'companion.proactive.eveningAt': 'Giờ trò chuyện buổi tối',
-  'companion.proactive.hint': 'TinyBot sẽ chờ khi đang bận (chơi game, hẹn giờ hoặc trò chuyện) và trong giờ ban đêm, và thử lại tối đa 45 phút sau giờ đã đặt.',
+  'companion.proactive.hint': 'TinyBot không nói chuyện với phòng trống: trong vòng hai giờ sau giờ đã đặt, nó chờ có người chạm vào, nhấc lên hoặc nói chuyện gần đó rồi mới chào. Không chào vào ban đêm hoặc khi đang bận.',
   'companion.proactive.morningTime': 'Chào buổi sáng: chọn giờ (HH:MM)',
   'companion.proactive.eveningTime': 'Trò chuyện buổi tối: chọn giờ (HH:MM)',
   'companion.night.lightFor': 'Đèn ngủ sáng trong',

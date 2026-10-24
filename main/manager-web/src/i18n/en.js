@@ -1903,7 +1903,7 @@ export default {
   'companion.proactive.evening': 'Evening “How was your day?”',
   'companion.proactive.morningAt': 'Morning greeting time',
   'companion.proactive.eveningAt': 'Evening chat time',
-  'companion.proactive.hint': 'TinyBot waits while it is busy (a game, a timer or a chat) and during night hours, and keeps trying for up to 45 minutes after the set time.',
+  'companion.proactive.hint': 'TinyBot does not talk to an empty room: within two hours of the set time it waits for someone to touch it, pick it up or talk nearby, then greets. Not during night hours or while it is busy.',
   'companion.proactive.morningTime': 'Morning greeting: choose a time (HH:MM)',
   'companion.proactive.eveningTime': 'Evening chat: choose a time (HH:MM)',
   'companion.night.lightFor': 'Night light stays on',

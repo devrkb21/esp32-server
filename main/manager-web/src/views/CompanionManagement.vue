@@ -777,7 +777,7 @@
                       </span>
                     </div>
                   </div>
-                  <p class="cm-help cm-gap-top">{{ tx('companion.proactive.hint', 'TinyBot waits while it is busy (a game, a timer or a chat) and during night hours, and keeps trying for up to 45 minutes after the set time.') }}</p>
+                  <p class="cm-help cm-gap-top">{{ tx('companion.proactive.hint', 'TinyBot does not talk to an empty room: within two hours of the set time it waits for someone to touch it, pick it up or talk nearby, then greets. Not during night hours or while it is busy.') }}</p>
                   <footer class="nx-card__footer">
                     <span v-if="isDirty('proactive')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
                     <el-button v-if="isDirty('proactive')" type="text" @click="revertSection('proactive')">{{ tx('companion.revert', 'Undo changes') }}</el-button>
