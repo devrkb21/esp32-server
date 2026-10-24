@@ -54,7 +54,23 @@ export default defineConfig({
   theme: {
     colors: {
       /** Theme color, e.g.: text-primary */
-      primary: 'var(--wot-color-theme,#0957DE)',
+      primary: 'var(--nx-accent, #E2603A)',
+      // Nobix tokens (style/nobix.scss): bg-nx-surface, text-nx-text-2, …
+      nx: {
+        'bg': 'var(--nx-bg)',
+        'surface': 'var(--nx-surface)',
+        'surface-2': 'var(--nx-surface-2)',
+        'surface-3': 'var(--nx-surface-3)',
+        'border': 'var(--nx-border)',
+        'text': 'var(--nx-text)',
+        'text-2': 'var(--nx-text-2)',
+        'text-3': 'var(--nx-text-3)',
+        'accent': 'var(--nx-accent)',
+        'accent-soft': 'var(--nx-accent-soft)',
+        'success': 'var(--nx-success)',
+        'warning': 'var(--nx-warning)',
+        'danger': 'var(--nx-danger)',
+      },
     },
     fontSize: {
       /** Smaller font size, e.g.: text-2xs */

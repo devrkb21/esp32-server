@@ -46,20 +46,11 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-::v-deep .el-pagination {
-  .btn-next,
-  .btn-prev,
-  .el-pager li {
-    background: transparent !important;
-    min-width: 36px !important;
-  }
-  .el-pager li:not(.disabled).active {
-    background: linear-gradient(135deg, #2a6dfe 0%, #6b8cff 50%, #2a6dfe 100%) !important;
-    border-radius: 6px;
-    box-shadow: 0 1px 3px rgba(45, 111, 254, 0.3);
-    color: #fff;
-    font-weight: 600;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
-  }
+// Pagination look comes from styles/nobix/element.scss
+.pagination-wrapper {
+  margin-left: auto;
+}
+::v-deep .el-pagination .el-select .el-input .el-input__inner {
+  height: 32px;
 }
 </style>

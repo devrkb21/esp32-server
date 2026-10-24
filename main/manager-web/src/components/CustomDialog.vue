@@ -15,7 +15,6 @@
     <template slot="title">
       <slot name="title">
         <div class="dialog-title">
-          <img src="@/assets/knowledge-base/level.png" class="title-icon" />
           <span>{{ title }}</span>
         </div>
       </slot>
@@ -25,10 +24,7 @@
       <div v-if="footer" class="dialog-footer">
         <CustomButton @click="handleCancel">{{ cancelText }}</CustomButton>
         <CustomButton :loading="confirmLoading" type="confirm" @click="handleConfirm">
-          <span class="confirm-inner">
-            <img src="@/assets/knowledge-base/star.png" class="confirm-icon" />
-            {{ confirmText }}
-          </span>
+          <span class="confirm-inner">{{ confirmText }}</span>
         </CustomButton>
       </div>
     </template>
@@ -138,134 +134,43 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-/* 大档与小档通过 .custom-dialog--large 区分 */
+// Size presets: .custom-dialog--large for tables, fluid when the width is a percentage
 ::v-deep .el-dialog.custom-dialog {
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin: 5vh auto !important;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 10vh);
+  max-height: calc(100vh - 64px);
+  margin: 32px auto !important;
 }
-
+::v-deep .el-dialog.custom-dialog--large {
+  width: min(var(--dialog-table-max), calc(100vw - 32px)) !important;
+}
 ::v-deep .el-dialog__body {
-  max-height: calc(100vh - 220px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 20px;
 }
-
-/* .v-modal 样式由 global.scss 全局定义 */
-::v-deep .el-dialog__header {
-  padding: 16px 20px 12px;
-  background: linear-gradient(135deg, #e2eeff, #edeafe);
-  text-align: left;
-}
-
-::v-deep .el-dialog__title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #1a1a1a;
-}
-
 ::v-deep .dialog-title {
-  font-size: 18px;
-  display: inline-flex;
-  align-items: center;
-  > span {
-    line-height: 18px;
-    font-weight: 500;
-  }
-}
-
-::v-deep .title-icon {
-  width: 24px;
-  height: 24px;
-  margin-right: 8px;
-}
-
-::v-deep .el-dialog__headerbtn {
-  top: 12px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: center;
-  justify-content: center;
-
-  .el-dialog__close {
-    font-size: 18px;
-    color: #666;
-    position: static;
-    transform: none;
-  }
-
-  &:hover {
-    background: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-
-    .el-dialog__close {
-      color: #333;
-    }
+  gap: 8px;
+  padding-right: 32px;
+  font-size: var(--nx-text-headline);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nx-text);
+  > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
-
-::v-deep .el-dialog__footer {
-  padding: 12px 20px 16px;
-}
-
 ::v-deep .dialog-footer {
   display: flex;
   justify-content: flex-end;
-
-  .el-button {
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
+  gap: 8px;
+  .el-button + .el-button {
+    margin-left: 0;
   }
-
-  .el-button--primary {
-    background: linear-gradient(to right, #4a7cfd, #8154fc);
-    border: none;
-
-    &:hover,
-    &:focus {
-      background: linear-gradient(to right, #4a7cfd, #8154fc);
-      opacity: 0.85;
-    }
-  }
-
-  .confirm-inner {
-    display: inline-flex;
-    align-items: center;
-  }
-
-  .confirm-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 4px;
-  }
-}
-
-/* 大档：上下各留 10px 让边框和圆角可见 */
-::v-deep .el-dialog.custom-dialog.custom-dialog--large {
-  margin: 10px auto !important;
-  height: calc(100vh - 20px);
-  max-height: calc(100vh - 20px);
-  border-radius: 10px;
-}
-
-::v-deep .el-dialog.custom-dialog.custom-dialog--large.custom-dialog--fluid {
-  max-width: var(--dialog-table-max);
-}
-
-::v-deep .el-dialog.custom-dialog--large .el-dialog__body {
-  max-height: calc(100vh - 20px - 110px);
-  flex: 1;
-  min-height: 0;
 }
 </style>

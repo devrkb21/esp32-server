@@ -2,14 +2,15 @@
 
 :root,
 page {
-  --app-bg-page: #f5f7fb;
-  --app-bg-card: #ffffff;
-  --app-bg-card-sub: #f5f7fb;
-  --app-border-color: #eeeeee;
-  --app-text-primary: #232338;
-  --app-text-regular: #65686f;
-  --app-text-muted: #9d9ea3;
-  --app-navbar-bg: #ffffff;
+  // Legacy names kept for older markup; they follow the Nobix tokens (style/nobix.scss)
+  --app-bg-page: var(--nx-bg);
+  --app-bg-card: var(--nx-surface);
+  --app-bg-card-sub: var(--nx-surface-2);
+  --app-border-color: var(--nx-border);
+  --app-text-primary: var(--nx-text);
+  --app-text-regular: var(--nx-text-2);
+  --app-text-muted: var(--nx-text-3);
+  --app-navbar-bg: var(--nx-bg);
 
   transition: background-color 0.25s ease, color 0.25s ease;
 }
@@ -18,14 +19,14 @@ page {
 .wot-theme-dark,
 .dark,
 html.dark page {
-  --app-bg-page: #0f1117;
-  --app-bg-card: #181a24;
-  --app-bg-card-sub: #222634;
-  --app-border-color: #2b2f42;
-  --app-text-primary: #f1f3fa;
-  --app-text-regular: #a8adbe;
-  --app-text-muted: #74798e;
-  --app-navbar-bg: #141620;
+  --app-bg-page: var(--nx-bg);
+  --app-bg-card: var(--nx-surface);
+  --app-bg-card-sub: var(--nx-surface-2);
+  --app-border-color: var(--nx-border);
+  --app-text-primary: var(--nx-text);
+  --app-text-regular: var(--nx-text-2);
+  --app-text-muted: var(--nx-text-3);
+  --app-navbar-bg: var(--nx-bg);
 
   background-color: var(--app-bg-page) !important;
   color: var(--app-text-primary) !important;

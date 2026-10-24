@@ -4,10 +4,10 @@ import { tabBar } from './src/layouts/fg-tabbar/tabbarList'
 export default defineUniPages({
   globalStyle: {
     navigationStyle: 'default',
-    navigationBarTitleText: 'ESP',
-    navigationBarBackgroundColor: '#f8f8f8',
+    navigationBarTitleText: 'Nobix',
+    navigationBarBackgroundColor: '#F7F5F2',
     navigationBarTextStyle: 'black',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7F5F2',
   },
   easycom: {
     autoscan: true,

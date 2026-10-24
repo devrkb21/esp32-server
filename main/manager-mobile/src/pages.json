@@ -1,10 +1,10 @@
 {
   "globalStyle": {
     "navigationStyle": "default",
-    "navigationBarTitleText": "ESP",
-    "navigationBarBackgroundColor": "#f8f8f8",
+    "navigationBarTitleText": "Nobix",
+    "navigationBarBackgroundColor": "#F7F5F2",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#FFFFFF"
+    "backgroundColor": "#F7F5F2"
   },
   "easycom": {
     "autoscan": true,
@@ -16,10 +16,10 @@
   },
   "tabBar": {
     "custom": false,
-    "color": "#e6e6e6",
-    "selectedColor": "#667dea",
-    "backgroundColor": "#fff",
-    "borderStyle": "black",
+    "color": "#8E857B",
+    "selectedColor": "#E2603A",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
     "height": "50px",
     "fontSize": "10px",
     "iconWidth": "24px",

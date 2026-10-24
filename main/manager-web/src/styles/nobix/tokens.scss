@@ -1,0 +1,139 @@
+// Nobix Console design tokens (see docs/design/nobix-design-system.md).
+// Views use these CSS variables only: never raw colours, radii, shadows or font sizes.
+
+:root {
+  color-scheme: light;
+
+  // Colour
+  --nx-bg: #f7f5f2;
+  --nx-surface: #ffffff;
+  --nx-surface-2: #f2efeb;
+  --nx-surface-3: #e9e5e0;
+  --nx-border: rgba(40, 30, 20, 0.1);
+  --nx-border-strong: rgba(40, 30, 20, 0.18);
+  --nx-text: #1f1b17;
+  --nx-text-2: #5f5850;
+  --nx-text-3: #8e857b;
+  --nx-accent: #e2603a;
+  --nx-accent-hover: #cf5330;
+  --nx-accent-soft: #fcede7;
+  --nx-on-accent: #ffffff;
+  --nx-success: #2e8b62;
+  --nx-success-soft: #e6f4ec;
+  --nx-warning: #b7791f;
+  --nx-warning-soft: #fbf1de;
+  --nx-danger: #c8463d;
+  --nx-danger-soft: #fbe9e7;
+  --nx-info: #3b6fb6;
+  --nx-info-soft: #e8eff9;
+  --nx-scrim: rgba(25, 18, 12, 0.38);
+  --nx-glass: rgba(255, 255, 255, 0.72);
+  --nx-focus-ring: 0 0 0 3px rgba(226, 96, 58, 0.22);
+
+  // Type
+  --nx-font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, Roboto,
+    "Noto Sans Bengali", "Helvetica Neue", Arial, sans-serif;
+  --nx-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  --nx-text-display: 32px;
+  --nx-text-title: 24px;
+  --nx-text-headline: 17px;
+  --nx-text-body: 15px;
+  --nx-text-callout: 14px;
+  --nx-text-footnote: 13px;
+  --nx-text-caption: 12px;
+
+  // Space
+  --nx-space-1: 4px;
+  --nx-space-2: 8px;
+  --nx-space-3: 12px;
+  --nx-space-4: 16px;
+  --nx-space-5: 20px;
+  --nx-space-6: 24px;
+  --nx-space-7: 32px;
+  --nx-space-8: 40px;
+  --nx-space-9: 48px;
+  --nx-space-10: 64px;
+  --nx-gutter: 32px;
+  --nx-content-max: 1200px;
+  --nx-topbar-h: 64px;
+
+  // Shape
+  --nx-radius-sm: 8px;
+  --nx-radius: 12px;
+  --nx-radius-lg: 16px;
+  --nx-radius-xl: 22px;
+  --nx-radius-pill: 999px;
+  --nx-control-h: 36px;
+  --nx-control-h-sm: 32px;
+  --nx-control-h-lg: 44px;
+
+  // Depth
+  --nx-shadow-1: 0 1px 2px rgba(40, 25, 10, 0.06);
+  --nx-shadow-2: 0 1px 2px rgba(40, 25, 10, 0.05), 0 8px 24px rgba(40, 25, 10, 0.07);
+  --nx-shadow-3: 0 2px 6px rgba(40, 25, 10, 0.08), 0 24px 64px rgba(40, 25, 10, 0.16);
+
+  // Motion
+  --nx-dur-1: 120ms;
+  --nx-dur-2: 200ms;
+  --nx-dur-3: 320ms;
+  --nx-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --nx-ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --nx-bg: #121110;
+  --nx-surface: #1c1a18;
+  --nx-surface-2: #252220;
+  --nx-surface-3: #2f2b28;
+  --nx-border: rgba(255, 240, 225, 0.1);
+  --nx-border-strong: rgba(255, 240, 225, 0.18);
+  --nx-text: #f4efe9;
+  --nx-text-2: #b5aca2;
+  --nx-text-3: #857c72;
+  --nx-accent: #ff7a52;
+  --nx-accent-hover: #ff8e6b;
+  --nx-accent-soft: rgba(255, 122, 82, 0.14);
+  --nx-on-accent: #1b0f0a;
+  --nx-success: #4cc38a;
+  --nx-success-soft: rgba(76, 195, 138, 0.14);
+  --nx-warning: #e8b04b;
+  --nx-warning-soft: rgba(232, 176, 75, 0.14);
+  --nx-danger: #ff6b61;
+  --nx-danger-soft: rgba(255, 107, 97, 0.14);
+  --nx-info: #78a6e8;
+  --nx-info-soft: rgba(120, 166, 232, 0.14);
+  --nx-scrim: rgba(0, 0, 0, 0.55);
+  --nx-glass: rgba(28, 26, 24, 0.72);
+  --nx-focus-ring: 0 0 0 3px rgba(255, 122, 82, 0.28);
+
+  // Dark surfaces separate by a lighter edge, not by shadow
+  --nx-shadow-1: 0 0 0 1px rgba(255, 240, 225, 0.04);
+  --nx-shadow-2: 0 0 0 1px rgba(255, 240, 225, 0.05), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --nx-shadow-3: 0 0 0 1px rgba(255, 240, 225, 0.06), 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 960px) {
+  :root {
+    --nx-gutter: 16px;
+    --nx-text-title: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --nx-dur-1: 1ms;
+    --nx-dur-2: 120ms;
+    --nx-dur-3: 160ms;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --nx-glass: #ffffff;
+  }
+  html.dark {
+    --nx-glass: #1c1a18;
+  }
+}

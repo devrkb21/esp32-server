@@ -1,0 +1,443 @@
+// Nobix Console design tokens for manager-mobile (docs/design/nobix-design-system.md).
+// Pages use these variables (or the UnoCSS theme colours that point at them), never raw values.
+// Mobile sizes are in rpx (750rpx = screen width): 2rpx ≈ 1 web px on a 375px phone.
+
+:root,
+page {
+  --nx-bg: #f7f5f2;
+  --nx-surface: #ffffff;
+  --nx-surface-2: #f2efeb;
+  --nx-surface-3: #e9e5e0;
+  --nx-border: rgba(40, 30, 20, 0.1);
+  --nx-border-strong: rgba(40, 30, 20, 0.18);
+  --nx-text: #1f1b17;
+  --nx-text-2: #5f5850;
+  --nx-text-3: #8e857b;
+  --nx-accent: #e2603a;
+  --nx-accent-hover: #cf5330;
+  --nx-accent-soft: #fcede7;
+  --nx-on-accent: #ffffff;
+  --nx-success: #2e8b62;
+  --nx-success-soft: #e6f4ec;
+  --nx-warning: #b7791f;
+  --nx-warning-soft: #fbf1de;
+  --nx-danger: #c8463d;
+  --nx-danger-soft: #fbe9e7;
+  --nx-info: #3b6fb6;
+  --nx-info-soft: #e8eff9;
+  --nx-scrim: rgba(25, 18, 12, 0.38);
+  --nx-glass: rgba(255, 255, 255, 0.78);
+
+  --nx-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Noto Sans Bengali",
+    "Helvetica Neue", Arial, sans-serif;
+  --nx-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  // Type scale (rpx)
+  --nx-text-display: 64rpx;
+  --nx-text-title: 44rpx;
+  --nx-text-headline: 34rpx;
+  --nx-text-body: 30rpx;
+  --nx-text-callout: 28rpx;
+  --nx-text-footnote: 26rpx;
+  --nx-text-caption: 24rpx;
+
+  // Space (rpx)
+  --nx-space-1: 8rpx;
+  --nx-space-2: 16rpx;
+  --nx-space-3: 24rpx;
+  --nx-space-4: 32rpx;
+  --nx-space-5: 40rpx;
+  --nx-space-6: 48rpx;
+  --nx-space-7: 64rpx;
+  --nx-gutter: 32rpx;
+
+  // Shape
+  --nx-radius-sm: 16rpx;
+  --nx-radius: 24rpx;
+  --nx-radius-lg: 32rpx;
+  --nx-radius-xl: 44rpx;
+  --nx-radius-pill: 999rpx;
+  --nx-touch: 88rpx;
+
+  --nx-shadow-1: 0 2rpx 4rpx rgba(40, 25, 10, 0.06);
+  --nx-shadow-2: 0 2rpx 4rpx rgba(40, 25, 10, 0.05), 0 16rpx 48rpx rgba(40, 25, 10, 0.07);
+  --nx-shadow-3: 0 4rpx 12rpx rgba(40, 25, 10, 0.08), 0 48rpx 128rpx rgba(40, 25, 10, 0.16);
+
+  --nx-dur-1: 120ms;
+  --nx-dur-2: 200ms;
+  --nx-dur-3: 320ms;
+  --nx-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wot-theme-dark,
+.dark,
+html.dark page {
+  --nx-bg: #121110;
+  --nx-surface: #1c1a18;
+  --nx-surface-2: #252220;
+  --nx-surface-3: #2f2b28;
+  --nx-border: rgba(255, 240, 225, 0.1);
+  --nx-border-strong: rgba(255, 240, 225, 0.18);
+  --nx-text: #f4efe9;
+  --nx-text-2: #b5aca2;
+  --nx-text-3: #857c72;
+  --nx-accent: #ff7a52;
+  --nx-accent-hover: #ff8e6b;
+  --nx-accent-soft: rgba(255, 122, 82, 0.14);
+  --nx-on-accent: #1b0f0a;
+  --nx-success: #4cc38a;
+  --nx-success-soft: rgba(76, 195, 138, 0.14);
+  --nx-warning: #e8b04b;
+  --nx-warning-soft: rgba(232, 176, 75, 0.14);
+  --nx-danger: #ff6b61;
+  --nx-danger-soft: rgba(255, 107, 97, 0.14);
+  --nx-info: #78a6e8;
+  --nx-info-soft: rgba(120, 166, 232, 0.14);
+  --nx-scrim: rgba(0, 0, 0, 0.55);
+  --nx-glass: rgba(28, 26, 24, 0.78);
+  --nx-shadow-1: 0 0 0 2rpx rgba(255, 240, 225, 0.04);
+  --nx-shadow-2: 0 0 0 2rpx rgba(255, 240, 225, 0.05), 0 16rpx 48rpx rgba(0, 0, 0, 0.35);
+  --nx-shadow-3: 0 0 0 2rpx rgba(255, 240, 225, 0.06), 0 48rpx 128rpx rgba(0, 0, 0, 0.55);
+}
+
+// ------------------------------------------------------------------ base
+
+page {
+  background: var(--nx-bg);
+  color: var(--nx-text);
+  font-family: var(--nx-font);
+  font-size: var(--nx-text-body);
+  line-height: 1.47;
+  -webkit-font-smoothing: antialiased;
+}
+
+// ------------------------------------------------------------------ primitives (`nx-` classes)
+
+// Page body with the gutter and bottom safe area
+.nx-page {
+  min-height: 100vh;
+  padding: var(--nx-space-3) var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
+  background: var(--nx-bg);
+  box-sizing: border-box;
+}
+
+// Large title header under the plain nav bar
+.nx-large-title {
+  padding: var(--nx-space-2) 0 var(--nx-space-4);
+  &__title {
+    font-size: var(--nx-text-display);
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    color: var(--nx-text);
+  }
+  &__subtitle {
+    margin-top: 8rpx;
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text-2);
+  }
+}
+
+.nx-title {
+  font-size: var(--nx-text-title);
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  color: var(--nx-text);
+}
+.nx-headline {
+  font-size: var(--nx-text-headline);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nx-text);
+}
+.nx-callout {
+  font-size: var(--nx-text-callout);
+  color: var(--nx-text-2);
+}
+.nx-footnote {
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-text-2);
+}
+.nx-caption {
+  font-size: var(--nx-text-caption);
+  font-weight: 500;
+  color: var(--nx-text-3);
+}
+.nx-mono {
+  font-family: var(--nx-font-mono);
+}
+.nx-num {
+  font-variant-numeric: tabular-nums;
+}
+.nx-truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.nx-break {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+// Grouped inset list section: <view class="nx-group"><view class="nx-group__header">…
+.nx-group {
+  margin-bottom: var(--nx-space-5);
+  &__header {
+    padding: 0 var(--nx-space-2) var(--nx-space-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--nx-text-3);
+  }
+  &__body {
+    overflow: hidden;
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-surface);
+    box-shadow: var(--nx-shadow-1);
+  }
+  &__footer {
+    padding: var(--nx-space-2) var(--nx-space-2) 0;
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+}
+
+// One row in a group: leading icon, text, trailing value/chevron
+.nx-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-height: var(--nx-touch);
+  padding: var(--nx-space-3) var(--nx-space-4);
+  box-sizing: border-box;
+  &:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: var(--nx-space-4);
+    right: 0;
+    bottom: 0;
+    height: 1rpx;
+    background: var(--nx-border);
+  }
+  &--tap:active {
+    background: var(--nx-surface-2);
+  }
+  &__main {
+    flex: 1;
+    min-width: 0;
+  }
+  &__title {
+    font-size: var(--nx-text-body);
+    color: var(--nx-text);
+  }
+  &__subtitle {
+    margin-top: 4rpx;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__value {
+    flex: none;
+    max-width: 50%;
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text-2);
+    text-align: right;
+  }
+  &__chevron {
+    flex: none;
+    color: var(--nx-text-3);
+  }
+}
+
+.nx-card {
+  background: var(--nx-surface);
+  border-radius: var(--nx-radius-lg);
+  box-shadow: var(--nx-shadow-1);
+  padding: var(--nx-space-4);
+  &--tap {
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+}
+
+.nx-icon-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--nx-radius);
+  background: var(--nx-accent-soft);
+  color: var(--nx-accent);
+  font-size: 40rpx;
+  &--neutral {
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+  }
+  &--lg {
+    width: 112rpx;
+    height: 112rpx;
+    border-radius: var(--nx-radius-lg);
+    font-size: 56rpx;
+  }
+}
+
+.nx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 40rpx;
+  padding: 0 16rpx;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-2);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+  &--accent {
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+  }
+  &--success {
+    background: var(--nx-success-soft);
+    color: var(--nx-success);
+  }
+  &--warning {
+    background: var(--nx-warning-soft);
+    color: var(--nx-warning);
+  }
+  &--danger {
+    background: var(--nx-danger-soft);
+    color: var(--nx-danger);
+  }
+}
+
+.nx-dot {
+  display: inline-block;
+  flex: none;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: var(--nx-text-3);
+  &--online {
+    background: var(--nx-success);
+  }
+  &--danger {
+    background: var(--nx-danger);
+  }
+}
+
+// Buttons for custom markup (wd-button is themed through themeVars)
+.nx-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  height: var(--nx-touch);
+  padding: 0 var(--nx-space-5);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+  color: var(--nx-text);
+  font-size: var(--nx-text-body);
+  font-weight: 600;
+  transition: transform var(--nx-dur-1) var(--nx-ease), opacity var(--nx-dur-1) var(--nx-ease);
+  &:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+  }
+  &--primary {
+    background: var(--nx-accent);
+    color: var(--nx-on-accent);
+  }
+  &--danger {
+    background: var(--nx-danger-soft);
+    color: var(--nx-danger);
+  }
+  &--block {
+    width: 100%;
+  }
+}
+
+// Bottom bar that pins the main action above the safe area
+.nx-action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  padding: var(--nx-space-3) var(--nx-gutter) calc(var(--nx-space-3) + env(safe-area-inset-bottom));
+  background: var(--nx-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1rpx solid var(--nx-border);
+}
+
+.nx-segmented {
+  display: flex;
+  padding: 6rpx;
+  gap: 4rpx;
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-3);
+  &__item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60rpx;
+    border-radius: calc(var(--nx-radius) - 6rpx);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+    &.is-active {
+      background: var(--nx-surface);
+      color: var(--nx-text);
+      box-shadow: var(--nx-shadow-1);
+    }
+  }
+}
+
+.nx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-7) var(--nx-space-5);
+  &__title {
+    margin-top: var(--nx-space-2);
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__text {
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text-2);
+  }
+}
+
+.nx-skeleton {
+  display: block;
+  min-height: 24rpx;
+  border-radius: var(--nx-radius-sm);
+  background: linear-gradient(90deg, var(--nx-surface-2) 0%, var(--nx-surface-3) 50%, var(--nx-surface-2) 100%);
+  background-size: 200% 100%;
+  animation: nx-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes nx-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-skeleton {
+    animation: none;
+  }
+}
