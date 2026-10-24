@@ -183,7 +183,7 @@ public class DeviceController {
     @RequiresPermissions("sys:role:normal")
     public Result<Object> rebootDevice(@PathVariable String deviceId) {
         try {
-            Object result = deviceService.callDeviceTool(deviceId, "reboot", Collections.emptyMap());
+            Object result = deviceService.callDeviceTool(deviceId, "self.reboot", Collections.emptyMap());
             if (result == null) {
                 return new Result<Object>().error("Device is offline or did not respond to the reboot command");
             }
@@ -215,7 +215,7 @@ public class DeviceController {
         }
 
         try {
-            Object result = deviceService.callDeviceTool(deviceId, "set_volume", Collections.singletonMap("volume", intVol));
+            Object result = deviceService.callDeviceTool(deviceId, "self.audio_speaker.set_volume", Collections.singletonMap("volume", intVol));
             if (result == null) {
                 return new Result<Object>().error("Device is offline or did not respond to volume command");
             }
