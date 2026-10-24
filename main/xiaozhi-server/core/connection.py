@@ -352,9 +352,11 @@ class ConnectionHandler:
         """Message routing"""
         # Check if real binding status has been retrieved
         if not self.bind_completed_event.is_set():
-            # Real status not yet retrieved; wait until retrieved or timeout
+            # Real status not yet retrieved; wait until retrieved or timeout. Fetching the device
+            # config from manager-api takes ~2 s, and a robot may send its first text message
+            # (wake word, story request) right after connecting, so 1 s was too short.
             try:
-                await asyncio.wait_for(self.bind_completed_event.wait(), timeout=1)
+                await asyncio.wait_for(self.bind_completed_event.wait(), timeout=6)
             except asyncio.TimeoutError:
                 # Timed out waiting for real status, dropping message
                 await self._discard_message_with_bind_prompt()

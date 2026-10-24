@@ -100,6 +100,10 @@ Field notes:
 * `weather.kind`: one of `clear`, `partly`, `cloudy`, `fog`, `drizzle`, `rain`, `storm`, `snow`.
   `rain_audio` is a short spoken "take an umbrella" line, set when `rain_prob >= 60`.
 * `messages` and `commands` stay in the snapshot until the robot acknowledges them.
+* `move_to` (only when `companion.move_to` is configured): `{"ota_url", "companion_url"}`. The
+  robot saves them (like the Wi-Fi portal does) and reboots when the OTA URL changed; from then
+  on it syncs with `companion_url`. Used to move robots from the standalone server to a
+  manager-api setup whose OTA is served by manager-api.
 * `commands[].type`: `story` (arg = topic or empty), `pomodoro` (arg = work minutes or empty),
   `lullaby`, `ring` (find my robot), `breathe`, `night_light` (arg `on`/`off`), `game`
   (arg `catch`/`simon`/`dice`/`reaction`).
@@ -230,3 +234,15 @@ The voice chat can manage the robot too (`companion_robot` in `Intent.function_c
 `companion_add_reminder`, `companion_start_focus` (queues a `pomodoro` command) and
 `companion_prayer_times`. They act on the talking robot's `Device-Id` and do nothing for a
 robot that has never synced.
+
+## LAN setup with manager-api (one PC)
+
+1. `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build xiaozhi-esp32-server-db xiaozhi-esp32-server-redis xiaozhi-esp32-server-web`
+   (`MQTT_ENABLED=false`: devices get only the WebSocket address).
+2. In manager-web (`http://<pc>:18002`) set the params `server.websocket`
+   (`ws://<pc>:8000/xiaozhi/v1/`), `server.ota` (`http://<pc>:18002/xiaozhi/ota/`) and
+   `server.vision_explain` (`http://<pc>:8003/mcp/vision/explain`); add the robot to an agent.
+3. `data/.config.manager.yaml` (gitignored): `server` address, `manager-api` url
+   (`http://127.0.0.1:18002/xiaozhi`) and `secret` (= `server.secret`), and the `companion`
+   section with `app_token` = the same secret. Start with `run-manager.ps1`.
+4. Robots still on the standalone server move over when its config has `companion.move_to`.

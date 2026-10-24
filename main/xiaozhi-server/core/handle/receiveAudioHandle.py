@@ -151,6 +151,10 @@ async def max_out_size(conn: "ConnectionHandler"):
 
 
 async def check_bind_device(conn: "ConnectionHandler"):
+    if conn.tts is None:
+        # Bind status not known yet (device config still loading): nothing can be spoken
+        conn.logger.bind(tag=TAG).warning("Bind prompt skipped: TTS not initialized yet")
+        return
     if conn.bind_code:
         # Ensure bind_code is 6 digits
         if len(conn.bind_code) != 6:

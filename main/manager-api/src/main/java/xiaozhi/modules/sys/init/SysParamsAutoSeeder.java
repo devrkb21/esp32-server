@@ -24,6 +24,10 @@ public class SysParamsAutoSeeder {
     @Value("${MQTT_PUBLIC_IP:13.201.26.73}")
     private String mqttPublicIp;
 
+    // false: no MQTT gateway (e.g. a LAN setup): devices get only the WebSocket address
+    @Value("${MQTT_ENABLED:true}")
+    private boolean mqttEnabled;
+
     @Value("${MQTT_PORT:1883}")
     private String mqttPort;
 
@@ -63,21 +67,31 @@ public class SysParamsAutoSeeder {
         String wsUrl = "ws://" + mqttPublicIp + ":" + wsPort + "/xiaozhi/v1/;wss://" + cleanHost + "/ws";
         checkAndSet("server.websocket", wsUrl, "WebSocket addresses, separated by semicolon", false);
 
-        // 4. MQTT Gateway (Direct Public IP with Port 1883 for ESP32 devices)
-        String mqttGateway = mqttPublicIp + ":" + mqttPort;
-        checkAndSet("server.mqtt_gateway", mqttGateway, "MQTT gateway configuration", true);
+        if (mqttEnabled) {
+            // 4. MQTT Gateway (Direct Public IP with Port 1883 for ESP32 devices)
+            String mqttGateway = mqttPublicIp + ":" + mqttPort;
+            checkAndSet("server.mqtt_gateway", mqttGateway, "MQTT gateway configuration", true);
 
-        // 5. UDP Gateway (Direct Public IP with Port 8884 for ESP32 devices)
-        String udpGateway = mqttPublicIp + ":" + udpPort;
-        checkAndSet("server.udp_gateway", udpGateway, "UDP gateway configuration", true);
+            // 5. UDP Gateway (Direct Public IP with Port 8884 for ESP32 devices)
+            String udpGateway = mqttPublicIp + ":" + udpPort;
+            checkAndSet("server.udp_gateway", udpGateway, "UDP gateway configuration", true);
+        } else {
+            // A configured gateway would make devices use MQTT, which has nothing listening
+            disable("server.mqtt_gateway", "MQTT gateway configuration");
+            disable("server.udp_gateway", "UDP gateway configuration");
+        }
 
         // 6. MQTT Signature Key: the gateway reads it from the environment, so the database must
         //    always hold the same value (otherwise devices get credentials the gateway rejects).
         syncSecret("server.mqtt_signature_key", mqttSignatureKey, "MQTT Secret Key Configuration");
 
         // 7. MQTT Manager API (Docker internal communication)
-        String mqttApi = "xiaozhi-esp32-server-mqtt:" + mqttApiPort;
-        checkAndSet("server.mqtt_manager_api", mqttApi, "MQTT gateway management API address", false);
+        if (mqttEnabled) {
+            String mqttApi = "xiaozhi-esp32-server-mqtt:" + mqttApiPort;
+            checkAndSet("server.mqtt_manager_api", mqttApi, "MQTT gateway management API address", false);
+        } else {
+            disable("server.mqtt_manager_api", "MQTT gateway management API address");
+        }
 
         // 8. Server Secret: xiaozhi-server and the gateway read it from the environment
         syncSecret("server.secret", managerApiSecret, "Server Secret Key");
@@ -106,6 +120,18 @@ public class SysParamsAutoSeeder {
         checkAndSet("server.auth.enabled", "true", "Whether server module enables token authentication", false);
 
         log.info("System parameters auto-seeding finished.");
+    }
+
+    private void disable(String code, String remark) {
+        try {
+            String current = sysParamsService.getValue(code, false);
+            if (!"null".equals(current)) {
+                log.info("MQTT disabled: setting sys_params [{}] to null", code);
+                sysParamsService.setParam(code, "null", remark);
+            }
+        } catch (Exception e) {
+            log.error("Failed to disable parameter [{}]: {}", code, e.getMessage());
+        }
     }
 
     /**

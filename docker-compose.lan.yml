@@ -1,0 +1,14 @@
+# LAN test setup on one PC: manager-api + manager-web, MySQL and Redis in Docker, xiaozhi-server
+# running natively (run-manager.ps1, ports 8000/8003), no MQTT gateway and no voiceprint service.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build \
+#     xiaozhi-esp32-server-db xiaozhi-esp32-server-redis xiaozhi-esp32-server-web
+#
+# Then open http://<this-pc-ip>:18002. Point robots' OTA URL at
+# http://<this-pc-ip>:18002/xiaozhi/ota/ (or let the standalone server move them, see
+# companion.move_to in docs/companion-api.md).
+services:
+  xiaozhi-esp32-server-web:
+    environment:
+      - MQTT_ENABLED=false
+      - VOICEPRINT_KEY=

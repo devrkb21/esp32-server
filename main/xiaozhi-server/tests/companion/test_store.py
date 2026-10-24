@@ -155,3 +155,11 @@ async def test_commands_validated(make_service):
         await svc.send_command(DEV, {"type": "selfdestruct"})
     with pytest.raises(schema.ValidationError):
         await svc.send_command(DEV, {"type": "game", "arg": "chess"})
+
+
+async def test_move_to_is_sent_only_when_configured(make_service):
+    plain = await make_service().sync("aa:bb:cc:dd:ee:01")
+    assert "move_to" not in plain
+    svc = make_service(move_to={"ota_url": "http://192.168.0.123:18002/xiaozhi/ota/", "companion_url": ""})
+    snap = await svc.sync("aa:bb:cc:dd:ee:01")
+    assert snap["move_to"] == {"ota_url": "http://192.168.0.123:18002/xiaozhi/ota/"}
