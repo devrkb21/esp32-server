@@ -10,6 +10,7 @@ from core.utils import textUtils
 from core.utils.util import audio_to_data
 from core.providers.tts.dto.dto import SentenceType
 from core.utils.audioRateController import AudioRateController
+from core.companion.text_bitmap import bitmap_payload
 
 TAG = __name__
 # Audio frame duration (milliseconds)
@@ -288,6 +289,10 @@ async def send_tts_message(conn: "ConnectionHandler", state, text=None):
     message = {"type": "tts", "state": state, "session_id": conn.session_id}
     if text is not None:
         message["text"] = textUtils.check_emoji(text)
+        # Lines the robot's fonts cannot shape (Bangla) also go as pixels
+        bitmap = bitmap_payload(message["text"])
+        if bitmap:
+            message["text_bitmap"] = bitmap
 
     # TTS playback finished
     if state == "stop":
@@ -338,9 +343,11 @@ async def send_stt_message(conn: "ConnectionHandler", text):
         # If not JSON format, use original text directly
         display_text = text
     stt_text = textUtils.get_string_no_punctuation_or_emoji(display_text)
-    await conn.websocket.send(
-        json.dumps({"type": "stt", "text": stt_text, "session_id": conn.session_id})
-    )
+    stt_message = {"type": "stt", "text": stt_text, "session_id": conn.session_id}
+    bitmap = bitmap_payload(stt_text)
+    if bitmap:
+        stt_message["text_bitmap"] = bitmap
+    await conn.websocket.send(json.dumps(stt_message))
     await send_tts_message(conn, "start")
     # After sending start message, client is in speaking state; synchronize server state
     conn.client_is_speaking = True
