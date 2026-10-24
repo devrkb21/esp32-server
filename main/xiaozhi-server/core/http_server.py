@@ -95,6 +95,11 @@ class SimpleHttpServer:
                 site = web.TCPSite(runner, host, port)
                 await site.start()
 
+                if self.companion_handler is not None:
+                    from core.companion import get_service
+
+                    get_service().start_background()
+
                 # Keep service running
                 while True:
                     await asyncio.sleep(3600)  # Check every 1 hour

@@ -242,6 +242,34 @@ export function displayProblem(display) {
   return '';
 }
 
+// ------------------------------------------------------------------ proactive talk
+// TinyBot starts a chat by itself (settings.proactive): a morning greeting and an evening
+// "how was your day?", each at a 24h "HH:MM" time.
+export const PROACTIVE_DEFAULTS = { enabled: true, morning_on: true, morning: '07:30', evening_on: true, evening: '19:30' };
+const PROACTIVE_SWITCHES = ['enabled', 'morning_on', 'evening_on'];
+const PROACTIVE_TIMES = ['morning', 'evening'];
+
+/** The proactive talk settings with defaults for missing or invalid values. */
+export function proactiveSettings(proactive) {
+  const source = proactive && typeof proactive === 'object' ? proactive : {};
+  const out = {};
+  PROACTIVE_SWITCHES.forEach((key) => {
+    out[key] = typeof source[key] === 'boolean' ? source[key] : PROACTIVE_DEFAULTS[key];
+  });
+  PROACTIVE_TIMES.forEach((key) => {
+    out[key] = isTime(source[key]) ? source[key] : PROACTIVE_DEFAULTS[key];
+  });
+  return Object.keys(PROACTIVE_DEFAULTS).reduce((all, key) => ({ ...all, [key]: out[key] }), {});
+}
+
+/** What is wrong with the proactive talk times: '' (fine), 'morningTime' or 'eveningTime'. */
+export function proactiveProblem(proactive) {
+  const p = proactive || {};
+  if (!isTime(p.morning)) return 'morningTime';
+  if (!isTime(p.evening)) return 'eveningTime';
+  return '';
+}
+
 /** The preset a minutes value matches, or 'custom'. */
 export function presetChoice(value, presets) {
   return presets.includes(value) ? value : 'custom';

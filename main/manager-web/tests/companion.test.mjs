@@ -7,6 +7,8 @@ import {
   displaySettings,
   isMinutes,
   presetChoice,
+  proactiveProblem,
+  proactiveSettings,
   volumeSaveOutcome,
   ageOf,
   alarmPayload,
@@ -226,6 +228,24 @@ describe('display, night light and volume helpers', () => {
     expect(displayProblem({ dim_after_min: 10, off_after_min: 10 })).toBe('offBeforeDim');
     expect(displayProblem({ dim_after_min: 200, off_after_min: 0 })).toBe('dimRange');
     expect(displayProblem({ dim_after_min: 1, off_after_min: null })).toBe('offRange');
+  });
+
+  it('fills proactive talk defaults and keeps valid values', () => {
+    const defaults = { enabled: true, morning_on: true, morning: '07:30', evening_on: true, evening: '19:30' };
+    expect(proactiveSettings(undefined)).toEqual(defaults);
+    expect(proactiveSettings({ enabled: false, morning_on: false, morning: '06:05', evening_on: false, evening: '23:59' }))
+      .toEqual({ enabled: false, morning_on: false, morning: '06:05', evening_on: false, evening: '23:59' });
+    expect(proactiveSettings({ enabled: 'no', morning_on: 0, morning: '7:30', evening_on: null, evening: '24:00' }))
+      .toEqual(defaults);
+    expect(Object.keys(proactiveSettings({ extra: 1 }))).toEqual(Object.keys(defaults));
+  });
+
+  it('checks the proactive talk times', () => {
+    expect(proactiveProblem({ morning: '07:30', evening: '19:30' })).toBe('');
+    expect(proactiveProblem({ morning: '7:30', evening: '19:30' })).toBe('morningTime');
+    expect(proactiveProblem({ morning: '07:30', evening: '' })).toBe('eveningTime');
+    expect(proactiveProblem({ morning: null, evening: null })).toBe('morningTime');
+    expect(proactiveProblem(undefined)).toBe('morningTime');
   });
 
   it('maps a value to its preset or custom', () => {

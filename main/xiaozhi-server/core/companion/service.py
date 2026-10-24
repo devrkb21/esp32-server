@@ -13,6 +13,7 @@ from loguru import logger
 from core.companion.audio import AudioRenderer
 from core.companion.mqtt_push import MqttPush
 from core.companion.prayer import PrayTimes
+from core.companion.proactive import ProactiveScheduler
 from core.companion.settings import companion_config
 from core.companion.store import CompanionStore
 from core.companion.weather import KIND_BN, WeatherService
@@ -108,6 +109,12 @@ class CompanionService:
         self.rain_say = self.cfg.get("rain_say") or RAIN_SAY
         self._prayer_cache: Dict[tuple, Dict] = {}
         self._last_url: Dict[tuple, str] = {}
+        # Morning / evening greetings the robot starts by itself (see proactive.py)
+        self.proactive = ProactiveScheduler(self, data_dir)
+
+    def start_background(self):
+        """Start the background loops; call once the event loop runs (HTTP server start)."""
+        self.proactive.start()
 
     # --- helpers ---------------------------------------------------------------------------
     @property
@@ -314,7 +321,8 @@ class CompanionService:
             {
                 "rev": dev.get("rev", 0),
                 "created": dev.get("created", 0),
-                "settings": dev["settings"],
+                "settings": dict(dev["settings"], proactive=dict(
+                    schema.default_proactive(), **(dev["settings"].get("proactive") or {}))),
                 "pomodoro": dev["pomodoro"],
                 "alarms": alarms,
                 "reminders": reminders,

@@ -60,6 +60,20 @@ export interface DisplaySettings {
   off_after_min: number
 }
 
+/** TinyBot starts a chat by itself: a morning greeting and an evening "how was your day?" */
+export interface ProactiveSettings {
+  /** master switch, default true */
+  enabled: boolean
+  /** default true */
+  morning_on: boolean
+  /** 24h "HH:MM", default "07:30" */
+  morning: string
+  /** default true */
+  evening_on: boolean
+  /** 24h "HH:MM", default "19:30" */
+  evening: string
+}
+
 export interface CareSettings {
   enabled: boolean
   /** 10-1440 */
@@ -140,6 +154,8 @@ export interface CompanionSettings {
   pages?: RobotPages
   look?: Partial<FaceLook>
   display?: Partial<DisplaySettings>
+  /** missing on older servers: the defaults */
+  proactive?: Partial<ProactiveSettings>
   /** missing on older robots: the default day */
   routine?: Partial<RoutineSettings>
 }
@@ -308,6 +324,7 @@ export interface CompanionConfigPatch {
     pages?: Partial<RobotPages>
     look?: Partial<FaceLook>
     display?: Partial<DisplaySettings>
+    proactive?: Partial<ProactiveSettings>
     /** `items` replaces the whole list */
     routine?: Partial<RoutineSettings>
   }
