@@ -61,6 +61,17 @@ const routes = [
       return import('../views/DeviceManagement.vue')
     }
   },
+  // TinyBot companion (alarms, reminders, prayer, messages...) of one device
+  {
+    path: '/companion-management',
+    name: 'CompanionManagement',
+    component: function () {
+      return import('../views/CompanionManagement.vue')
+    },
+    meta: {
+      title: 'Companion'
+    }
+  },
   // User management route
   {
     path: '/user-management',

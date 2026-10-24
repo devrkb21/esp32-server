@@ -113,7 +113,7 @@ async def test_token_check(make_service):
         await client.close()
 
 
-async def test_audio_and_app_static(make_service):
+async def test_audio(make_service):
     svc = make_service()
     client = await _client(svc)
     try:
@@ -124,12 +124,24 @@ async def test_audio_and_app_static(make_service):
         assert (await client.get("/companion/v1/audio/..%2F..%2Fdevices.json")).status == 404
         assert (await client.get("/companion/v1/audio/" + "0" * 40 + ".ogg")).status == 404
 
-        resp = await client.get("/app/")
-        assert resp.status == 200 and "text/html" in resp.headers["Content-Type"]
-        for name in ("app.js", "app.css", "manifest.webmanifest", "sw.js", "icon.svg"):
-            assert (await client.get("/app/" + name)).status == 200, name
-        assert (await client.get("/app/..%2Fhandler.py")).status == 404
-        resp = await client.get("/app", allow_redirects=False)
-        assert resp.status == 302
+        assert (await client.get("/app/")).status == 404  # no separate app: manager-web/mobile
+    finally:
+        await client.close()
+
+
+async def test_manager_api_secret_is_accepted(tmp_path):
+    # With manager-api, its shared secret authorises the forwarded manager-web/mobile requests
+    from core.companion.service import CompanionService
+    from tests.companion.conftest import fake_synthesize, make_config, no_weather
+
+    config = make_config(tmp_path)
+    config["manager-api"] = {"url": "http://manager:8002/xiaozhi", "secret": "mgr-secret"}
+    svc = CompanionService(config, synthesize=fake_synthesize)
+    svc.weather._fetch = no_weather
+    client = await _client(svc)
+    try:
+        assert (await client.get("/companion/v1/devices")).status == 401
+        ok = {"Authorization": "Bearer mgr-secret"}
+        assert (await client.get("/companion/v1/devices", headers=ok)).status == 200
     finally:
         await client.close()

@@ -11,9 +11,21 @@ const locales = [
   { name: 'pt_BR', file: 'src/i18n/pt_BR.js' },
 ];
 
+// A locale file may just re-export another one (`import en from './en'; export default en;`);
+// it then has exactly the keys of that locale.
+const ALIAS_RE = /^\s*import\s+(\w+)\s+from\s+['"]\.\/([\w-]+?)(?:\.js)?['"];?\s*export\s+default\s+\1;?\s*$/;
+
 function readLocale(locale) {
   const filePath = path.join(rootDir, locale.file);
-  const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+  const source = fs.readFileSync(filePath, 'utf8');
+  const alias = source.match(ALIAS_RE);
+  if (alias) {
+    const target = locales.find((other) => other.name === alias[2]);
+    if (target && target !== locale) {
+      return { ...readLocale(target), ...locale, filePath, duplicates: [], aliasOf: target.name };
+    }
+  }
+  const lines = source.split(/\r?\n/);
   const keys = [];
   const seen = new Map();
   const duplicates = [];

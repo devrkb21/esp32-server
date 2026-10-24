@@ -60,6 +60,9 @@
                   @change="handleOtaSwitchChange(scope.row)"></el-switch>
               </template>
               <template slot="operations" slot-scope="scope">
+                <el-button size="mini" type="text" @click="openCompanion(scope.row)">
+                  <i class="el-icon-alarm-clock"></i> {{ $t('companion.title') }}
+                </el-button>
                 <el-button size="mini" type="text" @click="handleVolumeDialog(scope.row)">
                   <i class="el-icon-headset"></i> {{ $t('device.volume') || 'Volume' }}
                 </el-button>
@@ -407,6 +410,15 @@ export default {
           }
         });
       }).catch(() => {});
+    },
+    openCompanion(row) {
+      this.$router.push({
+        name: 'CompanionManagement',
+        query: {
+          deviceId: row.device_id,
+          agentId: this.currentAgentId,
+        },
+      });
     },
     handleGenertor(row) {
       const pathname = window.location.pathname;

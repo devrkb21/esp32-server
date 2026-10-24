@@ -107,6 +107,9 @@ def companion_config(config: Dict) -> Dict:
         except AttributeError:
             pass
     cfg["app_token"] = str(cfg.get("app_token") or "")
+    manager = config.get("manager-api") or {}
+    secret = str(manager.get("secret") or "") if isinstance(manager, dict) else ""
+    cfg["manager_secret"] = "" if not secret or "你" in secret or "your" in secret.lower() else secret
     cfg["poll_s"] = int(cfg.get("poll_s") or 30)
     return cfg
 
