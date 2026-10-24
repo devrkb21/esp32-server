@@ -119,7 +119,8 @@ class CompanionHandler(BaseHandler):
             if wait > 0 and self.service.store.get(dev_id) is not None:
                 await self.service.wait_for_news(dev_id, request.query.get("rev", ""), wait)
             snap = await self.service.sync(
-                dev_id, request.headers.get("Client-Id", ""), request.headers.get("User-Agent", "")
+                dev_id, request.headers.get("Client-Id", ""), request.headers.get("User-Agent", ""),
+                request.headers.get("Mqtt-Client-Id", ""),
             )
         except Exception as e:
             self.logger.bind(tag=TAG).exception(f"Companion sync failed: {e}")

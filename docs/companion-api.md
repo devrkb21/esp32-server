@@ -35,6 +35,16 @@ whose audio is ready (or that is older than 15 s). An app command therefore reac
 within a fraction of a second instead of after the next `poll_s` poll. Without `wait` the answer
 is immediate, as before. The robot re-polls right after each answer (at most every 2 s).
 
+MQTT push: when the server knows the MQTT gateway (`companion.mqtt_api` + `mqtt_signature_key`,
+else `server.mqtt_manager_api` / `server.mqtt_signature_key`) and the robot is connected to it
+(the robot sends its MQTT client id as the `Mqtt-Client-Id` header; the gateway's
+`/api/devices/status` says it exists), the snapshot carries `"push": "mqtt"` and the robot stops
+long-polling (it polls every `poll_s` as a fallback). The server then pushes through the gateway's
+`/api/commands/<client id>` as MCP tool calls: each pending command as `self.companion.command`
+{id, type, arg} (acknowledged by the call itself), and `self.companion.sync` when `rev` or the
+ready messages changed, after which the robot fetches the snapshot. Snapshots stay on HTTP (the
+MQTT payload limit is 8 KB). A failed push leaves everything for the HTTP sync.
+
 ```json
 {
   "rev": 7,
@@ -226,6 +236,10 @@ companion:
   app_token: ""          # set one to protect the app API
   data_dir: data/companion
   poll_s: 30
+  # MQTT gateway management API and its signature key, for pushes (default: the manager-api
+  # params server.mqtt_manager_api / server.mqtt_signature_key)
+  mqtt_api: ""
+  mqtt_signature_key: ""
   default_city: Dhaka
   default_lat: 23.8103
   default_lon: 90.4125

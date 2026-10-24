@@ -167,7 +167,8 @@ class CompanionStore:
     def is_online(dev: Dict) -> bool:
         return time.time() - (dev.get("last_seen") or 0) < ONLINE_S
 
-    async def touch(self, device_id: str, client_id: str = "", user_agent: str = "") -> Dict:
+    async def touch(self, device_id: str, client_id: str = "", user_agent: str = "",
+                    mqtt_client_id: str = "") -> Dict:
         """Record a device poll, creating the device with defaults on first contact."""
         async with self.lock:
             dev = self.devices.get(device_id)
@@ -181,6 +182,8 @@ class CompanionStore:
                 dev["client_id"] = client_id[:64]
             if user_agent:
                 dev["user_agent"] = user_agent[:128]
+            if mqtt_client_id:
+                dev["mqtt_client_id"] = mqtt_client_id[:160]
             self._dirty = True
             if created or time.time() - self._last_flush > TOUCH_FLUSH_S:
                 await self.save()

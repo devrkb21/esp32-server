@@ -23,5 +23,8 @@ services:
   xiaozhi-esp32-server-mqtt:
     environment:
       - PUBLIC_IP=${LAN_IP:-192.168.0.123}
+    # The management API for the native xiaozhi-server (companion pushes), on this PC only
+    ports:
+      - "127.0.0.1:8007:8007"
     volumes:
       - ./main/mqtt-gateway/config-lan:/app/config
