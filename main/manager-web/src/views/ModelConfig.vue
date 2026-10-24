@@ -1,244 +1,230 @@
 <template>
-  <div class="welcome">
+  <div class="nx-app">
     <HeaderBar />
 
-    <div class="operation-bar">
-      <h2 class="page-title">{{ $t("modelConfig." + activeTab) }}</h2>
-      <div class="action-group">
-        <div class="search-group">
+    <main class="nx-page">
+      <header class="nx-page-header">
+        <div class="nx-page-header__text">
+          <h1 class="nx-title">{{ $t("header.modelConfig") }}</h1>
+          <p class="nx-page-header__desc">
+            {{ tx("modelConfig.pageDesc", "Choose the AI services your robots use to listen, think and speak.") }}
+          </p>
+        </div>
+        <div class="nx-page-header__actions">
           <el-input
-            :placeholder="$t('modelConfig.searchPlaceholder')"
             v-model="search"
-            class="search-input"
+            class="mc-search"
+            prefix-icon="el-icon-search"
+            :placeholder="$t('modelConfig.searchPlaceholder')"
+            :aria-label="$t('modelConfig.search')"
             clearable
             @keyup.enter.native="handleSearch"
-            style="width: 240px"
+            @clear="handleSearch"
           />
-          <el-button class="btn-search" @click="handleSearch">
-            {{ $t("modelConfig.search") }}
-          </el-button>
+          <CustomButton type="add" icon="el-icon-plus" @click="addModel">
+            {{ tx("modelConfig.addModel", "Add model") }}
+          </CustomButton>
         </div>
-      </div>
-    </div>
+      </header>
 
-    <!-- Main Content -->
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <!-- Left Navigation -->
-        <el-menu
-          :default-active="activeTab"
-          class="nav-panel"
-          @select="handleMenuSelect"
-          style="background-size: cover; background-position: center"
-        >
-          <el-menu-item index="vad">
-            <span class="menu-text">{{ $t("modelConfig.vad") }}</span>
-          </el-menu-item>
-          <el-menu-item index="asr">
-            <span class="menu-text">{{ $t("modelConfig.asr") }}</span>
-          </el-menu-item>
-          <el-menu-item index="llm">
-            <span class="menu-text">{{ $t("modelConfig.llm") }}</span>
-          </el-menu-item>
-          <el-menu-item index="vllm">
-            <span class="menu-text">{{ $t("modelConfig.vllm") }}</span>
-          </el-menu-item>
-          <el-menu-item index="intent">
-            <span class="menu-text">{{ $t("modelConfig.intent") }}</span>
-          </el-menu-item>
-          <el-menu-item index="tts">
-            <span class="menu-text">{{ $t("modelConfig.tts") }}</span>
-          </el-menu-item>
-          <el-menu-item index="memory">
-            <span class="menu-text">{{ $t("modelConfig.memory") }}</span>
-          </el-menu-item>
-          <el-menu-item index="rag">
-            <span class="menu-text">{{ $t("modelConfig.rag") }}</span>
-          </el-menu-item>
-        </el-menu>
+      <div class="mc-layout">
+        <!-- Model type switcher: left list on wide screens, scrollable pills on narrow ones -->
+        <nav class="mc-types" :aria-label="tx('modelConfig.types', 'Model types')">
+          <button
+            v-for="type in modelTypes"
+            :key="type.key"
+            type="button"
+            class="mc-type"
+            :class="{ 'is-active': activeTab === type.key }"
+            :aria-current="activeTab === type.key ? 'page' : null"
+            :title="$t('modelConfig.' + type.key)"
+            @click="handleMenuSelect(type.key)"
+          >
+            <span class="mc-type__code">{{ type.code }}</span>
+            <span class="mc-type__name nx-truncate">{{ $t("modelConfig." + type.key) }}</span>
+          </button>
+        </nav>
 
-        <!-- Right Content -->
-        <div class="content-area">
-          <el-card class="model-card" shadow="never">
+        <section class="nx-card nx-card--flush mc-card" :aria-label="$t('modelConfig.' + activeTab)">
+          <div class="mc-card__head">
+            <div class="nx-row mc-card__title">
+              <h2 class="nx-headline nx-truncate">{{ $t("modelConfig." + activeTab) }}</h2>
+              <span class="nx-badge nx-num">{{ tx("modelConfig.count", "{count} models", { count: total }) }}</span>
+            </div>
+            <transition name="nx-fade">
+              <div v-if="selectedModels.length" class="nx-row mc-card__bulk">
+                <span class="nx-footnote nx-num">
+                  {{ tx("modelConfig.selected", "{count} selected", { count: selectedModels.length }) }}
+                </span>
+                <CustomButton size="small" @click="selectAll">
+                  {{ isAllSelected ? $t("modelConfig.deselectAll") : $t("modelConfig.selectAll") }}
+                </CustomButton>
+                <CustomButton type="delete" size="small" icon="el-icon-delete" @click="batchDelete">
+                  {{ $t("modelConfig.delete") }}
+                </CustomButton>
+              </div>
+            </transition>
+          </div>
+
+          <div
+            class="mc-card__body"
+            v-loading="loading"
+            :element-loading-text="$t('modelConfig.loading')"
+          >
             <el-table
+              v-show="modelList.length || loading"
               ref="modelTable"
-              style="width: 100%"
-              v-loading="loading"
-              :element-loading-text="$t('modelConfig.loading')"
-              element-loading-spinner="el-icon-loading"
-              element-loading-background="rgba(255, 255, 255, 0.7)"
-              :header-cell-style="{ background: 'transparent' }"
               :data="modelList"
-              class="transparent-table"
-              header-row-class-name="table-header"
-              :header-cell-class-name="headerCellClassName"
+              row-key="id"
+              class="mc-table"
               @selection-change="handleSelectionChange"
             >
-              <el-table-column
-                type="selection"
-                width="55"
-                align="center"
-                :cell-class-name="selectionCellClassName"
-              ></el-table-column>
-              <el-table-column
-                :label="$t('modelConfig.modelId')"
-                prop="id"
-                align="center"
-              ></el-table-column>
-              <el-table-column
-                :label="$t('modelConfig.modelName')"
-                prop="modelName"
-                align="center"
-              ></el-table-column>
-              <el-table-column :label="$t('modelConfig.provider')" align="center">
+              <el-table-column type="selection" width="52" align="center" />
+
+              <el-table-column :label="$t('modelConfig.modelName')" min-width="260">
                 <template slot-scope="scope">
-                  {{ scope.row.configJson.type || $t("modelConfig.unknown") }}
+                  <div class="mc-name">
+                    <div class="nx-row mc-name__line">
+                      <span class="mc-name__text nx-truncate" :title="scope.row.modelName">
+                        {{ scope.row.modelName || "—" }}
+                      </span>
+                      <span v-if="scope.row.isDefault === 1" class="nx-badge nx-badge--accent mc-default">
+                        <i class="el-icon-star-on" aria-hidden="true"></i>
+                        {{ tx("modelConfig.defaultBadge", "Default") }}
+                      </span>
+                    </div>
+                    <span class="nx-caption nx-mono nx-truncate mc-name__id" :title="scope.row.id">{{ scope.row.id }}</span>
+                  </div>
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('modelConfig.isEnabled')" align="center">
+
+              <el-table-column :label="$t('modelConfig.provider')" min-width="150">
+                <template slot-scope="scope">
+                  <span
+                    class="nx-badge mc-provider nx-truncate"
+                    :title="(scope.row.configJson && scope.row.configJson.type) || $t('modelConfig.unknown')"
+                  >
+                    {{ (scope.row.configJson && scope.row.configJson.type) || $t("modelConfig.unknown") }}
+                  </span>
+                </template>
+              </el-table-column>
+
+              <el-table-column :label="$t('modelConfig.isEnabled')" width="110">
                 <template slot-scope="scope">
                   <el-tooltip
                     v-if="scope.row.isDefault === 1 && scope.row.isEnabled === 1"
                     :content="$t('modelConfig.defaultModelCannotDisable')"
                     placement="top"
-                    effect="light"
-                  > 
-                    <el-switch
-                      v-model="scope.row.isEnabled"
-                      active-color="#5778ff"
-                      inactive-color="#DCDFE6"
-                      :active-value="1"
-                      :inactive-value="0"
-                      disabled
-                      @change="handleStatusChange(scope.row)"
-                    />
+                  >
+                    <span class="mc-switch-wrap">
+                      <el-switch
+                        v-model="scope.row.isEnabled"
+                        :active-value="1"
+                        :inactive-value="0"
+                        :aria-label="$t('modelConfig.isEnabled')"
+                        disabled
+                      />
+                    </span>
                   </el-tooltip>
                   <el-switch
                     v-else
                     v-model="scope.row.isEnabled"
-                    active-color="#5778ff"
-                    inactive-color="#DCDFE6"
                     :active-value="1"
                     :inactive-value="0"
+                    :aria-label="$t('modelConfig.isEnabled')"
                     @change="handleStatusChange(scope.row)"
                   />
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('modelConfig.isDefault')" align="center">
+
+              <el-table-column v-if="activeTab === 'tts'" :label="tx('modelConfig.voices', 'Voices')" width="130">
                 <template slot-scope="scope">
-                  <el-switch
-                    v-model="scope.row.isDefault"
-                    active-color="#5778ff"
-                    inactive-color="#DCDFE6"
-                    :active-value="1"
-                    :inactive-value="0"
-                    @change="handleDefaultChange(scope.row)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column
-                v-if="activeTab === 'tts'"
-                :label="$t('modelConfig.voiceManagement')"
-                align="center"
-              >
-                <template slot-scope="scope">
-                  <el-button
-                    type="text"
-                    size="mini"
-                    @click="openTtsDialog(scope.row)"
-                    class="voice-management-btn"
-                  >
-                    {{ $t("modelConfig.voiceManagement") }}
+                  <el-button size="small" icon="el-icon-microphone" @click="openTtsDialog(scope.row)">
+                    {{ tx("modelConfig.voices", "Voices") }}
                   </el-button>
                 </template>
               </el-table-column>
-              <el-table-column
-                :label="$t('modelConfig.action')"
-                align="center"
-                width="210px"
-              >
+
+              <el-table-column :label="$t('modelConfig.action')" width="236" align="right" class-name="mc-actions-col">
                 <template slot-scope="scope">
-                  <el-button
-                    type="text"
-                    size="mini"
-                    @click="editModel(scope.row)"
-                    class="edit-btn"
-                  >
-                    {{ $t("modelConfig.edit") }}
-                  </el-button>
-                  <el-button
-                    type="text"
-                    size="mini"
-                    @click="duplicateModel(scope.row)"
-                    class="edit-btn"
-                  >
-                    {{ $t("modelConfig.duplicate") }}
-                  </el-button>
-                  <el-button
-                    type="text"
-                    size="mini"
-                    @click="deleteModel(scope.row)"
-                    class="delete-btn"
-                  >
-                    {{ $t("modelConfig.delete") }}
-                  </el-button>
+                  <div class="mc-actions">
+                    <el-button
+                      v-if="scope.row.isDefault !== 1"
+                      type="text"
+                      size="small"
+                      class="mc-set-default"
+                      @click="handleDefaultChange(scope.row)"
+                    >
+                      {{ tx("modelConfig.setDefault", "Set as default") }}
+                    </el-button>
+                    <el-tooltip :content="$t('modelConfig.edit')" placement="top" :open-delay="400">
+                      <button type="button" class="nx-icon-btn" :aria-label="$t('modelConfig.edit')" @click="editModel(scope.row)">
+                        <i class="el-icon-edit" aria-hidden="true"></i>
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip :content="$t('modelConfig.duplicate')" placement="top" :open-delay="400">
+                      <button type="button" class="nx-icon-btn" :aria-label="$t('modelConfig.duplicate')" @click="duplicateModel(scope.row)">
+                        <i class="el-icon-document-copy" aria-hidden="true"></i>
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip :content="$t('modelConfig.delete')" placement="top" :open-delay="400">
+                      <button type="button" class="nx-icon-btn nx-icon-btn--danger" :aria-label="$t('modelConfig.delete')" @click="deleteModel(scope.row)">
+                        <i class="el-icon-delete" aria-hidden="true"></i>
+                      </button>
+                    </el-tooltip>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
-            <div class="table-footer">
-              <div class="batch-actions">
-                <CustomButton :icon="isAllSelected ? 'el-icon-circle-close' : 'el-icon-circle-check'" type="default" size="small" @click="selectAll">
-                  {{
-                    isAllSelected
-                      ? $t("modelConfig.deselectAll")
-                      : $t("modelConfig.selectAll")
-                  }}
-                </CustomButton>
-                <CustomButton icon="el-icon-plus" type="add" size="small" @click="addModel">
-                  {{ $t("modelConfig.add") }}
-                </CustomButton>
-                <CustomButton
-                  type="delete"
-                  size="small"
-                  icon="el-icon-delete"
-                  @click="batchDelete"
-                >
-                  {{ $t("modelConfig.delete") }}
-                </CustomButton>
-              </div>
-              <CustomPagination
-                :total="total"
-                :current-page="currentPage"
-                :page-size="pageSize"
-                :page-size-options="pageSizeOptions"
-                @size-change="handlePageSizeChange"
-                @page-change="handlePageChange"
-              />
+
+            <div v-if="!loading && !modelList.length" class="nx-empty">
+              <span class="nx-icon-tile nx-icon-tile--lg"><i class="el-icon-cpu" aria-hidden="true"></i></span>
+              <h3 class="nx-empty__title">
+                {{ search ? tx("modelConfig.noResultsTitle", "No matching models") : tx("modelConfig.emptyTitle", "No models yet") }}
+              </h3>
+              <p class="nx-empty__text">
+                {{ search
+                  ? tx("modelConfig.noResultsText", "Try a different name or clear the search.")
+                  : tx("modelConfig.emptyText", "Add a model to make it available to your robots.") }}
+              </p>
+              <CustomButton class="nx-empty__action" type="add" icon="el-icon-plus" @click="addModel">
+                {{ tx("modelConfig.addModel", "Add model") }}
+              </CustomButton>
             </div>
-          </el-card>
-        </div>
+          </div>
+
+          <div v-if="total > 0" class="mc-card__foot">
+            <CustomPagination
+              :total="total"
+              :current-page="currentPage"
+              :page-size="pageSize"
+              :page-size-options="pageSizeOptions"
+              @size-change="handlePageSizeChange"
+              @page-change="handlePageChange"
+            />
+          </div>
+        </section>
       </div>
 
-      <ModelEditDialog
-        :modelType="activeTab"
-        :visible.sync="editDialogVisible"
-        :modelData="editModelData"
-        @save="handleModelSave"
-      />
-      <TtsModel
-        :visible.sync="ttsDialogVisible"
-        :ttsModelId="selectedTtsModelId"
-        :modelConfig="selectedModelConfig"
-      />
-      <AddModelDialog
-        :modelType="activeTab"
-        :visible.sync="addDialogVisible"
-        @confirm="handleAddConfirm"
-      />
-    </div>
-    <el-footer>
-      <version-footer />
-    </el-footer>
+      <VersionFooter />
+    </main>
+
+    <ModelEditDialog
+      :modelType="activeTab"
+      :visible.sync="editDialogVisible"
+      :modelData="editModelData"
+      @save="handleModelSave"
+    />
+    <TtsModel
+      :visible.sync="ttsDialogVisible"
+      :ttsModelId="selectedTtsModelId"
+      :modelConfig="selectedModelConfig"
+    />
+    <AddModelDialog
+      :modelType="activeTab"
+      :visible.sync="addDialogVisible"
+      @confirm="handleAddConfirm"
+    />
   </div>
 </template>
 
@@ -251,10 +237,24 @@ import TtsModel from "@/components/TtsModel.vue";
 import CustomPagination from "@/components/CustomPagination.vue";
 import CustomButton from "@/components/CustomButton.vue";
 import VersionFooter from "@/components/VersionFooter.vue";
+
+// Order follows a conversation: hear, think, see, speak, then supporting services
+const MODEL_TYPES = [
+  { key: "asr", code: "ASR" },
+  { key: "llm", code: "LLM" },
+  { key: "vllm", code: "VLLM" },
+  { key: "tts", code: "TTS" },
+  { key: "intent", code: "Intent" },
+  { key: "memory", code: "Memory" },
+  { key: "vad", code: "VAD" },
+  { key: "rag", code: "RAG" },
+];
+
 export default {
   components: { HeaderBar, ModelEditDialog, TtsModel, AddModelDialog, VersionFooter, CustomPagination, CustomButton },
   data() {
     return {
+      modelTypes: MODEL_TYPES,
       addDialogVisible: false,
       activeTab: "llm",
       search: "",
@@ -278,18 +278,6 @@ export default {
     this.loadData();
   },
 
-  mounted() {
-    // Ensure table header translation displays correctly after mount
-    setTimeout(() => {
-      this.updateSelectionHeaderText();
-    }, 100);
-  },
-
-  updated() {
-    // Reset table header translation after component update
-    this.updateSelectionHeaderText();
-  },
-
   computed: {
     modelTypeText() {
       return (
@@ -299,12 +287,11 @@ export default {
   },
 
   methods: {
-    // Update selection column header translation text
-    updateSelectionHeaderText() {
-      const thElement = document.querySelector(`.el-table__header th:nth-child(1) .cell`);
-      if (thElement) {
-        thElement.setAttribute("data-content", this.$t("modelConfig.select"));
-      }
+    // $t with an English fallback for keys still waiting in i18n/_pending
+    tx(key, fallback, params) {
+      const value = this.$t(key, params);
+      if (value !== key) return value;
+      return String(fallback).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] != null ? params[k] : m));
     },
     handlePageSizeChange(val) {
       this.pageSize = val;
@@ -316,31 +303,13 @@ export default {
       this.selectedModelConfig = row;
       this.ttsDialogVisible = true;
     },
-    headerCellClassName({ column, columnIndex }) {
-      if (columnIndex === 0) {
-        return "custom-selection-header";
-      }
-      return "";
-    },
-    selectionCellClassName({ row, column, rowIndex, columnIndex }) {
-      // Only set data-content on header row
-      if (rowIndex === undefined) {
-        // Use setTimeout to ensure DOM is rendered
-        setTimeout(() => {
-          const thElement = document.querySelector(
-            `.el-table__header th:nth-child(1) .cell`
-          );
-          if (thElement) {
-            thElement.setAttribute("data-content", this.$t("modelConfig.select"));
-          }
-        }, 0);
-      }
-      return "";
-    },
     handleMenuSelect(index) {
+      if (index === this.activeTab) return;
       this.activeTab = index;
       this.currentPage = 1; // Reset to first page
       this.pageSize = 10; // Optional: reset page size
+      this.selectedModels = [];
+      this.isAllSelected = false;
       this.loadData();
     },
     handleSearch() {
@@ -355,8 +324,9 @@ export default {
       }
 
       this.$confirm(this.$t("modelConfig.confirmBatchDelete"), this.$t("message.info"), {
-        confirmButtonText: this.$t("common.confirm"),
+        confirmButtonText: this.$t("modelConfig.delete"),
         cancelButtonText: this.$t("common.cancel"),
+        confirmButtonClass: "el-button--danger",
         type: "warning",
       })
         .then(() => {
@@ -398,11 +368,12 @@ export default {
       this.editModelData.duplicateMode = true;
       this.editDialogVisible = true;
     },
-    // Delete single model
+    // Delete single model (the model's name is the confirm title)
     deleteModel(model) {
-      this.$confirm(this.$t("modelConfig.confirmDelete"), this.$t("message.info"), {
-        confirmButtonText: this.$t("common.confirm"),
+      this.$confirm(this.$t("modelConfig.confirmDelete"), model.modelName || this.$t("message.info"), {
+        confirmButtonText: this.$t("modelConfig.delete"),
         cancelButtonText: this.$t("common.cancel"),
+        confirmButtonClass: "el-button--danger",
         type: "warning",
       })
         .then(() => {
@@ -467,10 +438,7 @@ export default {
     },
     handleSelectionChange(val) {
       this.selectedModels = val;
-      this.isAllSelected = val.length === this.modelList.length;
-      if (val.length === 0) {
-        this.isAllSelected = false;
-      }
+      this.isAllSelected = val.length > 0 && val.length === this.modelList.length;
     },
 
     // Add model configuration
@@ -522,12 +490,10 @@ export default {
         }
       });
     },
-    // Handle enable/disable status change
+    // Handle enable/disable status change (optimistic, rolls back on failure)
     handleStatusChange(model) {
       const newStatus = model.isEnabled ? 1 : 0;
-      const originalStatus = model.isEnabled;
-
-      model.isEnabled = !model.isEnabled;
+      const originalStatus = newStatus ? 0 : 1;
 
       Api.model.updateModelStatus(model.id, newStatus, ({ data }) => {
         if (data.code === 0) {
@@ -552,6 +518,8 @@ export default {
         if (data.code === 0) {
           this.$message.success(this.$t("modelConfig.setDefaultSuccess"));
           this.loadData();
+        } else if (data.msg) {
+          this.$message.error(data.msg);
         }
       });
     },
@@ -560,424 +528,236 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.el-switch {
-  height: 23px;
+.nx-app {
+  min-height: 100vh;
+  background: var(--nx-bg);
 }
 
-::v-deep .el-table tr {
+.mc-search {
+  width: 260px;
+}
+
+.mc-layout {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  gap: var(--nx-space-5);
+  align-items: start;
+}
+
+// ---------------------------------------------------------------- type switcher
+.mc-types {
+  position: sticky;
+  top: calc(var(--nx-topbar-h) + var(--nx-space-4));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--nx-space-2);
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-lg);
+  box-shadow: var(--nx-shadow-1);
+}
+
+.mc-type {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-height: var(--nx-control-h-lg);
+  padding: 0 var(--nx-space-3);
+  border: 0;
+  border-radius: var(--nx-radius);
   background: transparent;
+  color: var(--nx-text-2);
+  font: inherit;
+  font-size: var(--nx-text-callout);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--nx-dur-1) var(--nx-ease), color var(--nx-dur-1) var(--nx-ease),
+    transform var(--nx-dur-1) var(--nx-ease);
+
+  &:hover {
+    background: var(--nx-surface-2);
+    color: var(--nx-text);
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+  &.is-active {
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-weight: 600;
+
+    .mc-type__code {
+      background: var(--nx-accent);
+      color: var(--nx-on-accent);
+    }
+  }
+
+  &__code {
+    flex: none;
+    min-width: 52px;
+    padding: 3px 6px;
+    border-radius: var(--nx-radius-sm);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 0.01em;
+  }
+  &__name {
+    flex: 1 1 auto;
+  }
 }
 
-.welcome {
-  min-width: 900px;
-  min-height: 506px;
-  height: 100vh;
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  background-size: cover;
-  background: #eff4ff;
-  -webkit-background-size: cover;
-  -o-background-size: cover;
-}
-
-.main-wrapper {
-  // Top 63px Bottom 35px Query 72px
-  height: calc(100vh - 63px - 35px - 72px);
-  margin: 0 22px;
-  border-radius: 15px;
-  position: relative;
-}
-
-.operation-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  margin: 0;
-}
-
-.content-panel {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  height: 100%;
-  border-radius: 15px;
-  background: transparent;
-}
-
-.nav-panel {
-  min-width: 242px;
-  height: 100%;
-  border-right: 1px solid #ebeef5;
-  background: linear-gradient(
-      120deg,
-      rgba(107, 140, 255, 0.3) 0%,
-      rgba(169, 102, 255, 0.3) 25%,
-      transparent 60%
-    ),
-    url("../assets/model/model.png") no-repeat center / cover;
-  padding: 16px 0;
-  flex-shrink: 0;
+// ---------------------------------------------------------------- table card
+.mc-card {
   display: flex;
   flex-direction: column;
-}
+  min-width: 0;
 
-.nav-panel .el-menu-item {
-  height: 50px;
-  background: #e9f0ff;
-  line-height: 50px;
-  border-radius: 4px 0 0 4px !important;
-  transition: all 0.3s;
-  display: flex !important;
-  justify-content: flex-end;
-  padding-right: 12px !important;
-  width: fit-content;
-  margin: 8px 0 8px auto;
-  min-width: unset;
-}
-
-.nav-panel .el-menu-item.is-active {
-  background: #5778ff;
-  position: relative;
-  padding-left: 40px !important;
-}
-
-.nav-panel .el-menu-item.is-active::before {
-  content: "";
-  position: absolute;
-  left: 15px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 13px;
-  height: 13px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 4px rgba(64, 158, 255, 0.5);
-}
-
-.menu-text {
-  font-size: 14px;
-  color: #606266;
-  text-align: right;
-  width: 100%;
-  padding-right: 8px;
-}
-
-.content-area {
-  flex: 1;
-  padding: 24px 24px 0;
-  height: 100%;
-  min-width: 600px;
-  overflow: hidden;
-  background-color: white;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-.action-group {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.search-group {
-  display: flex;
-  gap: 10px;
-}
-
-.search-input {
-  width: 240px;
-}
-
-.btn-search {
-  background: linear-gradient(135deg, #6b8cff, #a966ff);
-  border: none;
-  color: white;
-}
-
-.btn-search:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-::v-deep .search-input .el-input__inner {
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
-  background-color: white;
-  transition: border-color 0.2s;
-}
-
-::v-deep .search-input .el-input__inner:focus {
-  border-color: #6b8cff;
-  outline: none;
-}
-
-// .data-table {
-//   border-radius: 6px;
-//   overflow: hidden;
-//   background-color: transparent !important;
-// }
-
-// .data-table ::v-deep .el-table__row {
-//   background-color: transparent !important;
-// }
-
-.table-header th {
-  background-color: transparent !important;
-  color: #606266;
-  font-weight: 600;
-}
-
-.table-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  // padding: 16px 0;
-  width: 100%;
-  flex-shrink: 0;
-  min-height: 60px;
-  background: white;
-}
-
-// .batch-actions {
-//   display: flex;
-//   gap: 8px;
-// }
-
-// .batch-actions .el-button {
-//   min-width: 72px;
-//   height: 32px;
-//   padding: 7px 12px 7px 10px;
-//   font-size: 12px;
-//   border-radius: 4px;
-//   line-height: 1;
-//   font-weight: 500;
-//   border: none;
-//   transition: all 0.3s ease;
-//   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-// }
-
-// .batch-actions .el-button:hover {
-//   transform: translateY(-1px);
-//   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-// }
-
-// .batch-actions .el-button--primary {
-//   background: #5f70f3 !important;
-//   color: white;
-// }
-
-// .batch-actions .el-button--success {
-//   background: #5bc98c;
-//   color: white;
-// }
-
-// .batch-actions .el-button--danger {
-//   background: #fd5b63;
-//   color: white;
-// }
-
-// .batch-actions .el-button:first-child {
-//   background: linear-gradient(135deg, #409eff, #6b8cff);
-//   border: none;
-//   color: white;
-// }
-
-// .batch-actions .el-button:first-child:hover {
-//   background: linear-gradient(135deg, #3a8ee6, #5a7cff);
-// }
-
-.el-table th ::v-deep .el-table__cell {
-  overflow: hidden;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  user-select: none;
-  background-color: transparent !important;
-}
-
-::v-deep .el-table .custom-selection-header .cell .el-checkbox__inner {
-  display: none !important;
-}
-
-::v-deep .el-table .custom-selection-header .cell::before {
-  content: attr(data-content);
-  display: block;
-  text-align: center;
-  line-height: 32px;
-  /* Set line height to display text properly */
-  color: black;
-  margin-top: 0;
-  /* Remove top margin that might cause offset */
-  height: 32px;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100%;
-}
-
-.custom-selection-header .cell {
-  position: relative;
-}
-
-/* Removed empty pseudo-elements affecting text display */
-
-::v-deep .el-table__body .el-checkbox__inner {
-  display: inline-block !important;
-  background: #ffffff;
-}
-
-::v-deep .el-table thead th:not(:first-child) .cell {
-  color: #303133 !important;
-}
-
-::v-deep .nav-panel .el-menu-item.is-active .menu-text {
-  color: #fff !important;
-}
-
-
-.el-button img {
-  height: 1em;
-  vertical-align: middle;
-  padding-right: 2px;
-  padding-bottom: 2px;
-}
-
-::v-deep .el-checkbox__inner {
-  border-color: #cfcfcf !important;
-  transition: all 0.2s ease-in-out;
-}
-
-::v-deep .el-checkbox__input.is-checked .el-checkbox__inner {
-  background-color: #5f70f3;
-  border-color: #5f70f3;
-}
-
-.voice-management-btn {
-  background: #9db3ea;
-  color: white;
-  min-width: 68px;
-  line-height: 14px;
-  white-space: nowrap;
-  transition: all 0.3s;
-  border-radius: 10px;
-}
-
-.voice-management-btn:hover {
-  background: #8aa2e0;
-  /* Darken color on hover */
-  transform: scale(1.05);
-}
-
-::v-deep .el-table .el-table-column--selection .cell {
-  padding-left: 15px !important;
-}
-
-::v-deep .el-table .el-table__fixed-right .cell {
-  padding-right: 15px !important;
-}
-
-.edit-btn,
-.delete-btn {
-  margin: 0 8px;
-  color: #7079aa !important;
-}
-
-::v-deep .el-table .cell {
-  padding-left: 10px;
-  padding-right: 10px;
-}
-
-.model-card {
-  background: white;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.model-card ::v-deep .el-card__body {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-:deep(.transparent-table) {
-    background: white;
-    flex: 1;
-    width: 100%;
+  &__head {
     display: flex;
-    flex-direction: column;
-
-    .el-table__body-wrapper {
-        flex: 1;
-        overflow-y: auto;
-        max-height: none !important;
-    }
-
-    .el-table__header-wrapper {
-        flex-shrink: 0;
-    }
-
-    .el-table__header th {
-        background: white !important;
-        color: black;
-        font-weight: 600;
-        height: 40px;
-        padding: 8px 0;
-        font-size: 14px;
-        border-bottom: 1px solid #e4e7ed;
-    }
-
-    .el-table__body tr {
-        background-color: white;
-
-        td {
-            border-top: 1px solid rgba(0, 0, 0, 0.04);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-            padding: 8px 0;
-            height: 40px;
-            color: #606266;
-            font-size: 14px;
-        }
-    }
-
-    .el-table__row:hover>td {
-        background-color: #f5f7fa !important;
-    }
-
-    &::before {
-        display: none;
-    }
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--nx-space-3);
+    min-height: 64px;
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-bottom: 1px solid var(--nx-border);
+  }
+  &__title {
+    min-width: 0;
+  }
+  &__bulk {
+    flex-wrap: wrap;
+    gap: var(--nx-space-2);
+  }
+  &__body {
+    min-height: 240px;
+  }
+  &__foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-top: 1px solid var(--nx-border);
+  }
 }
 
+.mc-table {
+  width: 100%;
 
-::v-deep .el-loading-mask {
-  background-color: rgba(255, 255, 255, 0.6) !important;
-  backdrop-filter: blur(2px);
+  ::v-deep th.el-table__cell:first-child .cell,
+  ::v-deep td.el-table__cell:first-child .cell {
+    padding-left: var(--nx-space-5);
+  }
+  ::v-deep th.el-table__cell:last-child .cell,
+  ::v-deep td.el-table__cell:last-child .cell {
+    padding-right: var(--nx-space-4);
+  }
+  &::before {
+    display: none;
+  }
 }
 
-::v-deep .el-loading-spinner .circular {
-  width: 28px;
-  height: 28px;
+.mc-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--nx-space-1) 0;
+
+  &__line {
+    gap: var(--nx-space-2);
+  }
+  &__text {
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__id {
+    display: block;
+  }
 }
 
-::v-deep .el-loading-spinner .path {
-  stroke: #6b8cff;
+.mc-default {
+  flex: none;
+  gap: 3px;
 }
 
-::v-deep .el-loading-text {
-  color: #6b8cff !important;
-  font-size: 14px;
-  margin-top: 8px;
+.mc-provider {
+  max-width: 100%;
+  display: inline-block;
+  line-height: 22px;
+  font-family: var(--nx-font-mono);
+  font-weight: 500;
+}
+
+.mc-switch-wrap {
+  display: inline-flex;
+}
+
+.mc-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  width: 100%;
+}
+
+.mc-set-default {
+  margin-right: var(--nx-space-1);
+  white-space: nowrap;
+}
+
+// ---------------------------------------------------------------- narrow screens
+@media (max-width: 1100px) {
+  .mc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-types {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 4px;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+  .mc-type {
+    flex: none;
+    min-height: var(--nx-control-h);
+    gap: var(--nx-space-2);
+    padding: 0 var(--nx-space-3);
+    &__name {
+      display: none;
+    }
+    &__code {
+      min-width: 0;
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font-size: var(--nx-text-callout);
+    }
+    &.is-active .mc-type__code {
+      background: transparent;
+      color: inherit;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .mc-search {
+    width: 100%;
+  }
+  .nx-page-header__actions {
+    width: 100%;
+    > .mc-search {
+      flex: 1 1 200px;
+    }
+  }
+  .mc-card__head {
+    padding: var(--nx-space-3) var(--nx-space-4);
+  }
 }
 </style>

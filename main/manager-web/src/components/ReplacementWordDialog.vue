@@ -1,56 +1,56 @@
 <template>
   <CustomDialog
     :title="title"
-    :visible.sync="visible"
-    width="700px"
+    :visible="visible"
+    width="640px"
     class="param-dialog-wrapper"
+    @update:visible="val => $emit('update:visible', val)"
     @confirm="submit"
     @close="cancel"
     :confirmLoading="saving"
   >
-    <el-form :model="localForm" :rules="rules" ref="form" label-width="auto" label-position="left" class="param-form">
+    <el-form :model="localForm" :rules="rules" ref="form" label-position="top" class="param-form">
       <el-form-item :label="$t('replacementDialog.fileName')" prop="fileName">
         <el-input v-model="localForm.fileName" :placeholder="$t('replacementDialog.fileNamePlaceholder')"
           @input="clearFieldError('fileName')"></el-input>
       </el-form-item>
 
       <el-form-item :label="$t('replacementDialog.content')" prop="content" class="content-item">
-        <div class="content-wrapper">
-          <el-input
-            type="textarea"
-            v-model="localForm.content"
-            :placeholder="$t('replacementDialog.contentPlaceholder')"
-            :rows="8"
-            @input="clearFieldError('content')"
-          ></el-input>
-          <p class="format-tip">{{ $t('replacementDialog.formatTip') }}</p>
-          <div class="upload-section">
-            <el-upload
-              class="upload-btn"
-              action=""
-              :auto-upload="false"
-              :show-file-list="false"
-              accept=".txt"
-              :on-change="handleFileChange"
-            >
-              <el-button size="small" type="primary" class="upload-file-btn">
-                <div class="upload-file-content">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 4px;">
-                    <path d="M7 1V13M1 7H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  </svg>
-                  <div>
-                    <p>{{ $t('replacementDialog.clickUploadTip') }}</p>
-                    <p>{{ $t('replacementDialog.uploadCoverTip') }}</p>
-                  </div>
-                </div>
-              </el-button>
-            </el-upload>
-            <span class="word-count" :class="{ 'over-limit': isOverLimit }">
-              {{ wordCountText }}{{ $t('replacementDialog.wordCountUnit') }}
-            </span>
-          </div>
+        <el-input
+          type="textarea"
+          class="content-input"
+          v-model="localForm.content"
+          :placeholder="$t('replacementDialog.contentPlaceholder')"
+          :rows="9"
+          @input="clearFieldError('content')"
+        ></el-input>
+        <div class="content-meta">
+          <span class="format-tip">
+            <i class="el-icon-info" aria-hidden="true"></i>
+            {{ $t('replacementDialog.formatTip') }}
+          </span>
+          <span class="word-count nx-num" :class="{ 'over-limit': isOverLimit }">
+            {{ wordCountText }} {{ $t('replacementDialog.wordCountUnit') }}
+          </span>
         </div>
       </el-form-item>
+
+      <div class="upload-row">
+        <el-upload
+          class="upload-btn"
+          action=""
+          :auto-upload="false"
+          :show-file-list="false"
+          accept=".txt"
+          :on-change="handleFileChange"
+        >
+          <el-button size="small" icon="el-icon-upload2">{{ $t('replacementDialog.uploadTxt') }}</el-button>
+        </el-upload>
+        <div class="upload-row__text">
+          <span>{{ $t('replacementDialog.clickUploadTip') }}</span>
+          <span class="upload-row__warn">{{ $t('replacementDialog.uploadCoverTip') }}</span>
+        </div>
+      </div>
     </el-form>
   </CustomDialog>
 </template>
@@ -262,72 +262,58 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.param-dialog-wrapper {
-  .param-form {
-    .content-item {
-      :deep(.el-form-item__content) {
-        line-height: 1;
-      }
-    }
-
-    .content-wrapper {
-      width: 100%;
-    }
-
-    .format-tip {
-      text-align: left;
-      font-size: 12px;
-      color: #5778ff;
-    }
-
-    .upload-section {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 12px;
-    }
-
-    .upload-btn {
-      display: inline-block;
-    }
-
-    .upload-file-btn {
-      background: #3b82f6;
-      border-color: #3b82f6;
-      border-radius: 6px;
-      font-size: 13px;
-      padding: 8px 16px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      .upload-file-content {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        > div {
-          text-align: left;
-          > p {
-            margin: 4px;
-          }
-        }
-      }
-
-      &:hover {
-        background: #2563eb;
-        border-color: #2563eb;
-        transform: translateY(-1px);
-      }
-    }
-
-    .word-count {
-      font-size: 13px;
-      color: #64748b;
-      font-weight: 500;
-      transition: color 0.3s ease;
-
-      &.over-limit {
-        color: #ef4444;
-        font-weight: 600;
-      }
-    }
+.param-form {
+  .content-input ::v-deep .el-textarea__inner {
+    font-family: var(--nx-font-mono);
+    font-size: var(--nx-text-footnote);
+    line-height: 1.6;
+  }
+}
+.content-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--nx-space-2);
+  margin-top: var(--nx-space-2);
+  line-height: 1.4;
+}
+.format-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--nx-text-caption);
+  color: var(--nx-text-3);
+}
+.word-count {
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  color: var(--nx-text-2);
+  transition: color var(--nx-dur-2) var(--nx-ease);
+  &.over-limit {
+    color: var(--nx-danger);
+  }
+}
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-3);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+  &__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__warn {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+  .upload-btn ::v-deep .el-button {
+    background: var(--nx-surface);
   }
 }
 </style>

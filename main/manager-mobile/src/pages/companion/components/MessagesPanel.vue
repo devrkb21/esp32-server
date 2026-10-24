@@ -24,14 +24,14 @@ const messages = computed(() => dev.value?.messages || [])
 
 function status(m: CompanionMessage): { text: string, cls: string } {
   if (m.answer === 'yes')
-    return { text: `${t('companion.msg.yes')} 👍`, cls: 'bg-[#f6ffed] text-[#389e0d]' }
+    return { text: t('companion.msg.yes'), cls: 'nx-badge--success' }
   if (m.answer === 'no')
-    return { text: `${t('companion.msg.no')} 👎`, cls: 'bg-[#fff1f0] text-[#cf1322]' }
+    return { text: t('companion.msg.no'), cls: 'nx-badge--danger' }
   if (m.answer === 'seen')
-    return { text: `${t('companion.msg.seen')} ✓✓`, cls: 'bg-[#f6ffed] text-[#389e0d]' }
+    return { text: `${t('companion.msg.seen')} ✓✓`, cls: 'nx-badge--success' }
   if (m.status === 'delivered')
-    return { text: `${t('companion.msg.delivered')} ✓`, cls: 'bg-[#e6f4ff] text-[#1677ff]' }
-  return { text: `${t('companion.msg.pending')} ⏳`, cls: 'bg-[#fff7e6] text-[#d46b08]' }
+    return { text: `${t('companion.msg.delivered')} ✓`, cls: 'nx-badge--accent' }
+  return { text: t('companion.msg.pending'), cls: 'nx-badge--warning' }
 }
 
 async function send() {
@@ -59,68 +59,144 @@ async function send() {
 </script>
 
 <template>
-  <view v-if="dev" class="flex flex-col gap-[20rpx]">
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[8rpx] block text-[26rpx] text-[#65686f]">
-        {{ t('companion.msg.from') }}
-      </text>
-      <wd-input v-model="from" :maxlength="32" clearable placeholder="Ammu" />
-      <text class="mt-[6rpx] block text-[22rpx] text-[#9d9ea3]">
-        {{ t('companion.msg.fromHint') }}
-      </text>
+  <view v-if="dev">
+    <!-- Composer -->
+    <view class="nx-card msgs__composer">
+      <view class="cmp-field">
+        <view class="cmp-field__label">
+          {{ t('companion.msg.text') }}
+        </view>
+        <view class="cmp-field__box msgs__box">
+          <wd-textarea
+            v-model="text"
+            :maxlength="300"
+            show-word-limit
+            auto-height
+            :placeholder="t('companion.msg.textPlaceholder')"
+          />
+        </view>
+        <view class="cmp-field__help">
+          {{ t('companion.msg.textHint') }}
+        </view>
+      </view>
 
-      <text class="mb-[8rpx] mt-[24rpx] block text-[26rpx] text-[#65686f]">
-        {{ t('companion.msg.text') }}
-      </text>
-      <wd-textarea
-        v-model="text"
-        :maxlength="300"
-        show-word-limit
-        :placeholder="t('companion.msg.textPlaceholder')"
-        custom-class="!bg-[#f5f7fb] !rounded-[12rpx]"
-      />
-      <text class="mt-[6rpx] block text-[22rpx] text-[#9d9ea3]">
-        {{ t('companion.msg.textHint') }}
-      </text>
+      <view class="cmp-field">
+        <view class="cmp-field__label">
+          {{ t('companion.msg.from') }}
+        </view>
+        <view class="cmp-field__box msgs__box">
+          <wd-input v-model="from" :maxlength="32" clearable no-border placeholder="Ammu" />
+        </view>
+        <view class="cmp-field__help">
+          {{ t('companion.msg.fromHint') }}
+        </view>
+      </view>
 
-      <view class="mt-[24rpx] flex items-center justify-between">
-        <text class="text-[26rpx] text-[#65686f]">
+      <view class="msgs__ask">
+        <view class="nx-row__title">
           {{ t('companion.msg.ask') }}
-        </text>
-        <wd-switch v-model="ask" size="20" />
+        </view>
+        <wd-switch v-model="ask" size="22px" />
       </view>
 
-      <view class="mt-[28rpx]">
-        <wd-button type="primary" block :loading="sending" @click="send">
-          {{ t('companion.msg.send') }} ✉
-        </wd-button>
-      </view>
+      <wd-button block size="large" :loading="sending" @click="send">
+        {{ t('companion.msg.send') }}
+      </wd-button>
     </view>
 
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[12rpx] block text-[30rpx] text-[#232338] font-semibold">
+    <!-- Sent messages -->
+    <view class="nx-group">
+      <view class="nx-group__header">
         {{ t('companion.msg.list') }}
-      </text>
-      <view v-if="!messages.length" class="py-[20rpx] text-center text-[24rpx] text-[#9d9ea3]">
-        {{ t('companion.msg.none') }}
       </view>
-      <view
-        v-for="m in messages"
-        :key="m.id"
-        class="flex items-start gap-[16rpx] border-b-[1rpx] border-b-[#f0f0f0] border-b-solid py-[18rpx] last:border-b-0"
-      >
-        <view class="min-w-0 flex-1">
-          <text class="block break-all text-[28rpx] text-[#232338]">
-            {{ m.text }}
-          </text>
-          <text class="block text-[22rpx] text-[#8c8c8c]">
-            {{ m.from ? `${m.from} · ` : '' }}{{ clockText(m.ts) }}{{ m.ask ? ` · ${t('companion.msg.askTag')}` : '' }}
-          </text>
+      <view v-if="!messages.length" class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__subtitle msgs__none">
+            {{ t('companion.msg.none') }}
+          </view>
         </view>
-        <text class="whitespace-nowrap rounded-[20rpx] px-[14rpx] py-[4rpx] text-[22rpx]" :class="status(m).cls">
-          {{ status(m).text }}
-        </text>
+      </view>
+      <view v-else class="msgs__list">
+        <view v-for="m in messages" :key="m.id" class="msgs__item">
+          <view class="msgs__bubble">
+            {{ m.text }}
+          </view>
+          <view class="msgs__meta">
+            <text class="nx-caption nx-num nx-truncate">
+              {{ m.from ? `${m.from} · ` : '' }}{{ clockText(m.ts) }}{{ m.ask ? ` · ${t('companion.msg.askTag')}` : '' }}
+            </text>
+            <view class="nx-badge" :class="status(m).cls">
+              {{ status(m).text }}
+            </view>
+          </view>
+        </view>
       </view>
     </view>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.msgs {
+  &__composer {
+    margin-bottom: var(--nx-space-5);
+  }
+
+  &__box {
+    background: var(--nx-surface-2);
+  }
+
+  &__ask {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    min-height: var(--nx-touch);
+    margin-bottom: var(--nx-space-3);
+  }
+
+  &__none {
+    text-align: center;
+    color: var(--nx-text-3);
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-3);
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--nx-space-1);
+  }
+
+  &__bubble {
+    max-width: 85%;
+    padding: var(--nx-space-2) var(--nx-space-3);
+    border-radius: var(--nx-radius-lg) var(--nx-radius-lg) var(--nx-radius-sm) var(--nx-radius-lg);
+    background: var(--nx-accent-soft);
+    color: var(--nx-text);
+    font-size: var(--nx-text-body);
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    box-sizing: border-box;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--nx-space-2);
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+:deep(.cmp-field__box.msgs__box .wd-input),
+:deep(.cmp-field__box.msgs__box .wd-textarea) {
+  background: var(--nx-surface-2);
+}
+</style>

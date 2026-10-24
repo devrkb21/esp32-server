@@ -1,155 +1,143 @@
 <template>
-  <div class="welcome">
-    <el-container style="height: 100%">
-      <el-header>
-        <div style="
-            display: flex;
-            align-items: center;
-            margin-top: 11px;
-            margin-left: 11px;
-            gap: 10px;
-          ">
-          <img loading="lazy" alt="ESP Console" src="@/assets/xiaozhi-logo.png" style="width: 42px; height: 42px" />
-          <span style="font-size: 22px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.5px;">ESP Console</span>
-        </div>
-      </el-header>
-      <div class="login-person">
-        <img loading="lazy" alt="" src="@/assets/login/login-person.png" style="width: 100%" />
+  <div class="nx-auth">
+    <aside class="nx-auth__aside">
+      <div class="nx-auth__brand">
+        <img src="@/assets/nobix/mark.svg" alt="" width="36" height="36" />
+        <span>Nobix <span class="nx-auth__brand-product">Console</span></span>
       </div>
-      <el-main style="position: relative">
-        <div class="login-box" @keyup.enter="login">
-          <div style="
-              display: flex;
-              align-items: center;
-              gap: 20px;
-              margin-bottom: 39px;
-              padding: 0 30px;
-            ">
-            <img loading="lazy" alt="" src="@/assets/login/hi.png" style="width: 34px; height: 34px" />
-            <div class="login-text">{{ $t("login.title") }}</div>
-
-            <div class="login-welcome">
-              {{ $t("login.welcome") }}
-            </div>
-
-            <!-- Language Switch Dropdown -->
-            <el-dropdown trigger="click" class="title-language-dropdown"
-              @visible-change="handleLanguageDropdownVisibleChange">
-              <span class="el-dropdown-link">
-                <span class="current-language-text">{{ currentLanguageText }}</span>
-                <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': languageDropdownVisible }"></i>
-              </span>
-              <el-dropdown-menu slot="dropdown">
-                <el-dropdown-item @click.native="changeLanguage('zh_CN')">
-                  {{ $t("language.zhCN") }}
-                </el-dropdown-item>
-                <el-dropdown-item @click.native="changeLanguage('zh_TW')">
-                  {{ $t("language.zhTW") }}
-                </el-dropdown-item>
-                <el-dropdown-item @click.native="changeLanguage('en')">
-                  {{ $t("language.en") }}
-                </el-dropdown-item>
-                <el-dropdown-item @click.native="changeLanguage('de')">
-                  {{ $t("language.de") }}
-                </el-dropdown-item>
-                <el-dropdown-item @click.native="changeLanguage('vi')">
-                  {{ $t("language.vi") }}
-                </el-dropdown-item>
-                <el-dropdown-item @click.native="changeLanguage('pt_BR')">
-                  {{ $t("language.ptBR") }}
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </el-dropdown>
-          </div>
-          <div style="padding: 0 30px">
-            <!-- Username Login -->
-            <template v-if="!isMobileLogin">
-              <div class="input-box">
-                <img loading="lazy" alt="" class="input-icon" src="@/assets/login/username.png" />
-                <el-input v-model="form.username" :placeholder="$t('login.usernamePlaceholder')" />
-              </div>
-            </template>
-
-            <!-- Phone Login -->
-            <template v-else>
-              <div class="input-box">
-                <div style="display: flex; align-items: center; width: 100%">
-                  <el-select v-model="form.areaCode" style="width: 220px; margin-right: 10px" filterable>
-                    <el-option v-for="item in mobileAreaList" :key="item.key" :label="`${item.name} (${item.key})`"
-                      :value="item.key" />
-                  </el-select>
-                  <el-input v-model="form.mobile" :placeholder="$t('login.mobilePlaceholder')" />
-                </div>
-              </div>
-            </template>
-
-            <div class="input-box">
-              <img loading="lazy" alt="" class="input-icon" src="@/assets/login/password.png" />
-              <el-input v-model="form.password" :placeholder="$t('login.passwordPlaceholder')" type="password"
-                show-password />
-            </div>
-            <div style="
-                display: flex;
-                align-items: center;
-                margin-top: 20px;
-                width: 100%;
-                gap: 10px;
-              ">
-              <div class="input-box" style="width: calc(100% - 130px); margin-top: 0">
-                <img loading="lazy" alt="" class="input-icon" src="@/assets/login/shield.png" />
-                <el-input v-model="form.captcha" :placeholder="$t('login.captchaPlaceholder')" style="flex: 1" />
-              </div>
-              <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="Captcha"
-                style="width: 150px; height: 40px; cursor: pointer" @click="fetchCaptcha" />
-            </div>
-            <div style="
-                font-weight: 400;
-                font-size: 14px;
-                text-align: left;
-                color: #5778ff;
-                display: flex;
-                justify-content: space-between;
-                margin-top: 20px;
-              ">
-              <div v-if="allowUserRegister" style="cursor: pointer" @click="goToRegister">
-                {{ $t("login.register") }}
-              </div>
-              <div style="cursor: pointer" @click="goToForgetPassword" v-if="enableMobileRegister">
-                {{ $t("login.forgetPassword") }}
-              </div>
-            </div>
-          </div>
-          <div class="login-btn" @click="login">{{ $t("login.login") }}</div>
-
-          <!-- Login Method Toggle Button -->
-          <div class="login-type-container" v-if="enableMobileRegister">
-            <div style="display: flex; gap: 10px">
-              <el-tooltip :content="$t('login.mobileLogin')" placement="bottom">
-                <el-button :type="isMobileLogin ? 'primary' : 'default'" icon="el-icon-mobile" circle
-                  @click="switchLoginType('mobile')"></el-button>
-              </el-tooltip>
-              <el-tooltip :content="$t('login.usernameLogin')" placement="bottom">
-                <el-button :type="!isMobileLogin ? 'primary' : 'default'" icon="el-icon-user" circle
-                  @click="switchLoginType('username')"></el-button>
-              </el-tooltip>
-            </div>
-          </div>
-          <div style="font-size: 14px; color: #979db1">
-            {{ $t("login.agreeTo") }}
-            <div style="display: inline-block; color: #5778ff; cursor: pointer" @click="openPage('/user-agreement.html')">
-              {{ $t("login.userAgreement") }}
-            </div>
-            {{ $t("login.and") }}
-            <div style="display: inline-block; color: #5778ff; cursor: pointer" @click="openPage('/privacy-policy.html')">
-              {{ $t("login.privacyPolicy") }}
-            </div>
-          </div>
+      <div class="nx-auth__hero">
+        <div class="nx-bot" aria-hidden="true">
+          <span class="nx-bot__antenna"></span>
+          <span class="nx-bot__ear nx-bot__ear--l"></span>
+          <span class="nx-bot__ear nx-bot__ear--r"></span>
+          <span class="nx-bot__head">
+            <span class="nx-bot__visor">
+              <span class="nx-bot__eye nx-bot__eye--l"></span>
+              <span class="nx-bot__eye nx-bot__eye--r"></span>
+              <span class="nx-bot__cheek nx-bot__cheek--l"></span>
+              <span class="nx-bot__cheek nx-bot__cheek--r"></span>
+              <span class="nx-bot__smile"></span>
+            </span>
+          </span>
         </div>
-      </el-main>
-      <el-footer>
+        <p class="nx-auth__tagline">{{ tt('auth.tagline', 'Look after your robots, their voices and every conversation, all in one calm place.') }}</p>
+      </div>
+    </aside>
+
+    <main class="nx-auth__main">
+      <div class="nx-auth__topbar">
+        <div class="nx-auth__brand nx-auth__brand--compact">
+          <img src="@/assets/nobix/mark.svg" alt="" width="30" height="30" />
+          <span>Nobix <span class="nx-auth__brand-product">Console</span></span>
+        </div>
+
+        <!-- Language switch -->
+        <el-dropdown trigger="click" placement="bottom-end" @visible-change="handleLanguageDropdownVisibleChange">
+          <button type="button" class="nx-auth-lang" :aria-label="tt('auth.language', 'Language')">
+            <i class="el-icon-s-comment" aria-hidden="true"></i>
+            <span>{{ currentLanguageText }}</span>
+            <i class="el-icon-arrow-down nx-auth-lang__caret" :class="{ 'is-open': languageDropdownVisible }"
+              aria-hidden="true"></i>
+          </button>
+          <el-dropdown-menu slot="dropdown">
+            <el-dropdown-item @click.native="changeLanguage('zh_CN')">{{ $t("language.zhCN") }}</el-dropdown-item>
+            <el-dropdown-item @click.native="changeLanguage('zh_TW')">{{ $t("language.zhTW") }}</el-dropdown-item>
+            <el-dropdown-item @click.native="changeLanguage('en')">{{ $t("language.en") }}</el-dropdown-item>
+            <el-dropdown-item @click.native="changeLanguage('de')">{{ $t("language.de") }}</el-dropdown-item>
+            <el-dropdown-item @click.native="changeLanguage('vi')">{{ $t("language.vi") }}</el-dropdown-item>
+            <el-dropdown-item @click.native="changeLanguage('pt_BR')">{{ $t("language.ptBR") }}</el-dropdown-item>
+          </el-dropdown-menu>
+        </el-dropdown>
+      </div>
+
+      <div class="nx-auth__center">
+        <section class="nx-auth-card" aria-labelledby="login-title">
+          <h1 id="login-title" class="nx-auth-card__title">{{ $t("login.title") }}</h1>
+          <p class="nx-auth-card__subtitle">{{ tt('auth.loginSubtitle', 'Welcome back. Sign in to continue.') }}</p>
+
+          <!-- Login method (only when mobile sign-in is enabled) -->
+          <div v-if="enableMobileRegister" class="nx-segmented nx-auth-segmented" role="tablist"
+            :aria-label="tt('auth.loginMethod', 'Sign-in method')">
+            <button type="button" role="tab" :aria-selected="String(isMobileLogin)"
+              :class="{ 'is-active': isMobileLogin }" @click="switchLoginType('mobile')">
+              <i class="el-icon-mobile" aria-hidden="true"></i>
+              <span class="nx-truncate">{{ $t("login.mobileLogin") }}</span>
+            </button>
+            <button type="button" role="tab" :aria-selected="String(!isMobileLogin)"
+              :class="{ 'is-active': !isMobileLogin }" @click="switchLoginType('username')">
+              <i class="el-icon-user" aria-hidden="true"></i>
+              <span class="nx-truncate">{{ $t("login.usernameLogin") }}</span>
+            </button>
+          </div>
+
+          <form class="nx-auth-form" novalidate @submit.prevent="login">
+            <!-- Username -->
+            <div v-if="!isMobileLogin" class="nx-field">
+              <label class="nx-field__label" for="login-username">{{ $t("login.username") }}</label>
+              <el-input id="login-username" v-model="form.username" :placeholder="$t('login.usernamePlaceholder')"
+                autocomplete="username" />
+            </div>
+
+            <!-- Mobile -->
+            <div v-else class="nx-field">
+              <label class="nx-field__label" for="login-mobile">{{ $t("retrievePassword.mobile") }}</label>
+              <div class="nx-field__row">
+                <el-select v-model="form.areaCode" class="nx-auth-area" filterable>
+                  <el-option v-for="item in mobileAreaList" :key="item.key" :label="`${item.name} (${item.key})`"
+                    :value="item.key" />
+                </el-select>
+                <el-input id="login-mobile" v-model="form.mobile" :placeholder="$t('login.mobilePlaceholder')"
+                  autocomplete="tel-national" inputmode="tel" />
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div class="nx-field">
+              <label class="nx-field__label" for="login-password">{{ $t("login.password") }}</label>
+              <el-input id="login-password" v-model="form.password" :placeholder="$t('login.passwordPlaceholder')"
+                type="password" show-password autocomplete="current-password" />
+            </div>
+
+            <!-- Image captcha -->
+            <div class="nx-field">
+              <label class="nx-field__label" for="login-captcha">{{ $t("retrievePassword.captcha") }}</label>
+              <div class="nx-field__row">
+                <el-input id="login-captcha" v-model="form.captcha" :placeholder="$t('login.captchaPlaceholder')"
+                  autocomplete="off" />
+                <button v-if="captchaUrl" type="button" class="nx-auth-captcha"
+                  :aria-label="tt('auth.refreshCaptcha', 'Get a new code')"
+                  :title="tt('auth.refreshCaptcha', 'Get a new code')" @click="fetchCaptcha">
+                  <img :src="captchaUrl" alt="Captcha" />
+                </button>
+              </div>
+            </div>
+
+            <div v-if="allowUserRegister || enableMobileRegister" class="nx-auth-links">
+              <button v-if="allowUserRegister" type="button" class="nx-link" @click="goToRegister">
+                {{ $t("login.register") }}
+              </button>
+              <button v-if="enableMobileRegister" type="button" class="nx-link nx-link--end"
+                @click="goToForgetPassword">
+                {{ $t("login.forgetPassword") }}
+              </button>
+            </div>
+
+            <el-button type="primary" native-type="submit" class="nx-auth-submit">{{ $t("login.login") }}</el-button>
+          </form>
+
+          <p class="nx-auth-legal">
+            {{ $t("login.agreeTo") }}
+            <button type="button" class="nx-link" @click="openPage('/user-agreement.html')">{{ $t("login.userAgreement") }}</button>
+            {{ $t("login.and") }}
+            <button type="button" class="nx-link" @click="openPage('/privacy-policy.html')">{{ $t("login.privacyPolicy") }}</button>
+          </p>
+        </section>
+      </div>
+
+      <footer class="nx-auth__footer">
         <version-footer />
-      </el-footer>
-    </el-container>
+      </footer>
+    </main>
   </div>
 </template>
 
@@ -197,23 +185,6 @@ export default {
           return this.$t("language.en");
       }
     },
-    // Get corresponding xiaozhi-ai icon by language
-    xiaozhiAiIcon() {
-      const currentLang = this.currentLanguage;
-      switch (currentLang) {
-        case "zh_CN":
-        case "zh_TW":
-          return require("@/assets/xiaozhi-ai.png");
-        case "de":
-          return require("@/assets/xiaozhi-ai_de.png");
-        case "vi":
-          return require("@/assets/xiaozhi-ai_vi.png");
-        case "en":
-        case "pt_BR":
-        default:
-          return require("@/assets/xiaozhi-ai_en.png");
-      }
-    },
   },
   data() {
     return {
@@ -240,6 +211,10 @@ export default {
     });
   },
   methods: {
+    // Translate with an English fallback for strings still pending in src/i18n/_pending
+    tt(key, fallback) {
+      return this.$te(key) ? this.$t(key) : fallback;
+    },
     openPage(url) {
       const lang = this.$i18n ? this.$i18n.locale : 'en';
       if (!lang.startsWith('zh')) {
@@ -391,52 +366,7 @@ export default {
   },
 };
 </script>
+
 <style lang="scss" scoped>
 @import "./auth.scss";
-
-.login-type-container {
-  margin: 10px 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.title-language-dropdown {
-  margin-left: auto;
-}
-
-.current-language-text {
-  margin-left: 4px;
-  margin-right: 4px;
-  font-size: 12px;
-  color: #3d4566;
-}
-
-.language-dropdown {
-  margin-left: auto;
-}
-
-.rotate-down {
-  transform: rotate(180deg);
-  transition: transform 0.3s ease;
-}
-
-.el-icon-arrow-down {
-  transition: transform 0.3s ease;
-}
-
-:deep(.el-button--primary) {
-  background-color: #5778ff;
-  border-color: #5778ff;
-
-  &:hover,
-  &:focus {
-    background-color: #4a6ae8;
-    border-color: #4a6ae8;
-  }
-
-  &:active {
-    background-color: #3d5cd6;
-    border-color: #3d5cd6;
-  }
-}
 </style>

@@ -2,7 +2,7 @@
   <CustomDialog
     :title="$t('addAgentDialog.title')"
     :visible.sync="visible"
-    width="420px"
+    width="480px"
     @confirm="confirm"
     @cancel="cancel"
     @close="handleClose"
@@ -10,20 +10,25 @@
     :cancelText="$t('addAgentDialog.cancel')"
     @open="handleOpen"
   >
-    <div class="add-agent-body">
-      <div class="add-agent-label">
-        <span class="required">*</span>
-        {{ $t('addAgentDialog.agentName') }}
+    <form class="add-agent-form" novalidate @submit.prevent="confirm">
+      <div class="add-agent-field">
+        <label class="add-agent-field__label" for="add-agent-name">
+          {{ $t('addAgentDialog.agentName') }}<span class="add-agent-field__required" aria-hidden="true">*</span>
+        </label>
+        <el-input
+          id="add-agent-name"
+          ref="inputRef"
+          v-model="wisdomBodyName"
+          maxlength="64"
+          show-word-limit
+          :placeholder="$t('addAgentDialog.placeholder')"
+          autocomplete="off"
+          aria-required="true"
+        />
+        <!-- Enter submits the form (single-field implicit submission) -->
+
       </div>
-      <el-input
-        maxLength="64"
-        ref="inputRef"
-        :placeholder="$t('addAgentDialog.placeholder')"
-        v-model="wisdomBodyName"
-        class="add-agent-input"
-        @keyup.enter.native="confirm"
-      />
-    </div>
+    </form>
   </CustomDialog>
 </template>
 
@@ -76,27 +81,24 @@ export default {
 }
 </script>
 
-<style scoped>
-.add-agent-body {
-  padding: 6px 4px 4px;
+<style lang="scss" scoped>
+.add-agent-form {
+  padding-top: var(--nx-space-1);
 }
 
-.add-agent-label {
-  font-size: 14px;
-  color: #475569;
-  text-align: left;
-  margin-bottom: 12px;
-}
+.add-agent-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 
-.add-agent-label .required {
-  color: #f56c6c;
-  margin-right: 2px;
-}
-
-.add-agent-input ::v-deep(.el-input__inner) {
-  height: 40px;
-  border-radius: 8px;
-  border-color: #e2e8f0;
-  font-size: 14px;
+  &__label {
+    font-size: var(--nx-text-footnote);
+    font-weight: 500;
+    color: var(--nx-text-2);
+  }
+  &__required {
+    margin-left: 2px;
+    color: var(--nx-danger);
+  }
 }
 </style>

@@ -31,6 +31,14 @@ const canSubmit = computed(() => {
   return true
 })
 
+// Instructions shown under the button
+const steps = computed(() => [
+  t('deviceConfig.phoneConnectXiaozhiHotspot'),
+  t('deviceConfig.selectTargetWifiNetwork'),
+  t('deviceConfig.enterWifiPasswordIfNeeded'),
+  t('deviceConfig.clickStartConfigAndWait'),
+])
+
 // ESP32 connection check
 async function checkESP32Connection() {
   try {
@@ -105,26 +113,31 @@ async function submitConfig() {
 </script>
 
 <template>
-  <view class="wifi-config">
-    <!-- Selected network information -->
-    <view v-if="props.selectedNetwork" class="selected-network">
-      <view class="network-info">
-        <view class="network-name">
-          {{ t('deviceConfig.selectedNetwork') }}: {{ props.selectedNetwork.ssid }}
-        </view>
-        <view class="network-details">
-          <text class="network-signal">
-            {{ t('deviceConfig.signal') }}: {{ props.selectedNetwork.rssi }}dBm
-          </text>
-          <text class="network-security">
-            {{ props.selectedNetwork.authmode === 0 ? t('deviceConfig.openNetwork') : t('deviceConfig.encryptedNetwork') }}
-          </text>
+  <view class="prov">
+    <!-- Selected network -->
+    <view v-if="props.selectedNetwork" class="nx-group prov__group">
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-icon-tile prov__icon">
+            <wd-icon name="wifi" size="18px" />
+          </view>
+          <view class="nx-row__main">
+            <view class="nx-caption">
+              {{ t('deviceConfig.selectedNetwork') }}
+            </view>
+            <view class="nx-row__title nx-truncate prov__ssid" :title="props.selectedNetwork.ssid">
+              {{ props.selectedNetwork.ssid }}
+            </view>
+            <view class="nx-row__subtitle nx-num">
+              {{ t('deviceConfig.signal') }} {{ props.selectedNetwork.rssi }} dBm · {{ props.selectedNetwork.authmode === 0 ? t('deviceConfig.openNetwork') : t('deviceConfig.encryptedNetwork') }}
+            </view>
+          </view>
         </view>
       </view>
     </view>
 
     <!-- Provisioning button -->
-    <view class="submit-section">
+    <view class="prov__action">
       <wd-button
         type="primary"
         size="large"
@@ -138,99 +151,81 @@ async function submitConfig() {
     </view>
 
     <!-- Instructions -->
-    <view class="help-section">
-      <view class="help-title">
+    <view class="nx-group prov__group">
+      <view class="nx-group__header">
         {{ t('deviceConfig.wifiConfigInstructions') }}
       </view>
-      <view class="help-content">
-        <text class="help-item">
-          1. {{ t('deviceConfig.phoneConnectXiaozhiHotspot') }}
-        </text>
-        <text class="help-item">
-          2. {{ t('deviceConfig.selectTargetWifiNetwork') }}
-        </text>
-        <text class="help-item">
-          3. {{ t('deviceConfig.enterWifiPasswordIfNeeded') }}
-        </text>
-        <text class="help-item">
-          4. {{ t('deviceConfig.clickStartConfigAndWait') }}
-        </text>
-        <text class="help-tip">
-          {{ t('deviceConfig.afterConfigSuccessDeviceWillRestart') }}
-        </text>
+      <view class="nx-group__body">
+        <view
+          v-for="(item, index) in steps"
+          :key="index"
+          class="nx-row prov__step"
+        >
+          <view class="nx-num prov__step-num">
+            {{ index + 1 }}
+          </view>
+          <view class="nx-row__main prov__step-text">
+            {{ item }}
+          </view>
+        </view>
+      </view>
+      <view class="nx-group__footer">
+        {{ t('deviceConfig.afterConfigSuccessDeviceWillRestart') }}
       </view>
     </view>
   </view>
 </template>
 
-<style scoped>
-.wifi-config {
-  padding: 20rpx 0;
-}
+<style lang="scss" scoped>
+.prov {
+  &__group {
+    margin-bottom: var(--nx-space-4);
 
-.selected-network {
-  margin-bottom: 32rpx;
-}
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
 
-.network-info {
-  padding: 24rpx;
-  background-color: #f0f6ff;
-  border: 1rpx solid #336cff;
-  border-radius: 16rpx;
-}
+  &__icon {
+    width: 60rpx;
+    height: 60rpx;
+    border-radius: var(--nx-radius-sm);
+  }
 
-.network-name {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #232338;
-  margin-bottom: 8rpx;
-}
+  &__ssid {
+    font-weight: 600;
+  }
 
-.network-details {
-  display: flex;
-  gap: 24rpx;
-}
+  &__action {
+    margin-bottom: var(--nx-space-5);
+  }
 
-.network-signal,
-.network-security {
-  font-size: 24rpx;
-  color: #65686f;
-}
+  &__step {
+    align-items: flex-start;
+    min-height: 0;
+    padding-top: var(--nx-space-2);
+    padding-bottom: var(--nx-space-2);
+  }
 
-.submit-section {
-  margin-bottom: 32rpx;
-}
+  &__step-num {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40rpx;
+    height: 40rpx;
+    margin-top: 2rpx;
+    border-radius: 50%;
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+  }
 
-.help-section {
-  padding: 32rpx 24rpx;
-  background-color: #fbfbfb;
-  border-radius: 16rpx;
-  border: 1rpx solid #eeeeee;
-}
-
-.help-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #232338;
-  margin-bottom: 20rpx;
-}
-
-.help-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.help-item {
-  font-size: 24rpx;
-  color: #65686f;
-  line-height: 1.5;
-}
-
-.help-tip {
-  font-size: 24rpx;
-  color: #336cff;
-  font-weight: 500;
-  margin-top: 8rpx;
+  &__step-text {
+    font-size: var(--nx-text-callout);
+    line-height: 1.45;
+    color: var(--nx-text-2);
+  }
 }
 </style>

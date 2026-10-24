@@ -1,103 +1,251 @@
 <template>
-  <div class="welcome">
+  <div class="nx-app">
     <HeaderBar />
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <div class="content-area" v-loading="loading" :element-loading-text="$t('knowledgeBaseManagement.loading')">
-          <!-- Knowledge Base Cards Section -->
-          <div class="kb-section" :style="{ height: filteredKnowledgeBases.length > 0 ? 'fit-content' : '100%' }">
-            <div class="kb-section-header">
-              <h2 class="page-title">{{ $t('knowledgeBaseManagement.title') }}</h2>
-              <div class="right-operations">
-                <el-input
-                  :placeholder="$t('knowledgeBaseManagement.searchPlaceholder')"
-                  v-model="searchKbName"
-                  class="search-input"
-                  @keyup.enter.native="handleSearchKb"
-                  clearable
-                  prefix-icon="el-icon-search"
-                />
-                <CustomButton icon="el-icon-search" @click="handleSearchKb">
-                  {{ $t('knowledgeBaseManagement.search') }}
-                </CustomButton>
-                <CustomButton type="confirm" icon="el-icon-plus" @click="showAddDialog">
-                  {{ $t('knowledgeBaseManagement.addKnowledgeBase') }}
-                </CustomButton>
-              </div>
-            </div>
-            <div class="kb-cards-wrapper" :style="{ height: filteredKnowledgeBases.length > 0 ? 'fit-content' : '100%' }">
-              <div class="kb-arrow left" @click="scrollCards(-1)" v-if="filteredKnowledgeBases.length > 0">
-                <i class="el-icon-arrow-left"></i>
-              </div>
-              <div class="kb-cards" ref="kbCards">
-                <div
-                  v-for="(kb, index) in filteredKnowledgeBases"
-                  :key="kb.datasetId"
-                  class="kb-card"
-                  :class="{ active: selectedKb && selectedKb.datasetId === kb.datasetId, error: !!kb.errorMessage }"
-                  @click="selectKnowledgeBase(kb)"
-                >
-                  <div class="kb-card-actions-top">
-                    <button class="kb-action-icon" :title="$t('knowledgeBaseManagement.edit')" @click.stop="editKnowledgeBase(kb)">
-                      <i class="el-icon-edit"></i>
-                    </button>
-                    <button class="kb-action-icon delete" :title="$t('knowledgeBaseManagement.delete')" @click.stop="deleteKnowledgeBase(kb)">
-                      <i class="el-icon-delete"></i>
-                    </button>
-                  </div>
-                  <div class="kb-card-top">
-                    <div class="kb-card-icon" :class="getCardColorClass(index)">
-                      <ManualIcon :color="getIconColor(index)" />
-                    </div>
-                    <div class="kb-card-info">
-                      <div class="kb-card-name">{{ kb.name }}</div>
-                      <div class="kb-card-bottom">
-                        <div class="kb-card-meta">
-                          <span>{{`Documents&nbsp;&nbsp;${kb.documentCount || 0}` }}</span>
-                          <el-divider direction="vertical" />
-                          <span>{{ formatDate(kb.createdAt) }}</span>
-                          <el-divider direction="vertical" />
-                          <el-switch
-                            v-model="kb.status"
-                            :active-value="1"
-                            :inactive-value="0"
-                            active-color="#5778ff"
-                            inactive-color="#DCDFE6"
-                            @click.native.stop
-                            @change="handleStatusChange(kb)"
-                          ></el-switch>
-                          <el-tooltip v-if="kb.errorMessage" :content="kb.errorMessage" placement="top-end" effect="dark">
-                            <i class="kb-card-warning el-icon-warning"></i>
-                          </el-tooltip>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="kb-card-desc">{{ kb.description || '-' }}</div>
-                </div>
-                <div v-if="filteredKnowledgeBases.length === 0 && !loading" class="kb-empty">
-                  <p>{{ $t('knowledgeBaseManagement.noData') }}</p>
-                </div>
-              </div>
-              <div class="kb-arrow right" @click="scrollCards(1)" v-if="filteredKnowledgeBases.length > 0">
-                <i class="el-icon-arrow-right"></i>
-              </div>
-            </div>
-          </div>
 
-          <!-- Document Section -->
+    <main class="nx-page">
+      <!-- ============================================================ List of knowledge bases -->
+      <template v-if="!selectedKb">
+        <header class="nx-page-header">
+          <div class="nx-page-header__text">
+            <h1 class="nx-title">{{ $t('knowledgeBaseManagement.title') }}</h1>
+            <p class="nx-page-header__desc">
+              {{ tx('knowledgeBaseManagement.pageDesc', 'Documents your robots can look up when they answer questions.') }}
+            </p>
+          </div>
+          <div class="nx-page-header__actions">
+            <el-input
+              v-model="searchKbName"
+              class="kb-search"
+              prefix-icon="el-icon-search"
+              :placeholder="$t('knowledgeBaseManagement.searchPlaceholder')"
+              :aria-label="$t('knowledgeBaseManagement.search')"
+              clearable
+              @keyup.enter.native="handleSearchKb"
+              @clear="handleSearchKb"
+            />
+            <CustomButton type="add" icon="el-icon-plus" @click="showAddDialog">
+              {{ $t('knowledgeBaseManagement.addKnowledgeBase') }}
+            </CustomButton>
+          </div>
+        </header>
+
+        <!-- Loading skeleton -->
+        <div v-if="loading && !knowledgeBases.length" class="nx-grid" aria-busy="true">
+          <div v-for="n in 3" :key="'sk' + n" class="nx-card kb-card kb-card--skeleton">
+            <div class="nx-row">
+              <span class="nx-skeleton kb-sk-tile"></span>
+              <span class="nx-spacer"></span>
+              <span class="nx-skeleton kb-sk-badge"></span>
+            </div>
+            <span class="nx-skeleton kb-sk-title"></span>
+            <span class="nx-skeleton kb-sk-line"></span>
+            <span class="nx-skeleton kb-sk-line kb-sk-line--short"></span>
+          </div>
+        </div>
+
+        <!-- Cards -->
+        <div v-else-if="filteredKnowledgeBases.length" class="nx-grid" v-loading="loading">
+          <article
+            v-for="kb in filteredKnowledgeBases"
+            :key="kb.datasetId"
+            class="nx-card nx-card--interactive kb-card"
+            :class="{ 'is-error': !!kb.errorMessage, 'is-disabled': kb.status !== 1 }"
+            role="button"
+            tabindex="0"
+            :aria-label="kb.name"
+            @click="selectKnowledgeBase(kb)"
+            @keydown.enter.self.prevent="selectKnowledgeBase(kb)"
+            @keydown.space.self.prevent="selectKnowledgeBase(kb)"
+          >
+            <div class="kb-card__top">
+              <span class="nx-icon-tile kb-card__icon" :class="{ 'kb-card__icon--error': !!kb.errorMessage }">
+                <ManualIcon />
+              </span>
+              <el-tooltip v-if="kb.errorMessage" :content="kb.errorMessage" placement="top" popper-class="kb-tip">
+                <span class="nx-badge nx-badge--danger" tabindex="0" @click.stop>
+                  <i class="el-icon-warning-outline" aria-hidden="true"></i>
+                  {{ tx('knowledgeBaseManagement.needsAttention', 'Needs attention') }}
+                </span>
+              </el-tooltip>
+              <span v-else-if="kb.status === 1" class="nx-badge nx-badge--success">
+                <i class="el-icon-circle-check" aria-hidden="true"></i>
+                {{ $t('knowledgeBaseManagement.enabled') }}
+              </span>
+              <span v-else class="nx-badge">
+                <i class="el-icon-remove-outline" aria-hidden="true"></i>
+                {{ $t('knowledgeBaseManagement.disabled') }}
+              </span>
+            </div>
+
+            <h2 class="nx-headline nx-truncate kb-card__name" :title="kb.name">{{ kb.name }}</h2>
+            <p class="kb-card__desc" :title="kb.description">{{ kb.description || '—' }}</p>
+
+            <div class="kb-card__foot">
+              <div class="kb-card__meta">
+                <span class="nx-num">
+                  <i class="el-icon-document" aria-hidden="true"></i>
+                  {{ tx('knowledgeBaseManagement.docCount', '{count} documents', { count: formatCount(kb.documentCount) }) }}
+                </span>
+                <span v-if="kb.updatedAt || kb.createdAt" class="nx-num">
+                  <i class="el-icon-time" aria-hidden="true"></i>
+                  {{ formatDate(kb.updatedAt || kb.createdAt) }}
+                </span>
+              </div>
+              <div class="kb-card__controls" @click.stop @keydown.stop>
+                <el-switch
+                  v-model="kb.status"
+                  :active-value="1"
+                  :inactive-value="0"
+                  :aria-label="$t('knowledgeBaseManagement.status')"
+                  @change="handleStatusChange(kb)"
+                />
+                <el-dropdown trigger="click" placement="bottom-end" @command="(cmd) => handleCardCommand(cmd, kb)">
+                  <button type="button" class="nx-icon-btn" :aria-label="tx('knowledgeBaseManagement.moreActions', 'More actions')">
+                    <i class="el-icon-more" aria-hidden="true"></i>
+                  </button>
+                  <el-dropdown-menu slot="dropdown">
+                    <el-dropdown-item command="edit" icon="el-icon-edit">
+                      {{ $t('knowledgeBaseManagement.edit') }}
+                    </el-dropdown-item>
+                    <el-dropdown-item command="delete" icon="el-icon-delete" class="kb-menu-danger">
+                      {{ $t('knowledgeBaseManagement.delete') }}
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </el-dropdown>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Empty -->
+        <div v-else class="nx-card">
+          <div class="nx-empty">
+            <span class="nx-icon-tile nx-icon-tile--lg"><i class="el-icon-notebook-2" aria-hidden="true"></i></span>
+            <h3 class="nx-empty__title">
+              {{ searchKbName ? tx('knowledgeBaseManagement.noResultsTitle', 'No matching knowledge bases') : tx('knowledgeBaseManagement.emptyTitle', 'No knowledge bases yet') }}
+            </h3>
+            <p class="nx-empty__text">
+              {{ searchKbName
+                ? tx('knowledgeBaseManagement.noResultsText', 'Try a different name or clear the search.')
+                : tx('knowledgeBaseManagement.emptyText', 'Create one, then upload documents your robots can learn from.') }}
+            </p>
+            <CustomButton class="nx-empty__action" type="add" icon="el-icon-plus" @click="showAddDialog">
+              {{ $t('knowledgeBaseManagement.addKnowledgeBase') }}
+            </CustomButton>
+          </div>
+        </div>
+      </template>
+
+      <!-- ============================================================ One knowledge base -->
+      <template v-else>
+        <button type="button" class="nx-back" @click="clearSelection">
+          <i class="el-icon-arrow-left" aria-hidden="true"></i>
+          {{ $t('knowledgeBaseManagement.title') }}
+        </button>
+        <header class="nx-page-header">
+          <div class="nx-page-header__text">
+            <div class="nx-row kb-detail-title">
+              <span class="nx-icon-tile" :class="{ 'kb-card__icon--error': !!selectedKb.errorMessage }">
+                <ManualIcon />
+              </span>
+              <h1 class="nx-title nx-truncate" :title="selectedKb.name">{{ selectedKb.name }}</h1>
+              <el-tooltip v-if="selectedKb.errorMessage" :content="selectedKb.errorMessage" placement="bottom"
+                popper-class="kb-tip">
+                <span class="nx-badge nx-badge--danger" tabindex="0">
+                  <i class="el-icon-warning-outline" aria-hidden="true"></i>
+                  {{ tx('knowledgeBaseManagement.needsAttention', 'Needs attention') }}
+                </span>
+              </el-tooltip>
+              <span v-else-if="selectedKb.status === 1" class="nx-badge nx-badge--success">
+                {{ $t('knowledgeBaseManagement.enabled') }}
+              </span>
+              <span v-else class="nx-badge">{{ $t('knowledgeBaseManagement.disabled') }}</span>
+            </div>
+            <p v-if="selectedKb.description" class="nx-page-header__desc kb-detail-desc">{{ selectedKb.description }}</p>
+          </div>
+          <div class="nx-page-header__actions">
+            <CustomButton icon="el-icon-edit" @click="editKnowledgeBase(selectedKb)">
+              {{ $t('knowledgeBaseManagement.edit') }}
+            </CustomButton>
+            <el-tooltip :content="$t('knowledgeBaseManagement.delete')" placement="bottom">
+              <button type="button" class="nx-icon-btn nx-icon-btn--danger kb-detail-delete"
+                :aria-label="$t('knowledgeBaseManagement.delete')" @click="deleteKnowledgeBase(selectedKb)">
+                <i class="el-icon-delete" aria-hidden="true"></i>
+              </button>
+            </el-tooltip>
+          </div>
+        </header>
+
+        <div class="kb-detail">
           <KnowledgeBaseItem
             ref="knowledgeBaseItem"
-            v-if="selectedKb"
             :kb="selectedKb"
             @upload="showUploadDialog"
-            @retrieval-test="showRetrievalTestDialog"
+            @retrieval-test="focusRetrievalTest"
             @view-slices="handleViewSlices"
             @refresh="refreshDocuments"
           />
+
+          <!-- Retrieval test panel -->
+          <aside class="nx-card kb-test" :aria-label="$t('knowledgeFileUpload.retrievalTest')">
+            <div class="kb-test__head">
+              <h2 class="nx-headline">{{ $t('knowledgeFileUpload.retrievalTest') }}</h2>
+              <p class="nx-footnote">
+                {{ tx('knowledgeBaseManagement.testDesc', 'Ask a question to see which passages your robot would find.') }}
+              </p>
+            </div>
+            <form class="kb-test__form" @submit.prevent="runRetrievalTest">
+              <label class="kb-test__label" for="kb-test-question">{{ $t('knowledgeFileUpload.testQuestion') }}</label>
+              <el-input
+                id="kb-test-question"
+                ref="retrievalInput"
+                v-model="retrievalTestForm.question"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 5 }"
+                :placeholder="$t('knowledgeFileUpload.testQuestionPlaceholder')"
+                @keydown.native.enter.exact.prevent="runRetrievalTest"
+              />
+              <CustomButton type="confirm" icon="el-icon-search" class="kb-test__run" :loading="retrievalTestLoading"
+                @click="runRetrievalTest">
+                {{ $t('knowledgeFileUpload.executeTest') }}
+              </CustomButton>
+            </form>
+
+            <div class="kb-test__results" aria-live="polite">
+              <template v-if="retrievalTestResult">
+                <ol v-if="retrievalChunks.length" class="kb-results">
+                  <li v-for="(chunk, index) in retrievalChunks" :key="index" class="kb-result">
+                    <div class="kb-result__head">
+                      <span class="nx-badge nx-badge--accent nx-num" :title="$t('knowledgeFileUpload.comprehensiveSimilarity')">
+                        {{ formatSimilarity(chunk.similarity) }}
+                      </span>
+                      <span class="kb-result__source nx-truncate" :title="chunk.document_keyword">
+                        <i class="el-icon-document" aria-hidden="true"></i>
+                        {{ chunk.document_keyword || '—' }}
+                      </span>
+                    </div>
+                    <div class="kb-result__bar" aria-hidden="true">
+                      <span :style="{ transform: 'scaleX(' + clamp01(chunk.similarity) + ')' }"></span>
+                    </div>
+                    <p class="kb-result__text">{{ chunk.content }}</p>
+                  </li>
+                </ol>
+                <div v-else class="kb-test__empty">
+                  <i class="el-icon-search" aria-hidden="true"></i>
+                  <span>{{ $t('knowledgeFileUpload.noRelatedSlices') }}</span>
+                </div>
+              </template>
+              <div v-else class="kb-test__empty">
+                <i class="el-icon-chat-line-square" aria-hidden="true"></i>
+                <span>{{ tx('knowledgeBaseManagement.testIdle', 'Results appear here, best match first.') }}</span>
+              </div>
+            </div>
+          </aside>
         </div>
-      </div>
-    </div>
+      </template>
+
+      <VersionFooter />
+    </main>
 
     <!-- Knowledge Base Dialog -->
     <KnowledgeBaseDialog
@@ -111,36 +259,36 @@
 
     <!-- Slice Dialog -->
     <CustomDialog
-      :title="`${$t('knowledgeFileUpload.viewSlices')} - ${currentDocumentName}`"
+      :title="`${$t('knowledgeFileUpload.viewSlices')} · ${currentDocumentName}`"
       :visible.sync="sliceDialogVisible"
-      width="1200px"
-      size="large"
+      width="880px"
       :footer="false"
     >
-      <div class="slice-management">
-        <div v-loading="sliceLoading" class="slice-content-container">
-          <div v-if="sliceList.length > 0" class="slice-cards-container">
-            <div v-for="(slice, index) in sliceList" :key="index" class="slice-card">
-              <div class="slice-card-content">
-                <span class="clice-index">{{ $t('knowledgeFileUpload.slice') }} {{ (sliceCurrentPage - 1) * slicePageSize + index + 1 }}</span>
-                <div class="content-text">{{ slice.content }}</div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="no-slice-data">
-            <el-empty :description="$t('knowledgeFileUpload.noSliceData')"></el-empty>
-          </div>
+      <div class="kb-slices" v-loading="sliceLoading">
+        <ol v-if="sliceList.length > 0" class="kb-slices__list">
+          <li v-for="(slice, index) in sliceList" :key="index" class="kb-slice">
+            <span class="nx-badge nx-num">
+              {{ $t('knowledgeFileUpload.slice') }} {{ (sliceCurrentPage - 1) * slicePageSize + index + 1 }}
+            </span>
+            <div class="kb-slice__text">{{ slice.content }}</div>
+          </li>
+        </ol>
+        <div v-else-if="!sliceLoading" class="nx-empty">
+          <span class="nx-icon-tile nx-icon-tile--lg nx-icon-tile--neutral">
+            <i class="el-icon-tickets" aria-hidden="true"></i>
+          </span>
+          <p class="nx-empty__text">{{ $t('knowledgeFileUpload.noSliceData') }}</p>
         </div>
-        <div class="slice-pagination">
-          <CustomPagination
-            :total="parseInt(sliceTotal)"
-            :current-page="sliceCurrentPage"
-            :page-size="slicePageSize"
-            :page-size-options="[10, 20, 50]"
-            @size-change="handleSliceSizeChange"
-            @page-change="handleSlicePageChange"
-          />
-        </div>
+      </div>
+      <div v-if="sliceTotal > 0" class="kb-slices__pagination">
+        <CustomPagination
+          :total="parseInt(sliceTotal)"
+          :current-page="sliceCurrentPage"
+          :page-size="slicePageSize"
+          :page-size-options="[10, 20, 50]"
+          @size-change="handleSliceSizeChange"
+          @page-change="handleSlicePageChange"
+        />
       </div>
     </CustomDialog>
 
@@ -148,14 +296,19 @@
     <CustomDialog
       :title="$t('knowledgeFileUpload.uploadDocument')"
       :visible.sync="uploadDialogVisible"
-      width="800px"
+      width="640px"
       :close-on-click-modal="false"
       :confirmLoading="uploading"
+      :cancel-text="$t('knowledgeFileUpload.cancel')"
+      :confirm-text="selectedFilesList.length
+        ? tx('knowledgeBaseManagement.uploadCount', 'Upload {count} files', { count: selectedFilesList.length })
+        : $t('knowledgeFileUpload.uploadDocument')"
       @close="handleUploadDialogClose"
       @confirm="handleBatchUploadSubmit"
     >
       <el-upload
         ref="uploadRef"
+        class="kb-dropzone"
         action="#"
         :auto-upload="false"
         :show-file-list="false"
@@ -164,86 +317,30 @@
         accept=".doc,.docx,.pdf,.txt,.md,.mdx,.csv,.xls,.xlsx,.ppt,.pptx"
         drag
       >
-        <i class="el-icon-upload"></i>
-        <div class="el-upload__text">{{ $t('knowledgeFileUpload.dragOrClick') }}</div>
-        <div class="el-upload__tip" slot="tip">{{ $t('knowledgeFileUpload.uploadTip') }}</div>
+        <span class="nx-icon-tile nx-icon-tile--lg"><i class="el-icon-upload2" aria-hidden="true"></i></span>
+        <div class="kb-dropzone__title">{{ $t('knowledgeFileUpload.dragOrClick') }}</div>
+        <div class="kb-dropzone__tip" slot="tip">{{ $t('knowledgeFileUpload.uploadTip') }}</div>
       </el-upload>
+
       <!-- Selected Files List -->
-      <div class="selected-files-section" v-if="selectedFilesList.length > 0">
-        <h4>{{ $t('knowledgeFileUpload.selectedFiles') }} ({{ selectedFilesList.length }})</h4>
-        <div class="selected-files-list">
-          <div v-for="(file, index) in selectedFilesList" :key="index" class="selected-file-item">
-            <div class="file-info">
-              <i class="el-icon-document"></i>
-              <span class="file-name">{{ file.name }}</span>
-              <span class="file-size">{{ formatFileSize(file.size) }}</span>
-            </div>
-            <el-button type="text" class="remove-btn" @click="removeSelectedFile(index)">
-              <i class="el-icon-close"></i>
-            </el-button>
-          </div>
+      <div v-if="selectedFilesList.length > 0" class="kb-files">
+        <div class="kb-files__head">
+          <span>{{ $t('knowledgeFileUpload.selectedFiles') }}</span>
+          <span class="nx-badge nx-num">{{ selectedFilesList.length }}</span>
         </div>
+        <ul class="kb-files__list">
+          <li v-for="(file, index) in selectedFilesList" :key="index" class="kb-file">
+            <span class="kb-file__ext">{{ fileExt(file.name) }}</span>
+            <span class="kb-file__name nx-truncate" :title="file.name">{{ file.name }}</span>
+            <span class="kb-file__size nx-num">{{ formatFileSize(file.size) }}</span>
+            <button type="button" class="nx-icon-btn nx-icon-btn--danger kb-file__remove"
+              :aria-label="tx('knowledgeBaseManagement.removeFile', 'Remove file')" @click="removeSelectedFile(index)">
+              <i class="el-icon-close" aria-hidden="true"></i>
+            </button>
+          </li>
+        </ul>
       </div>
     </CustomDialog>
-
-    <!-- Retrieval Test Dialog -->
-    <CustomDialog
-      :title="$t('knowledgeFileUpload.retrievalTest')"
-      :visible.sync="retrievalTestDialogVisible"
-      width="1200px"
-      size="large"
-      :close-on-click-modal="false"
-      :confirm-text="$t('knowledgeFileUpload.executeTest')"
-      :confirmLoading="retrievalTestLoading"
-      @confirm="runRetrievalTest"
-    >
-      <div class="retrieval-test-form">
-        <el-form :model="retrievalTestForm" label-width="100px" @submit.native.prevent>
-          <el-form-item :label="$t('knowledgeFileUpload.testQuestion')" required>
-            <el-input
-              v-model="retrievalTestForm.question"
-              @keyup.enter.native="runRetrievalTest"
-              clearable
-              :placeholder="$t('knowledgeFileUpload.testQuestionPlaceholder')"
-            />
-          </el-form-item>
-        </el-form>
-        <div v-if="retrievalTestResult" class="retrieval-test-result" style="margin-top: 20px;">
-          <div class="result-chunks" v-if="retrievalTestResult.chunks.length">
-            <div v-for="(chunk, index) in retrievalTestResult.chunks" :key="index" class="result-chunk">
-              <div class="chunk-left">
-                <div class="chunk-similarity">
-                  <p class="similarity-label">{{ $t('knowledgeFileUpload.comprehensiveSimilarity') }}</p>
-                  <p class="similarity-value">{{ (chunk.similarity || 0).toFixed(4) }}</p>
-                  <el-progress
-                    :percentage="Math.round((chunk.similarity || 0) * 100)"
-                    :stroke-width="6"
-                    :show-text="false"
-                    class="similarity-progress"
-                  />
-                </div>
-              </div>
-              <el-divider direction="vertical"></el-divider>
-              <div class="chunk-right">
-                
-                <div class="chunk-content">
-                  <div class="chunk-right-header">
-                    <span class="chunk-source">{{ $t('knowledgeFileUpload.sourceDocument') }}：{{ chunk.document_keyword || '-' }}</span>
-                    <span class="chunk-index">{{ $t('knowledgeFileUpload.slice') }} {{ index + 1 }}</span>
-                  </div>
-                  <p>{{ chunk.content }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <el-empty v-else :description="$t('knowledgeFileUpload.noSliceData')"></el-empty>
-        </div>
-      </div>
-    </CustomDialog>
-
-    <el-footer>
-      <version-footer />
-    </el-footer>
   </div>
 </template>
 
@@ -277,7 +374,6 @@ export default {
       },
       uploadDialogVisible: false,
       sliceDialogVisible: false,
-      retrievalTestDialogVisible: false,
       retrievalTestForm: {
         question: ''
       },
@@ -298,11 +394,37 @@ export default {
     filteredKnowledgeBases() {
       return this.knowledgeBases;
     },
+    retrievalChunks() {
+      return (this.retrievalTestResult && this.retrievalTestResult.chunks) || [];
+    },
+    routeKbId() {
+      return (this.$route && this.$route.query && this.$route.query.kb) || '';
+    },
+  },
+  watch: {
+    // The open knowledge base lives in the URL (?kb=<datasetId>) so Back returns to the list
+    routeKbId(id) {
+      if (!id) {
+        this.selectedKb = null;
+        return;
+      }
+      if (!this.selectedKb || this.selectedKb.datasetId !== id) {
+        const kb = this.knowledgeBases.find(item => String(item.datasetId) === String(id));
+        if (kb) this.openKnowledgeBase(kb);
+      }
+    },
   },
   created() {
     this.fetchKnowledgeBases();
   },
   methods: {
+    // $t with an English fallback for keys still waiting in i18n/_pending
+    tx(key, fallback, params) {
+      const value = this.$t(key, params);
+      if (value !== key) return value;
+      return String(fallback).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] != null ? params[k] : m));
+    },
+
     fetchKnowledgeBases() {
       this.loading = true;
       Api.knowledgeBase.getKnowledgeBaseList(
@@ -312,11 +434,12 @@ export default {
           if (res.data && res.data.code === 0) {
             const pageData = res.data.data || {};
             this.knowledgeBases = pageData.list || [];
-            if (this.knowledgeBases.length > 0 && !this.selectedKb) {
-              this.selectKnowledgeBase(this.knowledgeBases[0]);
-            } else if (this.selectedKb) {
+            if (this.selectedKb) {
               const updated = this.knowledgeBases.find(kb => kb.datasetId === this.selectedKb.datasetId);
               if (updated) this.selectedKb = updated;
+            } else if (this.routeKbId) {
+              const fromRoute = this.knowledgeBases.find(kb => String(kb.datasetId) === String(this.routeKbId));
+              if (fromRoute) this.openKnowledgeBase(fromRoute);
             }
           } else {
             this.$message.error(res.data?.msg || this.$t('knowledgeBaseManagement.getListFailed'));
@@ -330,7 +453,28 @@ export default {
     },
 
     selectKnowledgeBase(kb) {
+      this.openKnowledgeBase(kb);
+      if (this.routeKbId !== String(kb.datasetId)) {
+        this.$router.push({ query: { ...this.$route.query, kb: String(kb.datasetId) } }).catch(() => {});
+      }
+    },
+
+    openKnowledgeBase(kb) {
+      if (!this.selectedKb || this.selectedKb.datasetId !== kb.datasetId) {
+        this.retrievalTestForm.question = '';
+        this.retrievalTestResult = null;
+      }
       this.selectedKb = kb;
+      window.scrollTo({ top: 0 });
+    },
+
+    clearSelection() {
+      this.selectedKb = null;
+      if (this.routeKbId) {
+        const query = { ...this.$route.query };
+        delete query.kb;
+        this.$router.push({ query }).catch(() => {});
+      }
     },
 
     refreshDocuments() {
@@ -341,11 +485,9 @@ export default {
       this.fetchKnowledgeBases();
     },
 
-    scrollCards(direction) {
-      const container = this.$refs.kbCards;
-      if (container) {
-        container.scrollBy({ left: direction * 364, behavior: 'smooth' });
-      }
+    handleCardCommand(command, kb) {
+      if (command === 'edit') this.editKnowledgeBase(kb);
+      if (command === 'delete') this.deleteKnowledgeBase(kb);
     },
 
     showAddDialog() {
@@ -400,10 +542,11 @@ export default {
     deleteKnowledgeBase(kb) {
       this.$confirm(
         this.$t("knowledgeBaseManagement.confirmBatchDelete", {count: 1}),
-        this.$t('message.warning'),
+        kb.name || this.$t('message.warning'),
         {
-          confirmButtonText: this.$t('knowledgeBaseDialog.confirm'),
+          confirmButtonText: this.$t('knowledgeBaseManagement.delete'),
           cancelButtonText: this.$t('knowledgeBaseDialog.cancel'),
+          confirmButtonClass: 'el-button--danger',
           type: 'warning'
         }
       ).then(() => {
@@ -411,7 +554,7 @@ export default {
           if (res.data && res.data.code === 0) {
             this.$message.success(this.$t('knowledgeBaseManagement.batchDeleteSuccess', { count: 1 }));
             if (this.selectedKb && this.selectedKb.datasetId === kb.datasetId) {
-              this.selectedKb = null;
+              this.clearSelection();
             }
             this.fetchKnowledgeBases();
           } else {
@@ -487,14 +630,6 @@ export default {
       this.selectedFilesList.splice(index, 1);
     },
 
-    formatFileSize(bytes) {
-      if (bytes === 0) return '0 B';
-      const k = 1024;
-      const sizes = ['B', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    },
-
     handleBatchUploadSubmit() {
       if (this.selectedFilesList.length === 0) {
         this.$message.error(this.$t('knowledgeFileUpload.fileRequired'));
@@ -555,10 +690,17 @@ export default {
         });
     },
 
+    // The retrieval test is an inline panel now; the old "open dialog" event focuses it
+    focusRetrievalTest() {
+      this.$nextTick(() => {
+        this.$refs.retrievalInput && this.$refs.retrievalInput.focus();
+      });
+    },
+
     showRetrievalTestDialog() {
       this.retrievalTestForm.question = '';
       this.retrievalTestResult = null;
-      this.retrievalTestDialogVisible = true;
+      this.focusRetrievalTest();
     },
 
     runRetrievalTest() {
@@ -652,16 +794,6 @@ export default {
       this.fetchSlices();
     },
 
-    getCardColorClass(index) {
-      const colors = ['blue', 'green', 'purple', 'orange', 'pink', 'cyan'];
-      return colors[index % colors.length];
-    },
-
-    getIconColor(index) {
-      const colors = ['#2f5bff', '#34c759', '#6a5cff', '#ff9500', '#f43f7a', '#00c9db'];
-      return colors[index % colors.length];
-    },
-
     getStatusClass(kb) {
       return kb.status === 1 ? 'active' : 'inactive';
     },
@@ -673,7 +805,26 @@ export default {
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    },
+
+    formatCount(value) {
+      const n = Number(value) || 0;
+      return n.toLocaleString();
+    },
+
+    formatSimilarity(value) {
+      return (Number(value) || 0).toFixed(4);
+    },
+
+    clamp01(value) {
+      return Math.min(1, Math.max(0, Number(value) || 0));
+    },
+
+    fileExt(name) {
+      const parts = String(name || '').split('.');
+      return parts.length > 1 ? parts.pop().slice(0, 4).toUpperCase() : 'FILE';
     },
 
     formatFileSize(bytes) {
@@ -692,595 +843,412 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.welcome {
-  min-width: 900px;
-  min-height: 506px;
-  height: 100vh;
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  background: #eff4ff;
-  background-size: cover;
-  -webkit-background-size: cover;
-  -o-background-size: cover;
-  overflow: hidden;
+.nx-app {
+  min-height: 100vh;
+  background: var(--nx-bg);
 }
 
-.main-wrapper {
-  height: calc(100vh - 63px - 35px);
-  margin: 20px 22px 0;
-  border-radius: 15px;
-  position: relative;
+.kb-search {
+  width: 280px;
+}
+
+// ---------------------------------------------------------------- cards
+.kb-card {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-}
+  gap: var(--nx-space-2);
+  min-height: 196px;
+  outline: none;
 
-.operation-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-}
+  &:focus-visible {
+    box-shadow: var(--nx-focus-ring);
+    border-color: var(--nx-accent);
+  }
 
-.page-title {
-  font-weight: 500;
-  font-size: 24px;
-  margin: 0;
-}
+  &__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    margin-bottom: var(--nx-space-2);
+  }
+  &__name {
+    min-width: 0;
+  }
+  &__desc {
+    margin: 0;
+    font-size: var(--nx-text-callout);
+    line-height: 1.43;
+    color: var(--nx-text-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    margin-top: auto;
+    padding-top: var(--nx-space-3);
+    border-top: 1px solid var(--nx-border);
+  }
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nx-space-1) var(--nx-space-3);
+    min-width: 0;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-3);
 
-.right-operations {
-  display: flex;
-  margin-left: auto;
-  align-items: center;
-}
+    i {
+      margin-right: 2px;
+    }
+  }
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+    flex: none;
+  }
 
-.search-input {
-  margin-right: 10px;
-  width: 240px;
-}
-
-.content-panel {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  height: 100%;
-  border-radius: 15px;
-}
-
-.content-area {
-  flex: 1;
-  height: 100%;
-  min-width: 600px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* ========== Knowledge Base Cards Section ========== */
-.kb-section {
-  background: #fff;
-  border-radius: 10px;
-  padding: 14px 20px;
-  border: 1px solid #f0f3f9;
-}
-
-.kb-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0 16px 0;
-}
-
-.kb-section-title {
-  font-size: 18px;
-  font-weight: 500;
-  color: #1f2a44;
-}
-
-.kb-cards-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.kb-cards {
-  flex: 1;
-  display: flex;
-  gap: 24px;
-  overflow-x: auto;
-  padding: 10px;
-  scroll-behavior: smooth;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
+  &.is-disabled .kb-card__icon {
+    background: var(--nx-surface-2);
+    color: var(--nx-text-3);
   }
 }
 
-.kb-arrow {
+.kb-card__icon--error {
+  background: var(--nx-danger-soft);
+  color: var(--nx-danger);
+}
+
+.kb-card--skeleton {
+  cursor: default;
+}
+.kb-sk-tile {
   width: 40px;
   height: 40px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: #fff;
-  border: 1px solid #e7ecf5;
-  box-shadow: 0 4px 16px rgba(31, 42, 68, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: #2f5bff;
-  font-size: 18px;
-
-  &:hover {
-    border-color: #2f5bff;
-    box-shadow: 0 4px 20px rgba(47, 91, 255, 0.15);
-  }
+  border-radius: var(--nx-radius);
 }
-
-.kb-card {
-  width: 300px;
-  border-radius: 8px;
-  padding: 20px;
-  border: 1px solid transparent;
-  background: #fff;
-  cursor: pointer;
-  transition: all 0.25s;
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 300px;
-  position: relative;
-  box-shadow: 0 0 10px rgba(47, 91, 255, 0.15);
-
-  &:hover {
-    box-shadow: 0 0 10px rgba(47, 91, 255, 0.15);
-    border: 1px solid #6b80eb;
-  }
-
-  &.active {
-    border: 1px solid #6b80eb;
-  }
-
-  &.error {
-    background: linear-gradient(135deg, #fff5f5, #fff0f0);
-    border: 1px solid #fde2e2;
-    box-shadow: 0 0 10px rgba(245, 108, 108, 0.15);
-
-    &:hover {
-      border: 1px solid #f56c6c;
-      box-shadow: 0 0 12px rgba(245, 108, 108, 0.25);
-    }
-
-    &.active {
-      border: 1px solid #f56c6c;
-    }
-  }
+.kb-sk-badge {
+  width: 72px;
+  height: 22px;
+  border-radius: var(--nx-radius-pill);
 }
-
-.kb-card-top {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 12px;
+.kb-sk-title {
+  width: 60%;
+  height: 20px;
+  margin-top: var(--nx-space-2);
 }
-
-.kb-card-warning {
-  color: #e6a23c;
-  font-size: 16px;
-  cursor: pointer;
-  vertical-align: middle;
-  margin-left: 6px;
-  animation: warning-pulse 2s ease-in-out infinite;
-}
-
-@keyframes warning-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.kb-card-actions-top {
-  position: absolute;
-  top: 10px;
-  right: 4px;
-  display: flex;
-  z-index: 2;
-}
-
-.kb-action-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #6b7280;
-  font-size: 13px;
-  transition: all 0.2s;
-  padding: 0;
-
-  &:hover {
-    color: #2f5bff;
-  }
-
-  &.delete:hover {
-    color: #ff5a5f;
-  }
-}
-
-.kb-card-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-
-  &.blue {
-    background: linear-gradient(135deg, #e8ecff, #d4daff);
-    color: #2f5bff;
-  }
-  &.purple {
-    background: linear-gradient(135deg, #ede8ff, #dcd4ff);
-    color: #6a5cff;
-  }
-  &.green {
-    background: linear-gradient(135deg, #e2f9ed, #c8f0d8);
-    color: #34c759;
-  }
-  &.orange {
-    background: linear-gradient(135deg, #fff3e0, #ffe4b8);
-    color: #ff9500;
-  }
-  &.pink {
-    background: linear-gradient(135deg, #ffe4ed, #ffc8db);
-    color: #f43f7a;
-  }
-  &.cyan {
-    background: linear-gradient(135deg, #dff8fa, #c4f0f4);
-    color: #00c9db;
-  }
-}
-
-.kb-card-info {
-  height: 100%;
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.kb-card-name {
-  font-size: 18px;
-  font-weight: 500;
-  color: #1f2a44;
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: left;
-}
-
-.kb-card-desc {
-  font-size: 14px;
-  text-align: left;
-  color: #7888a8;
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.kb-card-bottom {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.kb-card-meta {
-  font-size: 12px;
-  color: #a0aec0;
-}
-
-.kb-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 120px;
+.kb-sk-line {
   width: 100%;
-  color: #b0bbc9;
-  font-size: 14px;
-
-  i {
-    font-size: 36px;
-    margin-bottom: 8px;
+  height: 14px;
+  &--short {
+    width: 40%;
   }
 }
 
-/* ========== Slice Dialog ========== */
-.slice-management {
+// ---------------------------------------------------------------- detail
+.kb-detail-title {
+  min-width: 0;
+  gap: var(--nx-space-3);
+
+  .nx-title {
+    min-width: 0;
+  }
+  .nx-badge {
+    flex: none;
+  }
+}
+
+.kb-detail-desc {
+  max-width: 72ch;
+  overflow-wrap: anywhere;
+}
+
+.kb-detail-delete {
+  border: 1px solid var(--nx-border);
+}
+
+.kb-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--nx-space-5);
+  align-items: start;
+}
+
+.kb-test {
+  position: sticky;
+  top: calc(var(--nx-topbar-h) + var(--nx-space-4));
   display: flex;
   flex-direction: column;
-}
+  gap: var(--nx-space-4);
+  max-height: calc(100vh - var(--nx-topbar-h) - var(--nx-space-7));
 
-.slice-content-container {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.slice-cards-container {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #e0e0e0;
-    border-radius: 3px;
-  }
-}
-
-.slice-card {
-  background: #f8f9fa;
-  margin-bottom: 12px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.slice-header-info {
-  margin-bottom: 10px;
-  p {
-    margin: 0;
-    font-size: 14px;
-    strong {
-      color: #374151;
-    }
-  }
-}
-
-.slice-card-content {
-  background: #fff;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  padding: 12px;
-  text-align: left;
-
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: #e0e0e0;
-    border-radius: 2px;
-  }
-  .clice-index {
-    color: #467afe;
-    display: inline-block;
-    padding: 4px 6px;
-    background: #e6f0fe;
-    border-radius: 4px;
-  }
-}
-
-.content-text {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #333;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.no-slice-data {
-  flex: 1;
-  min-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.slice-pagination {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-
-/* ========== Selected Files List ========== */
-.selected-files-section {
-  margin-top: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 16px;
-  background-color: #f8f9fa;
-
-  h4 {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #606266;
-  }
-}
-
-.selected-files-list {
-  max-height: 180px;
-  overflow-y: auto;
-}
-
-.selected-file-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  margin-bottom: 8px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-
-  .file-info {
-    display: flex;
-    align-items: center;
-    flex: 1;
-
-    .el-icon-document {
-      color: #409eff;
-      margin-right: 8px;
-      font-size: 16px;
-    }
-
-    .file-name {
-      font-size: 14px;
-      color: #303133;
-      margin-right: 12px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 300px;
-    }
-
-    .file-size {
-      font-size: 12px;
-      color: #909399;
-    }
-  }
-
-  .remove-btn {
-    color: #f56c6c;
-    padding: 4px;
-
-    &:hover {
-      color: #f78989;
-      background-color: #fef0f0;
-      border-radius: 4px;
-    }
-  }
-}
-
-/* ========== Retrieval Test Dialog ========== */
-.retrieval-test-form {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-
-  .retrieval-test-result {
-    flex: 1;
+  &__head {
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    gap: var(--nx-space-1);
+    .nx-footnote {
+      margin: 0;
+    }
   }
-
-  .result-chunks {
-    flex: 1;
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-2);
+  }
+  &__label {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__run {
+    align-self: flex-end;
+  }
+  &__results {
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    margin: 0 calc(-1 * var(--nx-space-2));
+    padding: 0 var(--nx-space-2);
   }
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--nx-space-2);
+    padding: var(--nx-space-7) var(--nx-space-3);
+    border: 1px dashed var(--nx-border-strong);
+    border-radius: var(--nx-radius);
+    text-align: center;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-3);
 
-  .result-chunk {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 14px;
-    margin-bottom: 12px;
+    i {
+      font-size: var(--nx-text-title);
+    }
+  }
+}
+
+.kb-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kb-result {
+  padding: var(--nx-space-3);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+
+  &__head {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: var(--nx-space-2);
+    min-width: 0;
+  }
+  &__source {
+    min-width: 0;
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__bar {
+    height: 3px;
+    margin: var(--nx-space-2) 0;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-3);
+    overflow: hidden;
 
-    .chunk-left {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-
-      .chunk-similarity {
-        // font-size: 12px;
-        color: #409eff;
-        white-space: nowrap;
-
-        .similarity-label {
-          // font-size: 12px;
-          color: #333;
-          margin-bottom: 4px;
-        }
-
-        .similarity-value {
-          text-align: left;
-          margin-top: 4px;
-          font-size: 16px;
-          font-weight: 600;
-          margin-bottom: 12px;
-        }
-
-        .similarity-progress {
-          margin-top: 8px;
-
-          ::v-deep(.el-progress-bar__outer) {
-            border-radius: 3px;
-            background-color: rgba(64, 158, 255, 0.1);
-          }
-          ::v-deep(.el-progress-bar__inner) {
-            border-radius: 3px;
-            background: #4a7cfd;
-          }
-        }
-      }
-    }
-
-    .chunk-right {
-      flex: 1;
-      min-width: 0;
-
-      .chunk-right-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-
-        .chunk-source {
-          font-size: 14px;
-          font-weight: 600;
-        }
-
-        .chunk-index {
-          color: #467afe;
-          display: inline-block;
-          padding: 4px 6px;
-          background: #e6f0fe;
-          border-radius: 4px;
-        }
-      }
-
-      .chunk-content {
-        text-align: left;
-        white-space: normal;
-        background: #fff;
-        border-radius: 4px;
-        // max-height: 150px;
-        // overflow-y: auto;
-        font-size: 14px;
-        line-height: 1.6;
-        // white-space: pre-wrap;
-        // word-break: break-word;
-        > p {
-          margin: 0;
-        }
-      }
+    span {
+      display: block;
+      height: 100%;
+      background: var(--nx-accent);
+      transform-origin: left center;
     }
   }
+  &__text {
+    margin: 0;
+    font-size: var(--nx-text-footnote);
+    line-height: 1.5;
+    color: var(--nx-text-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 8;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+// ---------------------------------------------------------------- slices dialog
+.kb-slices {
+  min-height: 160px;
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  &__pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--nx-space-4);
+  }
+}
+
+.kb-slice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-4);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+
+  &__text {
+    font-size: var(--nx-text-callout);
+    line-height: 1.6;
+    color: var(--nx-text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+// ---------------------------------------------------------------- upload dialog
+.kb-dropzone {
+  ::v-deep .el-upload {
+    display: block;
+    width: 100%;
+  }
+  ::v-deep .el-upload-dragger {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--nx-space-3);
+    width: 100%;
+    height: auto;
+    min-height: 200px;
+    padding: var(--nx-space-7) var(--nx-space-5);
+    transition: border-color var(--nx-dur-2) var(--nx-ease), background-color var(--nx-dur-2) var(--nx-ease);
+  }
+  ::v-deep .el-upload-dragger.is-dragover {
+    border-color: var(--nx-accent);
+    background: var(--nx-accent-soft);
+  }
+
+  &__title {
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+    color: var(--nx-text);
+  }
+  &__tip {
+    margin-top: var(--nx-space-2);
+    font-size: var(--nx-text-caption);
+    line-height: 1.5;
+    color: var(--nx-text-3);
+  }
+}
+
+.kb-files {
+  margin-top: var(--nx-space-4);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    margin-bottom: var(--nx-space-2);
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    color: var(--nx-text-2);
+  }
+  &__list {
+    max-height: 240px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--nx-border);
+    border-radius: var(--nx-radius);
+  }
+}
+
+.kb-file {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-height: 48px;
+  padding: var(--nx-space-1) var(--nx-space-2) var(--nx-space-1) var(--nx-space-3);
+
+  & + & {
+    border-top: 1px solid var(--nx-border);
+  }
+
+  &__ext {
+    flex: none;
+    min-width: 40px;
+    padding: 2px 6px;
+    border-radius: var(--nx-radius-sm);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    text-align: center;
+  }
+  &__name {
+    flex: 1 1 auto;
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text);
+  }
+  &__size {
+    flex: none;
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+  &__remove {
+    flex: none;
+  }
+}
+
+// ---------------------------------------------------------------- narrow screens
+@media (max-width: 1100px) {
+  .kb-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .kb-test {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .kb-search {
+    flex: 1 1 200px;
+    width: auto;
+  }
+  .nx-page-header__actions {
+    width: 100%;
+  }
+}
+</style>
+
+<style lang="scss">
+// Dropdown and tooltip poppers are appended to body (not scoped)
+.el-dropdown-menu__item.kb-menu-danger {
+  color: var(--nx-danger);
+}
+.el-tooltip__popper.kb-tip {
+  max-width: 320px;
+  line-height: 1.45;
 }
 </style>

@@ -59,67 +59,116 @@ async function setSounds(on: boolean) {
 </script>
 
 <template>
-  <view v-if="dev" class="flex flex-col gap-[20rpx]">
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[12rpx] block text-[30rpx] text-[#232338] font-semibold">
-        🤖 {{ t('companion.robot.title') }}
-      </text>
-      <text class="mb-[8rpx] block text-[26rpx] text-[#65686f]">
-        {{ t('companion.robot.name') }}
-      </text>
-      <wd-input v-model="name" :maxlength="32" clearable placeholder="TinyBot" @input="namesDirty = true" />
-      <text class="mb-[8rpx] mt-[24rpx] block text-[26rpx] text-[#65686f]">
-        {{ t('companion.robot.owner') }}
-      </text>
-      <wd-input v-model="owner" :maxlength="32" clearable placeholder="Mim" @input="namesDirty = true" />
-      <text class="mt-[6rpx] block text-[22rpx] text-[#9d9ea3]">
+  <view v-if="dev">
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.robot.title') }}
+      </view>
+      <view class="nx-group__body">
+        <view class="nx-row robot__field">
+          <view class="robot__label">
+            {{ t('companion.robot.name') }}
+          </view>
+          <wd-input v-model="name" :maxlength="32" clearable no-border placeholder="TinyBot" custom-class="robot__input" @input="namesDirty = true" />
+        </view>
+        <view class="nx-row robot__field">
+          <view class="robot__label">
+            {{ t('companion.robot.owner') }}
+          </view>
+          <wd-input v-model="owner" :maxlength="32" clearable no-border placeholder="Mim" custom-class="robot__input" @input="namesDirty = true" />
+        </view>
+      </view>
+      <view class="nx-group__footer">
         {{ t('companion.robot.ownerHint') }}
-      </text>
-      <view class="mt-[24rpx]">
-        <wd-button type="primary" block :loading="savingNames" :disabled="!namesDirty" @click="saveNames">
+      </view>
+      <view class="robot__save">
+        <wd-button block :loading="savingNames" :disabled="!namesDirty" @click="saveNames">
           {{ t('companion.save') }}
         </wd-button>
       </view>
     </view>
 
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[12rpx] block text-[30rpx] text-[#232338] font-semibold">
-        🔊 {{ t('companion.sound.title') }}
-      </text>
-      <view class="flex items-center justify-between py-[14rpx]">
-        <text class="text-[28rpx] text-[#232338]">
-          {{ t('companion.sound.fromPhone') }}
-        </text>
-        <wd-switch :model-value="fromPhone" size="20" @change="({ value }) => setFromPhone(!!value)" />
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.sound.title') }}
       </view>
-      <view class="flex items-center justify-between py-[10rpx]">
-        <text class="text-[26rpx] text-[#65686f]">
-          {{ t('companion.volume') }}
-        </text>
-        <text class="text-[26rpx] text-[#336cff] font-semibold">
-          {{ fromPhone ? `${volume}%` : t('companion.sound.auto') }}
-        </text>
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.sound.fromPhone') }}
+          </view>
+          <wd-switch :model-value="fromPhone" size="24px" @change="({ value }) => setFromPhone(!!value)" />
+        </view>
+        <view class="nx-row robot__volume">
+          <view class="robot__volume-head">
+            <view class="nx-row__title" :class="{ robot__muted: !fromPhone }">
+              {{ t('companion.volume') }}
+            </view>
+            <view class="nx-row__value nx-num">
+              {{ fromPhone ? `${volume}%` : t('companion.sound.auto') }}
+            </view>
+          </view>
+          <wd-slider
+            v-model="volume"
+            :min="0"
+            :max="100"
+            :step="5"
+            hide-label
+            hide-min-max
+            :disabled="!fromPhone"
+            @dragend="onVolumeEnd"
+          />
+        </view>
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.sound.sounds') }}
+          </view>
+          <wd-switch :model-value="!!dev.settings?.sounds" size="24px" @change="({ value }) => setSounds(!!value)" />
+        </view>
       </view>
-      <wd-slider
-        v-model="volume"
-        :min="0"
-        :max="100"
-        :step="5"
-        hide-label
-        hide-min-max
-        :disabled="!fromPhone"
-        @dragend="onVolumeEnd"
-      />
-      <view class="flex items-center justify-between py-[14rpx]">
-        <text class="text-[28rpx] text-[#232338]">
-          {{ t('companion.sound.sounds') }}
-        </text>
-        <wd-switch :model-value="!!dev.settings?.sounds" size="20" @change="({ value }) => setSounds(!!value)" />
+      <view class="nx-group__footer nx-mono nx-break">
+        {{ t('companion.robot.id', { id: dev.id }) }}
       </view>
     </view>
-
-    <text class="text-center text-[22rpx] text-[#9d9ea3]">
-      {{ t('companion.robot.id', { id: dev.id }) }}
-    </text>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.robot {
+  &__field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4rpx;
+  }
+
+  &__label {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+
+  &__save {
+    margin-top: var(--nx-space-3);
+  }
+
+  &__volume {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--nx-space-1);
+  }
+
+  &__volume-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__muted {
+    color: var(--nx-text-3);
+  }
+}
+
+:deep(.robot__input) {
+  padding: 0;
+  background: transparent;
+}
+</style>

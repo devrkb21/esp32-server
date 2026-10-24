@@ -259,15 +259,21 @@ function getSignalStrength(rssi: number): string {
   return t('deviceConfig.signalWeak')
 }
 
-// Get signal strength color
-function getSignalColor(rssi: number): string {
+/** 1–4 bars for the signal icon */
+function getSignalLevel(rssi: number): number {
   if (rssi >= -50)
-    return '#52c41a'
+    return 4
   if (rssi >= -60)
-    return '#73d13d'
+    return 3
   if (rssi >= -70)
-    return '#faad14'
-  return '#ff4d4f'
+    return 2
+  return 1
+}
+
+/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
+function tx(key: string, fallback: string) {
+  const text = t(key)
+  return text === key ? fallback : text
 }
 
 // Expose method to parent
@@ -287,416 +293,433 @@ onMounted(() => {
 </script>
 
 <template>
-  <view class="wifi-selector">
-    <!-- ESP connection status -->
-    <view v-if="props.autoConnect" class="connection-status">
-      <view v-if="!isConnectedToESP32" class="status-warning">
-        <view class="status-content">
-          <text class="warning-text">
-            {{ t('deviceConfig.connectXiaozhiHotspot') }}
-          </text>
-          <wd-button
-            size="small"
-            type="primary"
-            :loading="checkingConnection"
+  <view class="wsel">
+    <!-- Robot hotspot status -->
+    <view v-if="props.autoConnect" class="nx-group wsel__group">
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-icon-tile wsel__status-icon" :class="isConnectedToESP32 ? 'is-ok' : 'is-warn'">
+            <wd-icon :name="isConnectedToESP32 ? 'wifi' : 'wifi-error'" size="18px" />
+          </view>
+          <view class="nx-row__main">
+            <view class="nx-row__title">
+              {{ isConnectedToESP32 ? t('deviceConfig.connectedXiaozhiHotspot') : tx('deviceConfig.hotspotNeeded', 'Join the robot’s hotspot') }}
+            </view>
+            <view v-if="!isConnectedToESP32" class="nx-row__subtitle">
+              {{ t('deviceConfig.connectXiaozhiHotspot') }}
+            </view>
+          </view>
+          <view
+            class="wsel__pill"
+            role="button"
+            :aria-label="isConnectedToESP32 ? t('deviceConfig.refreshStatus') : t('deviceConfig.reCheck')"
             @click="checkESP32Connection"
           >
-            {{ checkingConnection ? t('deviceConfig.checking') : t('deviceConfig.reCheck') }}
-          </wd-button>
-        </view>
-      </view>
-      <view v-else class="status-success">
-        <view class="status-content">
-          <text class="success-text">
-            {{ t('deviceConfig.connectedXiaozhiHotspot') }}
-          </text>
-          <wd-button
-            size="small"
-            :loading="checkingConnection"
-            @click="checkESP32Connection"
-          >
-            {{ checkingConnection ? t('deviceConfig.checking') : t('deviceConfig.refreshStatus') }}
-          </wd-button>
+            <wd-loading v-if="checkingConnection" size="14px" />
+            <text v-else>
+              {{ isConnectedToESP32 ? t('deviceConfig.refreshStatus') : t('deviceConfig.reCheck') }}
+            </text>
+          </view>
         </view>
       </view>
     </view>
 
-    <!-- Hidden WiFi Toggle -->
-    <view class="mb-[20rpx] border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx]">
-      <view class="flex items-center justify-between">
-        <view>
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('deviceConfig.hiddenWifi') }}
-          </text>
-          <text class="mt-[4rpx] block text-[22rpx] text-[#9d9ea3]">
-            {{ t('deviceConfig.hiddenWifiPrompt') }}
-          </text>
+    <view class="nx-group wsel__group">
+      <view class="nx-group__body">
+        <!-- Scanned network picker -->
+        <view v-if="!isHiddenWifi" class="nx-row nx-row--tap" @click="showNetworkSelector">
+          <view class="nx-row__main nx-row__title">
+            {{ t('deviceConfig.wifiNetwork') }}
+          </view>
+          <view class="nx-truncate nx-row__value wsel__value" :class="{ 'is-placeholder': !selectedNetwork }">
+            {{ networkDisplayText }}
+          </view>
+          <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
         </view>
-        <wd-switch
-          v-model="isHiddenWifi"
-          size="22"
-          @change="onHiddenWifiToggle"
-        />
-      </view>
-    </view>
 
-    <!-- Normal WiFi network selector (when not in hidden mode) -->
-    <view v-if="!isHiddenWifi" class="network-selector">
-      <view class="selector-item" @click="showNetworkSelector">
-        <text class="selector-label">
-          {{ t('deviceConfig.wifiNetwork') }}
-        </text>
-        <text class="selector-value">
-          {{ networkDisplayText }}
-        </text>
-        <wd-icon name="arrow-right" custom-class="arrow-icon" />
-      </view>
-    </view>
-
-    <!-- Hidden WiFi Inputs (when in hidden mode) -->
-    <view v-if="isHiddenWifi" class="space-y-[20rpx]">
-      <!-- Hidden SSID Input -->
-      <view class="password-item">
-        <text class="password-label">
-          {{ t('deviceConfig.hiddenWifiSsid') }}
-        </text>
-        <wd-input
-          v-model="hiddenSsid"
-          :placeholder="t('deviceConfig.enterHiddenWifiSsid')"
-          clearable
-          @input="onHiddenSsidChange"
-        />
-      </view>
-
-      <!-- Password / Encryption -->
-      <view class="password-item">
-        <view class="mb-[8rpx] flex items-center justify-between">
-          <text class="password-label">
+        <!-- Password for a scanned, encrypted network -->
+        <view v-if="!isHiddenWifi && selectedNetwork && selectedNetwork.authmode > 0" class="nx-row wsel__field">
+          <view class="wsel__label">
             {{ t('deviceConfig.wifiPassword') }}
-          </text>
-          <wd-checkbox v-model="isHiddenEncrypted" @change="onHiddenEncryptionChange">
-            <text class="text-[24rpx] text-[#65686f]">{{ t('deviceConfig.requiresPassword') }}</text>
-          </wd-checkbox>
+          </view>
+          <wd-input
+            v-model="password"
+            :placeholder="t('deviceConfig.enterWifiPassword')"
+            show-password
+            clearable
+            no-border
+            custom-class="wsel__input"
+            @input="onPasswordChange"
+          />
         </view>
-        <wd-input
-          v-if="isHiddenEncrypted"
-          v-model="password"
-          :placeholder="t('deviceConfig.enterWifiPassword')"
-          show-password
-          clearable
-          @input="onPasswordChange"
-        />
+
+        <!-- Hidden network toggle -->
+        <view class="nx-row">
+          <view class="nx-row__main">
+            <view class="nx-row__title">
+              {{ t('deviceConfig.hiddenWifi') }}
+            </view>
+            <view class="nx-row__subtitle">
+              {{ t('deviceConfig.hiddenWifiPrompt') }}
+            </view>
+          </view>
+          <wd-switch v-model="isHiddenWifi" size="22px" @change="onHiddenWifiToggle" />
+        </view>
+
+        <!-- Hidden network inputs -->
+        <template v-if="isHiddenWifi">
+          <view class="nx-row wsel__field">
+            <view class="wsel__label">
+              {{ t('deviceConfig.hiddenWifiSsid') }}
+            </view>
+            <wd-input
+              v-model="hiddenSsid"
+              :placeholder="t('deviceConfig.enterHiddenWifiSsid')"
+              clearable
+              no-border
+              custom-class="wsel__input"
+              @input="onHiddenSsidChange"
+            />
+          </view>
+          <view class="nx-row">
+            <view class="nx-row__main nx-row__title">
+              {{ t('deviceConfig.requiresPassword') }}
+            </view>
+            <wd-switch v-model="isHiddenEncrypted" size="22px" @change="onHiddenEncryptionChange" />
+          </view>
+          <view v-if="isHiddenEncrypted" class="nx-row wsel__field">
+            <view class="wsel__label">
+              {{ t('deviceConfig.wifiPassword') }}
+            </view>
+            <wd-input
+              v-model="password"
+              :placeholder="t('deviceConfig.enterWifiPassword')"
+              show-password
+              clearable
+              no-border
+              custom-class="wsel__input"
+              @input="onPasswordChange"
+            />
+          </view>
+        </template>
       </view>
     </view>
 
-    <!-- Expanded network list -->
-    <view v-if="selectorExpanded" class="network-list-overlay">
-      <view class="network-list-container">
-        <view class="list-header">
-          <text class="list-title">
+    <!-- Network list sheet -->
+    <wd-popup
+      v-model="selectorExpanded"
+      position="bottom"
+      safe-area-inset-bottom
+      :z-index="1000"
+      custom-class="wsel-sheet"
+    >
+      <view class="wsel-sheet__inner">
+        <view class="wsel-sheet__handle" />
+        <view class="wsel-sheet__header">
+          <view class="wsel-sheet__title">
             {{ t('deviceConfig.selectWifiNetwork') }}
-          </text>
-          <view class="list-actions">
-            <wd-button
-              type="primary"
-              size="small"
-              :loading="scanning"
-              @click="scanWifi"
-            >
-              {{ scanning ? t('deviceConfig.scanning') : t('deviceConfig.refreshScan') }}
-            </wd-button>
-            <wd-button
-              size="small"
-              @click="selectorExpanded = false"
-            >
-              {{ t('deviceConfig.cancel') }}
-            </wd-button>
+          </view>
+          <view
+            class="wsel__pill"
+            role="button"
+            :aria-label="t('deviceConfig.refreshScan')"
+            @click="scanWifi"
+          >
+            <wd-loading v-if="scanning" size="14px" />
+            <wd-icon v-else name="refresh" size="14px" />
+            <text>{{ scanning ? t('deviceConfig.scanning') : t('deviceConfig.refreshScan') }}</text>
+          </view>
+          <view
+            class="wsel-sheet__close"
+            role="button"
+            :aria-label="t('deviceConfig.cancel')"
+            @click="selectorExpanded = false"
+          >
+            <wd-icon name="close" size="18px" />
           </view>
         </view>
 
-        <view class="network-list">
-          <view v-if="wifiNetworks.length === 0 && !scanning" class="empty-state">
-            <text class="empty-text">
-              {{ t('deviceConfig.noWifiNetworks') }}
-            </text>
-            <text class="empty-tip">
-              {{ t('deviceConfig.clickRefreshScan') }}
-            </text>
-          </view>
-
-          <view v-else class="wifi-list">
-            <view
-              v-for="network in wifiNetworks"
-              :key="network.ssid"
-              class="wifi-item"
-              @click="selectNetwork(network)"
-            >
-              <view class="wifi-info">
-                <view class="wifi-name">
-                  {{ network.ssid }}
-                </view>
-                <view class="wifi-details">
-                  <text class="wifi-signal">
-                    {{ t('deviceConfig.signal') }}: {{ network.rssi }}dBm
-                  </text>
-                  <text class="wifi-channel">
-                    {{ t('deviceConfig.channel') }}: {{ network.channel }}
-                  </text>
-                </view>
-              </view>
-              <view class="wifi-security">
-                <text class="security-icon">
-                  {{ network.authmode === 0 ? t('deviceConfig.open') : t('deviceConfig.encryptedNetwork') }}
-                </text>
+        <scroll-view scroll-y class="wsel-sheet__list">
+          <!-- Scanning skeleton -->
+          <view v-if="scanning && wifiNetworks.length === 0" class="wsel-sheet__body">
+            <view v-for="i in 4" :key="i" class="nx-row">
+              <view class="nx-skeleton wsel__skeleton-icon" />
+              <view class="nx-row__main">
+                <view class="nx-skeleton wsel__skeleton-line" />
               </view>
             </view>
           </view>
-        </view>
 
-        <!-- Hidden network option inside modal -->
-        <view class="mt-[24rpx] border-t border-[#eeeeee] pt-[20rpx]">
-          <wd-button
-            size="medium"
-            plain
-            block
-            @click="switchToHiddenFromModal"
-          >
-            {{ t('deviceConfig.addHiddenNetwork') }}
-          </wd-button>
+          <view v-else-if="wifiNetworks.length === 0" class="nx-empty wsel-sheet__empty">
+            <view class="nx-icon-tile nx-icon-tile--lg">
+              <wd-icon name="wifi" size="28px" />
+            </view>
+            <view class="nx-empty__title">
+              {{ t('deviceConfig.noWifiNetworks') }}
+            </view>
+            <view class="nx-empty__text">
+              {{ t('deviceConfig.clickRefreshScan') }}
+            </view>
+          </view>
+
+          <view v-else class="wsel-sheet__body">
+            <view
+              v-for="(network, index) in wifiNetworks"
+              :key="`${network.ssid}-${index}`"
+              class="nx-row nx-row--tap"
+              @click="selectNetwork(network)"
+            >
+              <view
+                class="wsel-bars"
+                :class="`is-${getSignalLevel(network.rssi)}`"
+                role="img"
+                :aria-label="getSignalStrength(network.rssi)"
+              >
+                <view v-for="bar in 4" :key="bar" class="wsel-bars__bar" />
+              </view>
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-truncate" :title="network.ssid">
+                  {{ network.ssid }}
+                </view>
+                <view class="nx-row__subtitle nx-num">
+                  {{ getSignalStrength(network.rssi) }} · {{ network.rssi }} dBm{{ network.channel ? ` · ${t('deviceConfig.channel')} ${network.channel}` : '' }}
+                </view>
+              </view>
+              <view v-if="network.authmode > 0" class="nx-badge" :aria-label="t('deviceConfig.encryptedNetwork')">
+                <wd-icon name="lock-on" size="12px" />
+              </view>
+              <view v-else class="nx-badge">
+                {{ tx('deviceConfig.open', 'Open') }}
+              </view>
+              <wd-icon
+                v-if="selectedNetwork && selectedNetwork.ssid === network.ssid"
+                name="check"
+                size="18px"
+                custom-class="wsel__check"
+              />
+            </view>
+          </view>
+        </scroll-view>
+
+        <view class="wsel-sheet__body wsel-sheet__hidden">
+          <view class="nx-row nx-row--tap" @click="switchToHiddenFromModal">
+            <view class="nx-icon-tile nx-icon-tile--neutral wsel__status-icon">
+              <wd-icon name="add" size="18px" />
+            </view>
+            <view class="nx-row__main nx-row__title">
+              {{ t('deviceConfig.addHiddenNetwork') }}
+            </view>
+          </view>
         </view>
       </view>
-    </view>
-
-    <!-- Password input (for scanned normal network) -->
-    <view v-if="!isHiddenWifi && selectedNetwork && selectedNetwork.authmode > 0" class="password-section">
-      <view class="password-item">
-        <text class="password-label">
-          {{ t('deviceConfig.wifiPassword') }}
-        </text>
-        <wd-input
-          v-model="password"
-          :placeholder="t('deviceConfig.enterWifiPassword')"
-          show-password
-          clearable
-          @input="onPasswordChange"
-        />
-      </view>
-    </view>
+    </wd-popup>
   </view>
 </template>
 
-<style scoped>
-.wifi-selector {
+<style lang="scss" scoped>
+.wsel {
   width: 100%;
+
+  &__group {
+    margin-bottom: var(--nx-space-3);
+
+    &:last-of-type {
+      margin-bottom: 0;
+    }
+  }
+
+  &__status-icon {
+    width: 60rpx;
+    height: 60rpx;
+    border-radius: var(--nx-radius-sm);
+
+    &.is-ok {
+      background: var(--nx-success-soft);
+      color: var(--nx-success);
+    }
+
+    &.is-warn {
+      background: var(--nx-warning-soft);
+      color: var(--nx-warning);
+    }
+  }
+
+  &__pill {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8rpx;
+    min-height: 60rpx;
+    padding: 0 var(--nx-space-3);
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-2);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+
+  &__value {
+    max-width: 55%;
+
+    &.is-placeholder {
+      color: var(--nx-text-3);
+    }
+  }
+
+  &__field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4rpx;
+  }
+
+  &__label {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+
+  &__skeleton-icon {
+    width: 40rpx;
+    height: 32rpx;
+  }
+
+  &__skeleton-line {
+    width: 55%;
+    height: 28rpx;
+  }
 }
 
-.connection-status {
-  margin-bottom: 24rpx;
+:deep(.wsel__input) {
+  padding: 0;
+  background: transparent;
 }
 
-.status-warning {
-  padding: 24rpx;
-  background-color: #fff3cd;
-  border: 1rpx solid #ffeaa7;
-  border-radius: 16rpx;
+:deep(.wsel__check) {
+  flex: none;
+  color: var(--nx-accent);
 }
 
-.status-success {
-  padding: 24rpx;
-  background-color: #d4edda;
-  border: 1rpx solid #c3e6cb;
-  border-radius: 16rpx;
-}
-
-.status-content {
+/* signal strength: four rising bars, filled up to the level */
+.wsel-bars {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.warning-text {
-  color: #856404;
-  font-size: 28rpx;
-}
-
-.success-text {
-  color: #155724;
-  font-size: 28rpx;
-}
-
-.network-selector {
-  margin-bottom: 24rpx;
-}
-
-.selector-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx;
-  background: #f5f7fb;
-  border-radius: 12rpx;
-  border: 1rpx solid #eeeeee;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.selector-item:active {
-  background: #eef3ff;
-  border-color: #336cff;
-}
-
-.selector-label {
-  font-size: 28rpx;
-  color: #232338;
-  font-weight: 500;
-}
-
-.selector-value {
-  flex: 1;
-  text-align: right;
-  font-size: 26rpx;
-  color: #65686f;
-  margin: 0 16rpx;
-}
-
-:deep(.arrow-icon) {
-  font-size: 20rpx;
-  color: #9d9ea3;
-}
-
-.network-list-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  display: flex;
+  flex: none;
   align-items: flex-end;
+  gap: 4rpx;
+  width: 40rpx;
+  height: 32rpx;
+
+  &__bar {
+    flex: 1;
+    border-radius: 2rpx;
+    background: var(--nx-surface-3);
+
+    &:nth-child(1) {
+      height: 25%;
+    }
+
+    &:nth-child(2) {
+      height: 50%;
+    }
+
+    &:nth-child(3) {
+      height: 75%;
+    }
+
+    &:nth-child(4) {
+      height: 100%;
+    }
+  }
+
+  &.is-2 &__bar:nth-child(-n + 2),
+  &.is-3 &__bar:nth-child(-n + 3),
+  &.is-4 &__bar:nth-child(-n + 4) {
+    background: var(--nx-text);
+  }
+
+  &.is-1 &__bar:nth-child(1) {
+    background: var(--nx-warning);
+  }
 }
 
-.network-list-container {
-  width: 100%;
-  max-height: 70vh;
-  background-color: #ffffff;
-  border-radius: 20rpx 20rpx 0 0;
-  padding: 32rpx;
-  box-sizing: border-box;
+:deep(.wsel-sheet) {
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+  background: var(--nx-bg);
+  overflow: hidden;
 }
 
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24rpx;
-  padding-bottom: 16rpx;
-  border-bottom: 1rpx solid #eeeeee;
+.wsel-sheet {
+  &__inner {
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+    padding: 0 var(--nx-gutter) var(--nx-space-4);
+    box-sizing: border-box;
+  }
+
+  &__handle {
+    width: 72rpx;
+    height: 10rpx;
+    margin: var(--nx-space-2) auto var(--nx-space-1);
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-border-strong);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    padding: var(--nx-space-2) 0 var(--nx-space-3);
+  }
+
+  &__title {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+
+  &__close {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: 50%;
+    background: var(--nx-surface-3);
+    color: var(--nx-text-2);
+  }
+
+  &__list {
+    flex: 1;
+    min-height: 0;
+    max-height: 52vh;
+  }
+
+  &__body {
+    overflow: hidden;
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-surface);
+  }
+
+  &__empty {
+    padding: var(--nx-space-5) var(--nx-space-4);
+  }
+
+  &__hidden {
+    flex: none;
+    margin-top: var(--nx-space-3);
+  }
 }
 
-.list-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #232338;
-}
-
-.list-actions {
-  display: flex;
-  gap: 16rpx;
-}
-
-.network-list {
-  max-height: 50vh;
-  overflow-y: auto;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 80rpx 20rpx;
-  background-color: #fbfbfb;
-  border-radius: 16rpx;
-  border: 1rpx solid #eeeeee;
-}
-
-.empty-text {
-  font-size: 32rpx;
-  color: #65686f;
-  margin-bottom: 16rpx;
-}
-
-.empty-tip {
-  font-size: 24rpx;
-  color: #9d9ea3;
-}
-
-.wifi-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.wifi-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 32rpx 24rpx;
-  background-color: #fbfbfb;
-  border: 2rpx solid #eeeeee;
-  border-radius: 16rpx;
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.wifi-item:active {
-  transform: scale(0.98);
-  background-color: #f0f6ff;
-  border-color: #336cff;
-}
-
-.wifi-info {
-  flex: 1;
-}
-
-.wifi-name {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #232338;
-  margin-bottom: 8rpx;
-}
-
-.wifi-details {
-  display: flex;
-  gap: 24rpx;
-}
-
-.wifi-signal,
-.wifi-channel {
-  font-size: 24rpx;
-  color: #65686f;
-}
-
-.security-icon {
-  font-size: 24rpx;
-  color: #65686f;
-  margin-left: 20rpx;
-}
-
-.password-section {
-  margin-top: 24rpx;
-}
-
-.password-item {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.password-label {
-  font-size: 28rpx;
-  color: #232338;
-  font-weight: 500;
+@media (prefers-reduced-motion: reduce) {
+  .wsel__pill {
+    transition: none;
+  }
 }
 </style>

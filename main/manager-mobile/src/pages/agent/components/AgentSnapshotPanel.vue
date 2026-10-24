@@ -1122,112 +1122,114 @@ function redactDisplayValue(value: any, parentKey = ''): any {
     v-model="panelVisible"
     position="bottom"
     custom-class="agent-snapshot-popup"
-    custom-style="height: 86vh; max-height: 900px;"
     :close-on-click-modal="!restoring"
     safe-area-inset-bottom
   >
     <view class="agent-snapshot-shell">
+      <view class="agent-snapshot-handle" />
       <view class="agent-snapshot-header">
         <view class="agent-snapshot-title-block">
-          <text class="block text-[34rpx] text-[#232338] font-bold">
+          <text class="agent-snapshot-title">
             {{ t('agentSnapshot.title') }}
           </text>
-          <text v-if="displayedCurrentVersionNo" class="mt-[6rpx] block text-[24rpx] text-[#65686f]">
+          <text v-if="displayedCurrentVersionNo" class="nx-num agent-snapshot-subtitle">
             {{ t('agentSnapshot.currentVersion') }} {{ formatVersion(displayedCurrentVersionNo) }}
           </text>
         </view>
-        <wd-icon name="close" size="22px" custom-class="agent-snapshot-close-icon text-[#65686f]" @click="panelVisible = false" />
+        <view class="agent-snapshot-close" role="button" :aria-label="t('common.cancel')" @click="panelVisible = false">
+          <wd-icon name="close" size="18px" />
+        </view>
       </view>
 
       <scroll-view scroll-y class="agent-snapshot-body">
-        <view v-if="loading && !snapshots.length" class="py-[80rpx] text-center text-[26rpx] text-[#65686f]">
-          {{ t('common.loading') }}
+        <view v-if="loading && !snapshots.length" class="agent-snapshot-list">
+          <view v-for="n in 3" :key="n" class="agent-snapshot-card">
+            <view class="nx-skeleton agent-snapshot-skel-title" />
+            <view class="nx-skeleton agent-snapshot-skel-line" />
+          </view>
         </view>
 
-        <view v-else-if="!snapshots.length" class="py-[120rpx] text-center">
-          <text class="block text-[30rpx] text-[#232338] font-semibold">
+        <view v-else-if="!snapshots.length" class="nx-empty">
+          <view class="nx-icon-tile nx-icon-tile--lg">
+            <wd-icon name="time" size="28px" />
+          </view>
+          <text class="nx-empty__title">
             {{ t('agentSnapshot.empty') }}
           </text>
-          <text class="mt-[10rpx] block text-[24rpx] text-[#8b8f9a]">
+          <text class="nx-empty__text">
             {{ t('agentSnapshot.emptyTip') }}
           </text>
         </view>
 
-        <view v-else class="flex flex-col gap-[20rpx]">
+        <view v-else class="agent-snapshot-list">
           <view
             v-for="snapshot in snapshots"
             :key="snapshot.id"
-            class="border border-[#e8eaf0] rounded-[20rpx] bg-white p-[24rpx]"
+            class="agent-snapshot-card"
           >
-            <view class="flex items-start justify-between gap-[20rpx]">
-              <view>
-                <view class="flex items-center gap-[12rpx]">
-                  <text class="text-[32rpx] text-[#232338] font-bold">
-                    {{ formatVersion(snapshot.versionNo) }}
-                  </text>
-                  <text
-                    v-if="snapshot.isLatestSnapshot"
-                    class="rounded-full bg-[rgba(51,108,255,0.1)] px-[16rpx] py-[4rpx] text-[22rpx] text-[#336cff]"
-                  >
-                    {{ t('agentSnapshot.currentVersion') }}
-                  </text>
-                </view>
-                <text class="mt-[8rpx] block text-[24rpx] text-[#8b8f9a]">
-                  {{ formatTime(snapshot.createdAt) }} · {{ sourceLabel(snapshot.source) }}
-                </text>
-              </view>
+            <view class="agent-snapshot-card__head">
+              <text class="nx-num agent-snapshot-card__version">
+                {{ formatVersion(snapshot.versionNo) }}
+              </text>
+              <text v-if="snapshot.isLatestSnapshot" class="nx-badge nx-badge--accent">
+                {{ t('agentSnapshot.currentVersion') }}
+              </text>
             </view>
+            <text class="agent-snapshot-card__meta">
+              {{ formatTime(snapshot.createdAt) }} · {{ sourceLabel(snapshot.source) }}
+            </text>
 
-            <view class="mt-[18rpx] flex flex-wrap gap-[10rpx]">
+            <view class="agent-snapshot-card__fields">
               <text
                 v-for="field in snapshot.changedFields || []"
                 :key="field"
-                class="rounded-full bg-[#f5f7fb] px-[16rpx] py-[6rpx] text-[22rpx] text-[#4d5566]"
+                class="nx-badge"
               >
                 {{ fieldLabel(field) }}
               </text>
-              <text v-if="!(snapshot.changedFields || []).length" class="text-[24rpx] text-[#9d9ea3]">
+              <text v-if="!(snapshot.changedFields || []).length" class="agent-snapshot-muted">
                 {{ t('agentSnapshot.noChangedContent') }}
               </text>
             </view>
 
             <view class="agent-snapshot-actions">
-              <wd-button size="small" type="info" custom-class="agent-snapshot-action-button flex-1 !h-[64rpx]" @click="viewSnapshot(snapshot)">
+              <view class="agent-snapshot-action" role="button" @click="viewSnapshot(snapshot)">
                 {{ t('agentSnapshot.view') }}
-              </wd-button>
-              <wd-button
+              </view>
+              <view
                 v-if="canRestoreSnapshot(snapshot)"
-                size="small"
-                type="primary"
-                :disabled="mutationBusy"
-                custom-class="agent-snapshot-action-button flex-1 !h-[64rpx] !bg-[#336cff]"
-                @click="previewRestoreSnapshot(snapshot)"
+                class="agent-snapshot-action agent-snapshot-action--primary"
+                :class="{ 'is-disabled': mutationBusy }"
+                role="button"
+                @click="!mutationBusy && previewRestoreSnapshot(snapshot)"
               >
                 {{ t('agentSnapshot.restore') }}
-              </wd-button>
-              <wd-button
+              </view>
+              <view
                 v-if="canDeleteSnapshot(snapshot)"
-                size="small"
-                type="error"
-                :loading="deletingSnapshotId === snapshot.id"
-                custom-class="agent-snapshot-action-button flex-1 !h-[64rpx]"
-                @click="deleteSnapshot(snapshot)"
+                class="agent-snapshot-action agent-snapshot-action--danger"
+                :class="{ 'is-disabled': deletingSnapshotId === snapshot.id }"
+                role="button"
+                @click="deletingSnapshotId !== snapshot.id && deleteSnapshot(snapshot)"
               >
-                {{ t('agentSnapshot.delete') }}
-              </wd-button>
+                <wd-loading v-if="deletingSnapshotId === snapshot.id" size="14px" />
+                <text v-else>
+                  {{ t('agentSnapshot.delete') }}
+                </text>
+              </view>
             </view>
           </view>
 
-          <wd-button
+          <view
             v-if="hasMore"
-            type="info"
-            plain
-            :loading="loading"
-            custom-class="mt-[8rpx] !h-[72rpx]"
-            @click="loadSnapshots(false)"
+            class="nx-btn nx-btn--block agent-snapshot-more"
+            :class="{ 'is-disabled': loading }"
+            role="button"
+            @click="!loading && loadSnapshots(false)"
           >
+            <wd-loading v-if="loading" size="16px" />
             {{ t('agentSnapshot.loadMore') }}
-          </wd-button>
+          </view>
         </view>
       </scroll-view>
     </view>
@@ -1236,69 +1238,76 @@ function redactDisplayValue(value: any, parentKey = ''): any {
   <wd-popup
     v-model="detailPopupVisible"
     position="bottom"
-    custom-class="agent-snapshot-popup"
-    custom-style="height: 88vh; max-height: 940px;"
+    custom-class="agent-snapshot-popup agent-snapshot-popup--detail"
     :close-on-click-modal="!restoring"
     safe-area-inset-bottom
   >
     <view class="agent-snapshot-shell">
+      <view class="agent-snapshot-handle" />
       <view class="agent-snapshot-header">
         <text class="agent-snapshot-detail-title">
           {{ detailTitle }}
         </text>
-        <wd-icon name="close" size="22px" custom-class="agent-snapshot-close-icon text-[#65686f]" @click="closeDetail()" />
+        <view class="agent-snapshot-close" role="button" :aria-label="t('common.cancel')" @click="closeDetail()">
+          <wd-icon name="close" size="18px" />
+        </view>
       </view>
 
       <scroll-view scroll-y class="agent-snapshot-body">
-        <view v-if="detailLoading" class="py-[80rpx] text-center text-[26rpx] text-[#65686f]">
-          {{ t('common.loading') }}
+        <view v-if="detailLoading" class="agent-snapshot-list">
+          <view v-for="n in 3" :key="n" class="agent-snapshot-card">
+            <view class="nx-skeleton agent-snapshot-skel-title" />
+            <view class="nx-skeleton agent-snapshot-skel-block" />
+          </view>
         </view>
 
-        <view v-else-if="!detailItems.length" class="py-[120rpx] text-center text-[26rpx] text-[#8b8f9a]">
-          {{ t('agentSnapshot.noChangedContent') }}
+        <view v-else-if="!detailItems.length" class="nx-empty">
+          <text class="nx-empty__text">
+            {{ t('agentSnapshot.noChangedContent') }}
+          </text>
         </view>
 
-        <view v-else class="flex flex-col gap-[18rpx]">
+        <view v-else class="agent-snapshot-list">
           <view
             v-for="item in detailItems"
             :key="item.field"
-            class="border border-[#e8eaf0] rounded-[20rpx] bg-white"
+            class="agent-snapshot-card agent-snapshot-card--flush"
           >
-            <view class="border-b border-[#f0f1f5] px-[22rpx] py-[18rpx]">
-              <text class="text-[28rpx] text-[#232338] font-semibold">
+            <view class="agent-snapshot-diff-head">
+              <text class="agent-snapshot-diff-label">
                 {{ item.label }}
               </text>
-              <text v-if="item.recordedOnly" class="ml-[10rpx] text-[22rpx] text-[#8b8f9a]">
+              <text v-if="item.recordedOnly" class="nx-badge">
                 {{ t('agentSnapshot.recordedChange') }}
               </text>
-              <text v-if="item.redactedDifference" class="ml-[10rpx] text-[22rpx] text-[#a06a1f]">
+              <text v-if="item.redactedDifference" class="nx-badge nx-badge--warning">
                 {{ t('agentSnapshot.redactedValueChanged') }}
               </text>
             </view>
 
-            <view v-if="item.single" class="p-[22rpx]">
-              <text class="mb-[10rpx] block text-[23rpx] text-[#8b8f9a]">
+            <view v-if="item.single" class="agent-snapshot-diff-body">
+              <text class="agent-snapshot-diff-caption">
                 {{ t('agentSnapshot.configValue') }}
               </text>
-              <text class="block whitespace-pre-wrap break-all rounded-[14rpx] bg-[#f5f9f4] p-[18rpx] text-[25rpx] text-[#27653a] leading-[1.6]">
+              <text class="agent-snapshot-value agent-snapshot-value--after">
                 {{ item.afterText }}
               </text>
             </view>
 
-            <view v-else class="grid grid-cols-1 gap-[14rpx] p-[22rpx]">
+            <view v-else class="agent-snapshot-diff-body">
               <view>
-                <text class="mb-[10rpx] block text-[23rpx] text-[#8b8f9a]">
+                <text class="agent-snapshot-diff-caption">
                   {{ currentDetail?.mode === 'restore' ? t('agentSnapshot.beforeRestore') : t('agentSnapshot.beforeChange') }}
                 </text>
-                <text class="block whitespace-pre-wrap break-all rounded-[14rpx] bg-[#fff7f7] p-[18rpx] text-[25rpx] text-[#7a3b3b] leading-[1.6]">
+                <text class="agent-snapshot-value agent-snapshot-value--before">
                   {{ item.beforeText }}
                 </text>
               </view>
               <view>
-                <text class="mb-[10rpx] block text-[23rpx] text-[#8b8f9a]">
+                <text class="agent-snapshot-diff-caption">
                   {{ currentDetail?.mode === 'restore' ? t('agentSnapshot.afterRestore') : t('agentSnapshot.afterChange') }}
                 </text>
-                <text class="block whitespace-pre-wrap break-all rounded-[14rpx] bg-[#f5f9f4] p-[18rpx] text-[25rpx] text-[#27653a] leading-[1.6]">
+                <text class="agent-snapshot-value agent-snapshot-value--after">
                   {{ item.afterText }}
                 </text>
               </view>
@@ -1307,19 +1316,19 @@ function redactDisplayValue(value: any, parentKey = ''): any {
 
           <view
             v-if="currentDetail?.mode === 'restore'"
-            class="rounded-[18rpx] bg-[rgba(51,108,255,0.08)] p-[22rpx] text-[24rpx] text-[#3557a8] leading-[1.6]"
+            class="agent-snapshot-note"
           >
             {{ t('agentSnapshot.restoreConfirm', { version: currentDetail.afterVersionNo || '' }) }}
           </view>
           <view
             v-if="currentDetail?.mode === 'restore' && hasUnsavedChanges"
-            class="rounded-[18rpx] bg-[rgba(245,108,108,0.1)] p-[22rpx] text-[24rpx] text-[#a34848] leading-[1.6]"
+            class="agent-snapshot-note agent-snapshot-note--danger"
           >
             {{ t('agentSnapshot.unsavedChangesWarning') }}
           </view>
           <view
             v-if="restoreWillClearChatHistory"
-            class="rounded-[18rpx] bg-[rgba(245,108,108,0.1)] p-[22rpx] text-[24rpx] text-[#a34848] leading-[1.6]"
+            class="agent-snapshot-note agent-snapshot-note--danger"
           >
             {{ t('agentSnapshot.restoreChatHistoryDestructiveWarning') }}
           </view>
@@ -1330,14 +1339,14 @@ function redactDisplayValue(value: any, parentKey = ''): any {
         v-if="currentDetail?.mode === 'restore'"
         class="agent-snapshot-footer"
       >
-        <wd-button type="info" :disabled="restoring" custom-class="agent-snapshot-footer-button flex-1 !h-[78rpx]" @click="closeDetail()">
+        <wd-button type="info" :disabled="restoring" custom-class="agent-snapshot-footer-button flex-1" @click="closeDetail()">
           {{ t('common.cancel') }}
         </wd-button>
         <wd-button
           type="primary"
           :loading="restoring"
           :disabled="restoring || !canConfirmRestore"
-          custom-class="agent-snapshot-footer-button flex-1 !h-[78rpx] !bg-[#336cff]"
+          custom-class="agent-snapshot-footer-button flex-1"
           @click="confirmRestoreSnapshot"
         >
           {{ t('agentSnapshot.confirmRestore') }}
@@ -1348,23 +1357,29 @@ function redactDisplayValue(value: any, parentKey = ''): any {
 </template>
 
 <style lang="scss" scoped>
-:deep(.agent-snapshot-popup) {
-  left: 0 !important;
-  right: 0 !important;
-  width: 100vw !important;
-  max-width: none !important;
-  margin: 0 !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-  border-radius: 28rpx 28rpx 0 0 !important;
-  background: #f5f7fb !important;
+:deep(.wd-popup.agent-snapshot-popup) {
+  left: 0;
+  right: 0;
+  width: 100vw;
+  height: 86vh;
+  max-height: 1800rpx;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+  background: var(--nx-bg);
+}
+
+:deep(.wd-popup.agent-snapshot-popup--detail) {
+  height: 88vh;
+  max-height: 1880rpx;
 }
 
 @media (min-width: 901px) {
-  :deep(.agent-snapshot-popup) {
-    width: calc(100vw - 32px) !important;
-    max-width: 760px !important;
-    margin: 0 auto !important;
+  :deep(.wd-popup.agent-snapshot-popup) {
+    width: calc(100vw - 32px);
+    max-width: 760px;
+    margin: 0 auto;
   }
 }
 
@@ -1375,7 +1390,16 @@ function redactDisplayValue(value: any, parentKey = ''): any {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: #f5f7fb;
+  background: var(--nx-bg);
+}
+
+.agent-snapshot-handle {
+  flex: none;
+  width: 72rpx;
+  height: 10rpx;
+  margin: var(--nx-space-2) auto 0;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-3);
 }
 
 .agent-snapshot-header {
@@ -1384,64 +1408,247 @@ function redactDisplayValue(value: any, parentKey = ''): any {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 32rpx 32rpx 24rpx;
-  background: #fff;
-  border-bottom: 1rpx solid #e8eaf0;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-3) var(--nx-gutter) var(--nx-space-3);
+  border-bottom: 1rpx solid var(--nx-border);
 }
 
 .agent-snapshot-title-block {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-snapshot-title {
+  font-size: var(--nx-text-title);
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  color: var(--nx-text);
+}
+
+.agent-snapshot-subtitle {
+  margin-top: 4rpx;
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-text-2);
 }
 
 .agent-snapshot-detail-title {
   min-width: 0;
   flex: 1;
-  padding-right: 20rpx;
-  color: #232338;
-  font-size: 32rpx;
-  font-weight: 700;
+  color: var(--nx-text);
+  font-size: var(--nx-text-headline);
+  font-weight: 600;
   line-height: 1.35;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.agent-snapshot-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  background: var(--nx-surface-2);
+  color: var(--nx-text-2);
+  &:active {
+    background: var(--nx-surface-3);
+  }
 }
 
 .agent-snapshot-body {
   box-sizing: border-box;
   min-height: 0;
   flex: 1;
-  padding: 22rpx 24rpx 28rpx;
+}
+
+.agent-snapshot-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-4) var(--nx-gutter) var(--nx-space-5);
+}
+
+.agent-snapshot-card {
+  padding: var(--nx-space-4);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-surface);
+  box-shadow: var(--nx-shadow-1);
+
+  &--flush {
+    padding: 0;
+    overflow: hidden;
+  }
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+  }
+  &__version {
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__meta {
+    display: block;
+    margin-top: 4rpx;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nx-space-1);
+    margin-top: var(--nx-space-3);
+  }
+}
+
+.agent-snapshot-muted {
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-text-3);
 }
 
 .agent-snapshot-actions {
   display: flex;
-  gap: 14rpx;
-  margin-top: 22rpx;
+  gap: var(--nx-space-2);
+  margin-top: var(--nx-space-4);
+}
+
+.agent-snapshot-action {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 72rpx;
+  overflow: hidden;
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+  color: var(--nx-text);
+  font-size: var(--nx-text-callout);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: transform var(--nx-dur-1) var(--nx-ease);
+  &:active {
+    transform: scale(0.97);
+  }
+  &--primary {
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+  }
+  &--danger {
+    background: var(--nx-danger-soft);
+    color: var(--nx-danger);
+  }
+  &.is-disabled {
+    opacity: 0.5;
+  }
+}
+
+.agent-snapshot-more {
+  margin-top: var(--nx-space-1);
+  &.is-disabled {
+    opacity: 0.6;
+  }
+}
+
+.agent-snapshot-skel-title {
+  width: 40%;
+  height: 32rpx;
+}
+.agent-snapshot-skel-line {
+  width: 70%;
+  height: 24rpx;
+  margin-top: var(--nx-space-2);
+}
+.agent-snapshot-skel-block {
+  width: 100%;
+  height: 96rpx;
+  margin-top: var(--nx-space-3);
+}
+
+.agent-snapshot-diff-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border-bottom: 1rpx solid var(--nx-border);
+}
+
+.agent-snapshot-diff-label {
+  font-size: var(--nx-text-body);
+  font-weight: 600;
+  color: var(--nx-text);
+}
+
+.agent-snapshot-diff-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-3) var(--nx-space-4) var(--nx-space-4);
+}
+
+.agent-snapshot-diff-caption {
+  display: block;
+  margin-bottom: var(--nx-space-1);
+  font-size: var(--nx-text-caption);
+  font-weight: 500;
+  color: var(--nx-text-3);
+}
+
+.agent-snapshot-value {
+  display: block;
+  padding: var(--nx-space-2) var(--nx-space-3);
+  border-radius: var(--nx-radius-sm);
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-footnote);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: var(--nx-text);
+
+  &--before {
+    background: var(--nx-danger-soft);
+  }
+  &--after {
+    background: var(--nx-success-soft);
+  }
+}
+
+.agent-snapshot-note {
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-info-soft);
+  color: var(--nx-text);
+  font-size: var(--nx-text-footnote);
+  line-height: 1.5;
+
+  &--danger {
+    background: var(--nx-danger-soft);
+  }
 }
 
 .agent-snapshot-footer {
   box-sizing: border-box;
   flex-shrink: 0;
   display: flex;
-  gap: 16rpx;
-  padding: 24rpx;
-  background: #fff;
-  border-top: 1rpx solid #e8eaf0;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-3) var(--nx-gutter);
+  background: var(--nx-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1rpx solid var(--nx-border);
 }
 
-:deep(.agent-snapshot-close-icon) {
-  flex-shrink: 0;
-}
-
-:deep(.agent-snapshot-action-button),
 :deep(.agent-snapshot-footer-button) {
-  min-width: 0 !important;
-}
-
-:deep(.agent-snapshot-action-button .wd-button__content),
-:deep(.agent-snapshot-footer-button .wd-button__content) {
   min-width: 0;
+  border-radius: var(--nx-radius);
 }
 
-:deep(.agent-snapshot-action-button .wd-button__text),
 :deep(.agent-snapshot-footer-button .wd-button__text) {
   min-width: 0;
   overflow: hidden;

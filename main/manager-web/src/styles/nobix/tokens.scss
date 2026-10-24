@@ -29,6 +29,7 @@
   --nx-scrim: rgba(25, 18, 12, 0.38);
   --nx-glass: rgba(255, 255, 255, 0.72);
   --nx-focus-ring: 0 0 0 3px rgba(226, 96, 58, 0.22);
+  --nx-success-ring: rgba(46, 139, 98, 0.35);
 
   // Type
   --nx-font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, Roboto,
@@ -56,6 +57,10 @@
   --nx-gutter: 32px;
   --nx-content-max: 1200px;
   --nx-topbar-h: 64px;
+  --nx-icon-sm: 16px;
+  --nx-icon: 18px;
+  --nx-icon-md: 20px;
+  --nx-icon-lg: 26px;
 
   // Shape
   --nx-radius-sm: 8px;
@@ -107,6 +112,7 @@ html.dark {
   --nx-scrim: rgba(0, 0, 0, 0.55);
   --nx-glass: rgba(28, 26, 24, 0.72);
   --nx-focus-ring: 0 0 0 3px rgba(255, 122, 82, 0.28);
+  --nx-success-ring: rgba(76, 195, 138, 0.4);
 
   // Dark surfaces separate by a lighter edge, not by shadow
   --nx-shadow-1: 0 0 0 1px rgba(255, 240, 225, 0.04);

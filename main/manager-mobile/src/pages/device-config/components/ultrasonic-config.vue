@@ -57,6 +57,15 @@ const audioLengthText = computed(() => {
   return `${t('deviceConfig.about')}${duration}${t('deviceConfig.seconds')}`
 })
 
+// Instructions shown under the player
+const steps = computed(() => [
+  t('deviceConfig.ensureWifiNetworkSelectedAndPasswordEntered'),
+  t('deviceConfig.clickGenerateAndPlaySoundWave'),
+  t('deviceConfig.bringPhoneCloseToXiaozhiDevice'),
+  t('deviceConfig.duringAudioPlaybackXiaozhiWillReceive'),
+  t('deviceConfig.afterConfigSuccessDeviceWillConnect'),
+])
+
 // String to byte array - uniapp compatible
 function stringToBytes(str: string): number[] {
   const bytes: number[] = []
@@ -452,30 +461,62 @@ async function stopAudio() {
 </script>
 
 <template>
-  <view class="ultrasonic-config">
-    <!-- Selected network information -->
-    <view v-if="props.selectedNetwork" class="selected-network">
-      <view class="network-info">
-        <view class="network-name">
-          {{ t('deviceConfig.selectedNetwork') }}: {{ props.selectedNetwork.ssid }}
-        </view>
-        <view class="network-details">
-          <text class="network-signal">
-            {{ t('deviceConfig.signal') }}: {{ props.selectedNetwork.rssi }}dBm
-          </text>
-          <text class="network-security">
-            {{ props.selectedNetwork.authmode === 0 ? t('deviceConfig.openNetwork') : t('deviceConfig.encryptedNetwork') }}
-          </text>
-        </view>
-        <view v-if="props.password" class="network-password">
-          {{ t('deviceConfig.password') }}: {{ '*'.repeat(props.password.length) }}
+  <view class="prov">
+    <!-- Selected network -->
+    <view v-if="props.selectedNetwork" class="nx-group prov__group">
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-icon-tile prov__icon">
+            <wd-icon name="wifi" size="18px" />
+          </view>
+          <view class="nx-row__main">
+            <view class="nx-caption">
+              {{ t('deviceConfig.selectedNetwork') }}
+            </view>
+            <view class="nx-row__title nx-truncate prov__ssid" :title="props.selectedNetwork.ssid">
+              {{ props.selectedNetwork.ssid }}
+            </view>
+            <view class="nx-row__subtitle nx-num">
+              {{ t('deviceConfig.signal') }} {{ props.selectedNetwork.rssi }} dBm · {{ props.selectedNetwork.authmode === 0 ? t('deviceConfig.openNetwork') : t('deviceConfig.encryptedNetwork') }}
+            </view>
+          </view>
+          <view v-if="props.password" class="nx-badge" :aria-label="t('deviceConfig.password')">
+            <wd-icon name="lock-on" size="12px" />
+            {{ '•'.repeat(Math.min(props.password.length, 8)) }}
+          </view>
         </view>
       </view>
     </view>
 
-    <!-- Ultrasonic provisioning actions -->
-    <view class="submit-section">
+    <!-- Sound player -->
+    <view class="nx-group prov__group">
+      <view class="nx-group__body">
+        <view class="prov__player" :class="{ 'is-playing': playing }">
+          <view class="prov__wave" aria-hidden="true">
+            <view v-for="i in 5" :key="i" class="prov__wave-bar" />
+          </view>
+          <view class="prov__player-text">
+            <view class="nx-row__title">
+              {{ playing ? t('deviceConfig.playing') : t('deviceConfig.configAudioFile') }}
+            </view>
+            <view class="nx-row__subtitle nx-num">
+              {{ t('deviceConfig.duration') }}: {{ audioLengthText }}
+            </view>
+          </view>
+        </view>
+
+        <view v-if="audioGenerated" class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('deviceConfig.autoLoopPlaySoundWave') }}
+          </view>
+          <wd-switch v-model="autoLoop" size="22px" />
+        </view>
+      </view>
+    </view>
+
+    <view class="prov__actions">
       <wd-button
+        v-if="!playing"
         type="primary"
         size="large"
         block
@@ -483,203 +524,170 @@ async function stopAudio() {
         :disabled="!canGenerate"
         @click="generateAndPlay"
       >
-        {{ generating ? t('deviceConfig.generating') : `🎵 ${t('deviceConfig.generateAndPlaySoundWave')}` }}
+        {{ generating ? t('deviceConfig.generating') : t('deviceConfig.generateAndPlaySoundWave') }}
       </wd-button>
 
       <wd-button
-        v-if="audioGenerated"
-        type="success"
+        v-if="audioGenerated && !playing"
+        type="info"
         size="large"
         block
-        :loading="playing"
         @click="playAudio"
       >
-        {{ playing ? t('deviceConfig.playing') : `🔊 ${t('deviceConfig.playSoundWave')}` }}
+        {{ t('deviceConfig.playSoundWave') }}
       </wd-button>
 
       <wd-button
         v-if="playing"
-        type="warning"
+        type="error"
         size="large"
         block
         @click="stopAudio"
       >
-        ⏹️ {{ t('deviceConfig.stopPlaying') }}
+        {{ t('deviceConfig.stopPlaying') }}
       </wd-button>
     </view>
 
-    <!-- Audio control options -->
-    <view v-if="audioGenerated" class="audio-options">
-      <view class="option-item">
-        <wd-checkbox v-model="autoLoop">
-          {{ t('deviceConfig.autoLoopPlaySoundWave') }}
-        </wd-checkbox>
-      </view>
-    </view>
-
-    <!-- Audio player -->
-    <view v-if="audioGenerated" class="audio-player">
-      <view class="player-info">
-        <text class="audio-title">
-          {{ t('deviceConfig.configAudioFile') }}
-        </text>
-        <text class="audio-duration">
-          {{ t('deviceConfig.duration') }}: {{ audioLengthText }}
-        </text>
-      </view>
-    </view>
-
     <!-- Instructions -->
-    <view class="help-section">
-      <view class="help-title">
+    <view class="nx-group prov__group">
+      <view class="nx-group__header">
         {{ t('deviceConfig.ultrasonicConfigInstructions') }}
       </view>
-      <view class="help-content">
-        <text class="help-item">
-          1. {{ t('deviceConfig.ensureWifiNetworkSelectedAndPasswordEntered') }}
-        </text>
-        <text class="help-item">
-          2. {{ t('deviceConfig.clickGenerateAndPlaySoundWave') }}
-        </text>
-        <text class="help-item">
-          3. {{ t('deviceConfig.bringPhoneCloseToXiaozhiDevice') }}
-        </text>
-        <text class="help-item">
-          4. {{ t('deviceConfig.duringAudioPlaybackXiaozhiWillReceive') }}
-        </text>
-        <text class="help-item">
-          5. {{ t('deviceConfig.afterConfigSuccessDeviceWillConnect') }}
-        </text>
-        <text class="help-tip">
-          {{ t('deviceConfig.usesAfskModulation') }}
-        </text>
-        <text class="help-tip">
-          {{ t('deviceConfig.ensureModeratePhoneVolume') }}
-        </text>
+      <view class="nx-group__body">
+        <view v-for="(item, index) in steps" :key="index" class="nx-row prov__step">
+          <view class="nx-num prov__step-num">
+            {{ index + 1 }}
+          </view>
+          <view class="nx-row__main prov__step-text">
+            {{ item }}
+          </view>
+        </view>
+      </view>
+      <view class="nx-group__footer">
+        {{ t('deviceConfig.usesAfskModulation') }} {{ t('deviceConfig.ensureModeratePhoneVolume') }}
       </view>
     </view>
   </view>
 </template>
 
-<style scoped>
-.ultrasonic-config {
-  padding: 20rpx 0;
-}
+<style lang="scss" scoped>
+.prov {
+  &__group {
+    margin-bottom: var(--nx-space-4);
 
-.selected-network {
-  margin-bottom: 32rpx;
-}
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
 
-.network-info {
-  padding: 24rpx;
-  background-color: #f0f6ff;
-  border: 1rpx solid #336cff;
-  border-radius: 16rpx;
-}
+  &__icon {
+    width: 60rpx;
+    height: 60rpx;
+    border-radius: var(--nx-radius-sm);
+  }
 
-.network-name {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #232338;
-  margin-bottom: 8rpx;
-}
+  &__ssid {
+    font-weight: 600;
+  }
 
-.network-details {
-  display: flex;
-  gap: 24rpx;
-  margin-bottom: 8rpx;
-}
+  &__player {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    padding: var(--nx-space-4);
 
-.network-signal,
-.network-security {
-  font-size: 24rpx;
-  color: #65686f;
-}
+    &::after {
+      content: '';
+      position: absolute;
+      left: var(--nx-space-4);
+      right: 0;
+      bottom: 0;
+      height: 1rpx;
+      background: var(--nx-border);
+    }
 
-.network-password {
-  font-size: 24rpx;
-  color: #65686f;
-}
+    &:last-child::after {
+      display: none;
+    }
+  }
 
-.submit-section {
-  margin-bottom: 32rpx;
-}
+  &__player-text {
+    flex: 1;
+    min-width: 0;
+  }
 
-.submit-section .wd-button {
-  margin-bottom: 16rpx;
-}
+  &__wave {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6rpx;
+    width: 88rpx;
+    height: 88rpx;
+    border-radius: var(--nx-radius);
+    background: var(--nx-accent-soft);
+  }
 
-.submit-section .wd-button:last-child {
-  margin-bottom: 0;
-}
+  &__wave-bar {
+    width: 6rpx;
+    height: 36rpx;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-accent);
+    transform: scaleY(0.4);
+    transform-origin: center;
 
-.audio-options {
-  margin-bottom: 32rpx;
-  padding: 24rpx;
-  background-color: #fbfbfb;
-  border-radius: 16rpx;
-  border: 1rpx solid #eeeeee;
-}
+    &:nth-child(2),
+    &:nth-child(4) {
+      transform: scaleY(0.7);
+    }
 
-.option-item {
-  font-size: 28rpx;
-}
+    &:nth-child(3) {
+      transform: scaleY(1);
+    }
+  }
 
-.audio-player {
-  margin-bottom: 32rpx;
-  padding: 24rpx;
-  background-color: #f0f6ff;
-  border: 1rpx solid #336cff;
-  border-radius: 16rpx;
-}
+  &__player.is-playing &__wave {
+    background: var(--nx-accent);
+  }
 
-.player-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+  &__player.is-playing &__wave-bar {
+    background: var(--nx-on-accent);
+  }
 
-.audio-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #232338;
-}
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-2);
+    margin-bottom: var(--nx-space-5);
+  }
 
-.audio-duration {
-  font-size: 24rpx;
-  color: #65686f;
-}
+  &__step {
+    align-items: flex-start;
+    min-height: 0;
+    padding-top: var(--nx-space-2);
+    padding-bottom: var(--nx-space-2);
+  }
 
-.help-section {
-  padding: 32rpx 24rpx;
-  background-color: #fbfbfb;
-  border-radius: 16rpx;
-  border: 1rpx solid #eeeeee;
-}
+  &__step-num {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40rpx;
+    height: 40rpx;
+    margin-top: 2rpx;
+    border-radius: 50%;
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+  }
 
-.help-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #232338;
-  margin-bottom: 20rpx;
-}
-
-.help-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.help-item {
-  font-size: 24rpx;
-  color: #65686f;
-  line-height: 1.5;
-}
-
-.help-tip {
-  font-size: 24rpx;
-  color: #336cff;
-  font-weight: 500;
-  margin-top: 8rpx;
+  &__step-text {
+    font-size: var(--nx-text-callout);
+    line-height: 1.45;
+    color: var(--nx-text-2);
+  }
 }
 </style>

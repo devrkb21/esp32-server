@@ -1,65 +1,156 @@
 <template>
-    <div class="welcome">
+    <div class="nx-app">
         <HeaderBar />
-        <div class="main-wrapper">
-            <div class="content-panel">
-                <div class="content-area">
-                    <el-card class="params-card" shadow="never">
-                        <div class="operation-header">
-                            <h2 class="page-title">{{ $t('voiceResource.title') }}</h2>
-                            <div class="right-operations">
-                                <el-input :placeholder="$t('voiceClone.searchPlaceholder')" v-model="searchName"
-                                    class="search-input" @keyup.enter.native="handleSearch" clearable />
-                                <CustomButton icon="el-icon-search" type="confirm"
-                                    @click="handleSearch">{{ $t('voiceClone.search') }}</CustomButton>
-                            </div>
+
+        <main class="nx-page">
+            <header class="nx-page-header">
+                <div class="nx-page-header__text">
+                    <h1 class="nx-title">{{ $t('voiceResource.title') }}</h1>
+                    <p class="nx-page-header__desc">
+                        {{ tx('voiceResource.pageDesc', 'Voice slots on each TTS platform and the accounts they belong to.') }}
+                    </p>
+                </div>
+                <div class="nx-page-header__actions">
+                    <el-input v-model="searchName" class="vr-search" prefix-icon="el-icon-search"
+                        :placeholder="$t('voiceClone.searchPlaceholder')" :aria-label="$t('voiceClone.search')"
+                        clearable @keyup.enter.native="handleSearch" @clear="handleSearch" />
+                    <CustomButton icon="el-icon-plus" type="add" @click="showAddDialog">
+                        {{ $t('voiceClone.addVoiceClone') }}
+                    </CustomButton>
+                </div>
+            </header>
+
+            <section class="nx-card nx-card--flush vr-card" :aria-label="$t('voiceResource.title')">
+                <div class="vr-card__head">
+                    <div class="nx-row vr-card__title">
+                        <h2 class="nx-headline">{{ $t('voiceResource.title') }}</h2>
+                        <span class="nx-badge nx-num">{{ formatCount(total) }}</span>
+                    </div>
+                    <transition name="nx-fade">
+                        <div v-if="selectedCount" class="nx-row vr-card__bulk">
+                            <span class="nx-footnote nx-num">
+                                {{ tx('voiceResource.selected', '{count} selected', { count: selectedCount }) }}
+                            </span>
+                            <CustomButton size="small" type="delete" icon="el-icon-delete"
+                                @click="deleteSelectedVoiceClones">{{ $t('voiceClone.delete') }}</CustomButton>
                         </div>
-                        <CustomTable ref="voiceTable" :data="voiceCloneList" :columns="tableColumns" :loading="loading"
-                            :show-selection="true" :show-operations="true" :operations-label="$t('voiceClone.action')"
-                            :total="total" :current-page="currentPage" :page-size="pageSize"
-                            :page-size-options="pageSizeOptions" @size-change="handlePageSizeChange"
-                            @page-change="goToPage">
-                            <template slot="trainStatus" slot-scope="scope">
-                                {{ getTrainStatusText(scope.row) }}
+                    </transition>
+                </div>
+
+                <div class="vr-card__body" v-loading="loading" :element-loading-text="$t('common.loading')">
+                    <el-table v-show="voiceCloneList.length || loading" ref="voiceTable" :data="voiceCloneList"
+                        class="vr-table">
+                        <el-table-column width="52" align="center">
+                            <template slot="header">
+                                <el-checkbox :value="isAllSelected" :indeterminate="isIndeterminate"
+                                    :aria-label="isAllSelected ? $t('voiceClone.deselectAll') : $t('voiceClone.selectAll')"
+                                    @change="handleSelectAll" />
                             </template>
-                            <template slot="createdAt" slot-scope="scope">
-                                {{ formatDate(scope.row.createDate) }}
+                            <template slot-scope="scope">
+                                <el-checkbox :value="scope.row.selected" :aria-label="scope.row.name || scope.row.voiceId"
+                                    @change="toggleRow(scope.row)" />
                             </template>
-                            <template slot="operations" slot-scope="scope">
-                                <el-button size="mini" type="text"
-                                    :icon="playingVoiceId === (scope.row.id || scope.row.voiceId) ? 'el-icon-video-pause' : 'el-icon-video-play'"
-                                    @click="toggleAudio(scope.row)">
-                                    {{ playingVoiceId === (scope.row.id || scope.row.voiceId) ? ($t('voiceClone.pause') || 'Pause') : ($t('voiceResource.audition') || 'Play Demo') }}
-                                </el-button>
-                                <el-button size="mini" type="text" style="color: #f56c6c;"
-                                    @click="deleteVoiceClone(scope.row)">{{ $t('voiceClone.delete') }}</el-button>
-                            </template>
-                            <template slot="footer-btns">
-                                <div class="ctrl_btn">
-                                    <CustomButton
-                                        :icon="isAllSelected ? 'el-icon-circle-close' : 'el-icon-circle-check'"
-                                        size="small" @click="handleSelectAll">
-                                        {{ isAllSelected ? $t('voiceClone.deselectAll') : $t('voiceClone.selectAll') }}
-                                    </CustomButton>
-                                    <CustomButton icon="el-icon-plus" type="add" size="small"
-                                        @click="showAddDialog">{{ $t('voiceClone.addNew') }}</CustomButton>
-                                    <CustomButton size="small" type="delete" icon="el-icon-delete"
-                                        @click="deleteSelectedVoiceClones">{{ $t('voiceClone.delete') }}</CustomButton>
+                        </el-table-column>
+
+                        <el-table-column :label="$t('voiceClone.name')" min-width="220">
+                            <template slot-scope="scope">
+                                <div class="vr-name">
+                                    <span class="vr-name__text nx-truncate" :title="scope.row.name">{{ scope.row.name || '—' }}</span>
+                                    <span class="nx-caption nx-mono nx-truncate" :title="scope.row.voiceId">{{ scope.row.voiceId }}</span>
                                 </div>
                             </template>
-                        </CustomTable>
-                    </el-card>
+                        </el-table-column>
+
+                        <el-table-column :label="$t('voiceClone.userId')" min-width="140">
+                            <template slot-scope="scope">
+                                <span class="nx-truncate vr-cell" :title="scope.row.userName">{{ scope.row.userName || '—' }}</span>
+                            </template>
+                        </el-table-column>
+
+                        <el-table-column :label="$t('voiceClone.platformName')" min-width="150">
+                            <template slot-scope="scope">
+                                <span class="nx-truncate vr-cell" :title="scope.row.modelName">{{ scope.row.modelName || '—' }}</span>
+                            </template>
+                        </el-table-column>
+
+                        <el-table-column :label="$t('voiceClone.languages')" min-width="120">
+                            <template slot-scope="scope">
+                                <span class="nx-truncate vr-cell" :title="scope.row.languages">{{ scope.row.languages || '—' }}</span>
+                            </template>
+                        </el-table-column>
+
+                        <el-table-column :label="$t('voiceClone.trainStatus')" min-width="160">
+                            <template slot-scope="scope">
+                                <el-tooltip :content="scope.row.trainError" placement="top"
+                                    :disabled="!(scope.row.trainStatus === 3 && scope.row.trainError)">
+                                    <span class="nx-badge" :class="statusBadgeClass(scope.row)">
+                                        <i :class="statusIcon(scope.row)" aria-hidden="true"></i>
+                                        {{ getTrainStatusText(scope.row) }}
+                                    </span>
+                                </el-tooltip>
+                            </template>
+                        </el-table-column>
+
+                        <el-table-column :label="$t('voiceClone.createdAt')" min-width="170">
+                            <template slot-scope="scope">
+                                <span class="nx-num vr-date">{{ formatDate(scope.row.createDate) }}</span>
+                            </template>
+                        </el-table-column>
+
+                        <el-table-column :label="$t('voiceClone.action')" width="112" align="right">
+                            <template slot-scope="scope">
+                                <div class="vr-actions">
+                                    <el-tooltip
+                                        :content="isRowPlaying(scope.row) ? $t('voiceClone.pause') : tx('voiceResource.audition', 'Play sample')"
+                                        placement="top" :open-delay="300">
+                                        <button type="button" class="nx-icon-btn vr-play"
+                                            :class="{ 'is-playing': isRowPlaying(scope.row) }"
+                                            :aria-label="isRowPlaying(scope.row) ? $t('voiceClone.pause') : tx('voiceResource.audition', 'Play sample')"
+                                            @click="toggleAudio(scope.row)">
+                                            <i :class="isRowPlaying(scope.row) ? 'el-icon-video-pause' : 'el-icon-video-play'"
+                                                aria-hidden="true"></i>
+                                        </button>
+                                    </el-tooltip>
+                                    <el-tooltip :content="$t('voiceClone.delete')" placement="top" :open-delay="300">
+                                        <button type="button" class="nx-icon-btn nx-icon-btn--danger"
+                                            :aria-label="$t('voiceClone.delete')" @click="deleteVoiceClone(scope.row)">
+                                            <i class="el-icon-delete" aria-hidden="true"></i>
+                                        </button>
+                                    </el-tooltip>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+
+                    <div v-if="!loading && !voiceCloneList.length" class="nx-empty">
+                        <span class="nx-icon-tile nx-icon-tile--lg"><i class="el-icon-headset" aria-hidden="true"></i></span>
+                        <h3 class="nx-empty__title">
+                            {{ searchName ? tx('voiceResource.noResultsTitle', 'No matching voices') : tx('voiceResource.emptyTitle', 'No voice resources yet') }}
+                        </h3>
+                        <p class="nx-empty__text">
+                            {{ searchName
+                                ? tx('voiceResource.noResultsText', 'Try a different name or voice ID.')
+                                : tx('voiceResource.emptyText', 'Add a voice resource to assign it to an account.') }}
+                        </p>
+                        <CustomButton class="nx-empty__action" icon="el-icon-plus" type="add" @click="showAddDialog">
+                            {{ $t('voiceClone.addVoiceClone') }}
+                        </CustomButton>
+                    </div>
                 </div>
-            </div>
-        </div>
+
+                <div v-if="total > 0" class="vr-card__foot">
+                    <CustomPagination :total="total" :current-page="currentPage" :page-size="pageSize"
+                        :page-size-options="pageSizeOptions" @size-change="handlePageSizeChange"
+                        @page-change="goToPage" />
+                </div>
+            </section>
+
+            <VersionFooter />
+        </main>
 
         <!-- Add Voice Resource Dialog -->
         <voice-clone-dialog :title="$t('voiceClone.addVoiceClone')" :visible.sync="dialogVisible" :form="voiceCloneForm"
             @submit="handleSubmit" @cancel="dialogVisible = false" />
-
-        <el-footer>
-            <version-footer />
-        </el-footer>
     </div>
 </template>
 
@@ -69,11 +160,11 @@ import HeaderBar from "@/components/HeaderBar.vue";
 import VersionFooter from "@/components/VersionFooter.vue";
 import VoiceCloneDialog from "@/components/VoiceResourceDialog.vue";
 import CustomButton from "@/components/CustomButton.vue";
-import CustomTable from "@/components/CustomTable.vue";
+import CustomPagination from "@/components/CustomPagination.vue";
 import { formatDate } from "@/utils/format";
 
 export default {
-    components: { HeaderBar, VoiceCloneDialog, VersionFooter, CustomButton, CustomTable },
+    components: { HeaderBar, VoiceCloneDialog, VersionFooter, CustomButton, CustomPagination },
     data() {
         return {
             searchName: "",
@@ -97,11 +188,66 @@ export default {
             currentAudio: null
         };
     },
+    computed: {
+        selectedCount() {
+            return this.voiceCloneList.filter(row => row.selected).length;
+        },
+        isIndeterminate() {
+            return this.selectedCount > 0 && this.selectedCount < this.voiceCloneList.length;
+        }
+    },
     created() {
         this.initTableColumns();
         this.fetchVoiceCloneList();
     },
     methods: {
+        // $t with an English fallback for keys still waiting in i18n/_pending
+        tx(key, fallback, params) {
+            const value = this.$t(key, params);
+            if (value !== key) return value;
+            return String(fallback).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] != null ? params[k] : m));
+        },
+        formatCount(value) {
+            return (Number(value) || 0).toLocaleString();
+        },
+        toggleRow(row) {
+            this.$set(row, 'selected', !row.selected);
+            this.isAllSelected = this.voiceCloneList.length > 0 && this.voiceCloneList.every(item => item.selected);
+        },
+        isRowPlaying(row) {
+            return this.playingVoiceId === (row.id || row.voiceId) && !this.isPaused;
+        },
+        // Status badge tone: colour always paired with an icon and a word
+        statusBadgeClass(row) {
+            if (!row.hasVoice) return '';
+            switch (row.trainStatus) {
+                case 0:
+                    return 'nx-badge--warning';
+                case 1:
+                    return 'nx-badge--info';
+                case 2:
+                    return 'nx-badge--success';
+                case 3:
+                    return 'nx-badge--danger';
+                default:
+                    return '';
+            }
+        },
+        statusIcon(row) {
+            if (!row.hasVoice) return 'el-icon-upload2';
+            switch (row.trainStatus) {
+                case 0:
+                    return 'el-icon-time';
+                case 1:
+                    return 'el-icon-refresh';
+                case 2:
+                    return 'el-icon-circle-check';
+                case 3:
+                    return 'el-icon-warning-outline';
+                default:
+                    return 'el-icon-more-outline';
+            }
+        },
         initTableColumns() {
             this.tableColumns = [
                 { prop: 'voiceId', label: this.$t('voiceClone.voiceId'), align: 'center' },
@@ -136,6 +282,7 @@ export default {
                         selected: false
                     }));
                     this.total = res.data.total || 0;
+                    this.isAllSelected = false;
                 } else {
                     this.voiceCloneList = [];
                     this.total = 0;
@@ -211,8 +358,10 @@ export default {
             }
 
             const itemCount = items.length;
-            this.$confirm(this.$t('voiceClone.confirmDelete', { count: itemCount }), this.$t('voiceClone.warning'), {
-                confirmButtonText: this.$t('voiceClone.ok'),
+            const confirmTitle = itemCount === 1 && items[0].name ? items[0].name : this.$t('voiceClone.warning');
+            this.$confirm(this.$t('voiceClone.confirmDelete', { count: itemCount }), confirmTitle, {
+                confirmButtonText: this.$t('voiceClone.delete'),
+                confirmButtonClass: 'el-button--danger',
                 cancelButtonText: this.$t('voiceClone.cancel'),
                 type: 'warning',
                 distinguishCancelAndClose: true
@@ -329,99 +478,108 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.welcome {
-    min-width: 900px;
-    min-height: 506px;
-    height: 100vh;
-    display: flex;
-    position: relative;
-    flex-direction: column;
-    background-size: cover;
-    background: #eff4ff;
-    -webkit-background-size: cover;
-    -o-background-size: cover;
-    overflow: hidden;
+.nx-app {
+    min-height: 100vh;
+    background: var(--nx-bg);
 }
 
-.main-wrapper {
-    // Top 63px Bottom 35px
-    height: calc(100vh - 63px - 35px);
-    padding: 20px 22px 0;
-    position: relative;
+.vr-search {
+    width: 280px;
+}
+
+.vr-card {
     display: flex;
     flex-direction: column;
-    box-sizing: border-box;
-}
+    min-width: 0;
 
-.operation-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 0 16px 0;
-}
-
-.page-title {
-    font-weight: 500;
-    font-size: 24px;
-    margin: 0;
-}
-
-.right-operations {
-    display: flex;
-    gap: 10px;
-    margin-left: auto;
-}
-
-.search-input {
-    width: 240px;
-}
-
-.content-panel {
-    display: flex;
-    overflow: hidden;
-    height: 100%;
-    border-radius: 15px;
-    background: transparent;
-    border: 1px solid #fff;
-}
-
-.content-area {
-    flex: 1;
-    height: 100%;
-    min-width: 600px;
-    overflow: auto;
-    background-color: white;
-    display: flex;
-    flex-direction: column;
-}
-
-.params-card {
-    background: white;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    border: none;
-    box-shadow: none;
-    overflow: hidden;
-
-    ::v-deep .el-card__body {
-        padding: 14px 20px;
+    &__head {
         display: flex;
-        flex-direction: column;
-        flex: 1;
-        overflow: hidden;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--nx-space-3);
+        min-height: 64px;
+        padding: var(--nx-space-3) var(--nx-space-5);
+        border-bottom: 1px solid var(--nx-border);
+    }
+    &__title {
+        min-width: 0;
+    }
+    &__bulk {
+        gap: var(--nx-space-2);
+    }
+    &__body {
+        min-height: 240px;
+    }
+    &__foot {
+        display: flex;
+        justify-content: flex-end;
+        padding: var(--nx-space-3) var(--nx-space-5);
+        border-top: 1px solid var(--nx-border);
     }
 }
 
-.ctrl_btn {
+.vr-table {
+    width: 100%;
+
+    &::before {
+        display: none;
+    }
+    ::v-deep th.el-table__cell:first-child .cell,
+    ::v-deep td.el-table__cell:first-child .cell {
+        padding-left: var(--nx-space-4);
+    }
+    ::v-deep th.el-table__cell:last-child .cell,
+    ::v-deep td.el-table__cell:last-child .cell {
+        padding-right: var(--nx-space-4);
+    }
+}
+
+.vr-name {
     display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: var(--nx-space-1) 0;
+
+    &__text {
+        font-weight: 600;
+        color: var(--nx-text);
+    }
 }
 
-:deep(.el-table .el-button--text) {
-    color: #7079aa;
+.vr-cell {
+    display: block;
 }
 
-:deep(.el-table .el-button--text:hover) {
-    color: #5a64b5;
+.vr-date {
+    color: var(--nx-text-2);
+    white-space: nowrap;
+}
+
+.vr-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    width: 100%;
+}
+
+.vr-play.is-playing {
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+}
+
+@media (max-width: 640px) {
+    .vr-search {
+        flex: 1 1 200px;
+        width: auto;
+    }
+    .nx-page-header__actions {
+        width: 100%;
+    }
+    .vr-card__head {
+        padding: var(--nx-space-3) var(--nx-space-4);
+    }
 }
 </style>

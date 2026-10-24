@@ -2,28 +2,36 @@
   <CustomDialog
     :title="$t('manualAddDeviceDialog.title')"
     :visible="visible"
-    width="600px"
+    width="520px"
     :destroy-on-close="false"
+    :confirmText="tx('device.addRobotAction', 'Add robot')"
+    :cancelText="$t('manualAddDeviceDialog.cancel')"
     @close="closeDialog"
     @confirm="submitForm"
   >
-    <el-form :model="deviceForm" :rules="rules" ref="deviceForm" label-width="auto">
-      <el-form-item :label="$t('manualAddDeviceDialog.deviceType')" prop="board">
-        <el-select v-model="deviceForm.board" :placeholder="$t('manualAddDeviceDialog.deviceTypePlaceholder')" style="width: 100%" filterable>
-          <el-option
-            v-for="item in firmwareTypes"
-            :key="item.key"
-            :label="item.name"
-            :value="item.key">
-          </el-option>
-        </el-select>
-      </el-form-item>
-      <el-form-item :label="$t('manualAddDeviceDialog.firmwareVersion')" prop="appVersion">
-        <el-input v-model="deviceForm.appVersion" :placeholder="$t('manualAddDeviceDialog.firmwareVersionPlaceholder')"></el-input>
-      </el-form-item>
+    <p class="nx-manual__help">
+      {{ tx('device.manualHelp', 'Use this when the robot cannot say a code. You find the MAC address on the robot’s settings screen or label.') }}
+    </p>
+    <el-form :model="deviceForm" :rules="rules" ref="deviceForm" label-position="top" class="nx-manual__form">
       <el-form-item :label="$t('manualAddDeviceDialog.macAddress')" prop="macAddress">
-        <el-input v-model="deviceForm.macAddress" :placeholder="$t('manualAddDeviceDialog.macAddressPlaceholder')"></el-input>
+        <el-input v-model="deviceForm.macAddress" class="nx-manual__mac"
+          :placeholder="$t('manualAddDeviceDialog.macAddressPlaceholder')" autocomplete="off" spellcheck="false"></el-input>
       </el-form-item>
+      <div class="nx-manual__row">
+        <el-form-item :label="$t('manualAddDeviceDialog.deviceType')" prop="board">
+          <el-select v-model="deviceForm.board" :placeholder="$t('manualAddDeviceDialog.deviceTypePlaceholder')" filterable class="nx-manual__full">
+            <el-option
+              v-for="item in firmwareTypes"
+              :key="item.key"
+              :label="item.name"
+              :value="item.key">
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('manualAddDeviceDialog.firmwareVersion')" prop="appVersion">
+          <el-input v-model="deviceForm.appVersion" :placeholder="$t('manualAddDeviceDialog.firmwareVersionPlaceholder')"></el-input>
+        </el-form-item>
+      </div>
     </el-form>
   </CustomDialog>
 </template>
@@ -75,6 +83,9 @@ export default {
     this.getFirmwareTypes();
   },
   methods: {
+    tx(key, fallback) {
+      return this.$te(key) || this.$te(key, 'en') ? this.$t(key) : fallback;
+    },
     async getFirmwareTypes() {
       try {
         const res = await Api.dict.getDictDataByType('FIRMWARE_TYPE');
@@ -114,3 +125,26 @@ export default {
   }
 };
 </script>
+
+<style lang="scss" scoped>
+.nx-manual__help {
+  margin: 0 0 var(--nx-space-5);
+  font-size: var(--nx-text-callout);
+  color: var(--nx-text-2);
+}
+.nx-manual__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  column-gap: var(--nx-space-4);
+}
+.nx-manual__full {
+  width: 100%;
+}
+.nx-manual__mac ::v-deep .el-input__inner {
+  font-family: var(--nx-font-mono);
+  letter-spacing: 0.02em;
+}
+.nx-manual__form ::v-deep .el-form-item:last-child {
+  margin-bottom: 0;
+}
+</style>

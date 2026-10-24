@@ -11,7 +11,6 @@
 <script lang="ts" setup>
 import { onLoad } from '@dcloudio/uni-app'
 import { onMounted, ref } from 'vue'
-import CustomTabs from '@/components/custom-tabs/index.vue'
 import { t } from '@/i18n'
 import ChatHistory from '@/pages/chat-history/index.vue'
 import DeviceManagement from '@/pages/device/index.vue'
@@ -63,33 +62,26 @@ function updateRefresherEnabled(value: boolean) {
   refresherEnabled.value = value
 }
 
-// Tab configuration
+// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
+function tx(key: string, fallback: string) {
+  const value = t(key)
+  return value === key ? fallback : value
+}
+
+// Tab configuration (segmented control; full names stay available as accessibility labels)
 const tabList = [
-  {
-    label: t('agent.roleConfig'),
-    value: 'agent-config',
-    icon: '/static/tabbar/robot.png',
-    activeIcon: '/static/tabbar/robot_activate.png',
-  },
-  {
-    label: t('agent.deviceManagement'),
-    value: 'device-management',
-    icon: '/static/tabbar/device.png',
-    activeIcon: '/static/tabbar/device_activate.png',
-  },
-  {
-    label: t('agent.chatHistory'),
-    value: 'chat-history',
-    icon: '/static/tabbar/chat.png',
-    activeIcon: '/static/tabbar/chat_activate.png',
-  },
-  {
-    label: t('agent.voiceprintManagement'),
-    value: 'voiceprint-management',
-    icon: '/static/tabbar/microphone.png',
-    activeIcon: '/static/tabbar/microphone_activate.png',
-  },
+  { label: tx('agent.tabSetup', 'Setup'), fullLabel: t('agent.roleConfig'), value: 'agent-config' },
+  { label: tx('agent.tabDevices', 'Devices'), fullLabel: t('agent.deviceManagement'), value: 'device-management' },
+  { label: tx('agent.tabChats', 'Chats'), fullLabel: t('agent.chatHistory'), value: 'chat-history' },
+  { label: tx('agent.tabVoiceprints', 'Voiceprints'), fullLabel: t('agent.voiceprintManagement'), value: 'voiceprint-management' },
 ]
+
+function selectTab(item: typeof tabList[number]) {
+  if (currentTab.value === item.value)
+    return
+  currentTab.value = item.value
+  handleTabChange(item)
+}
 
 // Back to previous page
 function goBack() {
@@ -163,34 +155,51 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view class="h-screen flex flex-col bg-[#f5f7fb]">
+  <view class="agent-shell">
     <!-- Navigation bar -->
-    <wd-navbar :title="t('agent.pageTitle')" safe-area-inset-top>
-      <template #left>
-        <wd-icon name="arrow-left" size="18" @click="goBack" />
-      </template>
-    </wd-navbar>
+    <view class="agent-nav" :style="{ paddingTop: `${safeAreaInsets?.top || 0}px` }">
+      <view class="agent-nav__bar">
+        <view class="agent-nav__back" role="button" :aria-label="tx('agent.navBack', 'Back')" @click="goBack">
+          <wd-icon name="arrow-left" size="20px" />
+        </view>
+        <text class="nx-truncate agent-nav__title">
+          {{ t('agent.pageTitle') }}
+        </text>
+        <view class="agent-nav__spacer" />
+      </view>
 
-    <!-- Custom Tabs -->
-    <CustomTabs
-      v-model="currentTab"
-      :tab-list="tabList"
-      @change="handleTabChange"
-    />
+      <!-- Sections -->
+      <view class="nx-segmented agent-nav__tabs" role="tablist">
+        <view
+          v-for="item in tabList"
+          :key="item.value"
+          class="nx-segmented__item"
+          :class="{ 'is-active': currentTab === item.value }"
+          role="tab"
+          :aria-selected="currentTab === item.value"
+          :aria-label="item.fullLabel"
+          @click="selectTab(item)"
+        >
+          <text class="nx-truncate">
+            {{ item.label }}
+          </text>
+        </view>
+      </view>
+    </view>
 
     <!-- Main content scroll area -->
     <scroll-view
       scroll-y
-      :style="{ height: `calc(100vh - ${safeAreaInsets?.top || 0}px - 180rpx)` }"
-      class="box-border flex-1 bg-[#f5f7fb]"
+      class="agent-scroll"
       enable-back-to-top
       :refresher-enabled="refresherEnabled"
       :refresher-triggered="refreshing"
+      refresher-background="transparent"
       @refresherrefresh="onRefresh"
       @scrolltolower="onLoadMore"
     >
       <!-- Tab Content -->
-      <view class="flex-1">
+      <view class="agent-content">
         <AgentEdit
           v-if="currentTab === 'agent-config'"
           :agent-id="currentAgentId"
@@ -216,5 +225,58 @@ onMounted(async () => {
   </view>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+.agent-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--nx-bg);
+}
+
+.agent-nav {
+  flex: none;
+  padding: 0 var(--nx-gutter) var(--nx-space-3);
+  background: var(--nx-bg);
+  border-bottom: 1rpx solid var(--nx-border);
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    height: var(--nx-touch);
+  }
+  &__back,
+  &__spacer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex: none;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    color: var(--nx-accent);
+  }
+  &__back:active {
+    opacity: 0.6;
+  }
+  &__title {
+    flex: 1;
+    text-align: center;
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__tabs {
+    margin-top: var(--nx-space-1);
+  }
+}
+
+.agent-scroll {
+  flex: 1;
+  height: 0;
+  min-height: 0;
+}
+
+.agent-content {
+  min-height: 100%;
+}
 </style>

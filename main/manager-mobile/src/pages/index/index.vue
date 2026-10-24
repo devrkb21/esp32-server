@@ -18,6 +18,7 @@ import { useMessage } from 'wot-design-uni/components/wd-message-box'
 import useZPaging from 'z-paging/components/z-paging/js/hooks/useZPaging.js'
 import { createAgent, deleteAgent, getAgentList } from '@/api/agent/agent'
 import { t } from '@/i18n'
+import { useUserStore } from '@/store'
 import { toast } from '@/utils/toast'
 
 defineOptions({
@@ -49,6 +50,8 @@ safeAreaInsets = systemInfo.safeAreaInsets
 
 // Agent data
 const agentList = ref<Agent[]>([])
+// Becomes true after the first list request settles (drives the skeleton)
+const firstLoaded = ref(false)
 const pagingRef = ref()
 useZPaging(pagingRef)
 // Message component
@@ -79,6 +82,9 @@ async function queryList(pageNo: number, pageSize: number) {
     console.error('Failed to get agent list:', error)
     // Notify z-paging of data loading failure
     pagingRef.value.complete(false)
+  }
+  finally {
+    firstLoaded.value = true
   }
 }
 
@@ -191,10 +197,76 @@ function formatTime(timeStr: string) {
   if (diff < 60000)
     return t('home.justNow')
   if (diff < 3600000)
-    return `${Math.floor(diff / 60000)}${t('home.minutesAgo')}`
+    return `${Math.floor(diff / 60000)} ${t('home.minutesAgo')}`
   if (diff < 86400000)
-    return `${Math.floor(diff / 3600000)}${t('home.hoursAgo')}`
-  return `${Math.floor(diff / 86400000)}${t('home.daysAgo')}`
+    return `${Math.floor(diff / 3600000)} ${t('home.hoursAgo')}`
+  return `${Math.floor(diff / 86400000)} ${t('home.daysAgo')}`
+}
+
+// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
+function tx(key: string, fallback: string, params?: Record<string, string | number>) {
+  const value = t(key, params)
+  if (value !== key)
+    return value
+  if (!params)
+    return fallback
+  return Object.entries(params).reduce((text, [name, val]) => text.replace(`{${name}}`, String(val)), fallback)
+}
+
+// ---- Layout helpers (display only) ----
+const userStore = useUserStore()
+
+const ACTIVE_WINDOW_MS = 10 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function msSince(timeStr: string | null) {
+  if (!timeStr)
+    return Number.POSITIVE_INFINITY
+  const time = new Date(timeStr).getTime()
+  return Number.isFinite(time) ? Date.now() - time : Number.POSITIVE_INFINITY
+}
+
+// Talked to a robot in the last few minutes: shown as "active now" with the online dot
+function isActiveNow(agent: Agent) {
+  return agent.deviceCount > 0 && msSince(agent.lastConnectedAt) < ACTIVE_WINDOW_MS
+}
+
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12)
+    return tx('home.greetingMorning', 'Good morning')
+  if (hour < 18)
+    return tx('home.greetingAfternoon', 'Good afternoon')
+  return tx('home.greetingEvening', 'Good evening')
+})
+
+const displayName = computed(() => userStore.userInfo?.realName || userStore.userInfo?.username || '')
+
+const summary = computed(() => {
+  const list = agentList.value || []
+  return {
+    agents: list.length,
+    devices: list.reduce((sum, agent) => sum + (Number(agent.deviceCount) || 0), 0),
+    activeToday: list.filter(agent => msSince(agent.lastConnectedAt) < DAY_MS).length,
+  }
+})
+
+function agentInitial(agent: Agent) {
+  const name = (agent.agentName || '').trim()
+  return name ? Array.from(name)[0].toUpperCase() : '?'
+}
+
+function agentModelLine(agent: Agent) {
+  const voice = agent.ttsVoiceName || agent.ttsModelName
+  return [agent.llmModelName, voice].filter(Boolean).join(' · ')
+}
+
+function agentTagText(agent: Agent) {
+  return (agent.tags || []).map(tag => tag.tagName).filter(Boolean).join(', ')
+}
+
+function formatCount(value: number) {
+  return Number(value || 0).toLocaleString()
 }
 
 // Refresh list on page show
@@ -216,111 +288,165 @@ onMounted(() => {
   <z-paging
     ref="pagingRef" v-model="agentList" :refresher-enabled="true" :auto-show-back-to-top="true"
     :loading-more-enabled="false" :show-loading-more="false" :hide-empty-view="false" :empty-view-text="t('home.emptyState')"
-    empty-view-img="" :refresher-threshold="80" :back-to-top-style="{
-      backgroundColor: '#fff',
+    empty-view-img="" :refresher-threshold="80"
+    :paging-style="{ background: 'var(--nx-bg)' }"
+    :back-to-top-style="{
+      backgroundColor: 'var(--nx-surface)',
       borderRadius: '50%',
-      width: '56px',
-      height: '56px',
+      width: '48px',
+      height: '48px',
+      boxShadow: 'var(--nx-shadow-2)',
     }" @query="queryList"
   >
-    <!-- Fixed top banner area -->
+    <!-- Large title header -->
     <template #top>
-      <view class="banner-section" :style="{ paddingTop: `${safeAreaInsets?.top + 100}rpx` }">
-        <view class="banner-content">
-          <view class="welcome-info">
-            <text class="greeting">
-              {{ t('home.greeting') }}
+      <view class="home-header" :style="{ paddingTop: `${safeAreaInsets?.top || 0}px` }">
+        <view class="home-header__row">
+          <view class="home-header__text">
+            <text class="home-header__eyebrow">
+              {{ displayName ? `${greeting}, ${displayName}` : greeting }}
             </text>
-            <text class="subtitle">
-              {{ t('home.subtitle') }} <text class="highlight">
-                {{ t('home.wonderfulDay') }}
-              </text>
+            <text class="home-header__title">
+              {{ tx('home.title', 'Your robots') }}
             </text>
           </view>
-          <view class="wave-decoration">
-            <!-- Wave decoration -->
-            <view class="wave" />
-            <view class="wave wave-2" />
+          <view
+            class="home-header__add"
+            role="button"
+            :aria-label="t('home.createAgent')"
+            @click="openCreateDialog"
+          >
+            <wd-icon name="add" size="22px" />
           </view>
         </view>
       </view>
-
-      <!-- Content area start indicator -->
-      <view class="content-section-header" />
     </template>
 
-    <!-- Agent card list -->
-    <view class="agent-list">
-      <view v-for="agent in agentList" :key="agent.id" class="agent-item">
-        <wd-swipe-action>
-          <view class="simple-card" @click="handleCardClick(agent)">
-            <view class="card-content">
-              <view class="card-main">
-                <view class="agent-title">
-                  <text class="agent-name">
+    <view class="home-body">
+      <!-- First load: skeleton -->
+      <template v-if="!firstLoaded">
+        <view class="nx-card home-summary">
+          <view v-for="n in 3" :key="n" class="home-stat">
+            <view class="nx-skeleton home-skel-label" />
+            <view class="nx-skeleton home-skel-value" />
+          </view>
+        </view>
+        <view v-for="n in 3" :key="`s${n}`" class="nx-card agent-card agent-card--skeleton">
+          <view class="nx-skeleton agent-card__avatar" />
+          <view class="agent-card__main">
+            <view class="nx-skeleton home-skel-title" />
+            <view class="nx-skeleton home-skel-line" />
+          </view>
+        </view>
+      </template>
+
+      <template v-else-if="agentList.length">
+        <!-- Summary -->
+        <view class="nx-card home-summary">
+          <view class="home-stat">
+            <text class="home-stat__label">
+              {{ tx('home.statAgents', 'Agents') }}
+            </text>
+            <text class="nx-num home-stat__value">
+              {{ formatCount(summary.agents) }}
+            </text>
+          </view>
+          <view class="home-stat">
+            <text class="home-stat__label">
+              {{ tx('home.statDevices', 'Devices') }}
+            </text>
+            <text class="home-stat__value nx-num">
+              {{ formatCount(summary.devices) }}
+            </text>
+          </view>
+          <view class="home-stat">
+            <text class="home-stat__label">
+              {{ tx('home.statActiveToday', 'Active today') }}
+            </text>
+            <text class="home-stat__value nx-num">
+              {{ formatCount(summary.activeToday) }}
+            </text>
+          </view>
+        </view>
+
+        <view class="nx-group__header home-section">
+          {{ tx('home.agentsSection', 'Agents') }}
+        </view>
+
+        <!-- Agent cards -->
+        <view class="agent-list">
+          <view v-for="agent in agentList" :key="agent.id" class="agent-item">
+            <wd-swipe-action>
+              <view class="agent-card" @click="handleCardClick(agent)">
+                <view class="agent-card__avatar">
+                  {{ agentInitial(agent) }}
+                </view>
+                <view class="agent-card__main">
+                  <text class="nx-truncate agent-card__name" :title="agent.agentName">
                     {{ agent.agentName }}
                   </text>
-                </view>
-
-                <view class="model-info">
-                  <text class="model-text">
-                    {{ t('home.languageModel') }}： {{ agent.llmModelName }}
+                  <text v-if="agentModelLine(agent)" class="nx-truncate agent-card__models">
+                    {{ agentModelLine(agent) }}
                   </text>
-                  <text class="model-text">
-                    {{ t('home.voiceModel') }}： {{ agent.ttsModelName }} ({{ agent.ttsVoiceName }})
-                  </text>
-                </view>
-
-                <view class="stats-row">
-                  <view class="stat-chip">
-                    <wd-icon name="phone" custom-class="chip-icon" />
-                    <text class="chip-text">
-                      {{ t('home.deviceManagement') }}({{ agent.deviceCount }})
+                  <view class="agent-card__meta">
+                    <view class="agent-card__status">
+                      <view class="nx-dot" :class="{ 'nx-dot--online agent-card__pulse': isActiveNow(agent) }" />
+                      <text class="nx-num">
+                        {{ tx('home.deviceCount', '{count} devices', { count: formatCount(agent.deviceCount) }) }}
+                      </text>
+                    </view>
+                    <text v-if="agent.lastConnectedAt" class="nx-truncate agent-card__time">
+                      {{ isActiveNow(agent) ? tx('home.activeNow', 'Active now') : formatTime(agent.lastConnectedAt) }}
                     </text>
                   </view>
-                  <view v-if="agent.lastConnectedAt" class="stat-chip">
-                    <wd-icon name="time" custom-class="chip-icon" />
-                    <text class="chip-text">
-                      {{ t('home.lastConversation') }}{{ formatTime(agent.lastConnectedAt) }}
-                    </text>
-                  </view>
-                  <text v-if="agent.tags" class="flex-1 truncate text-right text-[22rpx] text-[#666]">
-                    {{ agent.tags.map(tag => tag.tagName).join(',') }}
+                  <text v-if="agentTagText(agent)" class="nx-truncate agent-card__tags">
+                    {{ agentTagText(agent) }}
                   </text>
                 </view>
+                <wd-icon name="arrow-right" size="16px" custom-class="agent-card__chevron" />
               </view>
 
-              <wd-icon name="arrow-right" custom-class="arrow-icon" />
-            </view>
+              <template #right>
+                <view class="swipe-actions">
+                  <view class="swipe-actions__delete" role="button" @click.stop="openDeleteAgentDialog(agent)">
+                    <wd-icon name="delete" size="20px" />
+                    <text>{{ t('home.delete') }}</text>
+                  </view>
+                </view>
+              </template>
+            </wd-swipe-action>
           </view>
-
-          <template #right>
-            <view class="swipe-actions">
-              <view class="action-btn delete-btn" @click.stop="openDeleteAgentDialog(agent)">
-                <wd-icon name="delete" />
-                <text>{{ t('home.delete') }}</text>
-              </view>
-            </view>
-          </template>
-        </wd-swipe-action>
-      </view>
+        </view>
+        <view class="nx-group__footer home-hint">
+          {{ tx('home.swipeHint', 'Swipe left on an agent to delete it.') }}
+        </view>
+      </template>
     </view>
 
-    <!-- Custom empty state -->
-    <template #empty>
-      <view class="empty-state">
-        <wd-icon name="robot" custom-class="empty-icon" />
-        <text class="empty-text">
-          {{ t('home.emptyState') }}
+    <!-- Empty and error states -->
+    <template #empty="{ isLoadFailed }">
+      <view class="nx-empty">
+        <view class="nx-icon-tile nx-icon-tile--lg" :class="{ 'nx-icon-tile--neutral': isLoadFailed }">
+          <wd-icon :name="isLoadFailed ? 'warning' : 'chat'" size="28px" />
+        </view>
+        <text class="nx-empty__title">
+          {{ isLoadFailed ? tx('home.loadFailedTitle', 'Couldn’t load your agents') : t('home.emptyState') }}
         </text>
-        <text class="empty-desc">
-          {{ t('home.createFirstAgent') }}
+        <text class="nx-empty__text">
+          {{ isLoadFailed
+            ? tx('home.loadFailedText', 'Check your connection and try again.')
+            : tx('home.emptyText', 'Create your first agent to give your robot a personality and a voice.') }}
         </text>
+        <view
+          class="nx-btn nx-btn--primary home-empty-btn"
+          role="button"
+          @click="isLoadFailed ? pagingRef?.reload() : openCreateDialog()"
+        >
+          <wd-icon :name="isLoadFailed ? 'refresh' : 'add'" size="18px" />
+          {{ isLoadFailed ? tx('home.retry', 'Try again') : t('home.createAgent') }}
+        </view>
       </view>
     </template>
-
-    <!-- FAB Add button -->
-    <wd-fab type="primary" icon="add" :draggable="true" :expandable="false" @click="openCreateDialog" />
 
     <!-- MessageBox component -->
     <wd-message-box />
@@ -329,438 +455,392 @@ onMounted(() => {
   <wd-popup
     v-model="deleteDialogVisible"
     position="center"
-    custom-style="width: 88%; max-width: 420px; border-radius: 16px;"
+    custom-class="nx-dialog"
     :close-on-click-modal="!deleteAgentLoading"
     safe-area-inset-bottom
     @close="closeDeleteAgentDialog"
   >
     <view class="delete-agent-dialog">
       <view class="delete-agent-header">
+        <view class="nx-icon-tile delete-agent-icon">
+          <wd-icon name="delete" size="22px" />
+        </view>
         <text class="delete-agent-title">
           {{ t('home.deleteConfirmTitle') }}
         </text>
       </view>
 
       <view class="delete-agent-body">
-        <view class="delete-agent-content">
-          <wd-icon name="warning" custom-class="delete-agent-warning" />
-          <view class="delete-agent-message">
-            <text
-              class="delete-agent-copy-guard delete-agent-tip"
-              @copy.stop.prevent
-              @cut.stop.prevent
-              @contextmenu.stop.prevent
-              @longpress.stop.prevent
-            >
-              {{ t('home.confirmDeleteAgent', { agentName: deleteTargetAgent?.agentName || '' }) }}
-            </text>
-            <view
-              class="delete-agent-copy-guard delete-agent-target"
-              @copy.stop.prevent
-              @cut.stop.prevent
-              @contextmenu.stop.prevent
-              @longpress.stop.prevent
-            >
-              <text>{{ deleteTargetAgent?.agentName || '' }}</text>
-            </view>
-
-            <input
-              v-model="deleteConfirmText"
-              class="delete-agent-input"
-              type="text"
-              :maxlength="deleteTargetAgent?.agentName?.length || 64"
-              :placeholder="t('home.deleteAgentNamePlaceholder')"
-              :disabled="deleteAgentLoading"
-              @paste.stop.prevent="handleDeleteAgentPaste"
-              @drop.stop.prevent="handleDeleteAgentPaste"
-              @contextmenu.stop.prevent
-            >
-            <text v-if="deleteConfirmText && !isDeleteAgentNameMatched" class="delete-agent-helper">
-              {{ t('home.deleteAgentNameMismatch') }}
-            </text>
-          </view>
+        <text
+          class="delete-agent-copy-guard delete-agent-tip"
+          @copy.stop.prevent
+          @cut.stop.prevent
+          @contextmenu.stop.prevent
+          @longpress.stop.prevent
+        >
+          {{ t('home.confirmDeleteAgent', { agentName: deleteTargetAgent?.agentName || '' }) }}
+        </text>
+        <view
+          class="delete-agent-copy-guard delete-agent-target"
+          @copy.stop.prevent
+          @cut.stop.prevent
+          @contextmenu.stop.prevent
+          @longpress.stop.prevent
+        >
+          <text>{{ deleteTargetAgent?.agentName || '' }}</text>
         </view>
+
+        <input
+          v-model="deleteConfirmText"
+          class="delete-agent-input"
+          type="text"
+          :maxlength="deleteTargetAgent?.agentName?.length || 64"
+          :placeholder="t('home.deleteAgentNamePlaceholder')"
+          placeholder-class="delete-agent-placeholder"
+          :disabled="deleteAgentLoading"
+          @paste.stop.prevent="handleDeleteAgentPaste"
+          @drop.stop.prevent="handleDeleteAgentPaste"
+          @contextmenu.stop.prevent
+        >
+        <text v-if="deleteConfirmText && !isDeleteAgentNameMatched" class="delete-agent-helper">
+          {{ t('home.deleteAgentNameMismatch') }}
+        </text>
       </view>
 
       <view class="delete-agent-footer">
-        <wd-button type="info" custom-class="delete-agent-button" :disabled="deleteAgentLoading" @click="closeDeleteAgentDialog">
+        <view
+          class="nx-btn delete-agent-button"
+          :class="{ 'is-disabled': deleteAgentLoading }"
+          role="button"
+          @click="closeDeleteAgentDialog"
+        >
           {{ t('common.cancel') }}
-        </wd-button>
-        <wd-button
-          type="primary"
-          custom-class="delete-agent-button"
-          :loading="deleteAgentLoading"
-          :disabled="!isDeleteAgentNameMatched"
+        </view>
+        <view
+          class="nx-btn delete-agent-button delete-agent-button--danger"
+          :class="{ 'is-disabled': !isDeleteAgentNameMatched || deleteAgentLoading }"
+          role="button"
           @click="handleDeleteAgent"
         >
-          {{ t('common.confirm') }}
-        </wd-button>
+          <wd-loading v-if="deleteAgentLoading" size="16px" custom-class="delete-agent-spinner" />
+          {{ t('common.delete') }}
+        </view>
       </view>
     </view>
   </wd-popup>
 </template>
 
 <style lang="scss" scoped>
-.banner-section {
-  background: linear-gradient(145deg, #9ebbfc, #6baaff, #9ebbfc, #f5f8fd);
-  position: relative;
-  padding: 40rpx 40rpx 80rpx 40rpx;
-  overflow: hidden;
+// ---------- Header
+.home-header {
+  padding-left: var(--nx-gutter);
+  padding-right: var(--nx-gutter);
+  background: var(--nx-bg);
 
-  .banner-content {
-    position: relative;
-    z-index: 2;
-  }
-
-  .header-actions {
-    position: absolute;
-    top: -50rpx;
-    right: 0;
+  &__row {
     display: flex;
-    gap: 32rpx;
-
-    .filter-icon,
-    .setting-icon {
-      color: white;
-      cursor: pointer;
-      transition: opacity 0.2s ease;
-
-      &:active {
-        opacity: 0.7;
-      }
-    }
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    padding: var(--nx-space-5) 0 var(--nx-space-4);
   }
-
-  .welcome-info {
-    .greeting {
-      display: block;
-      font-size: 48rpx;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 16rpx;
-      text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
-    }
-
-    .subtitle {
-      display: block;
-      font-size: 32rpx;
-      color: rgba(255, 255, 255, 0.9);
-      margin-bottom: 12rpx;
-      font-weight: 500;
-
-      .highlight {
-        color: #ffd700;
-        font-weight: 600;
-      }
-    }
-
-    .english-subtitle {
-      display: block;
-      font-size: 24rpx;
-      color: rgba(255, 255, 255, 0.7);
-      font-style: italic;
-    }
+  &__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
-
-  .wave-decoration {
-    position: absolute;
-    top: 0;
-    right: -100rpx;
-    width: 400rpx;
-    height: 100%;
-    opacity: 0.1;
-    pointer-events: none;
-
-    .wave {
-      position: absolute;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
-      border-radius: 50%;
-      animation: float 6s ease-in-out infinite;
-
-      &.wave-2 {
-        top: 20%;
-        right: 20%;
-        animation-delay: -3s;
-        opacity: 0.5;
-      }
+  &__eyebrow {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+    color: var(--nx-text-2);
+  }
+  &__title {
+    margin-top: var(--nx-space-1);
+    font-size: var(--nx-text-display);
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    color: var(--nx-text);
+  }
+  &__add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    border-radius: 50%;
+    background: var(--nx-accent);
+    color: var(--nx-on-accent);
+    box-shadow: var(--nx-shadow-2);
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+    &:active {
+      transform: scale(0.94);
+      background: var(--nx-accent-hover);
     }
   }
 }
 
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(0deg);
-  }
+.home-body {
+  padding: 0 var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
+}
 
-  50% {
-    transform: translateY(-30rpx) rotate(180deg);
+// ---------- Summary
+.home-summary {
+  display: flex;
+  margin-bottom: var(--nx-space-5);
+  padding: var(--nx-space-4) 0;
+}
+.home-stat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-1);
+  padding: 0 var(--nx-space-4);
+  &:not(:last-child) {
+    border-right: 1rpx solid var(--nx-border);
+  }
+  &__label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__value {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: var(--nx-text-title);
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--nx-text);
   }
 }
 
-// Content area transition
-.content-section-header {
-  background: #ffffff;
-  border-radius: 32rpx 32rpx 0 0;
-  margin-top: -32rpx;
+.home-section {
+  padding-left: var(--nx-space-2);
+}
+.home-hint {
+  margin-top: var(--nx-space-2);
+  text-align: center;
+}
+
+.home-skel-label {
+  width: 70%;
+  height: 24rpx;
+}
+.home-skel-value {
+  width: 40%;
+  height: 44rpx;
+}
+.home-skel-title {
+  width: 55%;
   height: 32rpx;
-  position: relative;
-  z-index: 1;
+}
+.home-skel-line {
+  width: 80%;
+  height: 24rpx;
+  margin-top: var(--nx-space-2);
 }
 
-// z-paging content area styles
-:deep(.z-paging-content) {
-  background: #ffffff;
-  padding: 0 0 40rpx 0;
-}
-
+// ---------- Agent cards
 .agent-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
-  padding: 0 20rpx;
+  gap: var(--nx-space-3);
 }
 
 .agent-item {
-  :deep(.wd-swipe-action) {
-    border-radius: 16rpx;
-    overflow: hidden;
-    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-    border: 1rpx solid #f0f0f0;
+  overflow: hidden;
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-surface);
+  box-shadow: var(--nx-shadow-1);
+}
+
+.agent-card {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-4);
+  background: var(--nx-surface);
+  transition: background var(--nx-dur-1) var(--nx-ease);
+  &:active {
+    background: var(--nx-surface-2);
+  }
+  &--skeleton {
+    margin-bottom: var(--nx-space-3);
+  }
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 88rpx;
+    height: 88rpx;
+    border-radius: var(--nx-radius);
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-headline);
+    font-weight: 700;
+  }
+  &__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  &__name {
+    display: block;
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--nx-text);
+  }
+  &__models {
+    display: block;
+    margin-top: 4rpx;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    min-width: 0;
+    margin-top: var(--nx-space-2);
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-2);
+  }
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+    flex: none;
+    font-weight: 500;
+  }
+  &__time {
+    flex: 1;
+    color: var(--nx-text-3);
+  }
+  &__tags {
+    display: block;
+    margin-top: var(--nx-space-1);
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
   }
 }
 
-.simple-card {
-  background: #ffffff;
-  padding: 24rpx;
-  cursor: pointer;
-  transition: all 0.2s ease;
+:deep(.agent-card__chevron) {
+  flex: none;
+  color: var(--nx-text-3);
+}
 
-  &:active {
-    background: #f8f9fa;
+.agent-card__pulse {
+  animation: nx-pulse 2.4s ease-in-out infinite;
+}
+@keyframes nx-pulse {
+  0%,
+  100% {
+    opacity: 1;
   }
-
-  .card-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  50% {
+    opacity: 0.45;
   }
-
-  .card-main {
-    flex: 1;
-    width: 100%;
-  }
-
-  .agent-title {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12rpx;
-
-    .agent-name {
-      font-size: 32rpx;
-      font-weight: 600;
-      color: #1a1a1a;
-    }
-  }
-
-  .model-info {
-    margin-bottom: 16rpx;
-
-    .model-text {
-      display: block;
-      font-size: 24rpx;
-      color: #666666;
-      line-height: 1.5;
-      margin-bottom: 4rpx;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-    }
-  }
-
-  .stats-row {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12rpx;
-    flex-wrap: wrap;
-
-    .stat-chip {
-      display: flex;
-      align-items: center;
-      padding: 6rpx 12rpx;
-      background: #f8f9fa;
-      border-radius: 20rpx;
-      border: 1rpx solid #eaeaea;
-
-      :deep(.chip-icon) {
-        font-size: 20rpx;
-        color: #666666;
-        margin-right: 6rpx;
-      }
-
-      .chip-text {
-        font-size: 22rpx;
-        color: #666666;
-      }
-    }
-  }
-
-  :deep(.arrow-icon) {
-    font-size: 24rpx;
-    color: #c7c7cc;
-    margin-left: 16rpx;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-card__pulse {
+    animation: none;
   }
 }
 
 .swipe-actions {
   display: flex;
   height: 100%;
-
-  .action-btn {
-    width: 120rpx;
+  &__delete {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8rpx;
-    color: #ffffff;
-    font-size: 24rpx;
-    font-weight: 500;
-    transition: all 0.3s ease;
-
-    &.edit-btn {
-      background: #1890ff;
-
-      &:active {
-        background: #096dd9;
-      }
-    }
-
-    &.delete-btn {
-      background: #ff4d4f;
-
-      &:active {
-        background: #d9363e;
-      }
-    }
-
-    :deep(.wd-icon) {
-      font-size: 32rpx;
+    gap: var(--nx-space-1);
+    width: 144rpx;
+    background: var(--nx-danger);
+    color: var(--nx-on-accent);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    &:active {
+      opacity: 0.85;
     }
   }
 }
 
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 100rpx 40rpx;
-  text-align: center;
-
-  :deep(.empty-icon) {
-    font-size: 120rpx;
-    color: #d9d9d9;
-    margin-bottom: 32rpx;
-  }
-
-  .empty-text {
-    font-size: 32rpx;
-    color: #666666;
-    margin-bottom: 16rpx;
-    font-weight: 500;
-  }
-
-  .empty-desc {
-    font-size: 26rpx;
-    color: #999999;
-    line-height: 1.5;
-  }
+.home-empty-btn {
+  margin-top: var(--nx-space-3);
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
-
-.filter-actions {
-  padding: 32rpx;
-  text-align: center;
-  border-top: 1rpx solid #eeeeee;
+// ---------- Delete dialog
+:deep(.wd-popup.nx-dialog) {
+  width: 86%;
+  max-width: 840rpx;
+  overflow: hidden;
+  border-radius: var(--nx-radius-xl);
+  background: var(--nx-surface);
+  box-shadow: var(--nx-shadow-3);
 }
 
 .delete-agent-dialog {
-  overflow: hidden;
-  background: #ffffff;
+  background: var(--nx-surface);
 }
 
 .delete-agent-header {
-  padding: 32rpx 32rpx 20rpx;
-  border-bottom: 1rpx solid #f0f0f0;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-5) var(--nx-space-5) 0;
+}
+
+.delete-agent-icon {
+  background: var(--nx-danger-soft);
+  color: var(--nx-danger);
 }
 
 .delete-agent-title {
-  font-size: 32rpx;
+  font-size: var(--nx-text-headline);
   font-weight: 600;
-  color: #232338;
+  color: var(--nx-text);
 }
 
 .delete-agent-body {
-  padding: 32rpx;
-}
-
-.delete-agent-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 16rpx;
-}
-
-:deep(.delete-agent-warning) {
-  margin-top: 4rpx;
-  color: #e6a23c;
-  font-size: 40rpx;
-}
-
-.delete-agent-message {
-  flex: 1;
-  min-width: 0;
+  padding: var(--nx-space-3) var(--nx-space-5) var(--nx-space-4);
 }
 
 .delete-agent-tip {
   display: block;
-  color: #606266;
-  font-size: 28rpx;
-  line-height: 1.6;
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-callout);
+  line-height: 1.5;
 }
 
 .delete-agent-target {
   box-sizing: border-box;
   width: 100%;
-  margin-top: 20rpx;
-  padding: 18rpx 20rpx;
-  border: 1rpx solid #ebeef5;
-  border-radius: 12rpx;
-  background: #f5f7fa;
-  color: #303133;
-  font-size: 30rpx;
+  margin-top: var(--nx-space-3);
+  padding: var(--nx-space-2) var(--nx-space-3);
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-surface-2);
+  color: var(--nx-text);
+  font-size: var(--nx-text-body);
   font-weight: 600;
   line-height: 1.5;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .delete-agent-copy-guard {
@@ -771,34 +851,49 @@ onMounted(() => {
 .delete-agent-input {
   box-sizing: border-box;
   width: 100%;
-  height: 80rpx;
-  margin-top: 28rpx;
-  padding: 0 20rpx;
-  border: 1rpx solid #eeeeee;
-  border-radius: 12rpx;
-  background: #f5f7fb;
-  color: #232338;
-  font-size: 28rpx;
-  outline: none;
+  height: var(--nx-touch);
+  margin-top: var(--nx-space-3);
+  padding: 0 var(--nx-space-3);
+  border: 1rpx solid var(--nx-border-strong);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+  color: var(--nx-text);
+  font-size: var(--nx-text-body);
+}
+
+:deep(.delete-agent-placeholder) {
+  color: var(--nx-text-3);
 }
 
 .delete-agent-helper {
   display: block;
-  min-height: 32rpx;
-  margin-top: 10rpx;
-  color: #f56c6c;
-  font-size: 24rpx;
+  margin-top: var(--nx-space-1);
+  color: var(--nx-danger);
+  font-size: var(--nx-text-caption);
   line-height: 1.4;
 }
 
 .delete-agent-footer {
   display: flex;
-  gap: 16rpx;
-  padding: 24rpx 32rpx 32rpx;
-  border-top: 1rpx solid #eeeeee;
+  gap: var(--nx-space-2);
+  padding: 0 var(--nx-space-5) var(--nx-space-5);
 }
 
-:deep(.delete-agent-button) {
+.delete-agent-button {
   flex: 1;
+  min-width: 0;
+  padding: 0 var(--nx-space-3);
+  &--danger {
+    background: var(--nx-danger);
+    color: var(--nx-on-accent);
+  }
+  &.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+}
+
+:deep(.delete-agent-spinner) {
+  margin-right: var(--nx-space-1);
 }
 </style>

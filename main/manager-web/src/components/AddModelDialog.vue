@@ -2,90 +2,94 @@
   <CustomDialog
     :visible.sync="dialogVisible"
     :title="$t('modelConfigDialog.addModel')"
-    width="960px"
-    size="large"
-    class="add-model-dialog"
+    width="880px"
+    class="model-form-dialog"
     :confirmLoading="saving"
+    :cancel-text="$t('button.cancel')"
+    :confirm-text="$t('modelConfigDialog.addModel')"
     @close="handleClose"
     @confirm="confirm"
   >
-    <div class="dialog-content">
-      <!-- Model Information Section -->
-      <div class="section-header">
-        <div class="section-title">{{ $t('modelConfigDialog.modelInfo') }}</div>
-        <div class="switch-group">
-          <div class="switch-item">
+    <div class="mf">
+      <!-- Model information -->
+      <section class="mf-section">
+        <div class="mf-section__head">
+          <h3 class="mf-section__title">{{ $t('modelConfigDialog.modelInfo') }}</h3>
+          <label class="mf-toggle">
             <span>{{ $t('modelConfigDialog.enable') }}</span>
-            <el-switch v-model="formData.isEnabled" class="custom-switch"></el-switch>
-          </div>
-          <div class="switch-item" style="display: none;">
-            <span>{{ $t('modelConfigDialog.setDefault') }}</span>
-            <el-switch v-model="formData.isDefault" class="custom-switch"></el-switch>
-          </div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-      <el-form :model="formData" label-width="auto" label-position="left" class="custom-form">
-        <div class="form-row">
-          <el-form-item :label="$t('modelConfigDialog.modelId')" prop="id" style="flex: 1;">
-            <el-input v-model="formData.id" :placeholder="$t('modelConfigDialog.enterModelId')" class="custom-input-bg"
-              maxlength="32"></el-input>
-          </el-form-item>
-        </div>
-        <div class="form-row">
-          <el-form-item :label="$t('modelConfigDialog.modelName')" prop="modelName" style="flex: 1;">
-            <el-input v-model="formData.modelName" :placeholder="$t('modelConfigDialog.enterModelName')"
-              class="custom-input-bg"></el-input>
-          </el-form-item>
-          <el-form-item :label="$t('modelConfigDialog.modelCode')" prop="modelCode" style="flex: 1;">
-            <el-input v-model="formData.modelCode" :placeholder="$t('modelConfigDialog.enterModelCode')"
-              class="custom-input-bg"></el-input>
-          </el-form-item>
+            <el-switch v-model="formData.isEnabled" :aria-label="$t('modelConfigDialog.enable')"></el-switch>
+          </label>
         </div>
 
-        <div class="form-row">
-          <el-form-item :label="$t('modelConfigDialog.supplier')" prop="supplier" style="flex: 1;">
+        <el-form :model="formData" label-position="top" class="mf-grid" @submit.native.prevent>
+          <el-form-item :label="$t('modelConfigDialog.modelName')" prop="modelName">
+            <el-input v-model="formData.modelName" :placeholder="$t('modelConfigDialog.enterModelName')"></el-input>
+          </el-form-item>
+          <el-form-item :label="$t('modelConfigDialog.supplier')" prop="supplier" required>
             <el-select v-model="formData.supplier" :placeholder="$t('modelConfigDialog.selectSupplier')"
-              class="custom-select custom-input-bg" style="width: 100%;" @focus="loadProviders" filterable>
+              class="mf-full" filterable @focus="loadProviders">
               <el-option v-for="item in providers" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
-          <el-form-item :label="$t('modelConfigDialog.sortOrder')" prop="sortOrder" style="flex: 1;">
-            <el-input v-model="formData.sort" type="number" :placeholder="$t('modelConfigDialog.enterSortOrder')"
-              class="custom-input-bg"></el-input>
+          <el-form-item :label="$t('modelConfigDialog.modelCode')" prop="modelCode">
+            <el-input v-model="formData.modelCode" :placeholder="$t('modelConfigDialog.enterModelCode')"
+              class="mf-mono"></el-input>
           </el-form-item>
+          <el-form-item :label="$t('modelConfigDialog.modelId')" prop="id">
+            <el-input v-model="formData.id" :placeholder="$t('modelConfigDialog.enterModelId')" maxlength="32"
+              class="mf-mono"></el-input>
+          </el-form-item>
+          <el-form-item :label="$t('modelConfigDialog.remark')" prop="remark" class="mf-span">
+            <el-input v-model="formData.remark" type="textarea" :placeholder="$t('modelConfigDialog.enterRemark')"
+              :autosize="{ minRows: 2, maxRows: 5 }"></el-input>
+          </el-form-item>
+        </el-form>
+      </section>
+
+      <!-- Connection fields from the selected provider -->
+      <section v-if="basicCallInfoFields.length" class="mf-section">
+        <div class="mf-section__head">
+          <h3 class="mf-section__title">{{ $t('modelConfigDialog.callInfo') }}</h3>
         </div>
-
-        <el-form-item :label="$t('modelConfigDialog.docLink')" prop="docLink" style="margin-bottom: 27px;">
-          <el-input v-model="formData.docLink" :placeholder="$t('modelConfigDialog.enterDocLink')"
-            class="custom-input-bg"></el-input>
-        </el-form-item>
-
-        <el-form-item :label="$t('modelConfigDialog.remark')" prop="remark" class="prop-remark">
-          <el-input v-model="formData.remark" type="textarea" :rows="3"
-            :placeholder="$t('modelConfigDialog.enterRemark')" :autosize="{ minRows: 3, maxRows: 5 }"
-            class="custom-input-bg"></el-input>
-        </el-form-item>
-      </el-form>
-
-      <teleport v-if="chunkedCallInfoFields.length">
-        <div class="section-title">{{ $t('modelConfigDialog.callInfo') }}</div>
-        <div class="divider"></div>
-      </teleport>
-
-      <el-form :model="formData.configJson" label-width="auto" label-position="left" class="custom-form">
-        <div v-for="(row, rowIndex) in chunkedCallInfoFields" :key="rowIndex" class="form-row">
-          <el-form-item v-for="field in row" :key="field.prop" :label="field.label" :prop="field.prop" style="flex: 1;">
-            <el-input v-if="field.type === 'json-textarea'" v-model="formData.configJson[field.prop]" type="textarea"
-              :rows="3" :placeholder="field.placeholder" class="custom-input-bg">
-            </el-input>
-            <el-input v-else v-model="formData.configJson[field.prop]" :placeholder="field.placeholder"
-              :type="field.type || 'text'" class="custom-input-bg" :show-password="field.type === 'password'">
+        <el-form :model="formData.configJson" label-position="top" class="mf-grid" @submit.native.prevent>
+          <el-form-item v-for="field in basicCallInfoFields" :key="field.prop" :label="field.label" :prop="field.prop">
+            <el-input v-model="formData.configJson[field.prop]" :placeholder="field.placeholder"
+              :type="field.type || 'text'" :show-password="field.type === 'password'"
+              :autocomplete="field.type === 'password' ? 'new-password' : 'off'"
+              :class="{ 'mf-mono': field.type === 'password' }">
             </el-input>
           </el-form-item>
+        </el-form>
+      </section>
+
+      <!-- Advanced: JSON settings, sort order, documentation -->
+      <section class="mf-section mf-advanced" :class="{ 'is-open': showAdvanced }">
+        <button type="button" class="mf-disclosure" :aria-expanded="showAdvanced ? 'true' : 'false'"
+          @click="showAdvanced = !showAdvanced">
+          <i class="el-icon-arrow-right mf-disclosure__icon" aria-hidden="true"></i>
+          <span class="mf-section__title">{{ tx('modelConfig.advanced', 'Advanced') }}</span>
+          <span class="mf-disclosure__hint">{{ tx('modelConfig.advancedHint', 'JSON settings, sort order and documentation link') }}</span>
+        </button>
+        <div v-show="showAdvanced" class="mf-advanced__body">
+          <el-form :model="formData.configJson" label-position="top" class="mf-grid" @submit.native.prevent>
+            <el-form-item v-for="field in jsonCallInfoFields" :key="field.prop" :label="field.label" :prop="field.prop"
+              class="mf-span">
+              <el-input v-model="formData.configJson[field.prop]" type="textarea" class="mf-code"
+                :autosize="{ minRows: 3, maxRows: 12 }" :placeholder="$t('modelConfigDialog.enterJsonExample')">
+              </el-input>
+            </el-form-item>
+          </el-form>
+          <el-form :model="formData" label-position="top" class="mf-grid" @submit.native.prevent>
+            <el-form-item :label="$t('modelConfigDialog.sortOrder')" prop="sortOrder">
+              <el-input v-model="formData.sort" type="number" :placeholder="$t('modelConfigDialog.enterSortOrder')"
+                class="nx-num"></el-input>
+            </el-form-item>
+            <el-form-item :label="$t('modelConfigDialog.docLink')" prop="docLink">
+              <el-input v-model="formData.docLink" :placeholder="$t('modelConfigDialog.enterDocLink')"></el-input>
+            </el-form-item>
+          </el-form>
         </div>
-      </el-form>
+      </section>
     </div>
   </CustomDialog>
 </template>
@@ -110,6 +114,7 @@ export default {
       providersLoaded: false,
       providerFields: [],
       currentProvider: null,
+      showAdvanced: false,
       formData: {
         id: '',
         modelName: '',
@@ -143,6 +148,12 @@ export default {
     dynamicCallInfoFields() {
       return this.providerFields;
     },
+    basicCallInfoFields() {
+      return this.dynamicCallInfoFields.filter(f => f.type !== 'json-textarea');
+    },
+    jsonCallInfoFields() {
+      return this.dynamicCallInfoFields.filter(f => f.type === 'json-textarea');
+    },
     chunkedCallInfoFields() {
       const chunkSize = 2;
       const result = [];
@@ -153,6 +164,11 @@ export default {
     }
   },
   methods: {
+    // $t with an English fallback for keys still waiting in i18n/_pending
+    tx(key, fallback) {
+      const value = this.$t(key);
+      return value !== key ? value : fallback;
+    },
     loadProviders() {
       if (this.providersLoaded)
         return
@@ -219,7 +235,8 @@ export default {
           }
           this.formData.configJson[field.prop] = parsed;
         } catch (e) {
-          this.$message.error('必须输入字典格式（如 {"key":"value"}）');
+          this.showAdvanced = true;
+          this.$message.error(this.tx('modelConfig.jsonObjectRequired', 'Enter a JSON object, for example {"key":"value"}.'));
           this.saving = false;
           return;
         }
@@ -272,6 +289,7 @@ export default {
       // Reset field configuration
       this.providerFields = [];
       this.currentProvider = null;
+      this.showAdvanced = false;
     },
     
     // Validate model ID: cannot be pure text or spaces
@@ -310,103 +328,132 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import '@/styles/global.scss';
+// Model form dialog (shared look with AddModelDialog / ModelEditDialog)
+.mf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-5);
+}
 
-::v-deep .el-dialog {
-  margin-top: 6vh !important;
-}
-::v-deep .el-dialog__body {
-  max-height: 60vh;
-  overflow-y: auto;
-  @include scrollbar-style;
-}
-.add-model-dialog {
-  .section-header {
+.mf-section {
+  & + & {
+    padding-top: var(--nx-space-5);
+    border-top: 1px solid var(--nx-border);
+  }
+
+  &__head {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
+    gap: var(--nx-space-3);
+    margin-bottom: var(--nx-space-3);
   }
-
-  .section-title {
-    margin-bottom: 10px;
-    font-size: 20px;
-    font-weight: bold;
-    color: #3d4566;
-    text-align: left;
-  }
-
-  .switch-group {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .switch-item {
-    display: flex;
-    align-items: center;
-
-    span {
-      margin-right: 8px;
-    }
-  }
-
-  .divider {
-    height: 1px;
-    background: #e9e9e9;
-    margin-bottom: 16px;
-  }
-
-  .form-row {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 0;
-  }
-
-  .dialog-footer {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    padding: 16px 20px;
+  &__title {
+    margin: 0;
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    color: var(--nx-text);
   }
 }
 
-.custom-form .el-form-item {
-  margin-bottom: 10px;
+.mf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-1) var(--nx-space-1) var(--nx-space-1) var(--nx-space-3);
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-2);
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-text-2);
+  cursor: pointer;
 }
 
-.custom-switch .el-switch__core {
-  border-radius: 20px;
-  height: 23px;
-  background-color: #c0ccda;
-  width: 35px;
-  padding: 0 20px;
+// Two columns on wide dialogs, one on narrow screens; labels sit above fields
+.mf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--nx-space-4);
+
+  ::v-deep .el-form-item {
+    min-width: 0;
+    margin-bottom: var(--nx-space-4);
+  }
+  ::v-deep .el-form-item__label {
+    padding-bottom: var(--nx-space-1);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  ::v-deep .el-select,
+  ::v-deep .el-input-number {
+    width: 100%;
+  }
 }
 
-.custom-switch .el-switch__core:after {
-  width: 15px;
-  height: 15px;
-  background-color: white;
-  top: 3px;
-  left: 4px;
-  transition: all 0.3s;
+.mf-span {
+  grid-column: 1 / -1;
 }
 
-.custom-switch.is-checked .el-switch__core {
-  border-color: #b5bcf0;
-  background-color: #cfd7fa;
-  padding: 0 20px;
+.mf-full {
+  width: 100%;
 }
 
-.custom-switch.is-checked .el-switch__core:after {
-  left: 100%;
-  margin-left: -18px;
-  background-color: #1b47ee;
+.mf-mono ::v-deep .el-input__inner,
+.mf-code ::v-deep .el-textarea__inner {
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-footnote);
 }
 
-.custom-input-bg .el-input__inner {
-  height: 32px;
+.mf-code ::v-deep .el-textarea__inner {
+  line-height: 1.55;
 }
-::v-deep .el-input__inner {
-  height: 32px;
+
+// "Advanced" disclosure
+.mf-disclosure {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--nx-space-1) var(--nx-space-2);
+  width: 100%;
+  min-height: var(--nx-control-h-lg);
+  margin: calc(-1 * var(--nx-space-2)) 0 0;
+  padding: var(--nx-space-2) var(--nx-space-2) var(--nx-space-2) 0;
+  border: 0;
+  border-radius: var(--nx-radius);
+  background: transparent;
+  color: var(--nx-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover .mf-disclosure__icon {
+    color: var(--nx-text);
+  }
+
+  &__icon {
+    color: var(--nx-text-3);
+    transition: transform var(--nx-dur-2) var(--nx-ease);
+  }
+  &__hint {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-3);
+  }
+}
+
+.mf-advanced.is-open .mf-disclosure__icon {
+  transform: rotate(90deg);
+}
+
+.mf-advanced__body {
+  padding-top: var(--nx-space-3);
+}
+
+@media (max-width: 640px) {
+  .mf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mf-disclosure__hint {
+    flex-basis: 100%;
+    padding-left: 22px;
+  }
 }
 </style>

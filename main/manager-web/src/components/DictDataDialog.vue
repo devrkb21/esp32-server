@@ -2,17 +2,17 @@
   <CustomDialog
     :title="title"
     :visible.sync="dialogVisible"
-    width="600px"
+    width="480px"
     @confirm="submit"
     @close="cancel"
     :confirmLoading="saving"
   >
-    <el-form :model="form" :rules="rules" ref="form" label-width="auto" label-position="left">
+    <el-form :model="form" :rules="rules" ref="form" label-position="top">
       <el-form-item :label="$t('dictDataDialog.dictLabel')" prop="dictLabel" class="form-item">
         <el-input v-model="form.dictLabel" :placeholder="$t('dictDataDialog.dictLabelPlaceholder')" />
       </el-form-item>
       <el-form-item :label="$t('dictDataDialog.dictValue')" prop="dictValue" class="form-item">
-        <el-input v-model="form.dictValue" :placeholder="$t('dictDataDialog.dictValuePlaceholder')" />
+        <el-input v-model="form.dictValue" class="mono-input" :placeholder="$t('dictDataDialog.dictValuePlaceholder')" />
       </el-form-item>
       <el-form-item :label="$t('dictDataDialog.sort')" prop="sort" class="form-item">
         <el-input-number v-model="form.sort" :min="0" :max="999" class="custom-input-number"></el-input-number>
@@ -32,7 +32,9 @@ export default {
     },
     title: {
       type: String,
-      default: () => this.$t('dictDataDialog.addDictData')
+      default() {
+        return this.$t('dictDataDialog.addDictData');
+      }
     },
     dictData: {
       type: Object,
@@ -113,5 +115,9 @@ export default {
 <style scoped lang="scss">
 .custom-input-number {
   width: 100%;
+}
+.mono-input ::v-deep .el-input__inner {
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-footnote);
 }
 </style>

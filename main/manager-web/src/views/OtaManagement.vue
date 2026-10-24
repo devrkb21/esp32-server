@@ -1,78 +1,103 @@
 <template>
-    <div class="welcome">
+    <div class="nx-admin">
         <HeaderBar />
-        <div class="main-wrapper">
-            <div class="content-panel">
-                <div class="content-area">
-                    <el-card class="params-card" shadow="never">
-                        <div class="operation-header">
-                            <h2 class="page-title">{{ $t('otaManagement.firmwareManagement') }}</h2>
-                            <div class="right-operations">
-                                <el-input :placeholder="$t('otaManagement.searchPlaceholder')" v-model="searchName"
-                                    class="search-input" @keyup.enter.native="handleSearch" clearable />
-                                <CustomButton icon="el-icon-search" type="confirm" @click="handleSearch">
-                                    {{ $t('otaManagement.search') }}
-                                </CustomButton>
+        <main class="nx-page">
+            <header class="nx-page-header">
+                <div class="nx-page-header__text">
+                    <h1 class="nx-title">{{ $t('otaManagement.firmwareManagement') }}</h1>
+                    <p class="nx-page-header__desc">{{ tt('otaManagement.pageDesc', 'Firmware builds robots download when they check for updates.') }}</p>
+                </div>
+                <div class="nx-page-header__actions">
+                    <el-input v-model="searchName" class="admin-search" prefix-icon="el-icon-search" clearable
+                        :placeholder="$t('otaManagement.searchPlaceholder')" :aria-label="$t('otaManagement.search')"
+                        @keyup.enter.native="handleSearch" @clear="handleSearch" />
+                    <CustomButton type="add" icon="el-icon-upload2" @click="showAddDialog">
+                        {{ $t('otaManagement.addFirmware') }}
+                    </CustomButton>
+                </div>
+            </header>
+
+            <section class="nx-card nx-card--flush table-card">
+                <div class="table-card__toolbar">
+                    <el-checkbox :value="allRowsSelected" :indeterminate="selectedCount > 0 && !allRowsSelected"
+                        :disabled="!firmwareList.length" @change="handleSelectAll">
+                        {{ selectedCount ? tt('otaManagement.selectedCount', '{count} selected', { count: selectedCount }) : $t('otaManagement.selectAll') }}
+                    </el-checkbox>
+                    <span class="nx-spacer"></span>
+                    <CustomButton size="small" type="delete" icon="el-icon-delete" :disabled="!selectedCount"
+                        @click="deleteSelectedParams">
+                        {{ $t('otaManagement.delete') }}
+                    </CustomButton>
+                </div>
+
+                <div v-if="!loading && !paramsList.length" class="nx-empty">
+                    <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-cpu"></i></span>
+                    <template v-if="searchName">
+                        <p class="nx-empty__title">{{ tt('otaManagement.emptySearchTitle', 'No firmware matches your search') }}</p>
+                        <p class="nx-empty__text">{{ tt('otaManagement.emptySearchText', 'Try another name or clear the search.') }}</p>
+                        <CustomButton class="nx-empty__action" @click="clearSearch">{{ tt('otaManagement.clearSearch', 'Clear search') }}</CustomButton>
+                    </template>
+                    <template v-else>
+                        <p class="nx-empty__title">{{ tt('otaManagement.emptyTitle', 'No firmware yet') }}</p>
+                        <p class="nx-empty__text">{{ tt('otaManagement.emptyText', 'Upload a .bin build so robots can update over the air.') }}</p>
+                        <CustomButton class="nx-empty__action" type="add" icon="el-icon-upload2" @click="showAddDialog">
+                            {{ $t('otaManagement.addFirmware') }}
+                        </CustomButton>
+                    </template>
+                </div>
+
+                <div v-else class="table-card__body" :style="{ '--rows': paramsList.length }">
+                    <CustomTable ref="paramsTable" :data="paramsList" :columns="tableColumns" :loading="loading"
+                        :show-selection="true" :show-operations="true" :operations-label="$t('otaManagement.action')"
+                        :operations-width="220" :total="total" :current-page="currentPage" :page-size="pageSize"
+                        :page-size-options="pageSizeOptions" @size-change="handlePageSizeChange" @page-change="goToPage">
+                        <template slot="selection" slot-scope="scope">
+                            <el-checkbox v-model="scope.row.selected" :aria-label="scope.row.firmwareName"></el-checkbox>
+                        </template>
+                        <template slot="firmwareName" slot-scope="scope">
+                            <div class="fw-cell">
+                                <span class="nx-icon-tile nx-icon-tile--neutral fw-cell__icon" aria-hidden="true"><i class="el-icon-cpu"></i></span>
+                                <div class="fw-cell__text">
+                                    <div class="fw-cell__name nx-truncate" :title="scope.row.firmwareName">{{ scope.row.firmwareName }}</div>
+                                    <div v-if="scope.row.remark" class="nx-caption nx-truncate" :title="scope.row.remark">{{ scope.row.remark }}</div>
+                                </div>
                             </div>
-                        </div>
-                        <CustomTable ref="paramsTable" :data="paramsList" :columns="tableColumns" :loading="loading"
-                            :show-selection="true" :show-operations="true" :operations-label="$t('otaManagement.action')"
-                            :total="total" :current-page="currentPage" :page-size="pageSize"
-                            :page-size-options="pageSizeOptions" @size-change="handlePageSizeChange"
-                            @page-change="goToPage">
-                            <template slot="selection" slot-scope="scope">
-                                <el-checkbox v-model="scope.row.selected"></el-checkbox>
-                            </template>
-                            <template slot="type" slot-scope="scope">
-                                {{ getFirmwareTypeName(scope.row.type) }}
-                            </template>
-                            <template slot="size" slot-scope="scope">
-                                {{ formatFileSize(scope.row.size) }}
-                            </template>
-                            <template slot="createDate" slot-scope="scope">
-                                {{ formatDate(scope.row.createDate) }}
-                            </template>
-                            <template slot="updateDate" slot-scope="scope">
-                                {{ formatDate(scope.row.updateDate) }}
-                            </template>
-                            <template slot="operations" slot-scope="scope">
-                                <el-button size="mini" type="text"
-                                    @click="downloadFirmware(scope.row)">{{ $t('otaManagement.download') }}</el-button>
-                                <el-button size="mini" type="text" @click="editParam(scope.row)">
-                                    {{ $t('otaManagement.edit') }}
-                                </el-button>
-                                <el-button size="mini" type="text" @click="deleteParam(scope.row)">
+                        </template>
+                        <template slot="type" slot-scope="scope">
+                            <span class="nx-badge nx-badge--info nx-truncate" :title="getFirmwareTypeName(scope.row.type)">
+                                {{ getFirmwareTypeName(scope.row.type) || '—' }}
+                            </span>
+                        </template>
+                        <template slot="version" slot-scope="scope">
+                            <span class="nx-mono">{{ scope.row.version || '—' }}</span>
+                        </template>
+                        <template slot="size" slot-scope="scope">
+                            <span class="nx-num">{{ formatFileSize(scope.row.size) }}</span>
+                        </template>
+                        <template slot="createDate" slot-scope="scope">
+                            <span class="nx-num nx-muted">{{ formatDate(scope.row.createDate) || '—' }}</span>
+                        </template>
+                        <template slot="updateDate" slot-scope="scope">
+                            <span class="nx-num nx-muted">{{ formatDate(scope.row.updateDate) || '—' }}</span>
+                        </template>
+                        <template slot="operations" slot-scope="scope">
+                            <div class="row-actions">
+                                <el-button size="mini" type="text" @click="downloadFirmware(scope.row)">{{ $t('otaManagement.download') }}</el-button>
+                                <el-button size="mini" type="text" @click="editParam(scope.row)">{{ $t('otaManagement.edit') }}</el-button>
+                                <el-button size="mini" type="text" class="row-action--danger" @click="deleteParam(scope.row)">
                                     {{ $t('otaManagement.delete') }}
                                 </el-button>
-                            </template>
-                            <template slot="footer-btns">
-                                <div class="ctrl_btn">
-                                    <CustomButton
-                                        :icon="isAllSelected ? 'el-icon-circle-close' : 'el-icon-circle-check'"
-                                        size="small" @click="handleSelectAll">
-                                        {{ isAllSelected ? $t('otaManagement.deselectAll') : $t('otaManagement.selectAll') }}
-                                    </CustomButton>
-                                    <CustomButton type="add" icon="el-icon-plus" size="small" @click="showAddDialog">
-                                        {{ $t('otaManagement.addNew') }}
-                                    </CustomButton>
-                                    <CustomButton size="small" type="delete" icon="el-icon-delete"
-                                        @click="deleteSelectedParams">
-                                        {{ $t('otaManagement.delete') }}
-                                    </CustomButton>
-                                </div>
-                            </template>
-                        </CustomTable>
-                    </el-card>
+                            </div>
+                        </template>
+                    </CustomTable>
                 </div>
-            </div>
-        </div>
+            </section>
+        </main>
 
         <!-- Add/Edit Firmware Dialog -->
         <firmware-dialog ref="firmwareDialog" :title="dialogTitle" :visible.sync="dialogVisible" :form="firmwareForm"
             :firmware-types="firmwareTypes" @submit="handleSubmit" @cancel="dialogVisible = false" />
-        <el-footer>
-            <version-footer />
-        </el-footer>
+        <VersionFooter />
     </div>
 </template>
 
@@ -113,21 +138,33 @@ export default {
             tableColumns: []
         };
     },
+    computed: {
+        selectedCount() {
+            return this.firmwareList.filter(row => row.selected).length;
+        },
+        allRowsSelected() {
+            return this.firmwareList.length > 0 && this.selectedCount === this.firmwareList.length;
+        }
+    },
     created() {
         this.initTableColumns();
         this.fetchFirmwareList();
         this.getFirmwareTypes();
     },
     methods: {
+        // $t with an English fallback for keys that are still pending in src/i18n/_pending/web-system.js
+        tt(key, fallback, params) {
+            if (this.$te(key) || this.$te(key, 'en')) return this.$t(key, params);
+            return String(fallback).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] != null ? params[k] : m));
+        },
         initTableColumns() {
             this.tableColumns = [
-                { prop: 'firmwareName', label: this.$t('otaManagement.firmwareName'), align: 'center' },
-                { prop: 'type', label: this.$t('otaManagement.firmwareType'), align: 'center' },
-                { prop: 'version', label: this.$t('otaManagement.version'), align: 'center' },
-                { prop: 'size', label: this.$t('otaManagement.fileSize'), align: 'center' },
-                { prop: 'remark', label: this.$t('otaManagement.remark'), align: 'center' },
-                { prop: 'createDate', label: this.$t('otaManagement.createTime'), align: 'center' },
-                { prop: 'updateDate', label: this.$t('otaManagement.updateTime'), align: 'center' }
+                { prop: 'firmwareName', label: this.$t('otaManagement.firmwareName'), align: 'left', minWidth: 240, showOverflowTooltip: false },
+                { prop: 'type', label: this.$t('otaManagement.firmwareType'), align: 'left', minWidth: 150, showOverflowTooltip: false },
+                { prop: 'version', label: this.$t('otaManagement.version'), align: 'left', width: 110 },
+                { prop: 'size', label: this.$t('otaManagement.fileSize'), align: 'right', width: 110 },
+                { prop: 'createDate', label: this.$t('otaManagement.createTime'), align: 'left', minWidth: 170 },
+                { prop: 'updateDate', label: this.$t('otaManagement.updateTime'), align: 'left', minWidth: 170 }
             ];
         },
         handlePageSizeChange(val) {
@@ -154,6 +191,7 @@ export default {
                     }));
                     this.paramsList = this.firmwareList;
                     this.total = res.data.total || 0;
+                    this.isAllSelected = false;
                 } else {
                     this.firmwareList = [];
                     this.paramsList = [];
@@ -169,8 +207,12 @@ export default {
             this.currentPage = 1;
             this.fetchFirmwareList();
         },
+        clearSearch() {
+            this.searchName = "";
+            this.handleSearch();
+        },
         handleSelectAll() {
-            this.isAllSelected = !this.isAllSelected;
+            this.isAllSelected = !this.allRowsSelected;
             this.firmwareList.forEach(row => {
                 row.selected = this.isAllSelected;
             });
@@ -255,9 +297,11 @@ export default {
             }
 
             const paramCount = params.length;
-            this.$confirm(this.$t('otaManagement.confirmBatchDelete', { paramCount }), this.$t('common.warning'), {
-                confirmButtonText: this.$t('common.confirm'),
+            const title = paramCount === 1 && params[0].firmwareName ? params[0].firmwareName : this.$t('common.warning');
+            this.$confirm(this.$t('otaManagement.confirmBatchDelete', { paramCount }), title, {
+                confirmButtonText: this.$t('otaManagement.delete'),
                 cancelButtonText: this.$t('common.cancel'),
+                confirmButtonClass: 'el-button--danger',
                 type: 'warning',
                 distinguishCancelAndClose: true
             }).then(() => {
@@ -334,7 +378,7 @@ export default {
             }
         },
         getFirmwareTypeName(type) {
-            const firmwareType = this.firmwareTypes.find(item => item.key === type)
+            const firmwareType = (this.firmwareTypes || []).find(item => item.key === type)
             return firmwareType ? firmwareType.name : type
         },
     },
@@ -342,98 +386,102 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.welcome {
-    min-width: 900px;
-    min-height: 506px;
-    height: 100vh;
-    display: flex;
-    position: relative;
-    flex-direction: column;
-    background-size: cover;
-    background: #eff4ff;
-    -webkit-background-size: cover;
-    -o-background-size: cover;
-    overflow: hidden;
-}
-
-.main-wrapper {
-    height: calc(100vh - 63px - 35px);
-    padding: 20px 22px 0;
-    position: relative;
+// Admin page family: page header + one table card (shared look across the "More" pages)
+.nx-admin {
     display: flex;
     flex-direction: column;
-    box-sizing: border-box;
+    min-height: 100vh;
+    > .nx-page {
+        flex: 1 0 auto;
+    }
 }
-
-.operation-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 0 16px 0;
+.admin-search {
+    width: 260px;
+    max-width: 100%;
 }
-
-.page-title {
-    font-weight: 500;
-    font-size: 24px;
-    margin: 0;
-}
-
-.right-operations {
-    display: flex;
-    gap: 10px;
-    margin-left: auto;
-}
-
-.search-input {
-    width: 240px;
-}
-
-.content-panel {
-    display: flex;
-    overflow: hidden;
-    height: 100%;
-    border-radius: 15px;
-    background: transparent;
-    border: 1px solid #fff;
-}
-
-.content-area {
-    flex: 1;
-    height: 100%;
-    min-width: 600px;
-    overflow: auto;
-    background-color: white;
+.table-card {
     display: flex;
     flex-direction: column;
-}
-
-.params-card {
-    background: white;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    border: none;
-    box-shadow: none;
-    overflow: hidden;
-
-    ::v-deep .el-card__body {
-        padding: 14px 20px;
+    &__toolbar {
         display: flex;
-        flex-direction: column;
-        flex: 1;
-        overflow: hidden;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--nx-space-2);
+        min-height: 56px;
+        padding: var(--nx-space-3) var(--nx-space-5);
+        border-bottom: 1px solid var(--nx-border);
+        ::v-deep .el-checkbox__label {
+            font-size: var(--nx-text-footnote);
+            color: var(--nx-text-2);
+            font-variant-numeric: tabular-nums;
+        }
+    }
+    // Height follows the row count, capped to the viewport; the table body scrolls inside
+    &__body {
+        height: clamp(280px, calc(var(--rows, 0) * 61px + 100px), max(440px, calc(100vh - 300px)));
+        ::v-deep .custom-table-wrapper {
+            height: 100%;
+        }
+        ::v-deep .table-container {
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+        }
+        ::v-deep .table-footer {
+            height: 48px;
+            padding: 0 var(--nx-space-5);
+            border-top: 1px solid var(--nx-border);
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+        ::v-deep th.el-table__cell:last-child .cell,
+        ::v-deep td.el-table__cell:last-child .cell {
+            text-align: right;
+        }
+    }
+}
+.row-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 2px;
+    .el-button + .el-button {
+        margin-left: 0;
+    }
+}
+.row-action--danger.el-button--text {
+    color: var(--nx-danger);
+    &:hover,
+    &:focus {
+        color: var(--nx-danger);
+        background: var(--nx-danger-soft);
     }
 }
 
-.ctrl_btn {
+.fw-cell {
     display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    min-width: 0;
+    &__icon {
+        width: 36px;
+        height: 36px;
+        font-size: var(--nx-text-headline);
+    }
+    &__text {
+        min-width: 0;
+        flex: 1;
+    }
+    &__name {
+        font-weight: 600;
+        color: var(--nx-text);
+    }
 }
-
-:deep(.el-table .el-button--text) {
-    color: #7079aa;
-}
-
-:deep(.el-table .el-button--text:hover) {
-    color: #5a64b5;
+.nx-badge.nx-truncate {
+    display: inline-block;
+    max-width: 100%;
+    line-height: 22px;
+    vertical-align: middle;
 }
 </style>

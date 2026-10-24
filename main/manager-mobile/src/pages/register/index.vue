@@ -12,7 +12,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { register, sendSmsCode } from '@/api/auth'
 // Import i18n related functions
-import { initI18n, t } from '@/i18n'
+import { getCurrentLanguage, initI18n, t } from '@/i18n'
 import { useConfigStore } from '@/store'
 // Import SM2 encryption utility
 import { getEnvBaseUrl, sm2Encrypt } from '@/utils'
@@ -296,6 +296,26 @@ async function handleRegister() {
   }
 }
 
+// Show / hide the password text
+const showPassword = ref(false)
+
+// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
+function tx(key: string, fallback: string) {
+  const value = t(key)
+  return value === key ? fallback : value
+}
+
+// Legal pages
+function goToUserAgreement() {
+  const lang = getCurrentLanguage() === 'zh_CN' ? 'zh' : 'en'
+  uni.navigateTo({ url: `/pages/login/user-agreement-${lang}` })
+}
+
+function goToPrivacyPolicy() {
+  const lang = getCurrentLanguage() === 'zh_CN' ? 'zh' : 'en'
+  uni.navigateTo({ url: `/pages/login/privacy-policy-${lang}` })
+}
+
 // Back to login
 function goBack() {
   uni.redirectTo({
@@ -324,580 +344,510 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view class="app-container box-border h-screen w-full" :style="{ paddingTop: `${safeAreaInsets?.top}px` }">
-    <view class="header">
-      <view class="back-button" @click="goBack">
-        <wd-icon name="arrow-left" custom-class="back-icon" />
-      </view>
-      <view class="logo-section">
-        <wd-img :width="80" :height="80" round src="/static/logo.png" class="logo" />
-        <text class="welcome-text">
-          {{ t('register.pageTitle') }}
-        </text>
-        <text class="subtitle">
-          {{ t('register.createAccount') }}
-        </text>
+  <view class="nx-auth" :style="{ paddingTop: `${safeAreaInsets?.top || 0}px` }">
+    <view class="nx-auth__topbar nx-auth__topbar--split">
+      <view class="nx-auth__chip nx-auth__back" role="button" :aria-label="t('register.loginNow')" @click="goBack">
+        <wd-icon name="arrow-left" size="18px" />
+        <text>{{ tx('register.backToSignIn', 'Sign in') }}</text>
       </view>
     </view>
 
-    <view class="form-container">
-      <view class="form">
-        <!-- Mobile registration -->
-        <template v-if="enableMobileRegister">
-          <view class="input-group">
-            <view class="input-wrapper mobile-wrapper">
-              <view class="area-code-selector" @click="openAreaCodeSheet">
-                <text class="area-code-text">
-                  {{ selectedAreaCode }}
-                </text>
-                <wd-icon name="arrow-down" custom-class="area-code-arrow" />
-              </view>
-              <view class="mobile-input-wrapper">
-                <wd-input
-                  v-model="formData.mobile"
-                  custom-class="styled-input"
-                  no-border
-                  :placeholder="t('register.enterPhone')"
-                  type="number"
-                  :maxlength="11"
-                />
-              </view>
-            </view>
-          </view>
-        </template>
+    <view class="nx-auth__body">
+      <view class="nx-auth__hero">
+        <image class="nx-auth__logo" src="/static/logo.svg" mode="aspectFit" />
+        <text class="nx-auth__title">
+          Nobix Console
+        </text>
+        <text class="nx-auth__subtitle">
+          {{ tx('register.heroSubtitle', 'Create an account to set up and care for your robots.') }}
+        </text>
+      </view>
 
-        <!-- Username registration -->
-        <template v-else>
-          <view class="input-group">
-            <view class="input-wrapper">
-              <wd-input
-                v-model="formData.username"
-                custom-class="styled-input"
-                no-border
-                :placeholder="t('register.enterUsername')"
-              />
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ t('register.createAccount') }}
+        </view>
+        <view class="nx-group__body">
+          <!-- Mobile registration -->
+          <view v-if="enableMobileRegister" class="nx-field">
+            <view class="nx-field__prefix" role="button" :aria-label="t('register.selectCountry')" @click="openAreaCodeSheet">
+              <text class="nx-num">
+                {{ selectedAreaCode }}
+              </text>
+              <wd-icon name="arrow-down" size="12px" />
             </view>
+            <input
+              v-model="formData.mobile"
+              class="nx-field__input"
+              type="number"
+              :maxlength="11"
+              :placeholder="t('register.enterPhone')"
+              placeholder-class="nx-field__placeholder"
+            >
           </view>
-        </template>
 
-        <view class="input-group">
-          <view class="input-wrapper">
-            <wd-input
+          <!-- Username registration -->
+          <view v-else class="nx-field">
+            <wd-icon name="user" size="18px" custom-class="nx-field__icon" />
+            <input
+              v-model="formData.username"
+              class="nx-field__input"
+              type="text"
+              :placeholder="t('register.enterUsername')"
+              placeholder-class="nx-field__placeholder"
+            >
+          </view>
+
+          <view class="nx-field">
+            <wd-icon name="lock-on" size="18px" custom-class="nx-field__icon" />
+            <input
               v-model="formData.password"
-              custom-class="styled-input"
-              no-border
+              class="nx-field__input"
+              type="text"
+              :password="!showPassword"
+              :maxlength="20"
               :placeholder="t('register.enterPassword')"
-              show-password
-              :maxlength="20"
-            />
-          </view>
-        </view>
-
-        <view class="input-group">
-          <view class="input-wrapper">
-            <wd-input
-              v-model="formData.confirmPassword"
-              custom-class="styled-input"
-              no-border
-              :placeholder="t('register.confirmPassword')"
-              show-password
-              :maxlength="20"
-            />
-          </view>
-        </view>
-
-        <view class="input-group">
-          <view class="input-wrapper captcha-wrapper">
-            <wd-input
-              v-model="formData.captcha"
-              custom-class="styled-input"
-              no-border
-              :placeholder="t('register.enterCode')"
-              :maxlength="6"
-            />
-            <view class="captcha-image" @click="refreshCaptcha">
-              <image :src="captchaImage" class="captcha-img" />
+              placeholder-class="nx-field__placeholder"
+            >
+            <view
+              class="nx-field__action"
+              role="button"
+              :aria-label="tx('login.togglePassword', 'Show or hide password')"
+              @click="showPassword = !showPassword"
+            >
+              <wd-icon :name="showPassword ? 'view' : 'eye-close'" size="18px" />
             </view>
           </view>
-        </view>
 
-        <!-- Mobile verification code input -->
-        <view v-if="enableMobileRegister" class="input-group">
-          <view class="input-wrapper sms-wrapper">
-            <wd-input
-              v-model="formData.mobileCaptcha"
-              custom-class="styled-input"
-              no-border
+          <view class="nx-field">
+            <wd-icon name="lock-on" size="18px" custom-class="nx-field__icon" />
+            <input
+              v-model="formData.confirmPassword"
+              class="nx-field__input"
+              type="text"
+              :password="!showPassword"
+              :maxlength="20"
+              :placeholder="t('register.confirmPassword')"
+              placeholder-class="nx-field__placeholder"
+            >
+          </view>
+        </view>
+      </view>
+
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ tx('register.verifyHeader', 'Verification') }}
+        </view>
+        <view class="nx-group__body">
+          <view class="nx-field">
+            <wd-icon name="check" size="18px" custom-class="nx-field__icon" />
+            <input
+              v-model="formData.captcha"
+              class="nx-field__input"
+              type="text"
+              :maxlength="6"
               :placeholder="t('register.enterCode')"
+              placeholder-class="nx-field__placeholder"
+            >
+            <view
+              class="nx-field__captcha"
+              role="button"
+              :aria-label="tx('login.refreshCaptcha', 'Get a new code')"
+              @click="refreshCaptcha"
+            >
+              <image :src="captchaImage" class="nx-field__captcha-img" mode="aspectFit" />
+            </view>
+          </view>
+
+          <!-- SMS verification code -->
+          <view v-if="enableMobileRegister" class="nx-field">
+            <wd-icon name="phone" size="18px" custom-class="nx-field__icon" />
+            <input
+              v-model="formData.mobileCaptcha"
+              class="nx-field__input"
               type="number"
               :maxlength="6"
-            />
-            <wd-button
-              :loading="smsLoading"
-              :disabled="smsCountdown > 0"
-              custom-class="sms-btn"
-              @click="sendSmsVerification"
+              :placeholder="t('register.enterCode')"
+              placeholder-class="nx-field__placeholder"
+            >
+            <view
+              class="nx-num nx-field__send"
+              :class="{ 'is-disabled': smsCountdown > 0 || smsLoading }"
+              role="button"
+              @click="smsCountdown > 0 || smsLoading ? null : sendSmsVerification()"
             >
               {{ smsCountdown > 0 ? `${smsCountdown}s` : t('register.getCode') }}
-            </wd-button>
+            </view>
           </view>
         </view>
-
-        <view
-          class="register-btn"
-          type="primary"
-          :loading="loading"
-          @click="handleRegister"
-        >
-          {{ loading ? t('register.registering') : t('register.registerButton') }}
+        <view class="nx-group__footer">
+          {{ tx('register.captchaHint', 'Tap the picture for a new code.') }}
         </view>
+      </view>
 
-        <view class="login-hint">
-          <text class="hint-text">
-            {{ t('register.haveAccount') }}
-          </text>
-          <text class="login-link" @click="goBack">
-            {{ t('register.loginNow') }}
-          </text>
-        </view>
+      <view
+        class="nx-btn nx-btn--primary nx-btn--block nx-auth__submit"
+        :class="{ 'is-loading': loading }"
+        role="button"
+        @click="!loading && handleRegister()"
+      >
+        <wd-loading v-if="loading" size="18px" custom-class="nx-auth__spinner" />
+        {{ loading ? t('register.registering') : t('register.registerButton') }}
+      </view>
+
+      <view class="nx-auth__links nx-auth__links--center">
+        <text class="nx-auth__muted">
+          {{ t('register.haveAccount') }}
+        </text>
+        <text class="nx-auth__link" @click="goBack">
+          {{ t('register.loginNow') }}
+        </text>
       </view>
     </view>
 
-    <!-- Area code selection dialog -->
-    <wd-action-sheet
+    <view class="nx-auth__legal">
+      <text>{{ t('register.agreeTerms') }}</text>
+      <text class="nx-auth__link" @click="goToUserAgreement">
+        {{ t('register.terms') }}
+      </text>
+      <text>{{ tx('login.agreeAnd', 'and') }}</text>
+      <text class="nx-auth__link" @click="goToPrivacyPolicy">
+        {{ t('register.privacy') }}
+      </text>
+    </view>
+
+    <!-- Area code sheet -->
+    <wd-popup
       v-model="showAreaCodeSheet"
-      :title="t('register.selectCountry')"
-      :close-on-click-modal="true"
+      position="bottom"
+      custom-class="nx-sheet"
+      safe-area-inset-bottom
       @close="closeAreaCodeSheet"
     >
-      <view class="area-code-sheet">
-        <scroll-view scroll-y class="area-code-list">
-          <view
-            v-for="item in areaCodeList"
-            :key="item.key"
-            class="area-code-item"
-            :class="{ selected: selectedAreaCode === item.key }"
-            @click="selectAreaCode(item)"
-          >
-            <view class="area-info">
-              <text class="area-name">
-                {{ item.name }}
-              </text>
-              <text class="area-code">
+      <view class="nx-sheet__inner">
+        <view class="nx-sheet__handle" />
+        <view class="nx-sheet__header">
+          <text class="nx-headline">
+            {{ t('register.selectCountry') }}
+          </text>
+          <text class="nx-sheet__done" @click="closeAreaCodeSheet">
+            {{ t('register.confirm') }}
+          </text>
+        </view>
+        <scroll-view scroll-y class="nx-sheet__scroll">
+          <view class="nx-group__body">
+            <view
+              v-for="item in areaCodeList"
+              :key="item.key"
+              class="nx-row nx-row--tap"
+              @click="selectAreaCode(item)"
+            >
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-truncate">
+                  {{ item.name }}
+                </view>
+              </view>
+              <text class="nx-num nx-row__value">
                 {{ item.key }}
               </text>
+              <wd-icon v-if="selectedAreaCode === item.key" name="check" size="18px" custom-class="nx-check" />
             </view>
-            <wd-icon
-              v-if="selectedAreaCode === item.key"
-              name="check"
-              custom-class="check-icon"
-            />
           </view>
         </scroll-view>
-        <view class="sheet-footer">
-          <wd-button
-            type="primary"
-            custom-class="confirm-btn"
-            @click="closeAreaCodeSheet"
-          >
-            {{ t('register.confirm') }}
-          </wd-button>
-        </view>
       </view>
-    </wd-action-sheet>
+    </wd-popup>
   </view>
 </template>
 
 <style lang="scss" scoped>
-.app-container {
-  background: linear-gradient(145deg, #f5f8fd, #6baaff, #9ebbfc, #f5f8fd);
+// Nobix auth screen (sign in / register / reset share this layout)
+.nx-auth {
   display: flex;
   flex-direction: column;
-  position: relative;
-  overflow: hidden;
   min-height: 100vh;
+  box-sizing: border-box;
+  padding-left: var(--nx-gutter);
+  padding-right: var(--nx-gutter);
+  padding-bottom: calc(var(--nx-space-5) + env(safe-area-inset-bottom));
+  background: var(--nx-bg);
+  color: var(--nx-text);
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-    animation: float 6s ease-in-out infinite;
+  &__topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--nx-space-2);
+    min-height: var(--nx-touch);
+    &--split {
+      justify-content: space-between;
+    }
   }
-}
 
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-20px) rotate(180deg);
-  }
-}
-
-.header {
-  flex: 0 0 auto;
-  min-height: 280rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15% 0 40rpx 0;
-  position: relative;
-
-  .back-button {
-    position: absolute;
-    left: 40rpx;
-    top: 60rpx;
-    width: 60rpx;
-    height: 60rpx;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
+  &__chip,
+  &__icon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
-
-    :deep(.back-icon) {
-      font-size: 32rpx;
-      color: #ffffff;
-    }
-  }
-
-  .logo-section {
-    text-align: center;
-
-    .logo {
-      margin-bottom: 20rpx;
-      box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.1);
-    }
-
-    .welcome-text {
-      display: block;
-      color: #ffffff;
-      font-size: 40rpx;
-      font-weight: 600;
-      margin-bottom: 12rpx;
-      text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
-    }
-
-    .subtitle {
-      display: block;
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 26rpx;
-      font-weight: 400;
+    gap: var(--nx-space-1);
+    min-width: var(--nx-touch);
+    height: 64rpx;
+    padding: 0 var(--nx-space-3);
+    box-sizing: border-box;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface);
+    box-shadow: var(--nx-shadow-1);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+    &:active {
+      transform: scale(0.96);
+      background: var(--nx-surface-2);
     }
   }
-}
+  &__icon-btn {
+    width: 64rpx;
+    min-width: 64rpx;
+    padding: 0;
+  }
+  &__back {
+    margin-left: calc(var(--nx-space-2) * -1);
+    padding: 0 var(--nx-space-2);
+    background: transparent;
+    box-shadow: none;
+    color: var(--nx-accent);
+    font-size: var(--nx-text-body);
+    font-weight: 500;
+  }
 
-.form-container {
-  padding: 0 40rpx 40rpx 40rpx;
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-
-  .form {
+  &__body {
+    flex: 1;
     width: 100%;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 24rpx;
-    padding: 40rpx 30rpx 30rpx 30rpx;
-    backdrop-filter: blur(10rpx);
-    box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.1);
-    border: 1rpx solid rgba(255, 255, 255, 0.2);
-    max-height: calc(100vh - 350rpx);
-    overflow-y: auto;
+    max-width: 840rpx;
+    margin: 0 auto;
+  }
 
-    .input-group {
-      margin-bottom: 24rpx;
+  &__hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--nx-space-6) 0 var(--nx-space-6);
+  }
+  &__logo {
+    width: 128rpx;
+    height: 128rpx;
+    border-radius: var(--nx-radius-lg);
+    box-shadow: var(--nx-shadow-2);
+  }
+  &__title {
+    margin-top: var(--nx-space-4);
+    font-size: var(--nx-text-display);
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    color: var(--nx-text);
+  }
+  &__subtitle {
+    margin-top: var(--nx-space-2);
+    max-width: 560rpx;
+    font-size: var(--nx-text-callout);
+    line-height: 1.45;
+    color: var(--nx-text-2);
+  }
 
-      .input-wrapper {
-        position: relative;
-        background: #f8f9fa;
-        border-radius: 16rpx;
-        padding: 20rpx 16rpx;
-        border: 2rpx solid #e9ecef;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
+  &__segmented {
+    margin-bottom: var(--nx-space-4);
+  }
 
-        &:focus-within {
-          border-color: #667eea;
-          background: #ffffff;
-          box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
-        }
-
-        &.captcha-wrapper {
-          .captcha-image {
-            margin-left: 20rpx;
-            width: 150rpx;
-            height: 60rpx;
-            border-radius: 8rpx;
-            overflow: hidden;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #e9ecef;
-            border: 1rpx solid #ddd;
-
-            .captcha-img {
-              width: 100%;
-              height: 100%;
-            }
-          }
-        }
-
-        &.sms-wrapper {
-          :deep(.sms-btn) {
-            margin-left: 20rpx;
-            padding: 0 20rpx;
-            height: 60rpx;
-            border-radius: 8rpx;
-            font-size: 24rpx;
-            white-space: nowrap;
-            min-width: 140rpx;
-          }
-        }
-
-        &.mobile-wrapper {
-          padding: 0;
-          background: transparent;
-          border: none;
-          display: flex;
-          gap: 20rpx;
-
-          .area-code-selector {
-            flex: 0 0 160rpx;
-            background: #f8f9fa;
-            border-radius: 16rpx;
-            padding: 20rpx 16rpx;
-            border: 2rpx solid #e9ecef;
-            height: 45rpx;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: all 0.3s ease;
-
-            &:hover {
-              border-color: #667eea;
-              background: #ffffff;
-              box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
-            }
-
-            .area-code-text {
-              font-size: 28rpx;
-              color: #333333;
-              font-weight: 500;
-            }
-
-            :deep(.area-code-arrow) {
-              font-size: 24rpx;
-              color: #999999;
-              transition: transform 0.3s ease;
-            }
-          }
-
-          .mobile-input-wrapper {
-            flex: 1;
-            background: #f8f9fa;
-            border-radius: 16rpx;
-            padding: 20rpx 16rpx;
-            border: 2rpx solid #e9ecef;
-            transition: all 0.3s ease;
-
-            &:focus-within {
-              border-color: #667eea;
-              background: #ffffff;
-              box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
-            }
-          }
-        }
-
-        :deep(.styled-input) {
-          background: transparent !important;
-          border: none !important;
-          outline: none !important;
-          font-size: 32rpx;
-          color: #333333;
-          flex: 1;
-
-          &::placeholder {
-            color: #999999;
-            font-size: 28rpx;
-          }
-        }
-      }
+  &__submit {
+    &.is-loading {
+      opacity: 0.7;
     }
+  }
 
-    :deep(.register-btn) {
-      width: 100%;
-      height: 80rpx;
-      border: none;
-      border-radius: 16rpx;
-      font-size: 30rpx;
-      font-weight: 600;
-      color: #ffffff;
-      margin-bottom: 30rpx;
-      box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.3);
-      transition: all 0.3s ease;
-      background-color: var(--wot-button-primary-bg-color, var(--wot-color-theme, #4d80f0));
-      text-align: center;
-      line-height: 80rpx;
-      &:active {
-        transform: translateY(2rpx);
-        box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
-      }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
+  &__links {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    margin-top: var(--nx-space-4);
+    padding: 0 var(--nx-space-2);
+    &--center {
+      justify-content: center;
     }
-
-    .login-hint {
-      text-align: center;
-      margin-bottom: 30rpx;
-
-      .hint-text {
-        color: #666666;
-        font-size: 26rpx;
-        margin-right: 8rpx;
-      }
-
-      .login-link {
-        color: #667eea;
-        font-size: 26rpx;
-        font-weight: 500;
-        cursor: pointer;
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
+  }
+  &__link {
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+    padding: var(--nx-space-2) 0;
+    &:active {
+      opacity: 0.6;
     }
+  }
+  &__muted {
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-callout);
+  }
 
-    .register-type-switch {
-      margin-top: 20rpx;
-      text-align: center;
-
-      .switch-tabs {
-        display: flex;
-        justify-content: center;
-        gap: 60rpx;
-        margin-bottom: 20rpx;
-
-        .switch-tab {
-          width: 60rpx;
-          height: 60rpx;
-          border-radius: 50%;
-          background: #f0f0f0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          border: 2rpx solid transparent;
-
-          &.active {
-            background: #667eea;
-            color: #ffffff;
-            border-color: #667eea;
-            box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
-          }
-
-          :deep(.wd-icon) {
-            font-size: 24rpx;
-          }
-        }
-      }
-
-      .switch-hint {
-        font-size: 24rpx;
-        color: #666666;
-      }
+  &__legal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0 var(--nx-space-1);
+    margin-top: var(--nx-space-6);
+    padding: 0 var(--nx-space-4);
+    text-align: center;
+    color: var(--nx-text-3);
+    font-size: var(--nx-text-caption);
+    line-height: 1.6;
+    .nx-auth__link {
+      font-size: var(--nx-text-caption);
+      padding: 0;
     }
   }
 }
 
-// Area code dialog styles
-.area-code-sheet {
-  background: #ffffff;
-  border-radius: 24rpx 24rpx 0 0;
+:deep(.nx-auth__spinner) {
+  margin-right: var(--nx-space-1);
+}
+
+// One field per row inside an inset group
+.nx-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-height: 104rpx;
+  padding: 0 var(--nx-space-4);
+  box-sizing: border-box;
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: var(--nx-space-4);
+    right: 0;
+    bottom: 0;
+    height: 1rpx;
+    background: var(--nx-border);
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    height: 104rpx;
+    font-size: var(--nx-text-body);
+    color: var(--nx-text);
+    background: transparent;
+  }
+
+  &__prefix {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+    flex: none;
+    height: 64rpx;
+    padding: 0 var(--nx-space-3) 0 0;
+    border-right: 1rpx solid var(--nx-border);
+    color: var(--nx-text);
+    font-size: var(--nx-text-body);
+    font-weight: 500;
+  }
+
+  &__action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    margin-right: calc(var(--nx-space-3) * -1);
+    color: var(--nx-text-3);
+    &:active {
+      opacity: 0.6;
+    }
+  }
+
+  &__send {
+    flex: none;
+    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
+    border-left: 1rpx solid var(--nx-border);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    white-space: nowrap;
+    &.is-disabled {
+      color: var(--nx-text-3);
+    }
+    &:active {
+      opacity: 0.6;
+    }
+  }
+
+  &__captcha {
+    flex: none;
+    width: 184rpx;
+    height: 72rpx;
+    overflow: hidden;
+    border-radius: var(--nx-radius-sm);
+    background: var(--nx-surface-2);
+  }
+  &__captcha-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+:deep(.nx-field__icon) {
+  flex: none;
+  color: var(--nx-text-3);
+}
+
+:deep(.nx-field__placeholder) {
+  color: var(--nx-text-3);
+}
+
+// Bottom sheet (wd-popup position="bottom")
+:deep(.wd-popup.nx-sheet) {
   overflow: hidden;
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+  background: var(--nx-bg);
+}
 
-  .area-code-list {
+.nx-sheet {
+  &__inner {
+    padding: 0 var(--nx-gutter) var(--nx-space-4);
+  }
+  &__handle {
+    width: 72rpx;
+    height: 10rpx;
+    margin: var(--nx-space-2) auto 0;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-3);
+  }
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--nx-touch);
+    padding: var(--nx-space-2) 0;
+  }
+  &__done {
+    color: var(--nx-accent);
+    font-size: var(--nx-text-body);
+    font-weight: 600;
+    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
+  }
+  &__scroll {
     max-height: 60vh;
-    padding: 0 40rpx;
-
-    .area-code-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 32rpx 0;
-      border-bottom: 1rpx solid #f8f9fa;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-
-      &:hover {
-        background-color: #f8f9fa;
-      }
-
-      &.selected {
-        background-color: rgba(102, 126, 234, 0.05);
-
-        .area-name {
-          color: #667eea;
-          font-weight: 500;
-        }
-
-        .area-code {
-          color: #667eea;
-        }
-      }
-
-      .area-info {
-        display: flex;
-        flex-direction: column;
-        gap: 8rpx;
-
-        .area-name {
-          font-size: 32rpx;
-          color: #333333;
-        }
-
-        .area-code {
-          font-size: 28rpx;
-          color: #666666;
-        }
-      }
-
-      :deep(.check-icon) {
-        font-size: 32rpx;
-        color: #667eea;
-      }
-    }
+    border-radius: var(--nx-radius-lg);
   }
+}
 
-  .sheet-footer {
-    padding: 30rpx 40rpx 40rpx 40rpx;
-    border-top: 1rpx solid #f0f0f0;
-
-    :deep(.confirm-btn) {
-      width: 100%;
-      height: 88rpx;
-      border-radius: 16rpx;
-      font-size: 32rpx;
-      font-weight: 600;
-    }
-  }
+:deep(.nx-check) {
+  flex: none;
+  color: var(--nx-accent);
 }
 </style>

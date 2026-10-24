@@ -50,6 +50,20 @@ const canProvision = computed(() => {
   return true
 })
 
+/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
+function tx(key: string, fallback: string) {
+  const text = t(key)
+  return text === key ? fallback : text
+}
+
+// Progress: find the robot -> connect and send -> done
+const stages = computed(() => [
+  { key: 'scan', label: tx('deviceConfig.bleStageFind', 'Find robot') },
+  { key: 'connect', label: tx('deviceConfig.bleStageSend', 'Send Wi‑Fi') },
+  { key: 'done', label: tx('deviceConfig.bleStageDone', 'Done') },
+])
+const stageIndex = computed(() => stages.value.findIndex(s => s.key === step.value))
+
 // Initialize Bluetooth
 async function initBle() {
   const ready = await openBluetoothAdapter()
@@ -204,141 +218,319 @@ onBeforeUnmount(async () => {
 </script>
 
 <template>
-  <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-    <!-- Header with Action -->
-    <view class="mb-[20rpx] flex items-center justify-between">
-      <view class="flex items-center space-x-[12rpx]">
-        <wd-icon name="chart-bubble" size="20px" custom-class="text-[#336cff]" />
-        <text class="text-[28rpx] text-[#232338] font-bold">
-          {{ t('deviceConfig.bleConfig') }}
-        </text>
-      </view>
+  <view class="ble">
+    <!-- Progress -->
+    <view class="ble__stages" role="list">
       <view
-        v-if="step === 'scan'"
-        class="cursor-pointer rounded-[14rpx] px-[20rpx] py-[8rpx] text-[24rpx] font-medium transition-all"
-        :class="scanning ? 'bg-[rgba(255,107,107,0.1)] text-[#ff6b6b]' : 'bg-[rgba(51,108,255,0.1)] text-[#336cff] active:bg-[#336cff] active:text-white'"
-        @click="scanning ? stopScan() : startScan()"
+        v-for="(s, i) in stages"
+        :key="s.key"
+        class="ble__stage"
+        :class="{ 'is-done': i < stageIndex || step === 'done', 'is-current': i === stageIndex }"
+        role="listitem"
       >
-        {{ scanning ? (t('deviceConfig.bleStopScan') || 'Stop') : (t('deviceConfig.bleScanDevices') || 'Scan') }}
+        <view class="ble__stage-bar" />
+        <text class="ble__stage-label">
+          {{ s.label }}
+        </text>
       </view>
     </view>
 
-    <!-- Guide info -->
-    <view class="mb-[20rpx] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx]">
-      <text class="text-[24rpx] text-[#65686f] leading-[34rpx]">
-        💡 {{ t('deviceConfig.bleGuide') || 'Connect to ESP32 without leaving mobile data. Make sure Bluetooth is on and device is near.' }}
-      </text>
-    </view>
+    <view class="nx-group ble__group">
+      <view class="nx-group__body">
+        <!-- Header with scan action -->
+        <view class="nx-row">
+          <view class="nx-icon-tile ble__icon">
+            <wd-icon name="link" size="18px" />
+          </view>
+          <view class="nx-row__main">
+            <view class="nx-row__title ble__strong">
+              {{ t('deviceConfig.bleConfig') }}
+            </view>
+            <view class="nx-row__subtitle">
+              {{ t('deviceConfig.bleGuide') }}
+            </view>
+          </view>
+          <view
+            v-if="step === 'scan'"
+            class="ble__pill"
+            :class="{ 'is-stop': scanning }"
+            role="button"
+            @click="scanning ? stopScan() : startScan()"
+          >
+            {{ scanning ? t('deviceConfig.bleStopScan') : tx('deviceConfig.bleScanShort', 'Scan') }}
+          </view>
+        </view>
 
-    <!-- Selected Target WiFi Preview -->
-    <view v-if="selectedNetwork" class="mb-[24rpx] flex items-center justify-between rounded-[12rpx] border border-[#eeeeee] bg-white p-[18rpx]">
-      <view class="flex items-center space-x-[12rpx]">
-        <wd-icon name="wifi" size="18px" custom-class="text-[#336cff]" />
-        <view>
-          <text class="text-[26rpx] text-[#232338] font-semibold">
-            {{ selectedNetwork.ssid }}
-          </text>
-          <text v-if="selectedNetwork.hidden" class="ml-[10rpx] rounded bg-[#eef3ff] px-[8rpx] py-[2rpx] text-[20rpx] text-[#336cff]">
-            {{ t('deviceConfig.hiddenWifi') || 'Hidden' }}
-          </text>
+        <!-- Target Wi-Fi -->
+        <view v-if="selectedNetwork" class="nx-row">
+          <view class="nx-icon-tile ble__icon nx-icon-tile--neutral">
+            <wd-icon name="wifi" size="18px" />
+          </view>
+          <view class="nx-row__main">
+            <view class="nx-row__title nx-truncate" :title="selectedNetwork.ssid">
+              {{ selectedNetwork.ssid }}
+            </view>
+          </view>
+          <view v-if="selectedNetwork.hidden" class="nx-badge">
+            {{ t('deviceConfig.hiddenWifi') }}
+          </view>
+          <view class="nx-badge">
+            <wd-icon v-if="password" name="lock-on" size="12px" />
+            {{ password ? '••••••' : t('deviceConfig.openNetwork') }}
+          </view>
         </view>
       </view>
-      <text class="text-[24rpx] text-[#9d9ea3]">
-        {{ password ? '••••••••' : (t('deviceConfig.noPassword') || 'Open') }}
-      </text>
-    </view>
-
-    <!-- Status Message Display -->
-    <view v-if="statusMessage" class="mb-[20rpx] text-center">
-      <text class="text-[24rpx] font-medium" :class="step === 'done' ? 'text-[#07c160]' : 'text-[#65686f]'">
+      <view v-if="statusMessage && step === 'scan'" class="nx-group__footer" role="status">
         {{ statusMessage }}
-      </text>
+      </view>
     </view>
 
-    <!-- Step 1: Scan & Device Selection -->
+    <!-- Step 1: scan and pick a robot -->
     <view v-if="step === 'scan'">
-      <!-- Loading Indicator -->
-      <view v-if="scanning && devices.length === 0" class="flex flex-col items-center justify-center py-[40rpx]">
-        <wd-loading size="28px" color="#336cff" />
-        <text class="mt-[16rpx] text-[26rpx] text-[#9d9ea3]">
-          {{ t('deviceConfig.bleScanning') }}
-        </text>
-      </view>
-
-      <!-- Found Devices List -->
-      <view v-else-if="devices.length > 0" class="space-y-[14rpx]">
-        <view
-          v-for="dev in devices"
-          :key="dev.deviceId"
-          class="flex cursor-pointer items-center justify-between rounded-[14rpx] border border-[#eeeeee] bg-white p-[22rpx] transition-all active:border-[#336cff] active:bg-[#eef3ff]"
-          @click="handleSelectAndProvision(dev)"
-        >
-          <view class="flex items-center space-x-[16rpx]">
-            <view class="flex h-[44rpx] w-[44rpx] items-center justify-center rounded-full bg-[rgba(51,108,255,0.1)] text-[#336cff]">
-              <wd-icon name="chart-bubble" size="16px" />
-            </view>
-            <view>
-              <text class="text-[28rpx] text-[#232338] font-bold">
-                {{ dev.name }}
-              </text>
-              <text class="mt-[2rpx] block text-[22rpx] text-[#9d9ea3]">
-                {{ dev.deviceId }}
-              </text>
-            </view>
-          </view>
-          <view class="flex items-center space-x-[12rpx]">
-            <text class="text-[22rpx] text-[#9d9ea3]">
-              RSSI {{ dev.RSSI }}
-            </text>
-            <view class="rounded-[10rpx] bg-[#336cff] px-[20rpx] py-[8rpx] text-[24rpx] text-white font-medium">
-              {{ t('deviceConfig.connect') || 'Connect' }}
+      <view v-if="scanning && devices.length === 0" class="nx-group ble__group">
+        <view class="nx-group__header ble__scanning">
+          <wd-loading size="14px" />
+          <text>{{ t('deviceConfig.bleScanning') }}</text>
+        </view>
+        <view class="nx-group__body">
+          <view v-for="i in 3" :key="i" class="nx-row">
+            <view class="nx-skeleton ble__skeleton-icon" />
+            <view class="nx-row__main">
+              <view class="nx-skeleton ble__skeleton-line" />
+              <view class="nx-skeleton ble__skeleton-line ble__skeleton-line--short" />
             </view>
           </view>
         </view>
       </view>
 
-      <!-- Empty State -->
-      <view v-else-if="!scanning" class="py-[30rpx] text-center">
-        <text class="block text-[26rpx] text-[#9d9ea3]">
+      <view v-else-if="devices.length > 0" class="nx-group ble__group">
+        <view class="nx-group__header ble__scanning">
+          <wd-loading v-if="scanning" size="14px" />
+          <text>{{ tx('deviceConfig.bleNearby', 'Nearby robots') }}</text>
+        </view>
+        <view class="nx-group__body">
+          <view
+            v-for="dev in devices"
+            :key="dev.deviceId"
+            class="nx-row nx-row--tap"
+            @click="handleSelectAndProvision(dev)"
+          >
+            <view class="nx-icon-tile ble__icon">
+              <wd-icon name="mobile" size="18px" />
+            </view>
+            <view class="nx-row__main">
+              <view class="nx-row__title nx-truncate ble__strong" :title="dev.name">
+                {{ dev.name || dev.deviceId }}
+              </view>
+              <view class="nx-caption nx-mono nx-break">
+                {{ dev.deviceId }} · RSSI {{ dev.RSSI }}
+              </view>
+            </view>
+            <view class="ble__pill ble__pill--solid">
+              {{ tx('deviceConfig.connect', 'Connect') }}
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view v-else-if="!scanning" class="nx-empty ble__empty">
+        <view class="nx-icon-tile nx-icon-tile--lg">
+          <wd-icon name="link" size="28px" />
+        </view>
+        <view class="nx-empty__text">
           {{ t('deviceConfig.bleNoDevices') }}
-        </text>
-        <view
-          class="mt-[20rpx] inline-block cursor-pointer rounded-[20rpx] bg-[#336cff] px-[32rpx] py-[14rpx] text-[26rpx] text-white font-semibold shadow-sm active:opacity-90"
-          @click="startScan"
-        >
+        </view>
+        <view class="nx-btn nx-btn--primary ble__empty-btn" @click="startScan">
           {{ t('deviceConfig.bleScanDevices') }}
         </view>
       </view>
     </view>
 
-    <!-- Step 2: Connecting & Sending Credentials -->
-    <view v-else-if="step === 'connect'" class="flex flex-col items-center justify-center py-[50rpx]">
-      <wd-loading size="36px" color="#336cff" />
-      <text class="mt-[24rpx] text-[30rpx] text-[#232338] font-bold">
+    <!-- Step 2: connecting and sending -->
+    <view v-else-if="step === 'connect'" class="nx-card ble__state" role="status">
+      <wd-loading size="32px" />
+      <view class="nx-headline ble__state-title">
         {{ connecting ? t('deviceConfig.bleConnecting') : t('deviceConfig.bleSending') }}
-      </text>
-      <text class="mt-[8rpx] text-[24rpx] text-[#9d9ea3]">
+      </view>
+      <view class="nx-caption nx-mono nx-break">
         {{ selectedDevice?.name }} ({{ selectedDevice?.deviceId }})
-      </text>
+      </view>
     </view>
 
-    <!-- Step 3: Success -->
-    <view v-else-if="step === 'done'" class="flex flex-col items-center justify-center py-[40rpx]">
-      <view class="flex h-[64rpx] w-[64rpx] items-center justify-center rounded-full bg-[rgba(7,193,96,0.1)] text-[#07c160]">
-        <wd-icon name="check" size="24px" />
+    <!-- Step 3: done -->
+    <view v-else-if="step === 'done'" class="nx-card ble__state" role="status">
+      <view class="ble__success">
+        <wd-icon name="check" size="28px" />
       </view>
-      <text class="mt-[20rpx] text-[30rpx] text-[#232338] font-bold">
-        {{ t('deviceConfig.configSuccess') }}!
-      </text>
-      <text class="mt-[8rpx] text-center text-[24rpx] text-[#65686f]">
+      <view class="nx-headline ble__state-title">
+        {{ t('deviceConfig.configSuccess') }}
+      </view>
+      <view class="nx-footnote ble__state-text">
         {{ t('deviceConfig.bleSuccess') }}
-      </text>
-      <view
-        class="mt-[30rpx] cursor-pointer rounded-[20rpx] bg-[#336cff] px-[36rpx] py-[16rpx] text-[26rpx] text-white font-semibold active:opacity-90"
-        @click="resetAndScan"
-      >
-        {{ t('common.done') || 'Done' }}
+      </view>
+      <view class="nx-btn nx-btn--primary ble__empty-btn" @click="resetAndScan">
+        {{ tx('deviceConfig.done', 'Done') }}
       </view>
     </view>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.ble {
+  &__stages {
+    display: flex;
+    gap: var(--nx-space-1);
+    margin-bottom: var(--nx-space-4);
+  }
+
+  &__stage {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__stage-bar {
+    height: 8rpx;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-3);
+    transition: background-color var(--nx-dur-2) var(--nx-ease);
+  }
+
+  &__stage-label {
+    display: block;
+    margin-top: var(--nx-space-1);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: var(--nx-text-caption);
+    font-weight: 500;
+    color: var(--nx-text-3);
+  }
+
+  &__stage.is-current &__stage-bar {
+    background: var(--nx-accent);
+  }
+
+  &__stage.is-current &__stage-label {
+    color: var(--nx-text);
+  }
+
+  &__stage.is-done &__stage-bar {
+    background: var(--nx-success);
+  }
+
+  &__stage.is-done &__stage-label {
+    color: var(--nx-text-2);
+  }
+
+  &__group {
+    margin-bottom: var(--nx-space-4);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__icon {
+    width: 60rpx;
+    height: 60rpx;
+    border-radius: var(--nx-radius-sm);
+  }
+
+  &__strong {
+    font-weight: 600;
+  }
+
+  &__pill {
+    display: flex;
+    flex: none;
+    align-items: center;
+    min-height: 60rpx;
+    padding: 0 var(--nx-space-3);
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+
+    &:active {
+      transform: scale(0.97);
+    }
+
+    &.is-stop {
+      background: var(--nx-danger-soft);
+      color: var(--nx-danger);
+    }
+
+    &--solid {
+      background: var(--nx-accent);
+      color: var(--nx-on-accent);
+    }
+  }
+
+  &__scanning {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+  }
+
+  &__empty {
+    padding: var(--nx-space-5) var(--nx-space-4);
+  }
+
+  &__empty-btn {
+    margin-top: var(--nx-space-3);
+  }
+
+  &__state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--nx-space-2);
+    padding: var(--nx-space-6) var(--nx-space-4);
+    text-align: center;
+  }
+
+  &__state-title {
+    margin-top: var(--nx-space-2);
+  }
+
+  &__state-text {
+    max-width: 520rpx;
+  }
+
+  &__success {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 96rpx;
+    height: 96rpx;
+    border-radius: 50%;
+    background: var(--nx-success-soft);
+    color: var(--nx-success);
+  }
+
+  &__skeleton-icon {
+    width: 60rpx;
+    height: 60rpx;
+  }
+
+  &__skeleton-line {
+    width: 55%;
+    height: 28rpx;
+
+    &--short {
+      width: 35%;
+      height: 22rpx;
+      margin-top: 12rpx;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ble__stage-bar,
+  .ble__pill {
+    transition: none;
+  }
+}
+</style>

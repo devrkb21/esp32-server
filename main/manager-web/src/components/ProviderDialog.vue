@@ -10,7 +10,7 @@
     :confirmLoading="saving"
   >
     <div class="dialog-container">
-      <el-form :model="form" :rules="rules" ref="form" label-width="auto" label-position="left" class="provider-form">
+      <el-form :model="form" :rules="rules" ref="form" label-position="top" class="provider-form">
         <div class="form-row">
           <el-form-item :label="$t('providerDialog.category')" prop="modelType" class="form-item">
             <el-select v-model="form.modelType" :placeholder="$t('providerDialog.selectCategory')" class="custom-select">
@@ -35,53 +35,55 @@
         </div>
 
         <div class="field-config-header">
-          <span class="field-config-title">{{ $t('providerDialog.fieldConfig') }}</span>
+          <h4 class="field-config-title">
+            {{ $t('providerDialog.fieldConfig') }}
+            <span class="nx-badge nx-num">{{ (form.fields || []).length }}</span>
+          </h4>
           <div class="field-config-actions">
-            <el-button type="primary" @click="addField" size="small" class="btn-add"
+            <el-button @click="toggleSelectAllFields" size="small" type="text" class="btn-select-all">
+              {{ isAllFieldsSelected ? $t('providerDialog.deselectAll') : $t('providerDialog.selectAll') }}
+            </el-button>
+            <el-button type="danger" plain icon="el-icon-delete" @click="batchRemoveFields" size="small" class="btn-batch-delete">
+              {{ $t('providerDialog.batchDelete') }}
+            </el-button>
+            <el-button @click="addField" size="small" icon="el-icon-plus" class="btn-add"
               :disabled="hasIncompleteFields">
               {{ $t('providerDialog.add') }}
             </el-button>
-            <el-button type="primary" @click="toggleSelectAllFields" size="small" class="btn-select-all">
-              {{ isAllFieldsSelected ? $t('providerDialog.deselectAll') : $t('providerDialog.selectAll') }}
-            </el-button>
-            <el-button type="danger" @click="batchRemoveFields" size="small" class="btn-batch-delete">
-              {{ $t('providerDialog.batchDelete') }}
-            </el-button>
           </div>
         </div>
-        <div class="divider"></div>
 
         <div class="fields-container">
-          <el-table :data="form.fields" style="width: 100%;" border size="medium" :key="tableKey">
+          <el-table :data="form.fields" style="width: 100%;" size="medium" :key="tableKey">
             <el-table-column :label="$t('modelConfig.select')" align="center" width="50">
               <template slot-scope="scope">
                 <el-checkbox v-model="scope.row.selected" @change="handleFieldSelectChange"></el-checkbox>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('providerDialog.fieldKey')">
+            <el-table-column :label="$t('providerDialog.fieldKey')" min-width="140">
               <template slot-scope="scope">
                 <template v-if="scope.row.editing">
-                  <el-input v-model="scope.row.key" :placeholder="$t('providerDialog.fieldKey')"></el-input>
+                  <el-input v-model="scope.row.key" size="small" :placeholder="$t('providerDialog.fieldKey')"></el-input>
                 </template>
                 <template v-else>
-                  {{ scope.row.key }}
+                  <span class="nx-mono nx-break">{{ scope.row.key }}</span>
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('providerDialog.fieldLabel')">
+            <el-table-column :label="$t('providerDialog.fieldLabel')" min-width="140">
               <template slot-scope="scope">
                 <template v-if="scope.row.editing">
-                  <el-input v-model="scope.row.label" :placeholder="$t('providerDialog.fieldLabel')"></el-input>
+                  <el-input v-model="scope.row.label" size="small" :placeholder="$t('providerDialog.fieldLabel')"></el-input>
                 </template>
                 <template v-else>
                   {{ scope.row.label }}
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('providerDialog.fieldType')">
+            <el-table-column :label="$t('providerDialog.fieldType')" min-width="120">
               <template slot-scope="scope">
                 <template v-if="scope.row.editing">
-                  <el-select v-model="scope.row.type" :placeholder="$t('providerDialog.type')">
+                  <el-select v-model="scope.row.type" size="small" :placeholder="$t('providerDialog.type')">
                     <el-option :label="$t('providerDialog.stringType')" value="string"></el-option>
                     <el-option :label="$t('providerDialog.numberType')" value="number"></el-option>
                     <el-option :label="$t('providerDialog.booleanType')" value="boolean"></el-option>
@@ -90,29 +92,29 @@
                   </el-select>
                 </template>
                 <template v-else>
-                  {{ getTypeLabel(scope.row.type) }}
+                  <span class="nx-badge">{{ getTypeLabel(scope.row.type) }}</span>
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('providerDialog.defaultValue')">
+            <el-table-column :label="$t('providerDialog.defaultValue')" min-width="140">
               <template slot-scope="scope">
                 <template v-if="scope.row.editing">
-                  <el-input v-model="scope.row.default" :placeholder="$t('providerDialog.inputDefaultValue')"></el-input>
+                  <el-input v-model="scope.row.default" size="small" :placeholder="$t('providerDialog.inputDefaultValue')"></el-input>
                 </template>
                 <template v-else>
-                  {{ scope.row.default }}
+                  <span class="nx-break">{{ scope.row.default }}</span>
                 </template>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('providerDialog.operation')" width="150" align="center">
+            <el-table-column :label="$t('providerDialog.operation')" width="150" align="right">
               <template slot-scope="scope">
-                <el-button v-if="!scope.row.editing" type="primary" size="mini" @click="startEditing(scope.row)">
+                <el-button v-if="!scope.row.editing" type="text" size="small" @click="startEditing(scope.row)">
                   {{ $t('providerDialog.edit') }}
                 </el-button>
-                <el-button v-else type="success" size="mini" @click="stopEditing(scope.row)">
+                <el-button v-else type="text" size="small" class="btn-complete" @click="stopEditing(scope.row)">
                   {{ $t('providerDialog.complete') }}
                 </el-button>
-                <el-button type="danger" size="mini" @click="removeField(scope.$index)">
+                <el-button type="text" size="small" class="btn-row-delete" @click="removeField(scope.$index)">
                   {{ $t('providerDialog.delete') }}
                 </el-button>
               </template>
@@ -344,17 +346,15 @@ export default {
 .provider-dialog-wrapper {
   .provider-form {
     .form-row {
-      display: flex;
-      gap: 20px;
-      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 var(--nx-space-5);
     }
     .form-item {
-      flex: 1;
-      margin-bottom: 0;
+      min-width: 0;
+      margin-bottom: var(--nx-space-4);
     }
-    .custom-select {
-      width: 100%;
-    }
+    .custom-select,
     .custom-input-number {
       width: 100%;
     }
@@ -363,17 +363,49 @@ export default {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 15px;
-    .field-config-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #3d4566;
+    flex-wrap: wrap;
+    gap: var(--nx-space-3);
+    margin: var(--nx-space-2) 0 var(--nx-space-3);
+    padding-top: var(--nx-space-4);
+    border-top: 1px solid var(--nx-border);
+  }
+  .field-config-title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    margin: 0;
+    color: var(--nx-text);
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .field-config-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--nx-space-2);
+    .el-button + .el-button {
+      margin-left: 0;
     }
   }
-  .divider {
-    height: 2px;
-    background: #e9e9e9;
-    margin-bottom: 22px;
+  .fields-container {
+    border: 1px solid var(--nx-border);
+    border-radius: var(--nx-radius-lg);
+    overflow: hidden;
+  }
+  .btn-complete {
+    color: var(--nx-success);
+  }
+  .btn-row-delete,
+  .btn-row-delete:hover,
+  .btn-row-delete:focus {
+    color: var(--nx-danger);
+  }
+}
+
+@media (max-width: 640px) {
+  .provider-dialog-wrapper .provider-form .form-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

@@ -2,25 +2,39 @@
   <CustomDialog
     :title="$t('device.dialogTitle')"
     :visible.sync="visible"
-    width="420px"
+    width="440px"
     :confirmLoading="loading"
     @confirm="confirm"
     @cancel="cancel"
     @close="handleClose"
-    :confirmText="$t('device.confirmButton')"
+    @open="focusInput"
+    :confirmText="tx('device.addRobotAction', 'Add robot')"
     :cancelText="$t('device.cancelButton')"
   >
-    <div class="add-device-body">
-      <div class="add-device-label">
-        <span class="required">*</span>
-        {{ $t('device.verificationCode') }}
+    <div class="nx-add-code">
+      <div class="nx-add-code__intro">
+        <span class="nx-icon-tile" aria-hidden="true"><i class="el-icon-microphone"></i></span>
+        <p class="nx-add-code__help">
+          {{ tx('device.codeHelp', 'Turn TinyBot on and connect it to Wi-Fi. When it says a 6-digit code, type it below.') }}
+        </p>
       </div>
+
+      <label class="nx-add-code__label" for="nx-device-code">{{ $t('device.verificationCode') }}</label>
       <el-input
-        :placeholder="$t('device.verificationCodePlaceholder')"
+        id="nx-device-code"
+        ref="codeInput"
         v-model="deviceCode"
-        class="add-device-input"
+        class="nx-add-code__input"
+        :placeholder="tx('device.codePlaceholder', '000000')"
+        maxlength="6"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        @input="onCodeInput"
         @keyup.enter.native="confirm"
       />
+      <p class="nx-add-code__hint">
+        {{ tx('device.codeHint', 'The code is valid for a few minutes. Missed it? Restart the robot to hear a new one.') }}
+      </p>
     </div>
   </CustomDialog>
 </template>
@@ -43,6 +57,18 @@ export default {
     }
   },
   methods: {
+    // Pending i18n keys fall back to their English text until the lead merges them
+    tx(key, fallback) {
+      return this.$te(key) || this.$te(key, 'en') ? this.$t(key) : fallback;
+    },
+    onCodeInput(value) {
+      this.deviceCode = String(value || '').replace(/\D/g, '').slice(0, 6);
+    },
+    focusInput() {
+      this.$nextTick(() => {
+        if (this.$refs.codeInput) this.$refs.codeInput.focus();
+      });
+    },
     confirm() {
       if (!/^\d{6}$/.test(this.deviceCode)) {
         this.$message.error(this.$t('device.input6DigitCode'));
@@ -93,27 +119,48 @@ export default {
 }
 </script>
 
-<style scoped>
-.add-device-body {
-  padding: 6px 4px 4px;
-}
+<style lang="scss" scoped>
+.nx-add-code {
+  display: flex;
+  flex-direction: column;
 
-.add-device-label {
-  font-size: 14px;
-  color: #475569;
-  text-align: left;
-  margin-bottom: 12px;
-}
-
-.add-device-label .required {
-  color: #f56c6c;
-  margin-right: 2px;
-}
-
-.add-device-input ::v-deep(.el-input__inner) {
-  height: 40px;
-  border-radius: 8px;
-  border-color: #e2e8f0;
-  font-size: 14px;
+  &__intro {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--nx-space-3);
+    padding: var(--nx-space-3);
+    margin-bottom: var(--nx-space-5);
+    border-radius: var(--nx-radius);
+    background: var(--nx-surface-2);
+  }
+  &__help {
+    margin: 0;
+    font-size: var(--nx-text-callout);
+    line-height: 1.43;
+    color: var(--nx-text-2);
+    align-self: center;
+  }
+  &__label {
+    margin-bottom: var(--nx-space-2);
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__input ::v-deep .el-input__inner {
+    height: var(--nx-control-h-lg);
+    font-family: var(--nx-font-mono);
+    font-size: var(--nx-text-title);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.4em;
+    text-align: center;
+  }
+  &__input ::v-deep .el-input__inner::placeholder {
+    letter-spacing: 0.4em;
+    color: var(--nx-text-3);
+  }
+  &__hint {
+    margin: var(--nx-space-2) 0 0;
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
 }
 </style>

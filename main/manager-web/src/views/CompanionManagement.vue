@@ -1,569 +1,815 @@
 <template>
-  <div class="welcome">
+  <div class="cm">
     <HeaderBar />
 
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <div class="content-area">
-          <el-card class="companion-card" shadow="never">
-            <div class="operation-header">
-              <div class="title-block">
-                <el-button icon="el-icon-arrow-left" size="small" class="back-btn" @click="goBack">
-                  {{ $t('companion.back') }}
-                </el-button>
-                <h2 class="page-title">
-                  {{ $t('companion.title') }}<span v-if="dev && dev.name"> · {{ dev.name }}</span>
-                </h2>
-                <template v-if="dev">
-                  <el-tag v-if="dev.online" type="success" effect="dark" size="mini">
-                    <i class="el-icon-circle-check"></i> {{ $t('companion.online') }}
-                  </el-tag>
-                  <el-tag v-else type="info" effect="plain" size="mini">
-                    <i class="el-icon-circle-close"></i> {{ $t('companion.offline') }}
-                  </el-tag>
-                  <span class="muted small">{{ $t('companion.lastSeen') }}: {{ ago(dev.last_seen) }}</span>
-                </template>
-              </div>
-              <el-button icon="el-icon-refresh" size="small" :loading="loading" @click="refresh(false)">
-                {{ $t('companion.refresh') }}
-              </el-button>
+    <main class="nx-page cm-page">
+      <button type="button" class="nx-back" @click="goBack">
+        <i class="el-icon-arrow-left" aria-hidden="true"></i>
+        {{ $t('companion.back') }}
+      </button>
+
+      <!-- No device in the URL -->
+      <section v-if="!deviceId" class="nx-card">
+        <div class="nx-empty">
+          <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-cpu"></i></span>
+          <h1 class="nx-empty__title">{{ tx('companion.noDeviceTitle', 'No robot selected') }}</h1>
+          <p class="nx-empty__text">{{ $t('companion.noDevice') }}</p>
+          <el-button class="nx-empty__action" type="primary" @click="goBack">{{ $t('companion.back') }}</el-button>
+        </div>
+      </section>
+
+      <template v-else>
+        <!-- Robot header -->
+        <header class="cm-hero">
+          <span class="cm-hero__avatar" aria-hidden="true">
+            <span v-if="dev && stats.mood" class="cm-hero__emoji">{{ moodEmoji(stats.mood) }}</span>
+            <i v-else class="el-icon-cpu"></i>
+          </span>
+          <div class="cm-hero__text">
+            <div class="cm-hero__eyebrow">{{ $t('companion.title') }}</div>
+            <h1 class="nx-title nx-truncate" :title="dev ? dev.name : ''">
+              <template v-if="dev">{{ dev.name || 'TinyBot' }}</template>
+              <span v-else class="nx-skeleton cm-sk-title"></span>
+            </h1>
+            <div v-if="dev" class="cm-hero__chips">
+              <span class="nx-badge" :class="dev.online ? 'nx-badge--success' : ''">
+                <span class="nx-dot" :class="{ 'nx-dot--online': dev.online }" aria-hidden="true"></span>
+                {{ dev.online ? $t('companion.online') : $t('companion.offline') }}
+              </span>
+              <span class="cm-hero__seen nx-num">{{ $t('companion.lastSeen') }} {{ ago(dev.last_seen) }}</span>
+              <span v-if="stats.mood" class="cm-chip" :title="$t('companion.status.state') + ': ' + (stats.state || '-')">
+                <span aria-hidden="true">{{ moodEmoji(stats.mood) }}</span> {{ stats.mood }}
+              </span>
+              <span v-if="stats.bond_score !== undefined" class="cm-chip">
+                <i class="el-icon-star-off" aria-hidden="true"></i>
+                {{ $t('companion.status.bondLevel', { level: stats.bond_level || 0 }) }}
+              </span>
             </div>
+          </div>
+          <el-tooltip :content="$t('companion.refresh')" placement="bottom" :open-delay="400">
+            <button type="button" class="nx-icon-btn cm-hero__refresh" :aria-label="$t('companion.refresh')"
+              :disabled="loading" @click="refresh(false)">
+              <i :class="loading ? 'el-icon-loading' : 'el-icon-refresh'" aria-hidden="true"></i>
+            </button>
+          </el-tooltip>
+        </header>
 
-            <el-alert v-if="!deviceId" type="error" :title="$t('companion.noDevice')" :closable="false" show-icon />
-            <el-alert v-else-if="loadError" type="error" :title="loadError" :closable="false" show-icon class="load-error" />
+        <div v-if="loadError" class="cm-banner" role="alert">
+          <i class="el-icon-warning-outline" aria-hidden="true"></i>
+          <span class="cm-banner__text">{{ loadError }}</span>
+          <el-button size="small" @click="refresh(false)">{{ tx('companion.retry', 'Try again') }}</el-button>
+        </div>
 
-            <div v-if="!dev && deviceId && !loadError" class="placeholder" v-loading="true"
-              :element-loading-text="$t('companion.loading')"></div>
+        <!-- First load -->
+        <div v-if="!dev && !loadError" class="cm-layout" aria-busy="true">
+          <div class="cm-nav cm-nav--skeleton">
+            <span v-for="n in 6" :key="'n' + n" class="nx-skeleton cm-sk-nav"></span>
+          </div>
+          <div class="cm-tiles">
+            <div v-for="n in 6" :key="'t' + n" class="nx-card cm-tile">
+              <span class="nx-skeleton cm-sk-line"></span>
+              <span class="nx-skeleton cm-sk-value"></span>
+            </div>
+          </div>
+        </div>
 
-            <el-tabs v-if="dev" v-model="activeTab" class="companion-tabs">
-              <!-- Status -->
-              <el-tab-pane :label="$t('companion.tab.status')" name="status">
-                <div class="grid">
-                  <div class="panel">
-                    <h3>{{ $t('companion.status.robot') }}</h3>
-                    <div class="mood">
-                      <span class="mood-emoji">{{ moodEmoji(stats.mood) }}</span>
-                      <div>
-                        <div class="big">{{ stats.mood || '-' }}</div>
-                        <div class="muted small">{{ $t('companion.status.state') }}: {{ stats.state || '-' }}</div>
-                      </div>
-                    </div>
-                    <div v-if="stats.bond_score !== undefined" class="bond">
-                      <div class="row spread small">
-                        <span>{{ $t('companion.status.bondLevel', { level: stats.bond_level || 0 }) }}</span>
-                        <span>{{ stats.bond_score }}/100</span>
-                      </div>
-                      <el-progress :percentage="clampPercent(stats.bond_score)" :show-text="false" :stroke-width="8" />
-                    </div>
-                    <div class="stat-row">
-                      <div class="stat"><b>{{ stats.streak || 0 }}</b><span>{{ $t('companion.status.streak') }}</span></div>
-                      <div class="stat"><b>{{ stats.pomodoros_today || 0 }}</b><span>{{ $t('companion.status.pomodorosToday') }}</span></div>
-                      <div class="stat"><b>{{ stats.volume !== undefined ? stats.volume : '-' }}</b><span>{{ $t('companion.status.volume') }}</span></div>
-                    </div>
-                    <dl class="facts">
+        <div v-if="dev" class="cm-layout">
+          <!-- Section list (wide) / segmented scroller (narrow) -->
+          <nav class="cm-nav" :aria-label="tx('companion.sections', 'Sections')">
+            <button v-for="s in sections" :key="s.key" type="button" class="cm-nav__item"
+              :class="{ 'is-active': activeTab === s.key }" :aria-current="activeTab === s.key ? 'page' : null"
+              @click="activeTab = s.key">
+              <i :class="s.icon" aria-hidden="true"></i>
+              <span class="cm-nav__label">{{ $t(s.label) }}</span>
+              <span v-if="s.count" class="cm-nav__count nx-num">{{ s.count }}</span>
+            </button>
+          </nav>
+
+          <div class="cm-content">
+            <transition name="nx-fade" mode="out-in">
+              <!-- ============================================================ Status -->
+              <section v-if="activeTab === 'status'" key="status" class="cm-section">
+                <div class="cm-tiles">
+                  <div class="nx-card cm-tile">
+                    <span class="nx-stat__label">{{ tx('companion.status.mood', 'Mood') }}</span>
+                    <span class="nx-stat__value cm-tile__value">
+                      <span class="cm-tile__emoji" aria-hidden="true">{{ moodEmoji(stats.mood) }}</span>
+                      <span class="nx-truncate">{{ stats.mood || '–' }}</span>
+                    </span>
+                    <span class="nx-stat__meta nx-truncate">{{ $t('companion.status.state') }}: {{ stats.state || '–' }}</span>
+                  </div>
+                  <div class="nx-card cm-tile">
+                    <span class="nx-stat__label">{{ tx('companion.status.bond', 'Bond') }}</span>
+                    <span class="nx-stat__value">
+                      {{ stats.bond_score !== undefined ? stats.bond_score : '–' }}<small class="cm-tile__unit">/100</small>
+                    </span>
+                    <span class="cm-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                      :aria-valuenow="clampPercent(stats.bond_score)">
+                      <span class="cm-meter__fill" :style="{ transform: 'scaleX(' + clampPercent(stats.bond_score) / 100 + ')' }"></span>
+                    </span>
+                    <span class="nx-stat__meta">{{ $t('companion.status.bondLevel', { level: stats.bond_level || 0 }) }}</span>
+                  </div>
+                  <div class="nx-card cm-tile">
+                    <span class="nx-stat__label">{{ $t('companion.status.streak') }}</span>
+                    <span class="nx-stat__value">{{ stats.streak || 0 }}</span>
+                    <span class="nx-stat__meta">{{ $t('companion.event.days', { n: stats.streak || 0 }) }}</span>
+                  </div>
+                  <div class="nx-card cm-tile">
+                    <span class="nx-stat__label">{{ $t('companion.status.pomodorosToday') }}</span>
+                    <span class="nx-stat__value">{{ stats.pomodoros_today || 0 }}</span>
+                    <span class="nx-stat__meta">{{ $t('companion.focus.title') }}</span>
+                  </div>
+                  <div class="nx-card cm-tile">
+                    <span class="nx-stat__label">{{ $t('companion.status.volume') }}</span>
+                    <span class="nx-stat__value">
+                      {{ stats.volume !== undefined ? stats.volume : '–' }}<small v-if="stats.volume !== undefined" class="cm-tile__unit">%</small>
+                    </span>
+                    <span class="nx-stat__meta">{{ settingsVolumeText }}</span>
+                  </div>
+                  <div class="nx-card cm-tile">
+                    <span class="nx-stat__label">{{ tx('companion.status.wifi', 'Wi-Fi') }}</span>
+                    <span class="nx-stat__value">
+                      {{ stats.rssi ? stats.rssi : '–' }}<small v-if="stats.rssi" class="cm-tile__unit"> dBm</small>
+                    </span>
+                    <span class="nx-stat__meta">{{ wifiQuality }}</span>
+                  </div>
+                </div>
+
+                <div class="cm-grid">
+                  <article class="nx-card">
+                    <header class="nx-card__header">
+                      <h2 class="nx-headline">{{ $t('companion.status.robot') }}</h2>
+                    </header>
+                    <dl class="nx-kv cm-kv">
                       <dt>{{ $t('companion.status.lastTouch') }}</dt>
-                      <dd>{{ stats.last_touch_s !== undefined ? secondsAgoText(stats.last_touch_s) : '-' }}</dd>
+                      <dd>{{ stats.last_touch_s !== undefined ? secondsAgoText(stats.last_touch_s) : '–' }}</dd>
                       <dt>{{ $t('companion.status.highScores') }}</dt>
                       <dd>
-                        <span v-if="!scores.length">-</span>
-                        <span v-for="s in scores" :key="s.game" class="score">{{ gameName(s.game) }} {{ s.value }}{{ s.ms ? ' ms' : '' }}</span>
+                        <span v-if="!scores.length">–</span>
+                        <span v-for="s in scores" :key="s.game" class="cm-score nx-num">{{ gameName(s.game) }} {{ s.value }}{{ s.ms ? ' ms' : '' }}</span>
                       </dd>
                       <dt>{{ $t('companion.status.firmware') }}</dt>
-                      <dd>{{ stats.fw || '-' }}</dd>
+                      <dd class="nx-mono">{{ stats.fw || '–' }}</dd>
                       <dt>{{ $t('companion.status.ip') }}</dt>
-                      <dd>{{ stats.ip || '-' }}</dd>
+                      <dd class="nx-mono nx-break">{{ stats.ip || '–' }}</dd>
                       <dt>{{ $t('companion.status.rssi') }}</dt>
-                      <dd>{{ stats.rssi ? stats.rssi + ' dBm' : '-' }}</dd>
+                      <dd class="nx-num">{{ stats.rssi ? stats.rssi + ' dBm' : '–' }}</dd>
                     </dl>
-                  </div>
+                  </article>
 
-                  <div class="panel">
-                    <h3>{{ $t('companion.status.weather') }}</h3>
+                  <article class="nx-card">
+                    <header class="nx-card__header">
+                      <h2 class="nx-headline">{{ $t('companion.status.weather') }}</h2>
+                      <span v-if="weather.ok && weather.city" class="nx-caption nx-truncate" :title="weather.city">{{ weather.city }}</span>
+                    </header>
                     <template v-if="weather.ok">
-                      <div class="big">{{ weather.temp }}° · {{ weather.text }}</div>
-                      <div class="muted small">{{ weather.city }}</div>
-                      <div class="small">
+                      <div class="cm-weather">
+                        <span class="cm-weather__temp nx-num">{{ weather.temp }}°</span>
+                        <span class="cm-weather__text">{{ weather.text }}</span>
+                      </div>
+                      <p class="nx-footnote cm-gap-top">
                         {{ $t('companion.status.weatherDetail', { hi: weather.hi, lo: weather.lo, rain: weather.rain_prob }) }}
-                      </div>
+                      </p>
                     </template>
-                    <div v-else class="muted">{{ $t('companion.status.noWeather') }}</div>
-                    <template v-if="prayer.enabled && upcomingPrayer">
-                      <h3 class="spaced">{{ $t('companion.status.nextPrayer') }}</h3>
-                      <div class="big">
-                        {{ $t('companion.prayer.' + upcomingPrayer.key) }} {{ upcomingPrayer.time }}
-                        <span v-if="upcomingPrayer.tomorrow" class="muted small">({{ $t('companion.prayer.tomorrow') }})</span>
+                    <p v-else class="nx-footnote">{{ $t('companion.status.noWeather') }}</p>
+                    <div v-if="prayer.enabled && upcomingPrayer" class="cm-next-prayer">
+                      <span class="nx-icon-tile" aria-hidden="true"><i class="el-icon-sunrise"></i></span>
+                      <div>
+                        <div class="nx-caption">{{ $t('companion.status.nextPrayer') }}</div>
+                        <div class="cm-next-prayer__value nx-num">
+                          {{ $t('companion.prayer.' + upcomingPrayer.key) }} · {{ upcomingPrayer.time }}
+                          <span v-if="upcomingPrayer.tomorrow" class="nx-caption">({{ $t('companion.prayer.tomorrow') }})</span>
+                        </div>
                       </div>
-                    </template>
-                  </div>
+                    </div>
+                  </article>
                 </div>
 
-                <div class="panel">
-                  <div class="row spread">
-                    <h3>{{ $t('companion.status.events') }}</h3>
-                    <el-button size="mini" :loading="loadingEvents" @click="loadMoreEvents">{{ $t('companion.status.moreEvents') }}</el-button>
+                <article class="nx-card cm-gap-top-lg">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.status.events') }}</h2>
+                    <el-button size="small" :loading="loadingEvents" @click="loadMoreEvents">{{ $t('companion.status.moreEvents') }}</el-button>
+                  </header>
+                  <div v-if="!eventList.length" class="nx-empty cm-empty-sm">
+                    <span class="nx-icon-tile nx-icon-tile--neutral" aria-hidden="true"><i class="el-icon-time"></i></span>
+                    <p class="nx-empty__text">{{ $t('companion.status.noEvents') }}</p>
                   </div>
-                  <el-empty v-if="!eventList.length" :image-size="60" :description="$t('companion.status.noEvents')" />
-                  <ul v-else class="list">
-                    <li v-for="(e, i) in eventList" :key="i + '-' + (e.rx || e.ts)">
-                      <span class="grow">{{ eventText(e) }}</span>
-                      <span class="muted small">{{ ago(e.rx || e.ts) }}</span>
+                  <ol v-else class="cm-timeline">
+                    <li v-for="(e, i) in eventList" :key="i + '-' + (e.rx || e.ts)" class="cm-timeline__item"
+                      :class="'is-' + eventVisual(e).tone">
+                      <span class="cm-timeline__icon" aria-hidden="true"><i :class="eventVisual(e).icon"></i></span>
+                      <span class="cm-timeline__text">{{ eventText(e) }}</span>
+                      <span class="cm-timeline__time nx-num">{{ ago(e.rx || e.ts) }}</span>
                     </li>
-                  </ul>
-                </div>
-              </el-tab-pane>
+                  </ol>
+                </article>
+              </section>
 
-              <!-- Alarms -->
-              <el-tab-pane :label="$t('companion.tab.alarms')" name="alarms">
-                <div class="panel">
-                  <div class="row spread">
-                    <h3>{{ $t('companion.tab.alarms') }} ({{ alarms.length }}/{{ maxAlarms }})</h3>
-                    <el-button type="primary" size="small" icon="el-icon-plus" :disabled="alarms.length >= maxAlarms"
+              <!-- ============================================================ Alarms -->
+              <section v-else-if="activeTab === 'alarms'" key="alarms" class="cm-section">
+                <article class="nx-card nx-card--flush">
+                  <header class="cm-card-head">
+                    <div>
+                      <h2 class="nx-headline">{{ $t('companion.tab.alarms') }}</h2>
+                      <p class="nx-caption nx-num">{{ tx('companion.countOf', '{n} of {max}', { n: alarms.length, max: maxAlarms }) }}</p>
+                    </div>
+                    <el-button type="primary" icon="el-icon-plus" :disabled="alarms.length >= maxAlarms"
                       @click="openAlarm(null)">{{ $t('companion.alarm.add') }}</el-button>
+                  </header>
+                  <div v-if="!alarms.length" class="nx-empty">
+                    <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-alarm-clock"></i></span>
+                    <h3 class="nx-empty__title">{{ $t('companion.alarm.none') }}</h3>
+                    <p class="nx-empty__text">{{ tx('companion.alarm.emptyText', 'Add an alarm and TinyBot wakes the family with a friendly voice.') }}</p>
                   </div>
-                  <el-empty v-if="!alarms.length" :image-size="60" :description="$t('companion.alarm.none')" />
-                  <ul v-else class="list">
-                    <li v-for="a in sortedAlarms" :key="a.id" :class="{ disabled: !a.enabled }">
-                      <div class="time">{{ a.time }}</div>
-                      <div class="grow clickable" @click="openAlarm(a)">
-                        <div>{{ a.label || $t('companion.alarm.defaultLabel') }}</div>
-                        <div class="muted small">
-                          {{ daysText(a.days) }}
-                          <span v-if="a.snooze_min"> · {{ $t('companion.alarm.snoozeShort', { min: a.snooze_min }) }}</span>
-                          <span v-if="a.say"> · <i class="el-icon-microphone"></i> {{ a.say }}</span>
-                        </div>
+                  <ul v-else class="cm-rows">
+                    <li v-for="a in sortedAlarms" :key="a.id" class="cm-alarm" :class="{ 'is-off': !a.enabled }">
+                      <button type="button" class="cm-alarm__main" @click="openAlarm(a)">
+                        <span class="cm-alarm__time nx-num">{{ a.time }}</span>
+                        <span class="cm-alarm__body">
+                          <span class="cm-alarm__label nx-truncate">{{ a.label || $t('companion.alarm.defaultLabel') }}</span>
+                          <span class="cm-days">
+                            <template v-if="dayPresetKey(a.days)">
+                              <span class="cm-day is-on">{{ $t('companion.preset.' + dayPresetKey(a.days)) }}</span>
+                            </template>
+                            <template v-else>
+                              <span v-for="d in dayList(a.days)" :key="d" class="cm-day is-on">{{ $t('companion.day.' + d) }}</span>
+                            </template>
+                            <span v-if="a.snooze_min" class="cm-alarm__meta">{{ $t('companion.alarm.snoozeShort', { min: a.snooze_min }) }}</span>
+                          </span>
+                          <span v-if="a.say" class="cm-alarm__say nx-truncate" :title="a.say">
+                            <i class="el-icon-microphone" aria-hidden="true"></i> {{ a.say }}
+                          </span>
+                        </span>
+                      </button>
+                      <div class="cm-row-actions">
+                        <el-switch :value="a.enabled" :disabled="saving.alarms" :aria-label="$t('companion.enabled')"
+                          @change="(v) => toggleAlarm(a, v)" />
+                        <button type="button" class="nx-icon-btn" :aria-label="$t('common.edit')" @click="openAlarm(a)">
+                          <i class="el-icon-edit" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="nx-icon-btn nx-icon-btn--danger" :aria-label="$t('common.delete')" @click="deleteAlarm(a)">
+                          <i class="el-icon-delete" aria-hidden="true"></i>
+                        </button>
                       </div>
-                      <el-switch :value="a.enabled" @change="(v) => toggleAlarm(a, v)" />
-                      <el-button type="text" size="mini" icon="el-icon-edit" @click="openAlarm(a)" />
-                      <el-button type="text" size="mini" icon="el-icon-delete" class="danger-text" @click="deleteAlarm(a)" />
                     </li>
                   </ul>
-                </div>
-              </el-tab-pane>
+                </article>
+              </section>
 
-              <!-- Reminders -->
-              <el-tab-pane :label="$t('companion.tab.reminders')" name="reminders">
-                <div class="panel">
-                  <div class="row spread wrap">
-                    <h3>{{ $t('companion.tab.reminders') }} ({{ reminders.length }}/{{ maxReminders }})</h3>
-                    <div class="button-row">
-                      <el-button v-for="kind in reminderKinds" :key="kind" size="small" icon="el-icon-plus"
-                        :disabled="reminders.length >= maxReminders" @click="openReminder(null, kind)">
-                        {{ $t('companion.reminder.kind.' + kind) }}
+              <!-- ============================================================ Reminders -->
+              <section v-else-if="activeTab === 'reminders'" key="reminders" class="cm-section">
+                <article class="nx-card nx-card--flush">
+                  <header class="cm-card-head">
+                    <div>
+                      <h2 class="nx-headline">{{ $t('companion.tab.reminders') }}</h2>
+                      <p class="nx-caption nx-num">{{ tx('companion.countOf', '{n} of {max}', { n: reminders.length, max: maxReminders }) }}</p>
+                    </div>
+                    <el-dropdown trigger="click" placement="bottom-end" :disabled="reminders.length >= maxReminders"
+                      @command="(kind) => openReminder(null, kind)">
+                      <el-button type="primary" icon="el-icon-plus" :disabled="reminders.length >= maxReminders">
+                        {{ $t('companion.reminder.add') }} <i class="el-icon-arrow-down el-icon--right" aria-hidden="true"></i>
                       </el-button>
-                    </div>
+                      <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item v-for="kind in reminderKinds" :key="kind" :command="kind" :icon="kindIcon(kind)">
+                          {{ $t('companion.reminder.kind.' + kind) }}
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </el-dropdown>
+                  </header>
+                  <div v-if="!reminders.length" class="nx-empty">
+                    <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-bell"></i></span>
+                    <h3 class="nx-empty__title">{{ $t('companion.reminder.none') }}</h3>
+                    <p class="nx-empty__text">{{ tx('companion.reminder.emptyText', 'Water, medicine or anything else: TinyBot reminds you at the right time.') }}</p>
                   </div>
-                  <el-empty v-if="!reminders.length" :image-size="60" :description="$t('companion.reminder.none')" />
-                  <ul v-else class="list">
-                    <li v-for="r in reminders" :key="r.id" :class="{ disabled: !r.enabled }">
-                      <el-tag size="mini" :type="kindTagType(r.kind)">{{ $t('companion.reminder.kind.' + r.kind) }}</el-tag>
-                      <div class="grow clickable" @click="openReminder(r)">
-                        <div>{{ r.label }}</div>
-                        <div class="muted small">
-                          {{ reminderWhen(r) }}
-                          <span v-if="r.say"> · <i class="el-icon-microphone"></i> {{ r.say }}</span>
+                  <template v-else>
+                  <div v-for="group in reminderGroups" :key="group.kind" class="cm-group">
+                    <h3 class="cm-group__title">
+                      <span class="nx-icon-tile cm-kind" :class="'cm-kind--' + group.kind" aria-hidden="true"><i :class="kindIcon(group.kind)"></i></span>
+                      {{ $t('companion.reminder.kind.' + group.kind) }}
+                      <span class="nx-caption nx-num">{{ group.items.length }}</span>
+                    </h3>
+                    <ul class="cm-rows">
+                      <li v-for="r in group.items" :key="r.id" class="cm-reminder" :class="{ 'is-off': !r.enabled }">
+                        <button type="button" class="cm-reminder__main" @click="openReminder(r)">
+                          <span class="cm-reminder__label nx-truncate">{{ r.label }}</span>
+                          <span class="cm-reminder__when nx-num">{{ reminderWhen(r) }}</span>
+                          <span v-if="r.say" class="cm-alarm__say nx-truncate" :title="r.say">
+                            <i class="el-icon-microphone" aria-hidden="true"></i> {{ r.say }}
+                          </span>
+                        </button>
+                        <div class="cm-row-actions">
+                          <el-switch :value="r.enabled" :disabled="saving.reminders" :aria-label="$t('companion.enabled')"
+                            @change="(v) => toggleReminder(r, v)" />
+                          <button type="button" class="nx-icon-btn" :aria-label="$t('common.edit')" @click="openReminder(r)">
+                            <i class="el-icon-edit" aria-hidden="true"></i>
+                          </button>
+                          <button type="button" class="nx-icon-btn nx-icon-btn--danger" :aria-label="$t('common.delete')" @click="deleteReminder(r)">
+                            <i class="el-icon-delete" aria-hidden="true"></i>
+                          </button>
                         </div>
-                      </div>
-                      <el-switch :value="r.enabled" @change="(v) => toggleReminder(r, v)" />
-                      <el-button type="text" size="mini" icon="el-icon-edit" @click="openReminder(r)" />
-                      <el-button type="text" size="mini" icon="el-icon-delete" class="danger-text" @click="deleteReminder(r)" />
-                    </li>
-                  </ul>
-                </div>
-              </el-tab-pane>
-
-              <!-- Prayer -->
-              <el-tab-pane :label="$t('companion.tab.prayer')" name="prayer">
-                <div class="grid">
-                  <div class="panel">
-                    <h3>{{ $t('companion.tab.prayer') }}</h3>
-                    <div class="toggle-row">
-                      <span>{{ $t('companion.prayer.enable') }}</span>
-                      <el-switch :value="!!prayer.enabled" :disabled="saving.prayer" @change="(v) => savePrayer({ enabled: v })" />
-                    </div>
-                    <div class="toggle-row">
-                      <span>{{ $t('companion.prayer.remind') }}</span>
-                      <el-switch :value="!!prayer.remind" :disabled="saving.prayer" @change="(v) => savePrayer({ remind: v })" />
-                    </div>
-                    <div class="muted small">{{ $t('companion.prayer.city') }}: {{ prayer.city || '-' }}
-                      · {{ $t('companion.prayer.weatherCity') }}: {{ weather.city || '-' }}</div>
-
-                    <template v-if="prayer.enabled && prayerDays.length">
-                      <table class="times">
-                        <thead>
-                          <tr>
-                            <th></th>
-                            <th>{{ $t('companion.prayer.today') }} {{ shortDate(prayerDays[0].date) }}</th>
-                            <th v-if="prayerDays[1]">{{ $t('companion.prayer.tomorrow') }} {{ shortDate(prayerDays[1].date) }}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr v-for="k in prayerRows" :key="k"
-                            :class="{ next: upcomingPrayer && !upcomingPrayer.tomorrow && upcomingPrayer.key === k }">
-                            <td>{{ $t('companion.prayer.' + k) }}</td>
-                            <td>{{ prayerDays[0][k] || '-' }}</td>
-                            <td v-if="prayerDays[1]">{{ prayerDays[1][k] || '-' }}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                      <div class="hint">{{ $t('companion.prayer.methodHint') }}</div>
-                    </template>
-                    <div v-else-if="prayer.enabled" class="muted small spaced">{{ $t('companion.prayer.noTimes') }}</div>
-                  </div>
-
-                  <div class="panel">
-                    <h3>{{ $t('companion.prayer.changeCity') }}</h3>
-                    <div class="row">
-                      <el-input v-model="cityQuery" size="small" clearable :placeholder="$t('companion.prayer.cityPlaceholder')"
-                        @keyup.enter.native="searchCity" />
-                      <el-button type="primary" size="small" icon="el-icon-search" :loading="citySearching"
-                        @click="searchCity">{{ $t('companion.prayer.search') }}</el-button>
-                    </div>
-                    <el-checkbox v-model="citySameWeather" class="spaced">{{ $t('companion.prayer.sameForWeather') }}</el-checkbox>
-                    <div v-if="citySearched && !cityResults.length && !citySearching" class="muted small spaced">
-                      {{ $t('companion.prayer.noResults') }}
-                    </div>
-                    <ul class="list">
-                      <li v-for="(r, i) in cityResults" :key="i" class="clickable" @click="chooseCity(r)">
-                        <div class="grow">
-                          <div>{{ r.name }}</div>
-                          <div class="muted small">{{ cityDetail(r) }}</div>
-                        </div>
-                        <i class="el-icon-arrow-right"></i>
                       </li>
                     </ul>
                   </div>
-                </div>
-              </el-tab-pane>
+                  </template>
+                </article>
+              </section>
 
-              <!-- Focus timer -->
-              <el-tab-pane :label="$t('companion.tab.focus')" name="focus">
-                <div class="panel narrow">
-                  <h3>{{ $t('companion.focus.title') }}</h3>
-                  <el-form label-position="top" size="small" class="form-grid">
+              <!-- ============================================================ Prayer -->
+              <section v-else-if="activeTab === 'prayer'" key="prayer" class="cm-section cm-grid">
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.tab.prayer') }}</h2>
+                    <span v-if="prayerDays.length" class="nx-caption nx-num">
+                      {{ $t('companion.prayer.today') }} {{ shortDate(prayerDays[0].date) }}
+                    </span>
+                  </header>
+                  <div class="cm-settings">
+                    <div class="cm-setting">
+                      <span>{{ $t('companion.prayer.enable') }}</span>
+                      <el-switch :value="!!prayer.enabled" :disabled="saving.prayer" :aria-label="$t('companion.prayer.enable')"
+                        @change="(v) => savePrayer({ enabled: v })" />
+                    </div>
+                    <div class="cm-setting">
+                      <span>{{ $t('companion.prayer.remind') }}</span>
+                      <el-switch :value="!!prayer.remind" :disabled="saving.prayer" :aria-label="$t('companion.prayer.remind')"
+                        @change="(v) => savePrayer({ remind: v })" />
+                    </div>
+                  </div>
+                  <p class="nx-footnote cm-gap-top nx-break">
+                    {{ $t('companion.prayer.city') }}: <strong>{{ prayer.city || '–' }}</strong>
+                    · {{ $t('companion.prayer.weatherCity') }}: <strong>{{ weather.city || '–' }}</strong>
+                  </p>
+
+                  <template v-if="prayer.enabled && prayerDays.length">
+                    <div class="cm-prayer cm-prayer--head" aria-hidden="true">
+                      <span></span>
+                      <span class="cm-prayer__col">{{ $t('companion.prayer.today') }}</span>
+                      <span v-if="prayerDays[1]" class="cm-prayer__col">{{ $t('companion.prayer.tomorrow') }}</span>
+                    </div>
+                    <ul class="cm-prayers">
+                      <li v-for="k in prayerRows" :key="k" class="cm-prayer" :class="{ 'is-next': isNextPrayer(k) }">
+                        <span class="cm-prayer__name">
+                          {{ $t('companion.prayer.' + k) }}
+                          <span v-if="isNextPrayer(k)" class="nx-badge nx-badge--accent">{{ tx('companion.prayer.next', 'Next') }}</span>
+                        </span>
+                        <span class="cm-prayer__time nx-num">{{ prayerDays[0][k] || '–' }}</span>
+                        <span v-if="prayerDays[1]" class="cm-prayer__tomorrow nx-num"
+                          :title="$t('companion.prayer.tomorrow') + ' ' + shortDate(prayerDays[1].date)">
+                          {{ prayerDays[1][k] || '–' }}
+                        </span>
+                      </li>
+                    </ul>
+                    <p class="nx-caption cm-gap-top">{{ $t('companion.prayer.methodHint') }}</p>
+                  </template>
+                  <p v-else-if="prayer.enabled" class="nx-footnote cm-gap-top">{{ $t('companion.prayer.noTimes') }}</p>
+                </article>
+
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.prayer.changeCity') }}</h2>
+                  </header>
+                  <div class="cm-inline-form">
+                    <el-input v-model="cityQuery" clearable prefix-icon="el-icon-location-outline"
+                      :placeholder="$t('companion.prayer.cityPlaceholder')" :aria-label="$t('companion.prayer.changeCity')"
+                      @keyup.enter.native="searchCity" />
+                    <el-button :loading="citySearching" @click="searchCity">{{ $t('companion.prayer.search') }}</el-button>
+                  </div>
+                  <el-checkbox v-model="citySameWeather" class="cm-gap-top">{{ $t('companion.prayer.sameForWeather') }}</el-checkbox>
+                  <p v-if="citySearched && !cityResults.length && !citySearching" class="nx-footnote cm-gap-top">
+                    {{ $t('companion.prayer.noResults') }}
+                  </p>
+                  <ul v-if="cityResults.length" class="cm-cities">
+                    <li v-for="(r, i) in cityResults" :key="i">
+                      <button type="button" class="cm-city" :disabled="saving.prayer" @click="chooseCity(r)">
+                        <span class="cm-city__text">
+                          <span class="cm-city__name nx-truncate">{{ r.name }}</span>
+                          <span class="nx-caption nx-truncate">{{ cityDetail(r) }}</span>
+                        </span>
+                        <i class="el-icon-arrow-right" aria-hidden="true"></i>
+                      </button>
+                    </li>
+                  </ul>
+                </article>
+              </section>
+
+              <!-- ============================================================ Focus -->
+              <section v-else-if="activeTab === 'focus'" key="focus" class="cm-section">
+                <article class="nx-card cm-form-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.focus.title') }}</h2>
+                    <span class="nx-badge nx-badge--success nx-num">
+                      {{ stats.pomodoros_today || 0 }} · {{ $t('companion.status.pomodorosToday') }}
+                    </span>
+                  </header>
+                  <el-form label-position="top" class="cm-fields">
                     <el-form-item :label="$t('companion.focus.work')">
-                      <el-input-number v-model="forms.pomodoro.work_min" :min="1" :max="120" />
+                      <el-input-number v-model="forms.pomodoro.work_min" :min="1" :max="120" controls-position="right" />
                     </el-form-item>
                     <el-form-item :label="$t('companion.focus.rounds')">
-                      <el-input-number v-model="forms.pomodoro.rounds" :min="1" :max="12" />
+                      <el-input-number v-model="forms.pomodoro.rounds" :min="1" :max="12" controls-position="right" />
                     </el-form-item>
                     <el-form-item :label="$t('companion.focus.shortBreak')">
-                      <el-input-number v-model="forms.pomodoro.short_break_min" :min="1" :max="60" />
+                      <el-input-number v-model="forms.pomodoro.short_break_min" :min="1" :max="60" controls-position="right" />
                     </el-form-item>
                     <el-form-item :label="$t('companion.focus.longBreak')">
-                      <el-input-number v-model="forms.pomodoro.long_break_min" :min="1" :max="90" />
+                      <el-input-number v-model="forms.pomodoro.long_break_min" :min="1" :max="90" controls-position="right" />
                     </el-form-item>
                   </el-form>
-                  <div class="hint">
+                  <p class="nx-footnote">
                     {{ $t('companion.focus.hint', { rounds: forms.pomodoro.rounds, done: stats.pomodoros_today || 0 }) }}
-                  </div>
-                  <div class="button-row spaced">
-                    <el-button size="small" :disabled="!isDirty('pomodoro')" :loading="saving.pomodoro"
+                  </p>
+                  <footer class="nx-card__footer">
+                    <span v-if="isDirty('pomodoro')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button :disabled="!isDirty('pomodoro')" :loading="saving.pomodoro"
                       @click="saveSection('pomodoro')">{{ $t('companion.save') }}</el-button>
-                    <el-button type="primary" size="small" icon="el-icon-video-play" :loading="commandBusy === 'pomodoro'"
+                    <el-button type="primary" icon="el-icon-video-play" :loading="commandBusy === 'pomodoro'"
                       @click="sendCommand('pomodoro', forms.pomodoro.work_min, $t('companion.focus.started'))">
                       {{ $t('companion.focus.startNow') }}
                     </el-button>
-                  </div>
-                </div>
-              </el-tab-pane>
+                  </footer>
+                </article>
+              </section>
 
-              <!-- Messages -->
-              <el-tab-pane :label="$t('companion.tab.messages')" name="messages">
-                <div class="grid">
-                  <div class="panel">
-                    <h3>{{ $t('companion.message.send') }}</h3>
-                    <el-form label-position="top" size="small">
-                      <el-form-item :label="$t('companion.message.from')">
-                        <el-input v-model="message.from" :maxlength="maxName" placeholder="Ammu" />
-                        <div class="hint">{{ $t('companion.message.fromHint') }}</div>
-                      </el-form-item>
-                      <el-form-item :label="$t('companion.message.text')">
-                        <el-input v-model="message.text" type="textarea" :rows="3" :maxlength="maxMessage" show-word-limit
-                          :placeholder="$t('companion.message.textPlaceholder')" />
-                        <div class="hint">{{ $t('companion.message.textHint') }}</div>
-                      </el-form-item>
-                      <div class="toggle-row">
-                        <span>{{ $t('companion.message.ask') }}</span>
-                        <el-switch v-model="message.ask" />
-                      </div>
-                      <el-button type="primary" size="small" icon="el-icon-s-promotion" :loading="sendingMessage"
-                        @click="sendMessage">{{ $t('companion.message.sendButton') }}</el-button>
-                    </el-form>
+              <!-- ============================================================ Messages -->
+              <section v-else-if="activeTab === 'messages'" key="messages" class="cm-section cm-grid cm-grid--messages">
+                <article class="nx-card cm-composer">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.message.send') }}</h2>
+                  </header>
+                  <el-form label-position="top" @submit.native.prevent>
+                    <el-form-item :label="$t('companion.message.from')">
+                      <el-input v-model="message.from" :maxlength="maxName" placeholder="Ammu" />
+                      <div class="cm-help">{{ $t('companion.message.fromHint') }}</div>
+                    </el-form-item>
+                    <el-form-item :label="$t('companion.message.text')">
+                      <el-input v-model="message.text" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :maxlength="maxMessage"
+                        show-word-limit :placeholder="$t('companion.message.textPlaceholder')" />
+                      <div class="cm-help">{{ $t('companion.message.textHint') }}</div>
+                    </el-form-item>
+                  </el-form>
+                  <footer class="cm-composer__bar">
+                    <label class="cm-composer__ask">
+                      <el-switch v-model="message.ask" :aria-label="$t('companion.message.ask')" />
+                      <span>{{ $t('companion.message.ask') }}</span>
+                    </label>
+                    <el-button type="primary" icon="el-icon-s-promotion" :loading="sendingMessage"
+                      @click="sendMessage">{{ $t('companion.message.sendButton') }}</el-button>
+                  </footer>
+                </article>
+
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.message.sent') }}</h2>
+                    <span v-if="messages.length" class="nx-caption nx-num">{{ messages.length }}</span>
+                  </header>
+                  <div v-if="!messages.length" class="nx-empty cm-empty-sm">
+                    <span class="nx-icon-tile nx-icon-tile--neutral" aria-hidden="true"><i class="el-icon-chat-line-round"></i></span>
+                    <p class="nx-empty__text">{{ $t('companion.message.none') }}</p>
                   </div>
-                  <div class="panel">
-                    <h3>{{ $t('companion.message.sent') }}</h3>
-                    <el-empty v-if="!messages.length" :image-size="60" :description="$t('companion.message.none')" />
-                    <ul v-else class="list">
-                      <li v-for="m in messages" :key="m.id">
-                        <div class="grow">
-                          <div class="msg-text">{{ m.text }}</div>
-                          <div class="muted small">
-                            <span v-if="m.from">{{ m.from }} · </span>{{ clock(m.ts) }}
+                  <ul v-else class="cm-thread">
+                    <li v-for="m in messages" :key="m.id" class="cm-bubble-row">
+                      <div class="cm-bubble">
+                        <p class="cm-bubble__text">{{ m.text }}</p>
+                        <div class="cm-bubble__meta">
+                          <span class="nx-truncate">
+                            <span v-if="m.from">{{ m.from }} · </span><span class="nx-num">{{ clock(m.ts) }}</span>
                             <span v-if="m.ask"> · {{ $t('companion.message.askShort') }}</span>
-                          </div>
+                          </span>
+                          <span class="nx-badge" :class="'nx-badge--' + statusBadge(m)">
+                            {{ $t('companion.message.status.' + statusOf(m)) }}
+                          </span>
                         </div>
-                        <el-tag size="mini" :type="statusTagType(m)">{{ $t('companion.message.status.' + statusOf(m)) }}</el-tag>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </el-tab-pane>
+                      </div>
+                    </li>
+                  </ul>
+                </article>
+              </section>
 
-              <!-- Night & care -->
-              <el-tab-pane :label="$t('companion.tab.night')" name="night">
-                <div class="grid">
-                  <div class="panel">
-                    <h3>{{ $t('companion.night.title') }}</h3>
-                    <div class="toggle-row">
+              <!-- ============================================================ Night & care -->
+              <section v-else-if="activeTab === 'night'" key="night" class="cm-section cm-grid">
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.night.title') }}</h2>
+                  </header>
+                  <div class="cm-times">
+                    <label class="cm-field">
+                      <span class="cm-field__label">{{ $t('companion.night.start') }}</span>
+                      <el-time-picker v-model="forms.night.start" value-format="HH:mm" format="HH:mm"
+                        :clearable="false" class="cm-time-input" />
+                    </label>
+                    <i class="el-icon-right cm-times__arrow" aria-hidden="true"></i>
+                    <label class="cm-field">
+                      <span class="cm-field__label">{{ $t('companion.night.end') }}</span>
+                      <el-time-picker v-model="forms.night.end" value-format="HH:mm" format="HH:mm"
+                        :clearable="false" class="cm-time-input" />
+                    </label>
+                  </div>
+                  <div class="cm-settings cm-gap-top">
+                    <div class="cm-setting">
                       <span>{{ $t('companion.night.enabled') }}</span>
-                      <el-switch v-model="forms.night.enabled" />
+                      <el-switch v-model="forms.night.enabled" :aria-label="$t('companion.night.enabled')" />
                     </div>
-                    <div class="row">
-                      <div class="field">
-                        <label>{{ $t('companion.night.start') }}</label>
-                        <el-time-picker v-model="forms.night.start" value-format="HH:mm" format="HH:mm" size="small"
-                          :clearable="false" class="time-input" />
-                      </div>
-                      <div class="field">
-                        <label>{{ $t('companion.night.end') }}</label>
-                        <el-time-picker v-model="forms.night.end" value-format="HH:mm" format="HH:mm" size="small"
-                          :clearable="false" class="time-input" />
-                      </div>
-                    </div>
-                    <div class="toggle-row">
+                    <div class="cm-setting">
                       <span>{{ $t('companion.night.dim') }}</span>
-                      <el-switch v-model="forms.night.dim" />
+                      <el-switch v-model="forms.night.dim" :aria-label="$t('companion.night.dim')" />
                     </div>
-                    <div class="toggle-row">
+                    <div class="cm-setting">
                       <span>{{ $t('companion.night.lullaby') }}</span>
-                      <el-switch v-model="forms.night.lullaby" />
+                      <el-switch v-model="forms.night.lullaby" :aria-label="$t('companion.night.lullaby')" />
                     </div>
-                    <div class="toggle-row">
+                    <div class="cm-setting">
                       <span>{{ $t('companion.night.light') }}</span>
-                      <el-switch v-model="forms.night.light" />
+                      <el-switch v-model="forms.night.light" :aria-label="$t('companion.night.light')" />
                     </div>
-                    <el-button size="small" type="primary" :disabled="!isDirty('night')" :loading="saving.night"
+                  </div>
+                  <footer class="nx-card__footer">
+                    <span v-if="isDirty('night')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button type="primary" :disabled="!isDirty('night')" :loading="saving.night"
                       @click="saveSection('night')">{{ $t('companion.save') }}</el-button>
-                  </div>
-                  <div class="panel">
-                    <h3>{{ $t('companion.care.title') }}</h3>
-                    <div class="toggle-row">
+                  </footer>
+                </article>
+
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.care.title') }}</h2>
+                  </header>
+                  <div class="cm-settings">
+                    <div class="cm-setting">
                       <span>{{ $t('companion.care.enabled') }}</span>
-                      <el-switch v-model="forms.care.enabled" />
+                      <el-switch v-model="forms.care.enabled" :aria-label="$t('companion.care.enabled')" />
                     </div>
-                    <div class="field">
-                      <label>{{ $t('companion.care.lonelyAfter') }}</label>
-                      <el-input-number v-model="forms.care.lonely_after_min" :min="10" :max="1440" :step="10" size="small" />
-                    </div>
-                    <div class="hint">{{ $t('companion.care.hint') }}</div>
-                    <el-button size="small" type="primary" class="spaced" :disabled="!isDirty('care')" :loading="saving.care"
+                  </div>
+                  <label class="cm-field cm-gap-top">
+                    <span class="cm-field__label">{{ $t('companion.care.lonelyAfter') }}</span>
+                    <el-input-number v-model="forms.care.lonely_after_min" :min="10" :max="1440" :step="10" controls-position="right" />
+                  </label>
+                  <p class="nx-footnote cm-gap-top">{{ $t('companion.care.hint') }}</p>
+                  <footer class="nx-card__footer">
+                    <span v-if="isDirty('care')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button type="primary" :disabled="!isDirty('care')" :loading="saving.care"
                       @click="saveSection('care')">{{ $t('companion.save') }}</el-button>
-                  </div>
-                </div>
-              </el-tab-pane>
+                  </footer>
+                </article>
+              </section>
 
-              <!-- Volume, sounds and robot names -->
-              <el-tab-pane :label="$t('companion.tab.sound')" name="sound">
-                <div class="grid">
-                  <div class="panel">
-                    <h3>{{ $t('companion.sound.title') }}</h3>
-                    <div class="toggle-row">
+              <!-- ============================================================ Sound & robot -->
+              <section v-else-if="activeTab === 'sound'" key="sound" class="cm-section cm-grid">
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.sound.title') }}</h2>
+                  </header>
+                  <div class="cm-settings">
+                    <div class="cm-setting">
                       <span>{{ $t('companion.sound.controlVolume') }}</span>
-                      <el-switch v-model="forms.sound.controlVolume" />
+                      <el-switch v-model="forms.sound.controlVolume" :aria-label="$t('companion.sound.controlVolume')" />
                     </div>
-                    <div class="field">
-                      <label>{{ $t('companion.sound.volume') }}</label>
-                      <el-slider v-model="forms.sound.volume" :min="0" :max="100" :step="5" show-input
-                        :disabled="!forms.sound.controlVolume" />
-                      <div v-if="!forms.sound.controlVolume" class="hint">{{ $t('companion.sound.autoHint') }}</div>
+                  </div>
+                  <div class="cm-volume" :class="{ 'is-disabled': !forms.sound.controlVolume }">
+                    <div class="cm-volume__head">
+                      <span class="cm-field__label">{{ $t('companion.sound.volume') }}</span>
+                      <span class="cm-volume__value nx-num">{{ forms.sound.volume }}%</span>
                     </div>
-                    <div class="toggle-row">
+                    <div class="cm-volume__slider">
+                      <i class="el-icon-minus" aria-hidden="true"></i>
+                      <el-slider v-model="forms.sound.volume" :min="0" :max="100" :step="5" :show-tooltip="false"
+                        :disabled="!forms.sound.controlVolume" :aria-label="$t('companion.sound.volume')" />
+                      <i class="el-icon-plus" aria-hidden="true"></i>
+                    </div>
+                    <p v-if="!forms.sound.controlVolume" class="cm-help">{{ $t('companion.sound.autoHint') }}</p>
+                  </div>
+                  <div class="cm-settings cm-gap-top">
+                    <div class="cm-setting">
                       <span>{{ $t('companion.sound.sounds') }}</span>
-                      <el-switch v-model="forms.sound.sounds" />
+                      <el-switch v-model="forms.sound.sounds" :aria-label="$t('companion.sound.sounds')" />
                     </div>
-                    <el-button size="small" type="primary" :disabled="!isDirty('sound')" :loading="saving.sound"
+                  </div>
+                  <footer class="nx-card__footer">
+                    <span v-if="isDirty('sound')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button type="primary" :disabled="!isDirty('sound')" :loading="saving.sound"
                       @click="saveSection('sound')">{{ $t('companion.save') }}</el-button>
-                  </div>
-                  <div class="panel">
-                    <h3>{{ $t('companion.robot.title') }}</h3>
-                    <el-form label-position="top" size="small">
-                      <el-form-item :label="$t('companion.robot.name')">
-                        <el-input v-model="forms.robot.name" :maxlength="maxName" />
-                      </el-form-item>
-                      <el-form-item :label="$t('companion.robot.ownerName')">
-                        <el-input v-model="forms.robot.owner_name" :maxlength="maxName" />
-                        <div class="hint">{{ $t('companion.robot.ownerHint', sayTokens) }}</div>
-                      </el-form-item>
-                    </el-form>
-                    <el-button size="small" type="primary" :disabled="!isDirty('robot')" :loading="saving.robot"
-                      @click="saveSection('robot')">{{ $t('companion.save') }}</el-button>
-                    <div class="hint spaced">ID {{ dev.id }}</div>
-                  </div>
-                </div>
-              </el-tab-pane>
+                  </footer>
+                </article>
 
-              <!-- Quick actions -->
-              <el-tab-pane :label="$t('companion.tab.actions')" name="actions">
-                <div class="grid">
-                  <div class="panel">
-                    <h3>{{ $t('companion.action.story') }}</h3>
-                    <div class="row">
-                      <el-input v-model="storyTopic" size="small" maxlength="64" clearable
-                        :placeholder="$t('companion.action.storyTopic')" @keyup.enter.native="sendStory" />
-                      <el-button type="primary" size="small" :loading="commandBusy === 'story'" @click="sendStory">
+                <article class="nx-card">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.robot.title') }}</h2>
+                  </header>
+                  <el-form label-position="top" @submit.native.prevent>
+                    <el-form-item :label="$t('companion.robot.name')">
+                      <el-input v-model="forms.robot.name" :maxlength="maxName" show-word-limit />
+                    </el-form-item>
+                    <el-form-item :label="$t('companion.robot.ownerName')">
+                      <el-input v-model="forms.robot.owner_name" :maxlength="maxName" show-word-limit />
+                      <div class="cm-help">{{ $t('companion.robot.ownerHint', sayTokens) }}</div>
+                    </el-form-item>
+                  </el-form>
+                  <p class="nx-caption">ID <span class="nx-mono nx-break">{{ dev.id }}</span></p>
+                  <footer class="nx-card__footer">
+                    <span v-if="isDirty('robot')" class="cm-unsaved">{{ tx('companion.unsaved', 'Unsaved changes') }}</span>
+                    <el-button type="primary" :disabled="!isDirty('robot')" :loading="saving.robot"
+                      @click="saveSection('robot')">{{ $t('companion.save') }}</el-button>
+                  </footer>
+                </article>
+              </section>
+
+              <!-- ============================================================ Quick actions -->
+              <section v-else-if="activeTab === 'actions'" key="actions" class="cm-section">
+                <div v-if="!dev.online" class="cm-banner cm-banner--info" role="status">
+                  <i class="el-icon-info" aria-hidden="true"></i>
+                  <span class="cm-banner__text">{{ tx('companion.action.offlineHint', 'TinyBot is offline. Commands wait until it is back online.') }}</span>
+                </div>
+
+                <article class="nx-card cm-story">
+                  <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-reading"></i></span>
+                  <div class="cm-story__body">
+                    <h2 class="nx-headline">{{ $t('companion.action.story') }}</h2>
+                    <div class="cm-inline-form">
+                      <el-input v-model="storyTopic" maxlength="64" clearable :placeholder="$t('companion.action.storyTopic')"
+                        :aria-label="$t('companion.action.storyTopic')" @keyup.enter.native="sendStory" />
+                      <el-button type="primary" :loading="commandBusy === 'story'" @click="sendStory">
                         {{ $t('companion.action.tellStory') }}
                       </el-button>
                     </div>
-                    <h3 class="spaced">{{ $t('companion.action.quick') }}</h3>
-                    <div class="button-row">
-                      <el-button v-for="a in quickActions" :key="a.type + a.arg" size="small" :icon="a.icon"
-                        :loading="commandBusy === a.type + a.arg" @click="sendCommand(a.type, a.arg, null, a.type + a.arg)">
-                        {{ $t(a.label) }}
-                      </el-button>
-                    </div>
-                    <h3 class="spaced">{{ $t('companion.action.games') }}</h3>
-                    <div class="button-row">
-                      <el-button v-for="g in games" :key="g" size="small" icon="el-icon-trophy"
-                        :loading="commandBusy === 'game' + g" @click="sendCommand('game', g, null, 'game' + g)">
-                        {{ gameName(g) }}
-                      </el-button>
-                    </div>
                   </div>
-                  <div class="panel">
-                    <h3>{{ $t('companion.action.recent') }}</h3>
-                    <el-empty v-if="!commands.length" :image-size="60" :description="$t('companion.action.noCommands')" />
-                    <ul v-else class="list">
-                      <li v-for="c in commands.slice(0, 10)" :key="c.id">
-                        <span class="grow">{{ commandName(c) }}</span>
-                        <span class="muted small">{{ ago(c.ts) }}</span>
-                        <el-tag size="mini" :type="c.status === 'done' ? 'success' : 'warning'">
-                          {{ $t(c.status === 'done' ? 'companion.action.done' : 'companion.action.pending') }}
-                        </el-tag>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </el-tab-pane>
-            </el-tabs>
-          </el-card>
-        </div>
-      </div>
-    </div>
+                </article>
 
-    <!-- Alarm dialog -->
+                <h2 class="cm-subhead">{{ $t('companion.action.quick') }}</h2>
+                <div class="cm-action-grid">
+                  <button v-for="a in quickActions" :key="a.type + a.arg" type="button" class="cm-action"
+                    :disabled="!!commandBusy" :aria-busy="commandBusy === a.type + a.arg ? 'true' : 'false'"
+                    @click="sendCommand(a.type, a.arg, null, a.type + a.arg)">
+                    <span class="cm-action__icon" aria-hidden="true">
+                      <i :class="commandBusy === a.type + a.arg ? 'el-icon-loading' : a.icon"></i>
+                    </span>
+                    <span class="cm-action__label">{{ $t(a.label) }}</span>
+                  </button>
+                </div>
+
+                <h2 class="cm-subhead">{{ $t('companion.action.games') }}</h2>
+                <div class="cm-action-grid">
+                  <button v-for="g in games" :key="g" type="button" class="cm-action cm-action--game"
+                    :disabled="!!commandBusy" :aria-busy="commandBusy === 'game' + g ? 'true' : 'false'"
+                    @click="sendCommand('game', g, null, 'game' + g)">
+                    <span class="cm-action__icon" aria-hidden="true">
+                      <i :class="commandBusy === 'game' + g ? 'el-icon-loading' : gameIcon(g)"></i>
+                    </span>
+                    <span class="cm-action__label">{{ gameName(g) }}</span>
+                  </button>
+                </div>
+
+                <article class="nx-card cm-gap-top-lg">
+                  <header class="nx-card__header">
+                    <h2 class="nx-headline">{{ $t('companion.action.recent') }}</h2>
+                  </header>
+                  <div v-if="!commands.length" class="nx-empty cm-empty-sm">
+                    <span class="nx-icon-tile nx-icon-tile--neutral" aria-hidden="true"><i class="el-icon-magic-stick"></i></span>
+                    <p class="nx-empty__text">{{ $t('companion.action.noCommands') }}</p>
+                  </div>
+                  <ul v-else class="cm-commands">
+                    <li v-for="c in commands.slice(0, 10)" :key="c.id" class="cm-command">
+                      <span class="cm-command__name nx-truncate">{{ commandName(c) }}</span>
+                      <span class="cm-command__time nx-num">{{ ago(c.ts) }}</span>
+                      <span class="nx-badge" :class="c.status === 'done' ? 'nx-badge--success' : 'nx-badge--warning'">
+                        {{ $t(c.status === 'done' ? 'companion.action.done' : 'companion.action.pending') }}
+                      </span>
+                    </li>
+                  </ul>
+                </article>
+              </section>
+            </transition>
+          </div>
+        </div>
+      </template>
+    </main>
+
+    <!-- Alarm sheet -->
     <el-dialog :title="alarmDialog.isNew ? $t('companion.alarm.add') : $t('companion.alarm.edit')"
-      :visible.sync="alarmDialog.visible" :width="dialogWidth" :append-to-body="true" :close-on-click-modal="false">
-      <el-form v-if="alarmDialog.form" label-position="top" size="small">
-        <el-form-item :label="$t('companion.alarm.time')">
+      :visible.sync="alarmDialog.visible" :width="dialogWidth" top="0" :append-to-body="true"
+      :close-on-click-modal="false" class="cm-dialog" custom-class="cm-sheet">
+      <el-form v-if="alarmDialog.form" label-position="top" @submit.native.prevent>
+        <div class="cm-sheet__time">
           <el-time-picker v-model="alarmDialog.form.time" value-format="HH:mm" format="HH:mm" :clearable="false"
-            class="time-input" />
-        </el-form-item>
+            class="cm-big-time" :aria-label="$t('companion.alarm.time')" />
+        </div>
         <el-form-item :label="$t('companion.days')">
-          <div class="chips">
-            <button v-for="d in 7" :key="'d' + d" type="button" class="chip"
-              :class="{ on: hasDay(alarmDialog.form.days, d - 1) }" :aria-pressed="hasDay(alarmDialog.form.days, d - 1) ? 'true' : 'false'"
+          <div class="cm-day-picker" role="group" :aria-label="$t('companion.days')">
+            <button v-for="d in 7" :key="'d' + d" type="button" class="cm-day-toggle"
+              :class="{ 'is-on': hasDay(alarmDialog.form.days, d - 1) }" :aria-pressed="hasDay(alarmDialog.form.days, d - 1) ? 'true' : 'false'"
               @click="alarmDialog.form.days = toggleDay(alarmDialog.form.days, d - 1)">{{ $t('companion.day.' + (d - 1)) }}</button>
           </div>
-          <div class="chips">
-            <button v-for="p in dayPresets" :key="p.key" type="button" class="chip preset"
-              :class="{ on: alarmDialog.form.days === p.mask }" @click="alarmDialog.form.days = p.mask">
+          <div class="cm-presets">
+            <button v-for="p in dayPresets" :key="p.key" type="button" class="cm-preset"
+              :class="{ 'is-on': alarmDialog.form.days === p.mask }" @click="alarmDialog.form.days = p.mask">
               {{ $t('companion.preset.' + p.key) }}</button>
           </div>
-          <div class="hint">{{ daysText(alarmDialog.form.days) }}</div>
+          <div class="cm-help">{{ daysText(alarmDialog.form.days) }}</div>
         </el-form-item>
         <el-form-item :label="$t('companion.label')">
           <el-input :value="alarmDialog.form.label" :maxlength="maxLabel" show-word-limit
             @input="(v) => alarmDialog.form.label = asciiLabel(v)" />
-          <div class="hint">{{ $t('companion.labelHint') }}</div>
+          <div class="cm-help">{{ $t('companion.labelHint') }}</div>
         </el-form-item>
         <el-form-item :label="$t('companion.say')">
-          <el-input v-model="alarmDialog.form.say" type="textarea" :rows="2" :maxlength="maxSay" show-word-limit
+          <el-input v-model="alarmDialog.form.say" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" :maxlength="maxSay" show-word-limit
             :placeholder="$t('companion.alarm.sayPlaceholder', sayTokens)" />
-          <div class="hint">{{ $t('companion.sayHint', sayTokens) }}</div>
+          <div class="cm-help">{{ $t('companion.sayHint', sayTokens) }}</div>
         </el-form-item>
-        <el-form-item :label="$t('companion.alarm.snooze')">
-          <el-input-number v-model="alarmDialog.form.snooze_min" :min="0" :max="60" />
-        </el-form-item>
-        <div class="toggle-row">
-          <span>{{ $t('companion.enabled') }}</span>
-          <el-switch v-model="alarmDialog.form.enabled" />
+        <div class="cm-settings">
+          <div class="cm-setting">
+            <span>{{ $t('companion.alarm.snooze') }}</span>
+            <el-input-number v-model="alarmDialog.form.snooze_min" :min="0" :max="60" size="small" controls-position="right" />
+          </div>
+          <div class="cm-setting">
+            <span>{{ $t('companion.enabled') }}</span>
+            <el-switch v-model="alarmDialog.form.enabled" :aria-label="$t('companion.enabled')" />
+          </div>
         </div>
       </el-form>
-      <span slot="footer" class="dialog-footer">
+      <span slot="footer" class="cm-sheet__footer">
         <el-button @click="alarmDialog.visible = false">{{ $t('button.cancel') }}</el-button>
         <el-button type="primary" :loading="saving.alarms" @click="saveAlarm">{{ $t('companion.save') }}</el-button>
       </span>
     </el-dialog>
 
-    <!-- Reminder dialog -->
+    <!-- Reminder sheet -->
     <el-dialog :title="reminderDialog.isNew ? $t('companion.reminder.add') : $t('companion.reminder.edit')"
-      :visible.sync="reminderDialog.visible" :width="dialogWidth" :append-to-body="true" :close-on-click-modal="false">
-      <el-form v-if="reminderDialog.form" label-position="top" size="small">
+      :visible.sync="reminderDialog.visible" :width="dialogWidth" top="0" :append-to-body="true"
+      :close-on-click-modal="false" class="cm-dialog" custom-class="cm-sheet">
+      <el-form v-if="reminderDialog.form" label-position="top" @submit.native.prevent>
         <el-form-item :label="$t('companion.reminder.kindLabel')">
-          <el-select v-model="reminderDialog.form.kind">
-            <el-option v-for="kind in reminderKinds" :key="kind" :value="kind" :label="$t('companion.reminder.kind.' + kind)" />
-          </el-select>
+          <div class="nx-segmented cm-segmented" role="radiogroup" :aria-label="$t('companion.reminder.kindLabel')">
+            <button v-for="kind in reminderKinds" :key="kind" type="button" role="radio"
+              :aria-checked="reminderDialog.form.kind === kind ? 'true' : 'false'"
+              :class="{ 'is-active': reminderDialog.form.kind === kind }" @click="reminderDialog.form.kind = kind">
+              <i :class="kindIcon(kind)" aria-hidden="true"></i> {{ $t('companion.reminder.kind.' + kind) }}
+            </button>
+          </div>
         </el-form-item>
         <el-form-item :label="$t('companion.reminder.mode')">
-          <el-radio-group v-model="reminderDialog.form.mode">
-            <el-radio-button label="interval">{{ $t('companion.reminder.modeInterval') }}</el-radio-button>
-            <el-radio-button label="time">{{ $t('companion.reminder.modeTime') }}</el-radio-button>
-          </el-radio-group>
+          <div class="nx-segmented cm-segmented" role="radiogroup" :aria-label="$t('companion.reminder.mode')">
+            <button type="button" role="radio" :aria-checked="reminderDialog.form.mode === 'interval' ? 'true' : 'false'"
+              :class="{ 'is-active': reminderDialog.form.mode === 'interval' }" @click="reminderDialog.form.mode = 'interval'">
+              {{ $t('companion.reminder.modeInterval') }}</button>
+            <button type="button" role="radio" :aria-checked="reminderDialog.form.mode === 'time' ? 'true' : 'false'"
+              :class="{ 'is-active': reminderDialog.form.mode === 'time' }" @click="reminderDialog.form.mode = 'time'">
+              {{ $t('companion.reminder.modeTime') }}</button>
+          </div>
         </el-form-item>
         <template v-if="reminderDialog.form.mode === 'interval'">
           <el-form-item :label="$t('companion.reminder.every')">
-            <el-input-number v-model="reminderDialog.form.every_min" :min="5" :max="720" :step="5" />
+            <el-input-number v-model="reminderDialog.form.every_min" :min="5" :max="720" :step="5" controls-position="right" />
           </el-form-item>
-          <div class="row">
+          <div class="cm-times">
             <el-form-item :label="$t('companion.reminder.from')">
               <el-time-picker v-model="reminderDialog.form.from" value-format="HH:mm" format="HH:mm" :clearable="false"
-                class="time-input" />
+                class="cm-time-input" />
             </el-form-item>
+            <i class="el-icon-right cm-times__arrow" aria-hidden="true"></i>
             <el-form-item :label="$t('companion.reminder.to')">
               <el-time-picker v-model="reminderDialog.form.to" value-format="HH:mm" format="HH:mm" :clearable="false"
-                class="time-input" />
+                class="cm-time-input" />
             </el-form-item>
           </div>
         </template>
         <el-form-item v-else :label="$t('companion.reminder.time')">
           <el-time-picker v-model="reminderDialog.form.time" value-format="HH:mm" format="HH:mm" :clearable="false"
-            class="time-input" />
+            class="cm-time-input" />
         </el-form-item>
         <el-form-item :label="$t('companion.days')">
-          <div class="chips">
-            <button v-for="d in 7" :key="'d' + d" type="button" class="chip"
-              :class="{ on: hasDay(reminderDialog.form.days, d - 1) }" :aria-pressed="hasDay(reminderDialog.form.days, d - 1) ? 'true' : 'false'"
+          <div class="cm-day-picker" role="group" :aria-label="$t('companion.days')">
+            <button v-for="d in 7" :key="'d' + d" type="button" class="cm-day-toggle"
+              :class="{ 'is-on': hasDay(reminderDialog.form.days, d - 1) }" :aria-pressed="hasDay(reminderDialog.form.days, d - 1) ? 'true' : 'false'"
               @click="reminderDialog.form.days = toggleDay(reminderDialog.form.days, d - 1)">{{ $t('companion.day.' + (d - 1)) }}</button>
           </div>
-          <div class="chips">
-            <button v-for="p in dayPresets" :key="p.key" type="button" class="chip preset"
-              :class="{ on: reminderDialog.form.days === p.mask }" @click="reminderDialog.form.days = p.mask">
+          <div class="cm-presets">
+            <button v-for="p in dayPresets" :key="p.key" type="button" class="cm-preset"
+              :class="{ 'is-on': reminderDialog.form.days === p.mask }" @click="reminderDialog.form.days = p.mask">
               {{ $t('companion.preset.' + p.key) }}</button>
           </div>
         </el-form-item>
         <el-form-item :label="$t('companion.label')">
           <el-input :value="reminderDialog.form.label" :maxlength="maxLabel" show-word-limit
             @input="(v) => reminderDialog.form.label = asciiLabel(v)" />
-          <div class="hint">{{ $t('companion.labelHint') }}</div>
+          <div class="cm-help">{{ $t('companion.labelHint') }}</div>
         </el-form-item>
         <el-form-item :label="$t('companion.say')">
-          <el-input v-model="reminderDialog.form.say" type="textarea" :rows="2" :maxlength="maxSay" show-word-limit />
-          <div class="hint">{{ $t('companion.sayHint', sayTokens) }}</div>
+          <el-input v-model="reminderDialog.form.say" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" :maxlength="maxSay" show-word-limit />
+          <div class="cm-help">{{ $t('companion.sayHint', sayTokens) }}</div>
         </el-form-item>
-        <div class="toggle-row">
-          <span>{{ $t('companion.enabled') }}</span>
-          <el-switch v-model="reminderDialog.form.enabled" />
+        <div class="cm-settings">
+          <div class="cm-setting">
+            <span>{{ $t('companion.enabled') }}</span>
+            <el-switch v-model="reminderDialog.form.enabled" :aria-label="$t('companion.enabled')" />
+          </div>
         </div>
       </el-form>
-      <span slot="footer" class="dialog-footer">
+      <span slot="footer" class="cm-sheet__footer">
         <el-button @click="reminderDialog.visible = false">{{ $t('button.cancel') }}</el-button>
         <el-button type="primary" :loading="saving.reminders" @click="saveReminder">{{ $t('companion.save') }}</el-button>
       </span>
     </el-dialog>
 
-    <el-footer>
-      <version-footer />
-    </el-footer>
+    <VersionFooter />
   </div>
 </template>
 
@@ -677,10 +923,10 @@ export default {
       sayTokens: { weather: '{weather}', date: '{date}', name: '{name}' },
       quickActions: [
         { type: 'lullaby', arg: '', icon: 'el-icon-headset', label: 'companion.action.lullaby' },
-        { type: 'ring', arg: '', icon: 'el-icon-bell', label: 'companion.action.ring' },
+        { type: 'ring', arg: '', icon: 'el-icon-location-outline', label: 'companion.action.ring' },
         { type: 'breathe', arg: '', icon: 'el-icon-wind-power', label: 'companion.action.breathe' },
         { type: 'night_light', arg: 'on', icon: 'el-icon-sunny', label: 'companion.action.nightLightOn' },
-        { type: 'night_light', arg: 'off', icon: 'el-icon-moon', label: 'companion.action.nightLightOff' },
+        { type: 'night_light', arg: 'off', icon: 'el-icon-moon-night', label: 'companion.action.nightLightOff' },
       ],
     };
   },
@@ -722,7 +968,43 @@ export default {
       return highScores(this.stats.high_scores);
     },
     dialogWidth() {
-      return this.windowWidth < 600 ? '94%' : '520px';
+      // Narrow screens get a bottom sheet (see .cm-sheet)
+      return this.windowWidth < 600 ? '100%' : '520px';
+    },
+    sections() {
+      return [
+        { key: 'status', icon: 'el-icon-s-home', label: 'companion.tab.status' },
+        { key: 'alarms', icon: 'el-icon-alarm-clock', label: 'companion.tab.alarms', count: this.alarms.length },
+        { key: 'reminders', icon: 'el-icon-bell', label: 'companion.tab.reminders', count: this.reminders.length },
+        { key: 'prayer', icon: 'el-icon-sunrise', label: 'companion.tab.prayer' },
+        { key: 'focus', icon: 'el-icon-timer', label: 'companion.tab.focus' },
+        { key: 'messages', icon: 'el-icon-chat-line-round', label: 'companion.tab.messages' },
+        { key: 'night', icon: 'el-icon-moon', label: 'companion.tab.night' },
+        { key: 'sound', icon: 'el-icon-headset', label: 'companion.tab.sound' },
+        { key: 'actions', icon: 'el-icon-magic-stick', label: 'companion.tab.actions' },
+      ];
+    },
+    // Reminders grouped by type, in the fixed type order; unknown types go with "Other"
+    reminderGroups() {
+      return this.reminderKinds
+        .map((kind) => ({
+          kind,
+          items: this.reminders.filter((r) => (this.reminderKinds.includes(r.kind) ? r.kind : 'custom') === kind),
+        }))
+        .filter((group) => group.items.length);
+    },
+    settingsVolumeText() {
+      const settings = (this.dev && this.dev.settings) || {};
+      return settings.volume !== null && settings.volume !== undefined
+        ? this.tx('companion.status.volumeManual', 'Set from here')
+        : this.tx('companion.status.volumeAuto', 'Set on the robot');
+    },
+    wifiQuality() {
+      const rssi = Number(this.stats.rssi);
+      if (!this.stats.rssi || !Number.isFinite(rssi)) return this.stats.ip || '–';
+      if (rssi >= -60) return this.tx('companion.status.wifiGood', 'Strong signal');
+      if (rssi >= -72) return this.tx('companion.status.wifiFair', 'Fair signal');
+      return this.tx('companion.status.wifiWeak', 'Weak signal');
     },
   },
   mounted() {
@@ -747,6 +1029,12 @@ export default {
     hasDay,
     toggleDay,
     asciiLabel,
+    // Pending i18n keys fall back to their English text until the lead merges them
+    tx(key, fallback, params) {
+      if (this.$te(key) || this.$te(key, 'en')) return this.$t(key, params);
+      if (!params) return fallback;
+      return fallback.replace(/\{(\w+)\}/g, (match, name) => (params[name] !== undefined ? params[name] : match));
+    },
     onResize() {
       this.windowWidth = window.innerWidth;
     },
@@ -943,8 +1231,14 @@ export default {
       }
       return r.time + ' · ' + this.daysText(r.days);
     },
-    kindTagType(kind) {
-      return { water: '', medicine: 'danger', custom: 'info' }[kind] || 'info';
+    kindIcon(kind) {
+      return { water: 'el-icon-cold-drink', medicine: 'el-icon-first-aid-kit' }[kind] || 'el-icon-bell';
+    },
+    dayPresetKey(mask) {
+      return daysPreset(mask);
+    },
+    dayList(mask) {
+      return daysOf(mask);
     },
 
     // ------------------------------------------------------------------ prayer
@@ -988,6 +1282,9 @@ export default {
         ? `${Number(r.lat).toFixed(2)}, ${Number(r.lon).toFixed(2)}` : '';
       return [place, coords].filter(Boolean).join(' · ');
     },
+    isNextPrayer(key) {
+      return !!(this.upcomingPrayer && !this.upcomingPrayer.tomorrow && this.upcomingPrayer.key === key);
+    },
     shortDate(date) {
       return typeof date === 'string' ? date.slice(5) : '';
     },
@@ -1025,8 +1322,8 @@ export default {
     statusOf(m) {
       return messageStatus(m);
     },
-    statusTagType(m) {
-      return { yes: 'success', no: 'danger', seen: 'success', delivered: '', pending: 'warning' }[messageStatus(m)];
+    statusBadge(m) {
+      return { yes: 'success', no: 'danger', seen: 'success', delivered: 'info', pending: 'warning' }[messageStatus(m)];
     },
 
     // ------------------------------------------------------------------ commands
@@ -1056,6 +1353,11 @@ export default {
       if (c.type === 'game') return name + ': ' + this.gameName(c.arg);
       return c.arg ? `${name} (${c.arg})` : name;
     },
+    gameIcon(game) {
+      return {
+        catch: 'el-icon-basketball', simon: 'el-icon-s-grid', dice: 'el-icon-coin', reaction: 'el-icon-stopwatch',
+      }[game] || 'el-icon-trophy';
+    },
     gameName(game) {
       const key = 'companion.game.' + game;
       return this.$te(key) ? this.$t(key) : game;
@@ -1072,6 +1374,20 @@ export default {
         this.loadingEvents = false;
         this.$message.error(this.errorText(err));
       });
+    },
+    // Icon and tone for a timeline entry
+    eventVisual(e) {
+      const type = (e && e.type) || '';
+      if (type === 'dropped') return { icon: 'el-icon-warning-outline', tone: 'danger' };
+      if (/missed$/.test(type)) return { icon: 'el-icon-warning-outline', tone: 'warning' };
+      if (type === 'lonely') return { icon: 'el-icon-cloudy', tone: 'warning' };
+      if (type.indexOf('alarm') === 0) return { icon: 'el-icon-alarm-clock', tone: 'accent' };
+      if (type.indexOf('reminder') === 0) return { icon: 'el-icon-bell', tone: 'success' };
+      if (type.indexOf('prayer') === 0) return { icon: 'el-icon-sunrise', tone: 'info' };
+      if (type === 'pomodoro_done') return { icon: 'el-icon-timer', tone: 'success' };
+      if (type === 'game_score') return { icon: 'el-icon-trophy', tone: 'accent' };
+      if (type === 'streak') return { icon: 'el-icon-medal', tone: 'accent' };
+      return { icon: 'el-icon-time', tone: 'neutral' };
     },
     eventText(e) {
       const key = 'companion.event.' + e.type;
@@ -1115,396 +1431,1304 @@ export default {
 };
 </script>
 
+
 <style lang="scss" scoped>
-.welcome {
+// TinyBot's home: calm cards on the warm background, one accent per region.
+
+.cm {
   min-height: 100vh;
   display: flex;
-  position: relative;
   flex-direction: column;
-  background: #eff4ff;
-}
+  background: var(--nx-bg);
 
-.main-wrapper {
-  flex: 1;
-  padding: 20px 22px 0;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  min-height: 0;
-}
-
-.content-panel {
-  display: flex;
-  flex: 1;
-  border-radius: 15px;
-  overflow: hidden;
-  border: 1px solid #fff;
-}
-
-.content-area {
-  flex: 1;
-  min-width: 0;
-  background-color: white;
-  display: flex;
-  flex-direction: column;
-}
-
-.companion-card {
-  border: none;
-  flex: 1;
-
-  ::v-deep .el-card__body {
-    padding: 14px 20px;
+  > .cm-page {
+    flex: 1 0 auto;
   }
 }
 
-.operation-header {
+.cm-gap-top {
+  margin-top: var(--nx-space-3);
+}
+.cm-gap-top-lg {
+  margin-top: var(--nx-space-5);
+}
+.cm-help {
+  margin-top: var(--nx-space-1);
+  font-size: var(--nx-text-caption);
+  line-height: 1.4;
+  color: var(--nx-text-3);
+}
+
+// ------------------------------------------------------------------ header
+
+.cm-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-4);
+  margin: var(--nx-space-2) 0 var(--nx-space-6);
+  min-width: 0;
+
+  &__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-display);
+  }
+  &__emoji {
+    line-height: 1;
+  }
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+  &__eyebrow {
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    color: var(--nx-accent);
+  }
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--nx-space-2);
+    margin-top: var(--nx-space-2);
+  }
+  &__seen {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__refresh {
+    align-self: flex-start;
+    &:disabled {
+      cursor: default;
+    }
+  }
+}
+
+.cm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--nx-radius-pill);
+  border: 1px solid var(--nx-border);
+  background: var(--nx-surface);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cm-sk-title {
+  display: inline-block;
+  width: 180px;
+  height: 24px;
+}
+
+.cm-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  margin-bottom: var(--nx-space-5);
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border-radius: var(--nx-radius);
+  background: var(--nx-danger-soft);
+  color: var(--nx-danger);
+  font-size: var(--nx-text-callout);
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  &--info {
+    background: var(--nx-info-soft);
+    color: var(--nx-info);
+  }
+}
+
+// ------------------------------------------------------------------ layout + section list
+
+.cm-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--nx-space-6);
+  align-items: start;
+}
+
+.cm-nav {
+  position: sticky;
+  top: calc(var(--nx-topbar-h) + var(--nx-space-5));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    width: 100%;
+    min-height: 40px;
+    padding: 0 var(--nx-space-3);
+    border: 0;
+    border-radius: var(--nx-radius);
+    background: transparent;
+    color: var(--nx-text-2);
+    font: inherit;
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--nx-dur-1) var(--nx-ease), color var(--nx-dur-1) var(--nx-ease),
+      transform var(--nx-dur-1) var(--nx-ease);
+
+    i {
+      font-size: var(--nx-text-headline);
+      width: 18px;
+      text-align: center;
+    }
+    &:hover {
+      background: var(--nx-surface-2);
+      color: var(--nx-text);
+    }
+    &:active {
+      transform: scale(0.98);
+    }
+    &.is-active {
+      background: var(--nx-accent-soft);
+      color: var(--nx-accent);
+      font-weight: 600;
+    }
+  }
+  &__label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__count {
+    min-width: 22px;
+    padding: 1px 7px;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    text-align: center;
+  }
+  &__item.is-active &__count {
+    background: var(--nx-surface);
+    color: var(--nx-accent);
+  }
+
+  &--skeleton {
+    gap: var(--nx-space-3);
+    padding-top: var(--nx-space-2);
+  }
+}
+.cm-sk-nav {
+  height: 20px;
+  width: 80%;
+}
+
+.cm-content,
+.cm-section {
+  min-width: 0;
+}
+
+.cm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--nx-space-5);
+  align-items: start;
+  margin-top: var(--nx-space-5);
+}
+.cm-section.cm-grid {
+  margin-top: 0;
+}
+.cm-grid--messages {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+}
+
+.cm-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 0 0 12px 0;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-5);
+  border-bottom: 1px solid var(--nx-border);
+
+  .nx-caption {
+    margin: 2px 0 0;
+  }
 }
 
-.title-block {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-width: 0;
+.cm-empty-sm {
+  padding: var(--nx-space-6) var(--nx-space-4);
 }
 
-.page-title {
-  font-weight: 500;
-  font-size: 24px;
-  margin: 0;
-  word-break: break-word;
-}
+// ------------------------------------------------------------------ status
 
-.back-btn {
-  border-radius: 8px;
-}
-
-.load-error {
-  margin-bottom: 12px;
-}
-
-.placeholder {
-  height: 200px;
-}
-
-.grid {
+// Six tiles: 3 + 3 on wide screens, 2 + 2 + 2 below, never a lone orphan tile
+.cm-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--nx-space-4);
 }
-
-.panel {
-  border: 1px solid #ebeef5;
-  border-radius: 12px;
-  padding: 14px 16px;
-  background: #fff;
-  min-width: 0;
-
-  h3 {
-    margin: 0 0 10px;
-    font-size: 16px;
-    font-weight: 500;
-    color: #303133;
-  }
-
-  &.narrow {
-    max-width: 560px;
+@media (max-width: 640px) {
+  .cm-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-.row {
+.cm-tile {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: var(--nx-space-1);
+  min-height: 116px;
+  padding: var(--nx-space-4);
 
-  &.spread {
-    justify-content: space-between;
-  }
-
-  &.wrap {
-    flex-wrap: wrap;
-  }
-}
-
-.grow {
-  flex: 1;
-  min-width: 0;
-}
-
-.button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-
-  .el-button + .el-button {
-    margin-left: 0;
-  }
-}
-
-.spaced {
-  margin-top: 12px;
-}
-
-.muted {
-  color: #909399;
-}
-
-.small {
-  font-size: 12px;
-}
-
-.big {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.hint {
-  color: #909399;
-  font-size: 12px;
-  line-height: 1.5;
-  margin-top: 4px;
-}
-
-.mood {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.mood-emoji {
-  font-size: 36px;
-  line-height: 1;
-}
-
-.bond {
-  margin-bottom: 12px;
-
-  .row {
-    margin-bottom: 4px;
-  }
-}
-
-.stat-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.stat {
-  background: #f5f7fa;
-  border-radius: 10px;
-  padding: 8px;
-  text-align: center;
-
-  b {
-    display: block;
-    font-size: 18px;
-    color: #5a64b5;
-  }
-
-  span {
-    font-size: 12px;
-    color: #909399;
-  }
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 6px 12px;
-  margin: 0;
-  font-size: 13px;
-
-  dt {
-    color: #909399;
-  }
-
-  dd {
-    margin: 0;
-    word-break: break-word;
-  }
-}
-
-.score + .score::before {
-  content: ' · ';
-  color: #c0c4cc;
-}
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-
-  li {
+  &__value {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 9px 0;
-    border-bottom: 1px solid #f0f2f5;
+    gap: var(--nx-space-2);
+    min-width: 0;
+  }
+  &__emoji {
+    font-size: var(--nx-text-title);
+    line-height: 1;
+  }
+  &__unit {
+    margin-left: 2px;
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+    color: var(--nx-text-3);
+    letter-spacing: 0;
+  }
+  .nx-stat__meta {
+    margin-top: auto;
+  }
+}
+.cm-sk-line {
+  width: 50%;
+  height: 12px;
+}
+.cm-sk-value {
+  width: 40%;
+  height: 26px;
+  margin-top: var(--nx-space-2);
+}
 
-    &:last-child {
-      border-bottom: none;
+.cm-meter {
+  display: block;
+  height: 6px;
+  margin: var(--nx-space-1) 0;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-3);
+  overflow: hidden;
+
+  &__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--nx-accent);
+    transform-origin: left center;
+    transition: transform var(--nx-dur-3) var(--nx-ease);
+  }
+}
+
+.cm-kv {
+  font-size: var(--nx-text-callout);
+}
+.cm-score + .cm-score::before {
+  content: " · ";
+  color: var(--nx-text-3);
+}
+
+.cm-weather {
+  display: flex;
+  align-items: baseline;
+  gap: var(--nx-space-3);
+  flex-wrap: wrap;
+
+  &__temp {
+    font-size: var(--nx-text-display);
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.19;
+  }
+  &__text {
+    font-size: var(--nx-text-headline);
+    color: var(--nx-text-2);
+  }
+}
+
+.cm-next-prayer {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  margin-top: var(--nx-space-4);
+  padding-top: var(--nx-space-4);
+  border-top: 1px solid var(--nx-border);
+
+  &__value {
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+  }
+}
+
+.cm-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--nx-space-3);
+    padding: var(--nx-space-2) 0;
+
+    // Line connecting this entry's icon with the next one
+    &:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 13px;
+      top: calc(50% + 16px);
+      height: calc(100% - 32px);
+      width: 2px;
+      border-radius: var(--nx-radius-pill);
+      background: var(--nx-border);
+    }
+  }
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-callout);
+  }
+  &__text {
+    font-size: var(--nx-text-callout);
+    overflow-wrap: anywhere;
+  }
+  &__time {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+    white-space: nowrap;
+  }
+
+  .is-accent &__icon {
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+  }
+  .is-success &__icon {
+    background: var(--nx-success-soft);
+    color: var(--nx-success);
+  }
+  .is-warning &__icon {
+    background: var(--nx-warning-soft);
+    color: var(--nx-warning);
+  }
+  .is-danger &__icon {
+    background: var(--nx-danger-soft);
+    color: var(--nx-danger);
+  }
+  .is-info &__icon {
+    background: var(--nx-info-soft);
+    color: var(--nx-info);
+  }
+}
+
+// ------------------------------------------------------------------ alarm + reminder rows
+
+.cm-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cm-alarm,
+.cm-reminder {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-2) var(--nx-space-5) var(--nx-space-2) var(--nx-space-2);
+  border-bottom: 1px solid var(--nx-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.cm-alarm__main,
+.cm-reminder__main {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-5);
+  flex: 1;
+  min-width: 0;
+  padding: var(--nx-space-3);
+  border: 0;
+  border-radius: var(--nx-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--nx-dur-1) var(--nx-ease);
+
+  &:hover {
+    background: var(--nx-surface-2);
+  }
+}
+.cm-reminder__main {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.cm-alarm {
+  &__time {
+    flex: none;
+    min-width: 2.9em;
+    font-size: var(--nx-text-display);
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--nx-text);
+  }
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-1);
+    min-width: 0;
+    flex: 1;
+  }
+  &__label {
+    font-size: var(--nx-text-body);
+    font-weight: 600;
+  }
+  &__meta {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+  &__say {
+    max-width: 100%;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+}
+
+.cm-alarm.is-off,
+.cm-reminder.is-off {
+  .cm-alarm__time,
+  .cm-alarm__label,
+  .cm-reminder__label {
+    color: var(--nx-text-3);
+  }
+  .cm-day.is-on {
+    background: var(--nx-surface-2);
+    color: var(--nx-text-3);
+  }
+}
+
+.cm-reminder {
+  &__label {
+    max-width: 100%;
+    font-size: var(--nx-text-body);
+    font-weight: 600;
+  }
+  &__when {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+}
+
+.cm-days {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.cm-day {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-2);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  &.is-on {
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+  }
+}
+
+.cm-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-1);
+  flex: none;
+
+  .el-switch {
+    margin-right: var(--nx-space-2);
+  }
+}
+
+.cm-group {
+  & + & {
+    border-top: 1px solid var(--nx-border);
+  }
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    margin: 0;
+    padding: var(--nx-space-4) var(--nx-space-5) var(--nx-space-1);
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+}
+.cm-kind {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--nx-radius-sm);
+  font-size: var(--nx-text-headline);
+  &--water {
+    background: var(--nx-info-soft);
+    color: var(--nx-info);
+  }
+  &--medicine {
+    background: var(--nx-danger-soft);
+    color: var(--nx-danger);
+  }
+}
+
+// ------------------------------------------------------------------ settings rows and fields
+
+.cm-settings {
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+  padding: 0 var(--nx-space-4);
+}
+.cm-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--nx-space-4);
+  min-height: 48px;
+  padding: var(--nx-space-2) 0;
+  font-size: var(--nx-text-callout);
+
+  & + & {
+    border-top: 1px solid var(--nx-border);
+  }
+  > span {
+    min-width: 0;
+  }
+  .el-switch,
+  .el-input-number {
+    flex: none;
+  }
+}
+
+.cm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__label {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+}
+
+.cm-times {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--nx-space-3);
+
+  &__arrow {
+    padding-bottom: 10px;
+    color: var(--nx-text-3);
+  }
+}
+.cm-time-input {
+  width: 132px;
+}
+
+.cm-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  column-gap: var(--nx-space-4);
+
+  .el-input-number {
+    width: 100%;
+  }
+}
+.cm-form-card {
+  max-width: 720px;
+}
+
+.cm-unsaved {
+  margin-right: auto;
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  color: var(--nx-warning);
+}
+
+.cm-inline-form {
+  display: flex;
+  gap: var(--nx-space-2);
+  margin-top: var(--nx-space-1);
+
+  .el-input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.cm-volume {
+  margin-top: var(--nx-space-4);
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  &__value {
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+  }
+  &__slider {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    color: var(--nx-text-3);
+    .el-slider {
+      flex: 1;
+    }
+  }
+  &.is-disabled &__value {
+    color: var(--nx-text-3);
+  }
+}
+
+// ------------------------------------------------------------------ prayer
+
+.cm-prayers {
+  margin: var(--nx-space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cm-prayer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 64px;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-height: 48px;
+  padding: 0 var(--nx-space-3);
+  border-radius: var(--nx-radius);
+
+  & + & {
+    margin-top: 2px;
+  }
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+  }
+  &__time {
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    text-align: right;
+  }
+  &__col {
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__tomorrow {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-3);
+    text-align: right;
+  }
+  &--head {
+    min-height: 0;
+    margin-top: var(--nx-space-4);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    color: var(--nx-text-3);
+  }
+  &.is-next {
+    background: var(--nx-accent-soft);
+    .cm-prayer__time,
+    .cm-prayer__name {
+      color: var(--nx-accent);
+    }
+  }
+}
+
+.cm-cities {
+  margin: var(--nx-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cm-city {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--nx-space-2) var(--nx-space-3);
+  border: 0;
+  border-radius: var(--nx-radius);
+  background: transparent;
+  color: var(--nx-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--nx-surface-2);
+  }
+  &:disabled {
+    cursor: progress;
+    opacity: 0.6;
+  }
+  &__text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+  &__name {
+    font-weight: 600;
+  }
+  i {
+    color: var(--nx-text-3);
+  }
+}
+
+// ------------------------------------------------------------------ messages
+
+.cm-composer {
+  &__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    flex-wrap: wrap;
+    padding-top: var(--nx-space-4);
+    border-top: 1px solid var(--nx-border);
+  }
+  &__ask {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text-2);
+    cursor: pointer;
+  }
+}
+
+.cm-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-3);
+  max-height: 560px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.cm-bubble-row {
+  display: flex;
+  justify-content: flex-end;
+}
+.cm-bubble {
+  max-width: min(92%, 440px);
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border-radius: var(--nx-radius-lg) var(--nx-radius-lg) var(--nx-radius-sm) var(--nx-radius-lg);
+  background: var(--nx-accent-soft);
+
+  &__text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--nx-text);
+  }
+  &__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    margin-top: var(--nx-space-2);
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-2);
+    .nx-badge {
+      flex: none;
+      background: var(--nx-surface);
+    }
+  }
+}
+
+// ------------------------------------------------------------------ quick actions
+
+.cm-story {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--nx-space-4);
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-2);
+  }
+}
+
+.cm-subhead {
+  margin: var(--nx-space-6) 0 var(--nx-space-3);
+  font-size: var(--nx-text-footnote);
+  font-weight: 600;
+  color: var(--nx-text-2);
+}
+
+.cm-action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--nx-space-3);
+}
+
+.cm-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--nx-space-4);
+  min-height: 112px;
+  padding: var(--nx-space-4);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-surface);
+  box-shadow: var(--nx-shadow-1);
+  color: var(--nx-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow var(--nx-dur-2) var(--nx-ease), border-color var(--nx-dur-2) var(--nx-ease),
+    transform var(--nx-dur-1) var(--nx-ease);
+
+  &:hover:not(:disabled) {
+    box-shadow: var(--nx-shadow-2);
+    border-color: var(--nx-border-strong);
+  }
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  &[aria-busy="true"] {
+    opacity: 1;
+    border-color: var(--nx-accent);
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--nx-radius);
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-title);
+  }
+  &--game &__icon {
+    background: var(--nx-info-soft);
+    color: var(--nx-info);
+  }
+  &__label {
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+
+.cm-commands {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cm-command {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-height: 48px;
+  border-bottom: 1px solid var(--nx-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+  &__name {
+    flex: 1;
+    font-size: var(--nx-text-callout);
+  }
+  &__time {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+    white-space: nowrap;
+  }
+}
+
+// ------------------------------------------------------------------ responsive
+
+@media (max-width: 1100px) {
+  .cm-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--nx-space-4);
+  }
+  // Section list becomes a horizontal segmented scroller pinned under the top bar
+  .cm-nav {
+    top: var(--nx-topbar-h);
+    z-index: 2;
+    flex-direction: row;
+    gap: var(--nx-space-1);
+    margin: 0 calc(-1 * var(--nx-gutter));
+    padding: var(--nx-space-2) var(--nx-gutter);
+    background: var(--nx-bg);
+    overflow-x: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
     }
 
-    &.disabled .time,
-    &.disabled .grow {
-      opacity: 0.5;
+    &__item {
+      width: auto;
+      flex: none;
+      min-height: 36px;
+      padding: 0 var(--nx-space-3);
+      border: 1px solid var(--nx-border);
+      border-radius: var(--nx-radius-pill);
+      background: var(--nx-surface);
+      &.is-active {
+        border-color: transparent;
+      }
     }
+    &__label {
+      overflow: visible;
+    }
+    &--skeleton {
+      position: static;
+    }
+  }
+  .cm-sk-nav {
+    width: 96px;
+    flex: none;
+  }
+  .cm-grid--messages {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
+@media (max-width: 600px) {
+  .cm-hero {
+    align-items: flex-start;
+    gap: var(--nx-space-3);
+    &__avatar {
+      width: 48px;
+      height: 48px;
+      font-size: var(--nx-text-title);
+    }
+  }
+  .cm-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cm-card-head {
+    padding: var(--nx-space-4);
+    flex-wrap: wrap;
+  }
+  .cm-alarm,
+  .cm-reminder {
+    flex-wrap: wrap;
+    padding-right: var(--nx-space-3);
+    row-gap: 0;
+  }
+  .cm-alarm__main {
+    gap: var(--nx-space-4);
+  }
+  .cm-alarm__time {
+    font-size: var(--nx-text-display);
+  }
+  .cm-row-actions {
+    margin-left: auto;
+    padding-bottom: var(--nx-space-2);
+  }
+  .cm-story {
+    flex-direction: column;
+  }
+  .cm-inline-form {
+    flex-wrap: wrap;
+    .el-button {
+      flex: 1 1 auto;
+    }
+  }
+  .cm-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cm-action {
+    min-height: 100px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-meter__fill,
+  .cm-action {
+    transition: none;
+  }
+}
+</style>
+
+<style lang="scss">
+// Alarm / reminder sheets are appended to <body>: unscoped, every rule under .cm-dialog
+.el-dialog__wrapper.cm-dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--nx-space-5) 0;
+
+  .el-dialog.cm-sheet {
+    margin: auto;
+    max-height: calc(100vh - 2 * var(--nx-space-5));
+    display: flex;
+    flex-direction: column;
+  }
+  .cm-sheet .el-dialog__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .cm-sheet__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--nx-space-2);
     .el-button + .el-button {
       margin-left: 0;
     }
   }
-}
-
-.clickable {
-  cursor: pointer;
-}
-
-.time {
-  font-size: 20px;
-  font-weight: 500;
-  min-width: 60px;
-  color: #303133;
-}
-
-.msg-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.danger-text {
-  color: #f56c6c;
-}
-
-.toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
-}
-
-.field {
-  margin: 8px 0;
-
-  label {
-    display: block;
-    font-size: 13px;
-    color: #606266;
-    margin-bottom: 6px;
+  .cm-sheet__time {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--nx-space-5);
+    padding: var(--nx-space-4);
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-surface-2);
   }
-}
-
-.time-input {
-  width: 130px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  column-gap: 16px;
-}
-
-.times {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 12px;
-  font-size: 14px;
-
-  th,
-  td {
-    padding: 6px 8px;
-    text-align: left;
-    border-bottom: 1px solid #f0f2f5;
+  // The alarm time reads like a clock face
+  .cm-big-time {
+    width: 200px;
+    .el-input__inner {
+      height: 64px;
+      padding: 0 var(--nx-space-4) 0 44px;
+      background: var(--nx-surface);
+      font-size: var(--nx-text-display);
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+    .el-input__prefix {
+      left: 12px;
+      display: flex;
+      align-items: center;
+    }
   }
-
-  th {
-    color: #909399;
-    font-weight: 500;
+  .cm-time-input {
+    width: 132px;
   }
-
-  tr.next td {
-    color: #5a64b5;
+  .cm-day-picker {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+  .cm-day-toggle {
+    height: 40px;
+    padding: 0 2px;
+    border: 1px solid var(--nx-border);
+    border-radius: var(--nx-radius);
+    background: var(--nx-surface);
+    color: var(--nx-text-2);
+    font: inherit;
+    font-size: var(--nx-text-footnote);
     font-weight: 600;
-    background: #eff4ff;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: background-color var(--nx-dur-1) var(--nx-ease), color var(--nx-dur-1) var(--nx-ease),
+      transform var(--nx-dur-1) var(--nx-ease);
+
+    &:hover {
+      border-color: var(--nx-border-strong);
+    }
+    &:active {
+      transform: scale(0.95);
+    }
+    &.is-on {
+      border-color: transparent;
+      background: var(--nx-accent);
+      color: var(--nx-on-accent);
+    }
+  }
+  .cm-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: var(--nx-space-2);
+  }
+  .cm-preset {
+    height: 28px;
+    padding: 0 var(--nx-space-3);
+    border: 0;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font: inherit;
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    cursor: pointer;
+    &:hover {
+      color: var(--nx-text);
+    }
+    &.is-on {
+      background: var(--nx-accent-soft);
+      color: var(--nx-accent);
+    }
+  }
+  .cm-segmented {
+    flex-wrap: wrap;
+    max-width: 100%;
+    > button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+  }
+  .cm-help {
+    margin-top: var(--nx-space-1);
+    font-size: var(--nx-text-caption);
+    line-height: 1.4;
+    color: var(--nx-text-3);
+  }
+  .cm-settings {
+    border-radius: var(--nx-radius);
+    background: var(--nx-surface-2);
+    padding: 0 var(--nx-space-4);
+  }
+  .cm-setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nx-space-4);
+    min-height: 48px;
+    padding: var(--nx-space-2) 0;
+    font-size: var(--nx-text-callout);
+    & + .cm-setting {
+      border-top: 1px solid var(--nx-border);
+    }
+    .el-switch,
+    .el-input-number {
+      flex: none;
+    }
+  }
+  .cm-times {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: var(--nx-space-3);
+  }
+  .cm-times__arrow {
+    padding-bottom: 32px;
+    color: var(--nx-text-3);
   }
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 6px;
-}
+// Narrow screens: the dialog becomes a bottom sheet that slides up from the edge
+@media (max-width: 600px) {
+  .el-dialog__wrapper.cm-dialog {
+    align-items: flex-end;
+    padding: 0;
 
-.chip {
-  border: 1px solid #dcdfe6;
-  background: #fff;
-  color: #606266;
-  border-radius: 14px;
-  padding: 3px 12px;
-  font-size: 13px;
-  line-height: 20px;
-  cursor: pointer;
-
-  &.on {
-    background: #5a64b5;
-    border-color: #5a64b5;
-    color: #fff;
+    .el-dialog.cm-sheet {
+      width: 100%;
+      max-width: 100%;
+      max-height: 92vh;
+      margin: 0;
+      border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+    }
+    .cm-sheet .el-dialog__footer {
+      padding-bottom: calc(var(--nx-space-5) + env(safe-area-inset-bottom));
+    }
+    .cm-sheet .el-dialog__body {
+      padding-left: var(--nx-space-4);
+      padding-right: var(--nx-space-4);
+    }
   }
-
-  &.preset {
-    font-size: 12px;
+  .dialog-fade-enter-active .el-dialog.cm-sheet {
+    animation: cm-sheet-in var(--nx-dur-3) var(--nx-ease);
   }
-
-  &:focus-visible {
-    outline: 2px solid #409eff;
-    outline-offset: 1px;
+  .dialog-fade-leave-active .el-dialog.cm-sheet {
+    animation: cm-sheet-out var(--nx-dur-2) var(--nx-ease-in);
   }
 }
 
-:deep(.el-button--text) {
-  color: #7079aa;
+@keyframes cm-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes cm-sheet-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(100%);
+  }
 }
 
-:deep(.el-button--text:hover) {
-  color: #5a64b5;
-}
-
-:deep(.el-button--text.danger-text) {
-  color: #f56c6c;
-}
-
-@media (max-width: 700px) {
-  .main-wrapper {
-    padding: 10px 8px 0;
-  }
-
-  .companion-card ::v-deep .el-card__body {
-    padding: 10px 12px;
-  }
-
-  .page-title {
-    font-size: 20px;
-  }
-
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .companion-tabs ::v-deep .el-tabs__nav-wrap {
-    overflow-x: auto;
+@media (prefers-reduced-motion: reduce) {
+  .dialog-fade-enter-active .el-dialog.cm-sheet,
+  .dialog-fade-leave-active .el-dialog.cm-sheet {
+    animation: nx-dialog-in var(--nx-dur-2) linear;
   }
 }
 </style>

@@ -3,8 +3,9 @@
     <el-dialog
       :title="$t('agentSnapshot.title')"
       :visible="visible"
-      width="960px"
-      class="agent-snapshot-dialog"
+      width="min(960px, calc(100vw - 32px))"
+      top="32px"
+      class="agent-snapshot-dialog nx-snapshot-dialog"
       :before-close="guardRestoreInFlightClose"
       :close-on-click-modal="!restoring"
       :close-on-press-escape="!restoring"
@@ -14,7 +15,7 @@
     >
       <template slot="title">
         <div class="snapshot-dialog-title">
-          <i class="el-icon-time snapshot-title-icon" aria-hidden="true"></i>
+          <span class="snapshot-title-icon" aria-hidden="true"><i class="el-icon-time"></i></span>
           <span>{{ $t('agentSnapshot.title') }}</span>
         </div>
       </template>
@@ -36,7 +37,7 @@
         >
           <template slot-scope="scope">
             <div class="version-cell">
-              <span>#{{ scope.row.versionNo }}</span>
+              <span class="nx-num">#{{ scope.row.versionNo }}</span>
               <span
                 v-if="scope.row.isLatestSnapshot"
                 class="latest-version-icon"
@@ -126,12 +127,13 @@
     <el-dialog
       :title="detailDialogTitle"
       :visible.sync="detailVisible"
-      width="960px"
-      class="snapshot-detail-dialog"
+      width="min(960px, calc(100vw - 32px))"
+      top="32px"
+      class="snapshot-detail-dialog nx-snapshot-dialog"
     >
       <template slot="title">
         <div class="snapshot-dialog-title">
-          <i class="el-icon-time snapshot-title-icon" aria-hidden="true"></i>
+          <span class="snapshot-title-icon" aria-hidden="true"><i class="el-icon-time"></i></span>
           <span>{{ detailDialogTitle }}</span>
         </div>
       </template>
@@ -271,6 +273,7 @@
             </div>
             <div v-else-if="shouldUseCodeDiff(item)" class="diff-code-wrapper">
               <CodeDiff
+                :theme="codeDiffTheme"
                 :old-string="item.beforeText"
                 :new-string="item.afterText"
                 :language="codeDiffLanguage(item)"
@@ -319,8 +322,9 @@
     <el-dialog
       :title="restorePreviewTitle"
       :visible.sync="restorePreviewVisible"
-      width="960px"
-      class="snapshot-detail-dialog"
+      width="min(960px, calc(100vw - 32px))"
+      top="32px"
+      class="snapshot-detail-dialog nx-snapshot-dialog"
       :before-close="guardRestoreInFlightClose"
       :close-on-click-modal="!restoring"
       :close-on-press-escape="!restoring"
@@ -328,7 +332,7 @@
     >
       <template slot="title">
         <div class="snapshot-dialog-title">
-          <i class="el-icon-time snapshot-title-icon" aria-hidden="true"></i>
+          <span class="snapshot-title-icon" aria-hidden="true"><i class="el-icon-time"></i></span>
           <span>{{ restorePreviewTitle }}</span>
         </div>
       </template>
@@ -416,6 +420,7 @@
             </div>
             <div v-else-if="shouldUseCodeDiff(item)" class="diff-code-wrapper">
               <CodeDiff
+                :theme="codeDiffTheme"
                 :old-string="item.beforeText"
                 :new-string="item.afterText"
                 :language="codeDiffLanguage(item)"
@@ -492,6 +497,7 @@
           {{ $t('button.cancel') }}
         </el-button>
         <el-button
+          type="primary"
           class="snapshot-footer-button snapshot-footer-confirm"
           :loading="restoring"
           :disabled="restoring || restorePreviewLoading || !restorePreviewSnapshot || restorePreviewDiffs.length === 0"
@@ -640,7 +646,9 @@ export default {
       historyTotal: 0,
       page: 1,
       limit: 10,
-      total: 0
+      total: 0,
+      codeDiffTheme: "light",
+      themeListener: null
     };
   },
   computed: {
@@ -729,10 +737,25 @@ export default {
       }
     }
   },
+  created() {
+    this.codeDiffTheme = this.readAppTheme();
+    this.themeListener = (event) => {
+      this.codeDiffTheme = event?.detail?.theme === "dark" ? "dark" : this.readAppTheme();
+    };
+    window.addEventListener("app-theme-changed", this.themeListener);
+  },
   beforeDestroy() {
+    if (this.themeListener) {
+      window.removeEventListener("app-theme-changed", this.themeListener);
+    }
     this.cancelPendingSnapshotRequests();
   },
   methods: {
+    readAppTheme() {
+      return typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+        ? "dark"
+        : "light";
+    },
     buildSingleConfigItems(snapshotData = {}, fieldOrder = []) {
       const fields = Array.from(new Set(this.snapshotFieldOrder(fieldOrder, {}, snapshotData)));
       return fields.map((field) => {
@@ -2109,46 +2132,49 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import '@/styles/global.scss';
+// Version history dialogs. Dialog chrome comes from styles/nobix/element.scss; this file sizes
+// the dialogs, styles the history table, and themes the diff views with Nobix tokens.
 
-::v-deep .el-dialog {
+.nx-snapshot-dialog {
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  margin: 10px auto !important;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  height: calc(100vh - 20px);
-  max-height: calc(100vh - 20px);
-}
-
-::v-deep .el-dialog__wrapper {
-  display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  overflow: hidden;
-}
+  overflow: auto;
 
-::v-deep .el-dialog__header {
-  padding: 16px 20px 12px;
-  background: linear-gradient(135deg, #e2eeff, #edeafe);
-  text-align: left;
-}
-
-::v-deep .el-dialog__title {
-  color: #1a1a1a;
-  font-size: 16px;
-  font-weight: 500;
+  ::v-deep .el-dialog {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 64px);
+    margin-bottom: 32px;
+  }
+  ::v-deep .el-dialog__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-top: var(--nx-space-2);
+  }
+  ::v-deep .el-dialog__footer {
+    border-top: 1px solid var(--nx-border);
+    padding-top: var(--nx-space-3);
+  }
 }
 
 .snapshot-dialog-title {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  font-size: 18px;
+  gap: var(--nx-space-3);
+  padding-right: 40px;
+  min-width: 0;
+  color: var(--nx-text);
+  font-size: var(--nx-text-headline);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 
-  > span {
-    line-height: 18px;
-    font-weight: 500;
+  > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -2156,509 +2182,361 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-right: 8px;
-  color: #4a7cfd;
-  font-size: 24px;
-  line-height: 1;
-}
-
-::v-deep .el-dialog__headerbtn {
-  top: 12px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex: none;
   width: 32px;
   height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-
-  .el-dialog__close {
-    position: static;
-    color: #666;
-    font-size: 18px;
-    transform: none;
-  }
-
-  &:hover {
-    background: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-
-    .el-dialog__close {
-      color: #333;
-    }
-  }
-}
-
-::v-deep .el-dialog__body {
-  overflow-y: auto;
-  padding: 20px;
-}
-
-::v-deep .el-dialog__footer {
-  padding: 12px 20px 16px;
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-accent-soft);
+  color: var(--nx-accent);
+  font-size: var(--nx-text-body);
 }
 
 .snapshot-dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: var(--nx-space-2);
 }
-
-.snapshot-footer-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 96px;
-  height: 36px;
-  padding: 10px 20px;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-
-  & + .snapshot-footer-button {
-    margin-left: 0;
-  }
+.snapshot-footer-button + .snapshot-footer-button {
+  margin-left: 0;
 }
-
-.snapshot-footer-cancel {
-  border: 1px solid #d7e1ff;
-  background: #f7f9ff;
-  color: #4a7cfd;
-
-  &:hover,
-  &:focus {
-    border-color: #4a7cfd;
-    background: #eef4ff;
-    color: #4a7cfd;
-    box-shadow: 0 2px 8px rgba(74, 124, 253, 0.14);
-    transform: translateY(-2px);
-  }
-}
-
-.snapshot-footer-confirm {
-  border: none;
-  background: linear-gradient(to right, #4a7cfd, #8154fc);
-  color: #fff;
-
-  &:hover,
-  &:focus {
-    border-color: transparent;
-    background: linear-gradient(to right, #4a7cfd, #8154fc);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(74, 124, 253, 0.3);
-    transform: translateY(-2px);
-    opacity: 0.88;
-  }
-
-  &.is-disabled,
-  &.is-disabled:hover,
-  &.is-disabled:focus {
-    border-color: transparent;
-    background: linear-gradient(to right, #a0b4fd, #b8a4fd);
-    color: rgba(255, 255, 255, 0.6);
-    box-shadow: none;
-    transform: none;
-    cursor: not-allowed;
-    opacity: 1;
-  }
-}
-
 .confirm-inner {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
 }
 
-.confirm-icon {
-  margin-right: 5px;
-  font-size: 16px;
-}
+// ------------------------------------------------------------------ history table
 
+.snapshot-table-wrapper {
+  min-height: 320px;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-lg);
+  overflow: hidden;
+}
 .snapshot-table {
   width: 100%;
 }
-
-.snapshot-table-wrapper {
-  min-height: 420px;
-}
-
 .version-cell {
   display: inline-flex;
-  gap: 6px;
   align-items: center;
+  gap: 6px;
+  font-weight: 600;
   white-space: nowrap;
 }
-
 .latest-version-icon {
-  flex: 0 0 auto;
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #67c23a;
-  box-shadow: 0 0 0 3px rgba(103, 194, 58, 0.12);
+  background: var(--nx-success);
+  box-shadow: 0 0 0 3px var(--nx-success-soft);
 }
-
-::v-deep .current-version-row {
-  background: #fbfffa;
+::v-deep .current-version-row > td.el-table__cell {
+  background: var(--nx-success-soft);
 }
-
-.snapshot-delete-button {
-  color: #f56c6c;
+.snapshot-delete-button,
+.snapshot-delete-button:hover,
+.snapshot-delete-button:focus {
+  color: var(--nx-danger);
 }
-
 .field-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
+  padding: 4px 0;
+  ::v-deep .el-tag {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
-
 .field-tags-empty {
-  color: #a3a8b8;
+  color: var(--nx-text-3);
 }
-
 .pagination-row {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: var(--nx-space-4);
 }
+
+// ------------------------------------------------------------------ detail / diff
 
 .snapshot-diff {
-  min-height: 420px;
-  padding-right: 2px;
+  min-height: 320px;
 }
-
 .restore-risk-alert {
-  margin-top: 14px;
+  margin-top: var(--nx-space-3);
 }
-
 .detail-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-  color: #606266;
-  font-size: 12px;
-  text-align: left;
-}
-
-.detail-summary span {
-  padding: 4px 9px;
-  border-radius: 4px;
-  background: #f4f6ff;
-  color: #4d5b7c;
+  gap: var(--nx-space-2);
+  margin-bottom: var(--nx-space-4);
+  span {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .diff-item {
-  margin-bottom: 16px;
+  margin-bottom: var(--nx-space-4);
   overflow: hidden;
-  border: 1px solid #e9e9e9;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-surface);
 }
-
 .diff-field {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e9e9e9;
-  background: #fafbff;
-  color: #3d4566;
-  font-size: 16px;
-  font-weight: 700;
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border-bottom: 1px solid var(--nx-border);
+  background: var(--nx-surface-2);
+  color: var(--nx-text);
+  font-size: var(--nx-text-callout);
+  font-weight: 600;
   text-align: left;
 }
-
 .diff-values {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
-
 .diff-values.is-single {
   grid-template-columns: minmax(0, 1fr);
 }
-
 .diff-pane {
   min-width: 0;
-  padding: 12px 14px;
+  padding: var(--nx-space-3) var(--nx-space-4);
   text-align: left;
 }
-
 .diff-after {
-  border-left: 1px solid #e9e9e9;
+  border-left: 1px solid var(--nx-border);
 }
-
 .diff-values.is-single .diff-after {
   border-left: 0;
 }
-
-.diff-code-wrapper {
-  padding: 0 14px 1px;
-  text-align: left;
-  background: #fff;
-}
-
 .diff-pane-title {
-  margin-bottom: 8px;
-  color: #3d4566;
-  font-size: 14px;
+  margin-bottom: var(--nx-space-2);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-footnote);
   font-weight: 600;
-  line-height: 1.4;
-  text-align: left;
 }
-
 .diff-value {
-  box-sizing: border-box;
   min-height: 40px;
   max-height: 260px;
   overflow: auto;
-  padding: 9px 12px;
   margin: 0;
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1.45;
+  padding: 10px 12px;
+  border-radius: var(--nx-radius-sm);
+  color: var(--nx-text);
+  font-size: var(--nx-text-footnote);
+  line-height: 1.5;
   word-break: break-word;
   text-align: left;
-  @include scrollbar-style;
 }
-
 .diff-before .diff-value {
-  background: #fff8f8;
-  color: #663434;
+  background: var(--nx-danger-soft);
 }
-
 .diff-after .diff-value {
-  background: #f7fbf4;
-  color: #2d5c3a;
+  background: var(--nx-success-soft);
 }
-
+.diff-values.is-single .diff-after .diff-value {
+  background: var(--nx-surface-2);
+}
 .is-complex .diff-value {
   max-height: 340px;
 }
-
 .diff-text {
   margin: 0;
-  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-  font-size: 12px;
-  line-height: 1.45;
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-caption);
+  line-height: 1.5;
   white-space: pre-wrap;
   text-align: left;
 }
 
-::v-deep .code-diff-view,
-::v-deep .code-diff-view .blob-num,
-::v-deep .code-diff-view .blob-code-inner,
-::v-deep .code-diff-view .file-header {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
+// v-code-diff, re-themed with Nobix tokens (the component reads these GitHub-style variables)
+.diff-code-wrapper {
+  padding: var(--nx-space-3);
+  text-align: left;
+  background: var(--nx-surface);
+
+  ::v-deep .code-diff-view {
+    --color-canvas-default: var(--nx-surface);
+    --bgColor-default: var(--nx-surface);
+    --color-canvas-subtle: var(--nx-surface-2);
+    --color-fg-default: var(--nx-text);
+    --fgColor-default: var(--nx-text);
+    --color-fg-muted: var(--nx-text-3);
+    --color-border-default: var(--nx-border);
+    --color-border-muted: var(--nx-border);
+    --color-diff-blob-addition-line-bg: var(--nx-success-soft);
+    --color-diff-blob-addition-num-bg: var(--nx-success-soft);
+    --color-diff-blob-addition-num-text: var(--nx-text-2);
+    --color-diff-blob-addition-fg: var(--nx-text);
+    --color-diff-blob-deletion-line-bg: var(--nx-danger-soft);
+    --color-diff-blob-deletion-num-bg: var(--nx-danger-soft);
+    --color-diff-blob-deletion-num-text: var(--nx-text-2);
+    --color-diff-blob-deletion-fg: var(--nx-text);
+    --color-diff-blob-hunk-num-bg: var(--nx-info-soft);
+    margin: 0;
+    border: 1px solid var(--nx-border);
+    border-radius: var(--nx-radius);
+    overflow: hidden;
+    font-family: var(--nx-font);
+  }
+  ::v-deep .code-diff-view .file-header {
+    background: var(--nx-surface-2);
+    border-bottom: 1px solid var(--nx-border);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+  }
+  ::v-deep .code-diff-view .blob-num,
+  ::v-deep .code-diff-view .blob-code-inner {
+    font-family: var(--nx-font-mono);
+  }
+  ::v-deep .code-diff-view .blob-code-inner {
+    font-size: var(--nx-text-caption);
+    line-height: 1.5;
+    font-style: normal;
+  }
+  ::v-deep .code-diff-view .hljs-emphasis,
+  ::v-deep .code-diff-view em {
+    font-style: normal;
+  }
+  ::v-deep .code-diff-view .diff-table .blob-code-deletion .x {
+    background-color: var(--nx-danger-soft);
+  }
+  ::v-deep .code-diff-view .diff-table .blob-code-addition .x {
+    background-color: var(--nx-success-soft);
+  }
 }
 
-::v-deep .code-diff-view::-webkit-scrollbar {
-  width: 6px;
-}
-
-::v-deep .code-diff-view::-webkit-scrollbar-thumb {
-  background: #a1c9fd;
-  border-radius: 3px;
-}
-
-::v-deep .code-diff-view::-webkit-scrollbar-track {
-  background: #f0f3fe;
-  border-radius: 3px;
-}
-
-::v-deep .code-diff-view .blob-code-inner {
-  font-size: 13px;
-  line-height: 1.45;
-  font-style: normal;
-}
-
-::v-deep .code-diff-view .hljs-emphasis,
-::v-deep .code-diff-view em {
-  font-style: normal !important;
-}
-
-::v-deep .code-diff-view .diff-table .blob-code-deletion .x,
-::v-deep .code-diff-view .diff-table .blob-code-addition .x {
-  background-color: transparent;
-}
+// ------------------------------------------------------------------ plugin (function) changes
 
 .function-change-view {
-  padding: 16px;
-  background: #fff;
+  padding: var(--nx-space-4);
+  background: var(--nx-surface);
 }
-
 .function-change-view.is-single {
   padding: 0;
 }
-
 .function-toggle-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--nx-space-3);
 }
-
 .function-toggle-card {
-  padding: 14px 16px;
-  border: 1px solid #dfe7ff;
-  border-radius: 8px;
-  background: #fbfdff;
-  box-shadow: 0 2px 8px rgba(31, 48, 96, 0.04);
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface);
 }
-
-.function-toggle-card.is-added {
-  border-color: #dcefdc;
-  background: #fbfffa;
-}
-
-.function-toggle-card.is-removed {
-  border-color: #f5d6d6;
-  background: #fffafa;
-}
-
-.function-toggle-card.is-updated {
-  border-color: #dfe7ff;
-  background: #fbfdff;
-}
-
 .function-toggle-card.is-single .function-state-pane {
   margin-top: 10px;
 }
-
 .function-toggle-head {
   display: flex;
-  gap: 10px;
   align-items: flex-start;
+  gap: 10px;
 }
-
 .function-dot {
-  flex: 0 0 auto;
+  flex: none;
   width: 8px;
   height: 8px;
   margin-top: 7px;
   border-radius: 50%;
-  background: #6278ff;
+  background: var(--nx-info);
 }
-
 .function-toggle-card.is-removed .function-dot {
-  background: #f56c6c;
+  background: var(--nx-danger);
 }
-
 .function-toggle-card.is-added .function-dot {
-  background: #67c23a;
+  background: var(--nx-success);
 }
-
 .function-change-title-wrap {
-  min-width: 0;
   flex: 1;
+  min-width: 0;
 }
-
 .function-change-title-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
+  gap: var(--nx-space-2);
 }
-
 .function-change-name {
-  color: #30415f;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.4;
-  word-break: break-word;
+  color: var(--nx-text);
+  font-size: var(--nx-text-callout);
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
-
 .function-change-badge {
   padding: 2px 8px;
-  border-radius: 999px;
-  background: #eef4ff;
-  color: #4d65d9;
-  font-size: 12px;
-  line-height: 1.5;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-info-soft);
+  color: var(--nx-info);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
 }
-
 .function-toggle-card.is-added .function-change-badge {
-  background: #edf8e8;
-  color: #4f9b2d;
+  background: var(--nx-success-soft);
+  color: var(--nx-success);
 }
-
 .function-toggle-card.is-removed .function-change-badge {
-  background: #fff0f0;
-  color: #d24b4b;
+  background: var(--nx-danger-soft);
+  color: var(--nx-danger);
 }
-
 .function-state-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   margin-top: 10px;
 }
-
 .function-state-pane {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid #edf0f7;
-  border-radius: 6px;
-  background: #fff;
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-surface-2);
 }
-
-.function-state-pane.is-before {
-  background: #fffafa;
-}
-
-.function-state-pane.is-after {
-  background: #fbfffa;
-}
-
-.function-state-pane.is-disabled {
-  background: #fafbff;
-}
-
 .function-state-title {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
   align-items: center;
-  margin-bottom: 8px;
-  color: #3d4566;
-  font-size: 14px;
+  justify-content: space-between;
+  gap: var(--nx-space-2);
+  margin-bottom: var(--nx-space-2);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-footnote);
   font-weight: 600;
 }
-
 .function-state-badge {
-  flex: 0 0 auto;
+  flex: none;
   padding: 1px 8px;
-  border-radius: 999px;
-  background: #edf8e8;
-  color: #4f9b2d;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.5;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-success-soft);
+  color: var(--nx-success);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
 }
-
 .function-state-pane.is-disabled .function-state-badge {
-  background: #f0f2f7;
-  color: #8b93a7;
+  background: var(--nx-surface-3);
+  color: var(--nx-text-3);
 }
-
-.function-state-params {
-  display: block;
-}
-
 .function-param-row {
   display: grid;
   grid-template-columns: minmax(78px, 118px) minmax(0, 1fr);
   align-items: stretch;
 }
-
 .function-param-row + .function-param-row {
-  border-top: 1px solid #e6ebf5;
+  border-top: 1px solid var(--nx-border);
 }
-
 .function-param-row.is-changed {
-  background: #fff7e6;
+  background: var(--nx-warning-soft);
 }
-
 .param-key {
   display: flex;
   align-items: center;
@@ -2666,133 +2544,105 @@ export default {
   min-width: 0;
   min-height: 28px;
   padding: 5px 10px 5px 0;
-  color: #69738f;
-  font-size: 12px;
-  line-height: 1.35;
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-caption);
   text-align: right;
   overflow-wrap: anywhere;
 }
-
 .param-value {
   min-width: 0;
   min-height: 28px;
   padding: 5px 0 5px 10px;
-  border-left: 1px solid #e6ebf5;
-  color: #303133;
-  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-  font-size: 12px;
-  line-height: 1.4;
+  border-left: 1px solid var(--nx-border);
+  color: var(--nx-text);
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-caption);
   white-space: pre-wrap;
   word-break: break-word;
 }
-
-.function-state-empty {
-  color: #a3a8b8;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
+.function-state-empty,
 .value-empty {
-  color: #a3a8b8;
-  font-size: 13px;
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-footnote);
 }
+
+// ------------------------------------------------------------------ markdown values
 
 .markdown-body {
   color: inherit;
-  font-size: 13px;
+  font-size: var(--nx-text-footnote);
   line-height: 1.7;
   text-align: left;
   white-space: normal;
 }
-
 .markdown-body ::v-deep h1,
 .markdown-body ::v-deep h2,
 .markdown-body ::v-deep h3,
 .markdown-body ::v-deep h4 {
-  margin: 0 0 8px;
-  color: #3d4566;
+  margin: 0 0 var(--nx-space-2);
+  color: var(--nx-text);
   font-weight: 700;
   line-height: 1.4;
 }
-
 .markdown-body ::v-deep h1 {
-  font-size: 18px;
+  font-size: var(--nx-text-headline);
 }
-
 .markdown-body ::v-deep h2 {
-  font-size: 16px;
+  font-size: var(--nx-text-body);
 }
-
 .markdown-body ::v-deep h3,
 .markdown-body ::v-deep h4 {
-  font-size: 14px;
+  font-size: var(--nx-text-callout);
 }
-
 .markdown-body ::v-deep p {
-  margin: 0 0 8px;
+  margin: 0 0 var(--nx-space-2);
 }
-
 .markdown-body ::v-deep p:last-child,
 .markdown-body ::v-deep ul:last-child,
 .markdown-body ::v-deep ol:last-child {
   margin-bottom: 0;
 }
-
 .markdown-body ::v-deep ul,
 .markdown-body ::v-deep ol {
-  margin: 0 0 8px;
+  margin: 0 0 var(--nx-space-2);
   padding-left: 20px;
 }
-
 .markdown-body ::v-deep li {
   margin-bottom: 4px;
 }
-
 .markdown-body ::v-deep code {
   padding: 1px 4px;
-  border-radius: 4px;
-  background: rgba(87, 120, 255, 0.12);
-  color: #3d4566;
-  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-  font-size: 12px;
+  border-radius: calc(var(--nx-radius-sm) / 2);
+  background: var(--nx-surface-3);
+  color: var(--nx-text);
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-caption);
 }
-
 .markdown-body ::v-deep strong {
-  color: #303133;
+  color: var(--nx-text);
   font-weight: 700;
 }
-
 .markdown-body ::v-deep .markdown-empty {
-  color: #a3a8b8;
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  color: var(--nx-text-3);
 }
 
 @media (max-width: 720px) {
   .diff-values {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
-
   .diff-after {
     border-left: 0;
-    border-top: 1px solid #e9e9e9;
+    border-top: 1px solid var(--nx-border);
   }
-
   .function-state-grid,
   .function-param-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
-
   .param-key {
     justify-content: flex-start;
     padding: 7px 0 2px;
     text-align: left;
   }
-
   .param-value {
     min-height: 0;
     padding: 0 0 7px;

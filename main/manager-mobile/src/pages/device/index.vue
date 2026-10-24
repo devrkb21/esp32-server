@@ -25,42 +25,24 @@ const props = withDefaults(defineProps<Props>(), {
   agentId: 'default',
 })
 
-const actions = [
-  { key: 'code', name: t('manualAddDeviceDialog.bindWithCode') },
-  { key: 'manual', name: t('manualAddDeviceDialog.title') },
-]
-
 // Receive props
 interface Props {
   agentId?: string
 }
 
-// Get distance from screen boundary to safe area
-let safeAreaInsets: any
-let systemInfo: any
-
-// #ifdef MP-WEIXIN
-systemInfo = uni.getWindowInfo()
-safeAreaInsets = systemInfo.safeArea
-  ? {
-      top: systemInfo.safeArea.top,
-      right: systemInfo.windowWidth - systemInfo.safeArea.right,
-      bottom: systemInfo.windowHeight - systemInfo.safeArea.bottom,
-      left: systemInfo.safeArea.left,
-    }
-  : null
-// #endif
-
-// #ifndef MP-WEIXIN
-systemInfo = uni.getSystemInfoSync()
-safeAreaInsets = systemInfo.safeAreaInsets
-// #endif
+/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
+function tx(key: string, fallback: string, params?: Record<string, string | number>) {
+  const text = t(key, params)
+  if (text !== key)
+    return text
+  return params ? fallback.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? '')) : fallback
+}
 
 // Device data
 const deviceList = ref<Device[]>([])
 const firmwareTypes = ref<FirmwareType[]>([])
 const loading = ref(false)
-const isBindDevice = ref(false)
+const loadFailed = ref(false)
 
 // Remote control & telemetry states
 const deviceStatusMap = ref<Record<string, boolean>>({})
@@ -69,8 +51,24 @@ const isRebooting = ref<Record<string, boolean>>({})
 const isUpdatingVolume = ref<Record<string, boolean>>({})
 const volumeTimers = ref<Record<string, any>>({})
 
-// Manual bind dialog
-const isManualBindDialog = ref(false)
+// Device detail sheet
+const activeDeviceId = ref('')
+const activeDevice = computed(() => deviceList.value.find(d => d.id === activeDeviceId.value) || null)
+const detailOpen = computed({
+  get: () => !!activeDevice.value,
+  set: (open: boolean) => {
+    if (!open)
+      activeDeviceId.value = ''
+  },
+})
+
+// Add-robot sheet: choose a method, then bind with a code or add manually
+const addSheetOpen = ref(false)
+const addMode = ref<'choose' | 'code' | 'manual'>('choose')
+const bindCode = ref('')
+const bindCodeError = ref('')
+const binding = ref(false)
+
 const manualBindForm = ref({
   board: '',
   appVersion: '',
@@ -86,25 +84,39 @@ const formErrors = ref({
 
 // MAC address regex validation
 const macRegex = /^(?:[0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/i
+const codeRegex = /^\d{6}$/
 
-function selectBindMode(row) {
-  if (row.item.key === 'code') {
-    openBindDialog()
+const onlineCount = computed(() => deviceList.value.filter(d => deviceStatusMap.value[d.id]).length)
+const firmwareColumns = computed(() => firmwareTypes.value.map(item => ({ value: item.key, label: item.name })))
+
+function resetManualForm() {
+  manualBindForm.value = {
+    board: '',
+    appVersion: '',
+    macAddress: '',
   }
-  else if (row.item.key === 'manual') {
-    // Reset form and errors before opening dialog
-    manualBindForm.value = {
-      board: '',
-      appVersion: '',
-      macAddress: '',
-    }
-    formErrors.value = {
-      board: '',
-      appVersion: '',
-      macAddress: '',
-    }
-    isManualBindDialog.value = true
+  formErrors.value = {
+    board: '',
+    appVersion: '',
+    macAddress: '',
   }
+}
+
+function openAddSheet() {
+  addMode.value = 'choose'
+  addSheetOpen.value = true
+}
+
+function selectBindMode(key: 'code' | 'manual') {
+  if (key === 'code') {
+    bindCode.value = ''
+    bindCodeError.value = ''
+  }
+  else {
+    // Reset form and errors before showing the form
+    resetManualForm()
+  }
+  addMode.value = key
 }
 
 // Message component
@@ -127,6 +139,7 @@ async function loadDeviceList() {
     loading.value = true
     const response = await getBindDevices(currentAgentId.value)
     deviceList.value = response || []
+    loadFailed.value = false
     deviceList.value.forEach((device) => {
       if (deviceVolumes.value[device.id] === undefined) {
         deviceVolumes.value[device.id] = 70
@@ -137,6 +150,7 @@ async function loadDeviceList() {
   catch (error) {
     console.error('Failed to get device list:', error)
     deviceList.value = []
+    loadFailed.value = true
   }
   finally {
     loading.value = false
@@ -227,11 +241,16 @@ function onVolumeChange(device: Device, volume: number) {
 
 // Open the companion screens of a device
 function openCompanion(device: Device) {
+  activeDeviceId.value = ''
   // the page shows the robot name from the companion server once loaded; the alias is a placeholder
   const name = device.alias ? `&name=${encodeURIComponent(device.alias)}` : ''
   uni.navigateTo({
     url: `/pages/companion/index?deviceId=${encodeURIComponent(device.id)}${name}`,
   })
+}
+
+function openDetail(device: Device) {
+  activeDeviceId.value = device.id
 }
 
 // Refresh method exposed to parent
@@ -243,6 +262,29 @@ async function refresh() {
 function getDeviceTypeName(boardKey: string): string {
   const firmwareType = firmwareTypes.value.find(type => type.key === boardKey)
   return firmwareType?.name || boardKey
+}
+
+function deviceName(device: Device): string {
+  return device.alias || getDeviceTypeName(device.board) || device.macAddress
+}
+
+function versionText(version?: string): string {
+  if (!version)
+    return ''
+  return /^v/i.test(version) ? version : `v${version}`
+}
+
+/** "Online · v1.6.2 · 5 minutes ago" */
+function deviceMeta(device: Device): string {
+  return [
+    deviceStatusMap.value[device.id] ? t('device.online') : t('device.offline'),
+    versionText(device.appVersion),
+    formatTime(device.lastConnectedAtTimestamp),
+  ].filter(Boolean).join(' · ')
+}
+
+function volumeOf(device: Device): number {
+  return deviceVolumes.value[device.id] !== undefined ? deviceVolumes.value[device.id] : 70
 }
 
 // Format time
@@ -283,6 +325,7 @@ async function toggleAutoUpdate(device: Device) {
 async function handleUnbindDevice(device: Device) {
   try {
     await unbindDevice(device.id)
+    activeDeviceId.value = ''
     await loadDeviceList()
     toast.success(t('device.deviceUnbound'))
   }
@@ -307,43 +350,46 @@ function confirmUnbindDevice(device: Device) {
 }
 
 // Bind new device
-async function handleBindDevice(code: string) {
+async function handleBindDevice(code: string): Promise<boolean> {
   try {
     if (!currentAgentId.value) {
       toast.error(t('device.pleaseSelectAgent'))
-      return
+      return false
     }
 
     await bindDevice(currentAgentId.value, code.trim())
     await loadDeviceList()
     toast.success(t('device.deviceBindSuccess'))
+    return true
   }
   catch (error: any) {
     console.error('Failed to bind device:', error)
     const errorMessage = error?.message || t('device.bindFailed')
     toast.error(errorMessage)
+    return false
   }
 }
 
-// Open bind device dialog
-function openBindDialog() {
-  message
-    .prompt({
-      title: t('device.bindDevice'),
-      inputPlaceholder: t('device.enterDeviceCode'),
-      inputValue: '',
-      inputPattern: /^\d{6}$/,
-      confirmButtonText: t('device.bindNow'),
-      cancelButtonText: t('device.cancel'),
-    })
-    .then(async (result: any) => {
-      if (result.value && String(result.value).trim()) {
-        await handleBindDevice(String(result.value).trim())
-      }
-    })
-    .catch(() => {
-      // User cancelled operation
-    })
+function onCodeInput() {
+  // digits only, at most 6
+  const clean = String(bindCode.value || '').replace(/\D/g, '').slice(0, 6)
+  if (clean !== bindCode.value)
+    bindCode.value = clean
+  bindCodeError.value = ''
+}
+
+// Bind with the 6-digit code the robot says
+async function submitBindCode() {
+  const code = String(bindCode.value || '').trim()
+  if (!codeRegex.test(code)) {
+    bindCodeError.value = t('device.enterDeviceCode')
+    return
+  }
+  binding.value = true
+  const ok = await handleBindDevice(code)
+  binding.value = false
+  if (ok)
+    addSheetOpen.value = false
 }
 
 // Manually bind device
@@ -360,6 +406,7 @@ async function handleManualBind() {
       return
     }
 
+    binding.value = true
     await bindDeviceManual({
       agentId: currentAgentId.value,
       board: manualBindForm.value.board,
@@ -368,22 +415,16 @@ async function handleManualBind() {
     })
     await loadDeviceList()
     toast.success(t('manualAddDeviceDialog.addSuccess'))
-    isManualBindDialog.value = false
+    addSheetOpen.value = false
     // Reset form and errors
-    manualBindForm.value = {
-      board: '',
-      appVersion: '',
-      macAddress: '',
-    }
-    formErrors.value = {
-      board: '',
-      appVersion: '',
-      macAddress: '',
-    }
+    resetManualForm()
   }
   catch (error: any) {
     const errorMessage = error?.message || t('manualAddDeviceDialog.addFailed')
     toast.error(errorMessage)
+  }
+  finally {
+    binding.value = false
   }
 }
 
@@ -493,323 +534,693 @@ defineExpose({
 </script>
 
 <template>
-  <view class="device-container" style="background: #f5f7fb; min-height: 100%;">
-    <!-- Loading state -->
-    <view v-if="loading && deviceList.length === 0" class="loading-container">
-      <wd-loading color="#336cff" />
-      <text class="loading-text">
-        {{ t('device.loading') }}
-      </text>
+  <view class="devices">
+    <!-- Large title -->
+    <view class="devices__header">
+      <view class="min-w-0 flex-1">
+        <view class="devices__title">
+          {{ tx('device.robotsTitle', 'Robots') }}
+        </view>
+        <view v-if="deviceList.length" class="nx-num devices__subtitle">
+          {{ tx('device.robotsSummary', '{online} of {count} online', { count: deviceList.length, online: onlineCount }) }}
+        </view>
+      </view>
+      <view
+        v-if="deviceList.length"
+        class="devices__add"
+        role="button"
+        :aria-label="tx('device.addRobot', 'Add robot')"
+        @click="openAddSheet"
+      >
+        <wd-icon name="add" size="16px" />
+        <text>{{ tx('device.add', 'Add') }}</text>
+      </view>
+    </view>
+
+    <!-- Loading skeleton -->
+    <view v-if="loading && deviceList.length === 0" class="nx-group">
+      <view class="nx-group__body">
+        <view v-for="i in 3" :key="i" class="nx-row">
+          <view class="nx-skeleton devices__skeleton-dot" />
+          <view class="nx-row__main">
+            <view class="nx-skeleton devices__skeleton-line" />
+            <view class="nx-skeleton devices__skeleton-line devices__skeleton-line--short" />
+          </view>
+        </view>
+      </view>
     </view>
 
     <!-- Device list -->
-    <view v-else-if="deviceList.length > 0" class="device-list">
-      <!-- Device card list -->
-      <view class="box-border flex flex-col gap-[24rpx] p-[20rpx]">
-        <view v-for="device in deviceList" :key="device.id">
-          <wd-swipe-action>
-            <view class="cursor-pointer bg-[#fbfbfb] p-[32rpx] transition-all duration-200 active:bg-[#f8f9fa]">
-              <view class="flex items-start justify-between">
-                <view class="flex-1">
-                  <!-- Header: Device Name & Online Status Badge -->
-                  <view class="mb-[16rpx] flex items-center justify-between">
-                    <text class="max-w-[60%] break-all text-[32rpx] text-[#232338] font-semibold">
-                      {{ getDeviceTypeName(device.board) }}
-                    </text>
-                    <view
-                      class="flex items-center gap-[10rpx] rounded-[24rpx] px-[16rpx] py-[6rpx]"
-                      :class="deviceStatusMap[device.id] ? 'bg-[#e6f7ff] border-[1rpx] border-[#91d5ff]' : 'bg-[#f5f5f5] border-[1rpx] border-[#d9d9d9]'"
-                    >
-                      <view
-                        class="h-[14rpx] w-[14rpx] rounded-full"
-                        :class="deviceStatusMap[device.id] ? 'bg-[#52c41a]' : 'bg-[#bfbfbf]'"
-                      />
-                      <text
-                        class="text-[22rpx] font-medium"
-                        :class="deviceStatusMap[device.id] ? 'text-[#1890ff]' : 'text-[#8c8c8c]'"
-                      >
-                        {{ deviceStatusMap[device.id] ? t('device.online') : t('device.offline') }}
-                      </text>
-                    </view>
-                  </view>
-
-                  <!-- Device Info -->
-                  <view class="mb-[20rpx]">
-                    <text class="mb-[12rpx] block text-[28rpx] text-[#65686f] leading-[1.4]">
-                      {{ t('device.macAddress') }}：{{ device.macAddress }}
-                    </text>
-                    <text class="mb-[12rpx] block text-[28rpx] text-[#65686f] leading-[1.4]">
-                      {{ t('device.firmwareVersion') }}：{{ device.appVersion }}
-                    </text>
-                    <text class="block text-[28rpx] text-[#65686f] leading-[1.4]">
-                      {{ t('device.lastConnection') }}：{{ formatTime(device.lastConnectedAtTimestamp) }}
-                    </text>
-                  </view>
-
-                  <!-- Volume Slider -->
-                  <view class="mb-[16rpx] rounded-[12rpx] border-[1rpx] border-[#eeeeee] bg-[#f5f7fb] p-[16rpx_20rpx]">
-                    <view class="mb-[8rpx] flex items-center justify-between">
-                      <view class="flex items-center gap-[10rpx]">
-                        <wd-icon name="sound" size="16" color="#336cff" />
-                        <text class="text-[26rpx] text-[#232338] font-medium">
-                          {{ t('device.volume') }}
-                        </text>
-                      </view>
-                      <text class="text-[24rpx] text-[#336cff] font-semibold">
-                        {{ deviceVolumes[device.id] !== undefined ? deviceVolumes[device.id] : 70 }}%
-                      </text>
-                    </view>
-                    <wd-slider
-                      :model-value="deviceVolumes[device.id] !== undefined ? deviceVolumes[device.id] : 70"
-                      :min="0"
-                      :max="100"
-                      :step="5"
-                      :show-value="false"
-                      custom-class="device-volume-slider"
-                      @change="(val: any) => onVolumeChange(device, typeof val === 'object' ? val.value : val)"
-                    />
-                  </view>
-
-                  <!-- Actions: OTA Switch & Reboot Button -->
-                  <view class="flex items-center justify-between gap-[16rpx]">
-                    <view class="flex flex-1 items-center justify-between rounded-[12rpx] border-[1rpx] border-[#eeeeee] bg-[#f5f7fb] p-[14rpx_20rpx]">
-                      <text class="text-[26rpx] text-[#232338] font-medium">
-                        {{ t('device.otaUpdate') }}
-                      </text>
-                      <wd-switch
-                        :model-value="device.autoUpdate === 1"
-                        size="20"
-                        @change="toggleAutoUpdate(device)"
-                      />
-                    </view>
-                    <wd-button
-                      size="small"
-                      type="warning"
-                      plain
-                      class="!h-[68rpx] !rounded-[12rpx]"
-                      :loading="isRebooting[device.id]"
-                      @click.stop="confirmRebootDevice(device)"
-                    >
-                      <wd-icon name="refresh" size="14" class="mr-[6rpx]" />
-                      {{ t('device.reboot') }}
-                    </wd-button>
-                  </view>
-
-                  <!-- Companion: alarms, reminders, prayer, focus, messages, night mode -->
-                  <view class="mt-[16rpx]">
-                    <wd-button
-                      size="small"
-                      type="primary"
-                      plain
-                      block
-                      class="!h-[68rpx] !rounded-[12rpx]"
-                      @click.stop="openCompanion(device)"
-                    >
-                      🤖 {{ t('companion.open') }}
-                    </wd-button>
-                  </view>
-                </view>
+    <view v-else-if="deviceList.length > 0" class="nx-group">
+      <view class="nx-group__body">
+        <wd-swipe-action v-for="device in deviceList" :key="device.id" custom-class="devices__swipe">
+          <view class="nx-row nx-row--tap devices__row" @click="openDetail(device)">
+            <view
+              class="nx-dot devices__dot"
+              :class="{ 'nx-dot--online': deviceStatusMap[device.id] }"
+              :aria-label="deviceStatusMap[device.id] ? t('device.online') : t('device.offline')"
+            />
+            <view class="nx-row__main">
+              <view class="nx-truncate nx-row__title devices__name" :title="deviceName(device)">
+                {{ deviceName(device) }}
+              </view>
+              <view class="nx-mono nx-caption nx-break devices__mac">
+                {{ device.macAddress }}
+              </view>
+              <view class="nx-truncate nx-num nx-row__subtitle">
+                {{ deviceMeta(device) }}
               </view>
             </view>
+            <view
+              class="devices__more"
+              role="button"
+              :aria-label="tx('device.moreActions', 'More actions')"
+              @click.stop="openDetail(device)"
+            >
+              <wd-icon name="ellipsis" size="20px" />
+            </view>
+          </view>
 
-            <template #right>
-              <view class="h-full flex">
-                <view
-                  class="h-full min-w-[120rpx] flex items-center justify-center bg-[#ff4d4f] p-x-[32rpx] text-[28rpx] text-white font-medium"
-                  @click.stop="confirmUnbindDevice(device)"
-                >
-                  <wd-icon name="delete" />
-                  <text>{{ t('device.unbind') }}</text>
-                </view>
+          <template #right>
+            <view class="devices__swipe-actions">
+              <view class="devices__swipe-btn devices__swipe-btn--accent" @click.stop="openCompanion(device)">
+                <wd-icon name="heart" size="18px" />
+                <text>{{ t('companion.open') }}</text>
               </view>
-            </template>
-          </wd-swipe-action>
-        </view>
+              <view class="devices__swipe-btn devices__swipe-btn--danger" @click.stop="confirmUnbindDevice(device)">
+                <wd-icon name="delete" size="18px" />
+                <text>{{ t('device.unbind') }}</text>
+              </view>
+            </view>
+          </template>
+        </wd-swipe-action>
+      </view>
+      <view class="nx-group__footer">
+        {{ tx('device.swipeHint', 'Tap a robot for volume, updates and restart. Swipe left for more.') }}
+      </view>
+    </view>
+
+    <!-- Error state -->
+    <view v-else-if="loadFailed && !loading" class="nx-empty">
+      <view class="nx-icon-tile nx-icon-tile--lg">
+        <wd-icon name="wifi-error" size="28px" />
+      </view>
+      <view class="nx-empty__title">
+        {{ tx('device.loadFailedTitle', 'Couldn’t load your robots') }}
+      </view>
+      <view class="nx-empty__text">
+        {{ tx('device.loadFailedText', 'Check your connection and try again.') }}
+      </view>
+      <view class="nx-btn nx-btn--primary devices__empty-btn" @click="refresh">
+        {{ tx('device.retry', 'Try again') }}
       </view>
     </view>
 
     <!-- Empty state -->
-    <view v-else-if="!loading" class="empty-container">
-      <view class="flex flex-col items-center justify-center p-[100rpx_40rpx] text-center">
-        <wd-icon name="phone" custom-class="text-[120rpx] text-[#d9d9d9] mb-[32rpx]" />
-        <text class="mb-[16rpx] text-[32rpx] text-[#666666] font-medium">
-          {{ t('device.noDevice') }}
-        </text>
-        <text class="text-[26rpx] text-[#999999] leading-[1.5]">
-          {{ t('device.clickToBindFirstDevice') }}
-        </text>
+    <view v-else-if="!loading" class="nx-empty">
+      <view class="nx-icon-tile nx-icon-tile--lg">
+        <wd-icon name="mobile" size="28px" />
+      </view>
+      <view class="nx-empty__title">
+        {{ tx('device.emptyTitle', 'No robots yet') }}
+      </view>
+      <view class="nx-empty__text">
+        {{ tx('device.emptyText', 'Turn your robot on and connect it to Wi‑Fi in the Network tab. It then says a 6‑digit code — add the robot here with that code.') }}
+      </view>
+      <view class="nx-btn nx-btn--primary devices__empty-btn" @click="openAddSheet">
+        <wd-icon name="add" size="16px" />
+        {{ tx('device.addRobot', 'Add robot') }}
       </view>
     </view>
 
-    <!-- FAB bind device button -->
-    <wd-fab type="primary" size="small" icon="add" :draggable="true" :expandable="false" @click="isBindDevice = true" />
-
-    <!-- MessageBox component -->
-    <wd-message-box />
-    <wd-action-sheet v-model="isBindDevice" :actions="actions" @close="isBindDevice = false" @select="selectBindMode" />
-
-    <!-- Manual bind device dialog -->
-    <wd-popup v-model="isManualBindDialog" position="bottom" :close-on-click-modal="false" custom-style="border-radius: 24rpx 24rpx 0 0;">
-      <view class="manual-bind-dialog">
-        <view class="dialog-header">
-          <text class="dialog-title">
-            {{ t('manualAddDeviceDialog.title') }}
-          </text>
-          <wd-icon name="close" size="20" @click="isManualBindDialog = false" />
+    <!-- Device detail sheet -->
+    <wd-popup
+      v-model="detailOpen"
+      position="bottom"
+      safe-area-inset-bottom
+      :z-index="100"
+      custom-class="nx-sheet"
+    >
+      <view v-if="activeDevice" class="sheet">
+        <view class="sheet__handle" />
+        <view class="sheet__header">
+          <view class="min-w-0 flex-1">
+            <view class="nx-truncate sheet__title">
+              {{ deviceName(activeDevice) }}
+            </view>
+            <view class="nx-mono nx-caption nx-break">
+              {{ activeDevice.macAddress }}
+            </view>
+          </view>
+          <view class="nx-badge" :class="deviceStatusMap[activeDevice.id] ? 'nx-badge--success' : ''">
+            <view class="nx-dot" :class="{ 'nx-dot--online': deviceStatusMap[activeDevice.id] }" />
+            {{ deviceStatusMap[activeDevice.id] ? t('device.online') : t('device.offline') }}
+          </view>
         </view>
 
-        <view class="dialog-content">
-          <view class="form-item">
-            <text class="form-label">
+        <view class="nx-group">
+          <view class="nx-group__body sheet__inset">
+            <view class="nx-row">
+              <view class="nx-row__main nx-row__title">
+                {{ t('device.deviceType') }}
+              </view>
+              <view class="nx-truncate nx-row__value">
+                {{ getDeviceTypeName(activeDevice.board) || '–' }}
+              </view>
+            </view>
+            <view class="nx-row">
+              <view class="nx-row__main nx-row__title">
+                {{ t('device.firmwareVersion') }}
+              </view>
+              <view class="nx-row__value nx-mono nx-truncate">
+                {{ activeDevice.appVersion || '–' }}
+              </view>
+            </view>
+            <view class="nx-row">
+              <view class="nx-row__main nx-row__title">
+                {{ t('device.lastConnection') }}
+              </view>
+              <view class="nx-row__value nx-num">
+                {{ formatTime(activeDevice.lastConnectedAtTimestamp) }}
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="nx-group">
+          <view class="nx-group__body sheet__inset">
+            <view class="nx-row devices__volume">
+              <view class="devices__volume-head">
+                <view class="nx-row__title">
+                  {{ t('device.volume') }}
+                </view>
+                <view class="nx-row__value nx-num">
+                  <wd-loading v-if="isUpdatingVolume[activeDevice.id]" size="14px" />
+                  {{ volumeOf(activeDevice) }}%
+                </view>
+              </view>
+              <wd-slider
+                :model-value="volumeOf(activeDevice)"
+                :min="0"
+                :max="100"
+                :step="5"
+                hide-label
+                hide-min-max
+                @change="(val: any) => onVolumeChange(activeDevice!, typeof val === 'object' ? val.value : val)"
+              />
+            </view>
+            <view class="nx-row">
+              <view class="nx-row__main">
+                <view class="nx-row__title">
+                  {{ t('device.otaUpdate') }}
+                </view>
+              </view>
+              <wd-switch
+                :model-value="activeDevice.autoUpdate === 1"
+                size="22px"
+                @change="toggleAutoUpdate(activeDevice!)"
+              />
+            </view>
+          </view>
+        </view>
+
+        <view class="nx-group">
+          <view class="nx-group__body sheet__inset">
+            <view class="nx-row nx-row--tap" @click="openCompanion(activeDevice!)">
+              <view class="nx-icon-tile devices__row-icon">
+                <wd-icon name="heart" size="18px" />
+              </view>
+              <view class="nx-row__main nx-row__title">
+                {{ t('companion.open') }}
+              </view>
+              <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
+            </view>
+            <view class="nx-row nx-row--tap" @click="confirmRebootDevice(activeDevice!)">
+              <view class="nx-icon-tile devices__row-icon nx-icon-tile--neutral">
+                <wd-loading v-if="isRebooting[activeDevice.id]" size="16px" />
+                <wd-icon v-else name="refresh" size="18px" />
+              </view>
+              <view class="nx-row__main nx-row__title">
+                {{ t('device.reboot') }}
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="nx-group sheet__last">
+          <view class="nx-group__body sheet__inset">
+            <view class="nx-row nx-row--tap" @click="confirmUnbindDevice(activeDevice!)">
+              <view class="nx-row__main nx-row__title devices__danger">
+                {{ t('device.unbindDevice') }}
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </wd-popup>
+
+    <!-- Add robot sheet -->
+    <wd-popup
+      v-model="addSheetOpen"
+      position="bottom"
+      safe-area-inset-bottom
+      :close-on-click-modal="addMode === 'choose'"
+      :z-index="100"
+      custom-class="nx-sheet"
+    >
+      <view class="sheet">
+        <view class="sheet__handle" />
+        <view class="sheet__header">
+          <view
+            v-if="addMode !== 'choose'"
+            class="sheet__icon-btn"
+            role="button"
+            :aria-label="tx('device.back', 'Back')"
+            @click="addMode = 'choose'"
+          >
+            <wd-icon name="arrow-left" size="18px" />
+          </view>
+          <view class="sheet__title nx-truncate min-w-0 flex-1">
+            {{ addMode === 'manual' ? t('manualAddDeviceDialog.title') : addMode === 'code' ? t('device.bindDevice') : tx('device.addRobot', 'Add robot') }}
+          </view>
+          <view
+            class="sheet__icon-btn"
+            role="button"
+            :aria-label="t('common.cancel')"
+            @click="addSheetOpen = false"
+          >
+            <wd-icon name="close" size="18px" />
+          </view>
+        </view>
+
+        <!-- Step 1: choose a method -->
+        <view v-if="addMode === 'choose'" class="nx-group sheet__last">
+          <view class="nx-group__body sheet__inset">
+            <view class="nx-row nx-row--tap" @click="selectBindMode('code')">
+              <view class="nx-icon-tile">
+                <wd-icon name="keyboard-collapse" size="20px" />
+              </view>
+              <view class="nx-row__main">
+                <view class="nx-row__title">
+                  {{ t('manualAddDeviceDialog.bindWithCode') }}
+                </view>
+                <view class="nx-row__subtitle">
+                  {{ tx('device.bindWithCodeHint', 'The robot says a code after it joins Wi‑Fi. Recommended.') }}
+                </view>
+              </view>
+              <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
+            </view>
+            <view class="nx-row nx-row--tap" @click="selectBindMode('manual')">
+              <view class="nx-icon-tile nx-icon-tile--neutral">
+                <wd-icon name="edit-outline" size="20px" />
+              </view>
+              <view class="nx-row__main">
+                <view class="nx-row__title">
+                  {{ t('manualAddDeviceDialog.title') }}
+                </view>
+                <view class="nx-row__subtitle">
+                  {{ tx('device.manualAddHint', 'Enter the device type, firmware version and MAC address.') }}
+                </view>
+              </view>
+              <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
+            </view>
+          </view>
+        </view>
+
+        <!-- Step 2a: 6-digit code -->
+        <view v-else-if="addMode === 'code'" class="sheet__form">
+          <view class="field">
+            <view class="field__label">
+              {{ tx('device.codeLabel', '6-digit code') }}
+            </view>
+            <wd-input
+              v-model="bindCode"
+              type="number"
+              :maxlength="6"
+              :placeholder="t('device.enterDeviceCode')"
+              custom-class="field__input devices__code"
+              @input="onCodeInput"
+              @confirm="submitBindCode"
+            />
+            <view v-if="bindCodeError" class="field__error">
+              {{ bindCodeError }}
+            </view>
+            <view v-else class="field__help">
+              {{ tx('device.codeHelp', 'Six digits, spoken by the robot after it connects to Wi‑Fi.') }}
+            </view>
+          </view>
+          <wd-button block size="large" :loading="binding" :disabled="bindCode.length !== 6" @click="submitBindCode">
+            {{ t('device.bindNow') }}
+          </wd-button>
+        </view>
+
+        <!-- Step 2b: manual add -->
+        <view v-else class="sheet__form">
+          <view class="field">
+            <view class="field__label">
               {{ t('manualAddDeviceDialog.deviceType') }}
-              <text class="required">
-                *
-              </text>
-            </text>
+            </view>
             <wd-picker
               v-model="manualBindForm.board"
-              class="custom-wd-picker"
-              :columns="firmwareTypes.map(item => ({ value: item.key, label: item.name }))"
+              :columns="firmwareColumns"
               :placeholder="t('manualAddDeviceDialog.deviceTypePlaceholder')"
               :cancel-button-text="t('common.cancel')"
               :confirm-button-text="t('common.confirm')"
+              custom-class="field__picker"
               @confirm="handlePickerChange"
             />
-            <text v-if="formErrors.board" class="error-text">
+            <view v-if="formErrors.board" class="field__error">
               {{ formErrors.board }}
-            </text>
+            </view>
           </view>
 
-          <view class="form-item">
-            <text class="form-label">
+          <view class="field">
+            <view class="field__label">
               {{ t('manualAddDeviceDialog.firmwareVersion') }}
-              <text class="required">
-                *
-              </text>
-            </text>
+            </view>
             <wd-input
               v-model="manualBindForm.appVersion"
               :placeholder="t('manualAddDeviceDialog.firmwareVersionPlaceholder')"
+              custom-class="field__input"
               @input="clearFieldError('appVersion')"
               @blur="validateField('appVersion')"
             />
-            <text v-if="formErrors.appVersion" class="error-text">
+            <view v-if="formErrors.appVersion" class="field__error">
               {{ formErrors.appVersion }}
-            </text>
+            </view>
           </view>
 
-          <view class="form-item">
-            <text class="form-label">
+          <view class="field">
+            <view class="field__label">
               {{ t('manualAddDeviceDialog.macAddress') }}
-              <text class="required">
-                *
-              </text>
-            </text>
+            </view>
             <wd-input
               v-model="manualBindForm.macAddress"
               :placeholder="t('manualAddDeviceDialog.macAddressPlaceholder')"
+              custom-class="field__input nx-mono"
               @input="validateField('macAddress')"
               @blur="validateField('macAddress')"
             />
-            <text v-if="formErrors.macAddress" class="error-text">
+            <view v-if="formErrors.macAddress" class="field__error">
               {{ formErrors.macAddress }}
-            </text>
+            </view>
           </view>
-        </view>
 
-        <view class="dialog-footer">
-          <wd-button block type="primary" @click="handleManualBind">
-            {{ t('manualAddDeviceDialog.confirm') }}
+          <wd-button block size="large" :loading="binding" @click="handleManualBind">
+            {{ tx('device.addRobot', 'Add robot') }}
           </wd-button>
         </view>
       </view>
     </wd-popup>
+
+    <!-- MessageBox component -->
+    <wd-message-box />
   </view>
 </template>
 
-<style scoped>
-.device-container {
+<style lang="scss" scoped>
+.devices {
   position: relative;
+  min-height: 100%;
+  padding: 0 var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
+  background: var(--nx-bg);
+  box-sizing: border-box;
+
+  &__header {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--nx-space-3);
+    padding: var(--nx-space-2) 0 var(--nx-space-4);
+  }
+
+  &__title {
+    font-size: var(--nx-text-display);
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    color: var(--nx-text);
+  }
+
+  &__subtitle {
+    margin-top: 8rpx;
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text-2);
+  }
+
+  &__add {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8rpx;
+    min-height: 64rpx;
+    padding: 0 var(--nx-space-3);
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+
+  &__row {
+    align-items: flex-start;
+    background: var(--nx-surface);
+  }
+
+  &__dot {
+    margin-top: 14rpx;
+  }
+
+  &__name {
+    font-weight: 600;
+  }
+
+  &__mac {
+    margin-top: 4rpx;
+    color: var(--nx-text-3);
+  }
+
+  &__more {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    margin: calc(var(--nx-space-2) * -1) calc(var(--nx-space-3) * -1) 0 0;
+    border-radius: 50%;
+    color: var(--nx-text-3);
+
+    &:active {
+      background: var(--nx-surface-3);
+    }
+  }
+
+  &__swipe-actions {
+    display: flex;
+    height: 100%;
+  }
+
+  &__swipe-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6rpx;
+    min-width: 144rpx;
+    height: 100%;
+    padding: 0 var(--nx-space-3);
+    box-sizing: border-box;
+    font-size: var(--nx-text-caption);
+    font-weight: 600;
+
+    &--accent {
+      background: var(--nx-accent-soft);
+      color: var(--nx-accent);
+    }
+
+    &--danger {
+      background: var(--nx-danger);
+      color: var(--nx-on-accent);
+    }
+  }
+
+  &__row-icon {
+    width: 60rpx;
+    height: 60rpx;
+    border-radius: var(--nx-radius-sm);
+  }
+
+  &__danger {
+    color: var(--nx-danger);
+    text-align: center;
+    font-weight: 500;
+  }
+
+  &__volume {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--nx-space-1);
+  }
+
+  &__volume-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__empty-btn {
+    margin-top: var(--nx-space-3);
+  }
+
+  &__skeleton-dot {
+    width: 16rpx;
+    height: 16rpx;
+    min-height: 16rpx;
+    border-radius: 50%;
+  }
+
+  &__skeleton-line {
+    width: 60%;
+    height: 28rpx;
+
+    &--short {
+      width: 40%;
+      margin-top: 12rpx;
+      height: 22rpx;
+    }
+  }
 }
 
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 100rpx 40rpx;
+:deep(.devices__swipe) {
+  position: relative;
+  background: var(--nx-surface);
+
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: var(--nx-space-4);
+    right: 0;
+    bottom: 0;
+    height: 1rpx;
+    background: var(--nx-border);
+  }
 }
 
-.loading-text {
-  margin-top: 20rpx;
-  font-size: 28rpx;
-  color: #666666;
+:deep(.devices__code .wd-input__inner) {
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-title);
+  letter-spacing: 0.3em;
 }
 
-:deep(.wd-swipe-action) {
-  border-radius: 20rpx;
+/* ---------- bottom sheet (shared look for this page) ---------- */
+:deep(.nx-sheet) {
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+  background: var(--nx-bg);
   overflow: hidden;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  border: 1rpx solid #eeeeee;
-}
-::v-deep .wd-action-sheet__popup,
-::v-deep .wd-popup {
-  z-index: 100 !important;
-}
-.custom-wd-picker ::v-deep .wd-picker__cell {
-  padding-left: 0 !important;
 }
 
-:deep(.wd-icon) {
-  font-size: 32rpx;
+.sheet {
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 0 var(--nx-gutter) var(--nx-space-4);
+  background: var(--nx-bg);
+  box-sizing: border-box;
+
+  &__handle {
+    width: 72rpx;
+    height: 10rpx;
+    margin: var(--nx-space-2) auto var(--nx-space-1);
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-border-strong);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    padding: var(--nx-space-2) 0 var(--nx-space-4);
+  }
+
+  &__title {
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--nx-text);
+  }
+
+  &__icon-btn {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: 50%;
+    background: var(--nx-surface-3);
+    color: var(--nx-text-2);
+
+    &:active {
+      transform: scale(0.94);
+    }
+  }
+
+  &__inset {
+    box-shadow: none;
+  }
+
+  &__last {
+    margin-bottom: 0;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-4);
+    padding-bottom: var(--nx-space-2);
+  }
 }
 
-.manual-bind-dialog {
-  padding: 32rpx;
-  background: #ffffff;
+.field {
+  &__label {
+    margin-bottom: var(--nx-space-1);
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+
+  &__help {
+    margin-top: var(--nx-space-1);
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+
+  &__error {
+    margin-top: var(--nx-space-1);
+    font-size: var(--nx-text-caption);
+    color: var(--nx-danger);
+  }
 }
 
-.dialog-header {
+:deep(.field__input),
+:deep(.field__picker .wd-picker__field),
+:deep(.field__picker .wd-cell) {
+  min-height: var(--nx-touch);
+  padding: 0 var(--nx-space-3);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface);
+  box-sizing: border-box;
+}
+
+:deep(.field__input) {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 32rpx;
-}
 
-.dialog-title {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: #232338;
-}
-
-.dialog-content {
-  margin-bottom: 32rpx;
-}
-
-.form-item {
-  margin-bottom: 24rpx;
-}
-
-.form-label {
-  display: block;
-  font-size: 28rpx;
-  color: #65686f;
-  margin-bottom: 12rpx;
-}
-
-.required {
-  color: #ff4d4f;
-  margin-left: 4rpx;
-}
-
-.error-text {
-  display: block;
-  font-size: 24rpx;
-  color: #ff4d4f;
-  margin-top: 8rpx;
-}
-
-.dialog-footer {
-  padding-top: 16rpx;
+  &::after {
+    display: none;
+  }
 }
 </style>

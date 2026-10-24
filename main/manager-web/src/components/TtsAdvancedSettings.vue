@@ -3,20 +3,31 @@
     :visible.sync="drawerVisible"
     :before-close="handleClose"
     direction="rtl"
-    size="400px"
+    size="min(420px, 100%)"
     :modal="true"
     :show-close="false"
     custom-class="tts-advanced-drawer"
   >
     <div class="drawer-header" slot="title">
-      <span class="drawer-title">{{ $t('roleConfig.advancedSettings') }}</span>
-      <button class="drawer-close-btn" @click="handleClose">×</button>
+      <div class="drawer-titles">
+        <span class="drawer-title">{{ $t('roleConfig.ttsAdvanced') }}</span>
+        <span class="drawer-subtitle">{{ $t('roleConfig.advancedSettings') }}</span>
+      </div>
+      <button type="button" class="nx-icon-btn" :aria-label="$t('button.close')" @click="handleClose">
+        <i class="el-icon-close" aria-hidden="true"></i>
+      </button>
     </div>
 
     <div class="drawer-content">
       <el-form label-position="top">
         <!-- Volume -->
-        <el-form-item :label="$t('roleConfig.ttsVolume')">
+        <el-form-item>
+          <template #label>
+            <span class="slider-label">
+              <span>{{ $t('roleConfig.ttsVolume') }}</span>
+              <span class="slider-value">{{ formatValue(localSettings.volume) }}</span>
+            </span>
+          </template>
           <div class="slider-container">
             <el-slider
               v-model="localSettings.volume"
@@ -32,7 +43,13 @@
         </el-form-item>
 
         <!-- Speed -->
-        <el-form-item :label="$t('roleConfig.ttsRate')">
+        <el-form-item>
+          <template #label>
+            <span class="slider-label">
+              <span>{{ $t('roleConfig.ttsRate') }}</span>
+              <span class="slider-value">{{ formatValue(localSettings.speed) }}</span>
+            </span>
+          </template>
           <div class="slider-container">
             <el-slider
               v-model="localSettings.speed"
@@ -48,7 +65,13 @@
         </el-form-item>
 
         <!-- Pitch -->
-        <el-form-item :label="$t('roleConfig.ttsPitch')">
+        <el-form-item>
+          <template #label>
+            <span class="slider-label">
+              <span>{{ $t('roleConfig.ttsPitch') }}</span>
+              <span class="slider-value">{{ formatValue(localSettings.pitch) }}</span>
+            </span>
+          </template>
           <div class="slider-container">
             <el-slider
               v-model="localSettings.pitch"
@@ -60,16 +83,16 @@
               @change="markTtsSettingChanged('pitch')"
             />
             <span class="slider-hint">{{ $t('roleConfig.pitchHint') }}</span>
-        </div>
+          </div>
         </el-form-item>
 
       </el-form>
       <!-- Associated Replacement Words -->
-      <div>
+      <div class="replacement-section">
         <h4 class="replacement-label">
           {{ $t('roleConfig.replacementWordLabel') }}
-          <el-tooltip popper-class="tts-tooltip" :content="$t('roleConfig.replacementWordTip')" effect="light" placement="top">
-            <i class="el-icon-question"></i>
+          <el-tooltip popper-class="tts-tooltip" :content="$t('roleConfig.replacementWordTip')" placement="top">
+            <i class="el-icon-question" tabindex="0" :aria-label="$t('roleConfig.replacementWordTip')"></i>
           </el-tooltip>
         </h4>
         <el-select
@@ -186,6 +209,10 @@ export default {
     formatTooltip(val) {
       return `${val}%`;
     },
+    formatValue(val) {
+      const number = Number(val) || 0;
+      return number > 0 ? `+${number}` : String(number);
+    },
     fetchReplacementWordList() {
       correctWord.selectAll(({ data }) => {
         if (data.code === 0) {
@@ -201,173 +228,139 @@ export default {
 };
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+// Voice tuning sheet: enters and leaves by the right edge, dialog-style header and footer.
 .drawer-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e8f0ff;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-5) var(--nx-space-4) var(--nx-space-4) var(--nx-space-6);
+  border-bottom: 1px solid var(--nx-border);
 }
-
-.drawer-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #3d4566;
-}
-
-.drawer-close-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid #cfcfcf;
-  background: none;
-  font-size: 28px;
-  font-weight: lighter;
-  color: #cfcfcf;
-  cursor: pointer;
+.drawer-titles {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  outline: none;
-  transition: all 0.3s;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
-
-.drawer-close-btn:hover {
-  color: #409eff;
-  border-color: #409eff;
+.drawer-title {
+  color: var(--nx-text);
+  font-size: var(--nx-text-headline);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
-
+.drawer-subtitle {
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-footnote);
+}
 .drawer-content {
-  padding: 24px;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  padding: var(--nx-space-5) var(--nx-space-6);
 }
-
 .slider-container {
   width: 100%;
+  padding: 0 6px;
 }
-
+.slider-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--nx-space-3);
+}
+.slider-value {
+  min-width: 44px;
+  padding: 2px 8px;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-2);
+  color: var(--nx-text);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
 .slider-hint {
   display: block;
-  font-size: 12px;
-  color: #909399;
-  margin-top: 8px;
-  line-height: 1.5;
+  margin-top: 4px;
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-caption);
+  line-height: 1.4;
 }
-
 .tts-slider {
   width: 100%;
 }
-
-.tts-slider ::v-deep .el-slider__input {
-  width: 80px;
-}
-
-.tts-slider ::v-deep .el-input__inner {
-  text-align: center;
-  padding: 0 8px;
-}
-
 .drawer-footer {
-  padding: 16px 24px;
-  border-top: 1px solid #e8f0ff;
+  flex: none;
   display: flex;
-  justify-content: center;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-3) var(--nx-space-6) var(--nx-space-5);
+  border-top: 1px solid var(--nx-border);
+  .el-button + .el-button {
+    margin-left: 0;
+  }
 }
-
-.drawer-footer .el-button {
-  min-width: 80px;
-}
-
-::v-deep .el-form-item__label {
-  font-size: 14px !important;
-  color: #3d4566 !important;
-  font-weight: 500;
-  padding-bottom: 8px;
-}
-
 ::v-deep .el-form-item {
-  margin-bottom: 24px;
+  margin-bottom: var(--nx-space-5);
 }
-.replacement-label i {
-  margin-left: 4px;
-  color: #909399;
-  cursor: pointer;
-  font-size: 14px;
+::v-deep .el-form-item__label {
+  display: flex;
+  width: 100%;
+  padding-bottom: 4px;
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-footnote);
+  font-weight: 500;
+  line-height: 1.4;
 }
-.replacement-label i:hover {
-  color: #409eff;
+.replacement-section {
+  padding-top: var(--nx-space-5);
+  border-top: 1px solid var(--nx-border);
 }
-.replacement-word-select ::v-deep .el-tag {
-  background: #e6ebff;
-  color: #5778ff;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: normal;
-  border: none;
-}
-
-.replacement-word-select ::v-deep .el-tag__close {
-  color: #5778ff;
-}
-.replacement-word-select ::v-deep .el-icon-close {
-  background: #fff;
+.replacement-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--nx-space-2);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-footnote);
+  font-weight: 500;
+  i {
+    color: var(--nx-text-3);
+    cursor: help;
+    &:hover,
+    &:focus-visible {
+      color: var(--nx-text-2);
+    }
+  }
 }
 </style>
 
-<style>
-.tts-advanced-drawer .el-drawer__header {
-  margin-bottom: 0;
-  padding: 0;
+<style lang="scss">
+.tts-advanced-drawer {
+  border-radius: var(--nx-radius-xl) 0 0 var(--nx-radius-xl);
+  overflow: hidden;
+  .el-drawer__header {
+    margin-bottom: 0;
+    padding: 0;
+  }
+  .el-drawer__body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+  }
 }
-
-.tts-advanced-drawer .el-drawer__body {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-}
-
 .replacement-word-select {
   width: 100%;
-  margin-bottom: 12px;
 }
-
-.replacement-label {
-  text-align: left;
-}
-
-.selected-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.replacement-tag {
-  background-color: #409eff;
-  border-color: #409eff;
-  color: #fff;
-}
-
 .tts-tooltip {
-  max-height: 60vh !important;
-  max-width: 400px !important;
-  overflow-y: auto !important;
+  max-height: 60vh;
+  max-width: 400px;
+  overflow-y: auto;
   scrollbar-width: thin;
   word-break: break-word;
-}
-
-.tts-tooltip .popper__arrow {
-  display: none !important;
-}
-
-.tts-tooltip[x-placement^="top"] .popper__arrow {
-  border-top-color: transparent !important;
-}
-
-.tts-tooltip[x-placement^="bottom"] .popper__arrow {
-  border-bottom-color: transparent !important;
 }
 </style>

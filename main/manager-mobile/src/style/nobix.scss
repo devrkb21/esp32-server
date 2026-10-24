@@ -113,6 +113,19 @@ page {
 
 // ------------------------------------------------------------------ primitives (`nx-` classes)
 
+// uni-app views default to content-box: padded primitives that take width: 100% would overflow
+.nx-btn,
+.nx-card,
+.nx-group,
+.nx-group__body,
+.nx-segmented,
+.nx-action-bar,
+.nx-sheet,
+.nx-empty,
+.nx-badge {
+  box-sizing: border-box;
+}
+
 // Page body with the gutter and bottom safe area
 .nx-page {
   min-height: 100vh;
@@ -440,4 +453,67 @@ page {
   .nx-skeleton {
     animation: none;
   }
+}
+
+// Bottom sheet content inside <wd-popup position="bottom" custom-class="nx-sheet-popup">
+.nx-sheet-popup {
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0 !important;
+  background: var(--nx-bg) !important;
+  overflow: hidden;
+}
+.nx-sheet {
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--nx-gutter) calc(var(--nx-space-4) + env(safe-area-inset-bottom));
+  background: var(--nx-bg);
+  &__handle {
+    width: 72rpx;
+    height: 10rpx;
+    margin: 16rpx auto 8rpx;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-border-strong);
+  }
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+    padding: var(--nx-space-2) 0 var(--nx-space-4);
+  }
+  &__title {
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60rpx;
+    height: 60rpx;
+    border-radius: 50%;
+    background: var(--nx-surface-3);
+    color: var(--nx-text-2);
+  }
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+// Rows wrapped in another element (e.g. wd-swipe-action): separators between the wrappers
+.nx-group__body--divided > *:not(:last-child) {
+  box-shadow: inset 0 -1rpx 0 var(--nx-border);
+}
+
+// H5 native tab bar: use the app font (uni-app defaults the labels to a serif face)
+uni-tabbar .uni-tabbar__label,
+uni-page-head .uni-page-head__title {
+  font-family: var(--nx-font);
+}
+uni-tabbar .uni-tabbar__label {
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }

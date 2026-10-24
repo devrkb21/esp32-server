@@ -273,6 +273,15 @@ async function handleResetPassword() {
   }
 }
 
+// Show / hide the password text
+const showPassword = ref(false)
+
+// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
+function tx(key: string, fallback: string) {
+  const value = t(key)
+  return value === key ? fallback : value
+}
+
 // Back to login
 function goBack() {
   uni.redirectTo({
@@ -301,550 +310,475 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view
-    class="app-container box-border h-screen w-full"
-    :style="{ paddingTop: `${safeAreaInsets?.top}px` }"
-  >
-    <view class="header">
-      <view class="back-button" @click="goBack">
-        <wd-icon name="arrow-left" custom-class="back-icon" />
-      </view>
-      <view class="logo-section">
-        <wd-img :width="80" :height="80" round src="/static/logo.png" class="logo" />
-        <text class="welcome-text">
-          {{ t("retrievePassword.title") }}
-        </text>
-        <text class="subtitle">
-          {{ t("retrievePassword.subtitle") }}
-        </text>
+  <view class="nx-auth" :style="{ paddingTop: `${safeAreaInsets?.top || 0}px` }">
+    <view class="nx-auth__topbar nx-auth__topbar--split">
+      <view class="nx-auth__chip nx-auth__back" role="button" :aria-label="t('retrievePassword.goToLogin')" @click="goBack">
+        <wd-icon name="arrow-left" size="18px" />
+        <text>{{ tx('register.backToSignIn', 'Sign in') }}</text>
       </view>
     </view>
 
-    <view class="form-container">
-      <view class="form">
-        <!-- Phone input -->
-        <view class="input-group">
-          <view class="input-wrapper mobile-wrapper">
-            <view class="area-code-selector" @click="openAreaCodeSheet">
-              <text class="area-code-text">
+    <view class="nx-auth__body">
+      <view class="nx-auth__hero">
+        <image class="nx-auth__logo" src="/static/logo.svg" mode="aspectFit" />
+        <text class="nx-auth__title">
+          {{ t('retrievePassword.title') }}
+        </text>
+        <text class="nx-auth__subtitle">
+          {{ tx('retrievePassword.heroSubtitle', 'We’ll text a code to your phone so you can choose a new password.') }}
+        </text>
+      </view>
+
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ tx('retrievePassword.phoneHeader', 'Your phone') }}
+        </view>
+        <view class="nx-group__body">
+          <view class="nx-field">
+            <view class="nx-field__prefix" role="button" :aria-label="t('login.selectCountry')" @click="openAreaCodeSheet">
+              <text class="nx-num">
                 {{ selectedAreaCode }}
               </text>
-              <wd-icon name="arrow-down" custom-class="area-code-arrow" />
+              <wd-icon name="arrow-down" size="12px" />
             </view>
-            <view class="mobile-input-wrapper">
-              <wd-input
-                v-model="formData.mobile"
-                custom-class="styled-input"
-                no-border
-                :placeholder="t('retrievePassword.mobilePlaceholder')"
-                type="number"
-                :maxlength="11"
-              />
-            </view>
+            <input
+              v-model="formData.mobile"
+              class="nx-field__input"
+              type="number"
+              :maxlength="11"
+              :placeholder="t('retrievePassword.mobilePlaceholder')"
+              placeholder-class="nx-field__placeholder"
+            >
           </view>
-        </view>
 
-        <!-- Graphic captcha -->
-        <view class="input-group">
-          <view class="input-wrapper captcha-wrapper">
-            <wd-input
+          <view class="nx-field">
+            <wd-icon name="check" size="18px" custom-class="nx-field__icon" />
+            <input
               v-model="formData.captcha"
-              custom-class="styled-input"
-              no-border
+              class="nx-field__input"
+              type="text"
+              :maxlength="6"
               :placeholder="t('retrievePassword.captchaPlaceholder')"
-              :maxlength="6"
-            />
-            <view class="captcha-image" @click="refreshCaptcha">
-              <image :src="captchaImage" class="captcha-img" />
+              placeholder-class="nx-field__placeholder"
+            >
+            <view
+              class="nx-field__captcha"
+              role="button"
+              :aria-label="tx('login.refreshCaptcha', 'Get a new code')"
+              @click="refreshCaptcha"
+            >
+              <image :src="captchaImage" class="nx-field__captcha-img" mode="aspectFit" />
             </view>
           </view>
-        </view>
 
-        <!-- SMS verification code -->
-        <view class="input-group">
-          <view class="input-wrapper sms-wrapper">
-            <wd-input
+          <view class="nx-field">
+            <wd-icon name="phone" size="18px" custom-class="nx-field__icon" />
+            <input
               v-model="formData.mobileCaptcha"
-              custom-class="styled-input"
-              no-border
-              :placeholder="t('retrievePassword.mobileCaptchaPlaceholder')"
+              class="nx-field__input"
+              type="text"
               :maxlength="6"
-            />
-            <view class="sms-button" @click="handleSendSmsCode">
-              <text class="sms-text">
-                {{
-                  smsCountdown > 0
-                    ? `${smsCountdown}s`
-                    : t("retrievePassword.getMobileCaptcha")
-                }}
-              </text>
+              :placeholder="t('retrievePassword.mobileCaptchaPlaceholder')"
+              placeholder-class="nx-field__placeholder"
+            >
+            <view
+              class="nx-num nx-field__send"
+              :class="{ 'is-disabled': smsCountdown > 0 || smsLoading }"
+              role="button"
+              @click="smsCountdown > 0 || smsLoading ? null : handleSendSmsCode()"
+            >
+              {{ smsCountdown > 0 ? `${smsCountdown}s` : t('retrievePassword.getMobileCaptcha') }}
             </view>
           </view>
         </view>
+      </view>
 
-        <!-- New password -->
-        <view class="input-group">
-          <view class="input-wrapper">
-            <wd-input
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ tx('retrievePassword.passwordHeader', 'New password') }}
+        </view>
+        <view class="nx-group__body">
+          <view class="nx-field">
+            <wd-icon name="lock-on" size="18px" custom-class="nx-field__icon" />
+            <input
               v-model="formData.newPassword"
-              custom-class="styled-input"
-              no-border
+              class="nx-field__input"
+              type="text"
+              :password="!showPassword"
+              :maxlength="20"
               :placeholder="t('retrievePassword.newPasswordPlaceholder')"
-              show-password
-              :maxlength="20"
-            />
+              placeholder-class="nx-field__placeholder"
+            >
+            <view
+              class="nx-field__action"
+              role="button"
+              :aria-label="tx('login.togglePassword', 'Show or hide password')"
+              @click="showPassword = !showPassword"
+            >
+              <wd-icon :name="showPassword ? 'view' : 'eye-close'" size="18px" />
+            </view>
           </view>
-        </view>
-
-        <!-- Confirm new password -->
-        <view class="input-group">
-          <view class="input-wrapper">
-            <wd-input
+          <view class="nx-field">
+            <wd-icon name="lock-on" size="18px" custom-class="nx-field__icon" />
+            <input
               v-model="formData.confirmPassword"
-              custom-class="styled-input"
-              no-border
-              :placeholder="t('retrievePassword.confirmNewPasswordPlaceholder')"
-              show-password
+              class="nx-field__input"
+              type="text"
+              :password="!showPassword"
               :maxlength="20"
-            />
+              :placeholder="t('retrievePassword.confirmNewPasswordPlaceholder')"
+              placeholder-class="nx-field__placeholder"
+            >
           </view>
         </view>
+      </view>
 
-        <!-- Reset password button -->
-        <view class="reset-btn" @click="handleResetPassword">
-          {{ loading ? t("common.loading") : t("retrievePassword.resetButton") }}
-        </view>
+      <view
+        class="nx-btn nx-btn--primary nx-btn--block nx-auth__submit"
+        :class="{ 'is-loading': loading }"
+        role="button"
+        @click="!loading && handleResetPassword()"
+      >
+        <wd-loading v-if="loading" size="18px" custom-class="nx-auth__spinner" />
+        {{ loading ? t('common.loading') : t('retrievePassword.resetButton') }}
+      </view>
 
-        <!-- Return to login link -->
-        <view class="back-login-hint" @click="goBack">
-          <text class="hint-text">
-            {{ t("retrievePassword.goToLogin") }}
-          </text>
-        </view>
+      <view class="nx-auth__links nx-auth__links--center">
+        <text class="nx-auth__link" @click="goBack">
+          {{ t('retrievePassword.goToLogin') }}
+        </text>
       </view>
     </view>
 
-    <!-- Area code selection dialog -->
-    <wd-action-sheet
+    <!-- Area code sheet -->
+    <wd-popup
       v-model="showAreaCodeSheet"
-      :title="t('login.selectCountry')"
-      :close-on-click-modal="true"
+      position="bottom"
+      custom-class="nx-sheet"
+      safe-area-inset-bottom
       @close="closeAreaCodeSheet"
     >
-      <view class="area-code-sheet">
-        <scroll-view scroll-y class="area-code-list">
-          <view
-            v-for="item in areaCodeList"
-            :key="item.value"
-            class="area-code-item"
-            :class="{ selected: selectedAreaCode === item.value }"
-            @click="selectAreaCode(item)"
-          >
-            <view class="area-info">
-              <text class="area-name">
-                {{ item.label }}
-              </text>
+      <view class="nx-sheet__inner">
+        <view class="nx-sheet__handle" />
+        <view class="nx-sheet__header">
+          <text class="nx-headline">
+            {{ t('login.selectCountry') }}
+          </text>
+          <text class="nx-sheet__done" @click="closeAreaCodeSheet">
+            {{ t('login.confirm') }}
+          </text>
+        </view>
+        <scroll-view scroll-y class="nx-sheet__scroll">
+          <view class="nx-group__body">
+            <view
+              v-for="item in areaCodeList"
+              :key="item.value"
+              class="nx-row nx-row--tap"
+              @click="selectAreaCode(item)"
+            >
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-truncate">
+                  {{ item.label }}
+                </view>
+              </view>
+              <wd-icon v-if="selectedAreaCode === item.value" name="check" size="18px" custom-class="nx-check" />
             </view>
-            <wd-icon
-              v-if="selectedAreaCode === item.value"
-              name="check"
-              custom-class="check-icon"
-            />
           </view>
         </scroll-view>
-        <view class="sheet-footer">
-          <wd-button
-            type="primary"
-            custom-class="confirm-btn"
-            @click="closeAreaCodeSheet"
-          >
-            {{ t("login.confirm") }}
-          </wd-button>
-        </view>
       </view>
-    </wd-action-sheet>
+    </wd-popup>
   </view>
 </template>
 
 <style lang="scss" scoped>
-.app-container {
-  background: linear-gradient(145deg, #f5f8fd, #6baaff, #9ebbfc, #f5f8fd);
+// Nobix auth screen (sign in / register / reset share this layout)
+.nx-auth {
   display: flex;
   flex-direction: column;
-  position: relative;
-  overflow: hidden;
   min-height: 100vh;
+  box-sizing: border-box;
+  padding-left: var(--nx-gutter);
+  padding-right: var(--nx-gutter);
+  padding-bottom: calc(var(--nx-space-5) + env(safe-area-inset-bottom));
+  background: var(--nx-bg);
+  color: var(--nx-text);
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-    animation: float 6s ease-in-out infinite;
+  &__topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--nx-space-2);
+    min-height: var(--nx-touch);
+    &--split {
+      justify-content: space-between;
+    }
   }
-}
 
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-20px) rotate(180deg);
-  }
-}
-
-.header {
-  flex: 0 0 auto;
-  min-height: 280rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15% 0 40rpx 0;
-  position: relative;
-
-  .back-button {
-    position: absolute;
-    left: 30rpx;
-    top: 50rpx;
-    width: 60rpx;
-    height: 60rpx;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
+  &__chip,
+  &__icon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    backdrop-filter: blur(10rpx);
-    border: 1rpx solid rgba(255, 255, 255, 0.3);
-
-    .back-icon {
-      font-size: 32rpx;
-      color: #ffffff;
+    gap: var(--nx-space-1);
+    min-width: var(--nx-touch);
+    height: 64rpx;
+    padding: 0 var(--nx-space-3);
+    box-sizing: border-box;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface);
+    box-shadow: var(--nx-shadow-1);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+    &:active {
+      transform: scale(0.96);
+      background: var(--nx-surface-2);
     }
   }
-
-  .logo-section {
-    text-align: center;
-
-    .logo {
-      margin-bottom: 20rpx;
-      box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.1);
-    }
-
-    .welcome-text {
-      display: block;
-      color: #ffffff;
-      font-size: 40rpx;
-      font-weight: 600;
-      margin-bottom: 12rpx;
-      text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
-    }
-
-    .subtitle {
-      display: block;
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 26rpx;
-      font-weight: 400;
-    }
+  &__icon-btn {
+    width: 64rpx;
+    min-width: 64rpx;
+    padding: 0;
   }
-}
+  &__back {
+    margin-left: calc(var(--nx-space-2) * -1);
+    padding: 0 var(--nx-space-2);
+    background: transparent;
+    box-shadow: none;
+    color: var(--nx-accent);
+    font-size: var(--nx-text-body);
+    font-weight: 500;
+  }
 
-.form-container {
-  padding: 0 40rpx 40rpx 40rpx;
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-
-  .form {
+  &__body {
+    flex: 1;
     width: 100%;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 24rpx;
-    padding: 40rpx 30rpx 30rpx 30rpx;
-    backdrop-filter: blur(10rpx);
-    box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.1);
-    border: 1rpx solid rgba(255, 255, 255, 0.2);
-    max-height: calc(100vh - 350rpx);
-    overflow-y: auto;
+    max-width: 840rpx;
+    margin: 0 auto;
+  }
 
-    .input-group {
-      margin-bottom: 24rpx;
+  &__hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--nx-space-6) 0 var(--nx-space-6);
+  }
+  &__logo {
+    width: 128rpx;
+    height: 128rpx;
+    border-radius: var(--nx-radius-lg);
+    box-shadow: var(--nx-shadow-2);
+  }
+  &__title {
+    margin-top: var(--nx-space-4);
+    font-size: var(--nx-text-display);
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    color: var(--nx-text);
+  }
+  &__subtitle {
+    margin-top: var(--nx-space-2);
+    max-width: 560rpx;
+    font-size: var(--nx-text-callout);
+    line-height: 1.45;
+    color: var(--nx-text-2);
+  }
 
-      .input-wrapper {
-        position: relative;
-        background: #f8f9fa;
-        border-radius: 16rpx;
-        padding: 20rpx 16rpx;
-        border: 2rpx solid #e9ecef;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
+  &__segmented {
+    margin-bottom: var(--nx-space-4);
+  }
 
-        &:focus-within {
-          border-color: #667eea;
-          background: #ffffff;
-          box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
-        }
-
-        &.mobile-wrapper {
-          padding: 0;
-          background: transparent;
-          border: none;
-          display: flex;
-          gap: 20rpx;
-
-          .area-code-selector {
-            flex: 0 0 160rpx;
-            background: #f8f9fa;
-            border-radius: 16rpx;
-            padding: 20rpx 16rpx;
-            border: 2rpx solid #e9ecef;
-            height: 45rpx;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            transition: all 0.3s ease;
-
-            &:hover {
-              border-color: #667eea;
-              background: #ffffff;
-              box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
-            }
-
-            .area-code-text {
-              font-size: 28rpx;
-              color: #333333;
-              font-weight: 500;
-            }
-
-            :deep(.area-code-arrow) {
-              font-size: 24rpx;
-              color: #999999;
-              transition: transform 0.3s ease;
-            }
-          }
-
-          .mobile-input-wrapper {
-            flex: 1;
-            background: #f8f9fa;
-            border-radius: 16rpx;
-            padding: 20rpx 16rpx;
-            border: 2rpx solid #e9ecef;
-            transition: all 0.3s ease;
-
-            &:focus-within {
-              border-color: #667eea;
-              background: #ffffff;
-              box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
-            }
-          }
-        }
-
-        &.captcha-wrapper {
-          .captcha-image {
-            margin-left: 20rpx;
-            width: 150rpx;
-            height: 60rpx;
-            border-radius: 8rpx;
-            overflow: hidden;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #e9ecef;
-            border: 1rpx solid #ddd;
-
-            .captcha-img {
-              width: 100%;
-              height: 100%;
-            }
-          }
-        }
-
-        &.sms-wrapper {
-          .sms-button {
-            margin-left: 20rpx;
-            width: 180rpx;
-            height: 60rpx;
-            border-radius: 12rpx;
-            background: #667eea;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-
-            &:active {
-              background: #5a6fd8;
-              transform: scale(0.98);
-            }
-
-            .sms-text {
-              font-size: 24rpx;
-              color: #ffffff;
-              font-weight: 500;
-            }
-          }
-        }
-
-        :deep(.styled-input) {
-          background: transparent !important;
-          border: none !important;
-          outline: none !important;
-          font-size: 32rpx;
-          color: #333333;
-          flex: 1;
-
-          &::placeholder {
-            color: #999999;
-            font-size: 28rpx;
-          }
-        }
-      }
-    }
-
-    .reset-btn {
-      width: 100%;
-      height: 80rpx;
-      border: none;
-      border-radius: 16rpx;
-      font-size: 30rpx;
-      font-weight: 600;
-      color: #ffffff;
-      margin-bottom: 30rpx;
-      box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.3);
-      transition: all 0.3s ease;
-      background-color: var(--wot-button-primary-bg-color, var(--wot-color-theme, #4d80f0));
-      text-align: center;
-      line-height: 80rpx;
-
-      &:active {
-        transform: translateY(2rpx);
-        box-shadow: 0 4rpx 12rpx rgba(102, 126, 234, 0.3);
-      }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-    }
-
-    .back-login-hint {
-      text-align: center;
-
-      .hint-text {
-        color: #667eea;
-        font-size: 26rpx;
-        font-weight: 500;
-        cursor: pointer;
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
+  &__submit {
+    &.is-loading {
+      opacity: 0.7;
     }
   }
-}
 
-// Area code dialog styles
-.area-code-sheet {
-  background: #ffffff;
-  border-radius: 24rpx 24rpx 0 0;
-  overflow: hidden;
-
-  .sheet-header {
+  &__links {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 40rpx 40rpx 20rpx 40rpx;
-    border-bottom: 1rpx solid #f0f0f0;
-
-    .sheet-title {
-      font-size: 36rpx;
-      font-weight: 600;
-      color: #333333;
+    gap: var(--nx-space-3);
+    margin-top: var(--nx-space-4);
+    padding: 0 var(--nx-space-2);
+    &--center {
+      justify-content: center;
     }
+  }
+  &__link {
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    font-weight: 500;
+    padding: var(--nx-space-2) 0;
+    &:active {
+      opacity: 0.6;
+    }
+  }
+  &__muted {
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-callout);
+  }
 
-    :deep(.close-icon) {
-      font-size: 32rpx;
-      color: #999999;
-      cursor: pointer;
-      padding: 10rpx;
+  &__legal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0 var(--nx-space-1);
+    margin-top: var(--nx-space-6);
+    padding: 0 var(--nx-space-4);
+    text-align: center;
+    color: var(--nx-text-3);
+    font-size: var(--nx-text-caption);
+    line-height: 1.6;
+    .nx-auth__link {
+      font-size: var(--nx-text-caption);
+      padding: 0;
+    }
+  }
+}
 
-      &:hover {
-        color: #333333;
-      }
+:deep(.nx-auth__spinner) {
+  margin-right: var(--nx-space-1);
+}
+
+// One field per row inside an inset group
+.nx-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-height: 104rpx;
+  padding: 0 var(--nx-space-4);
+  box-sizing: border-box;
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: var(--nx-space-4);
+    right: 0;
+    bottom: 0;
+    height: 1rpx;
+    background: var(--nx-border);
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    height: 104rpx;
+    font-size: var(--nx-text-body);
+    color: var(--nx-text);
+    background: transparent;
+  }
+
+  &__prefix {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+    flex: none;
+    height: 64rpx;
+    padding: 0 var(--nx-space-3) 0 0;
+    border-right: 1rpx solid var(--nx-border);
+    color: var(--nx-text);
+    font-size: var(--nx-text-body);
+    font-weight: 500;
+  }
+
+  &__action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    margin-right: calc(var(--nx-space-3) * -1);
+    color: var(--nx-text-3);
+    &:active {
+      opacity: 0.6;
     }
   }
 
-  .area-code-list {
+  &__send {
+    flex: none;
+    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
+    border-left: 1rpx solid var(--nx-border);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    white-space: nowrap;
+    &.is-disabled {
+      color: var(--nx-text-3);
+    }
+    &:active {
+      opacity: 0.6;
+    }
+  }
+
+  &__captcha {
+    flex: none;
+    width: 184rpx;
+    height: 72rpx;
+    overflow: hidden;
+    border-radius: var(--nx-radius-sm);
+    background: var(--nx-surface-2);
+  }
+  &__captcha-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+:deep(.nx-field__icon) {
+  flex: none;
+  color: var(--nx-text-3);
+}
+
+:deep(.nx-field__placeholder) {
+  color: var(--nx-text-3);
+}
+
+// Bottom sheet (wd-popup position="bottom")
+:deep(.wd-popup.nx-sheet) {
+  overflow: hidden;
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+  background: var(--nx-bg);
+}
+
+.nx-sheet {
+  &__inner {
+    padding: 0 var(--nx-gutter) var(--nx-space-4);
+  }
+  &__handle {
+    width: 72rpx;
+    height: 10rpx;
+    margin: var(--nx-space-2) auto 0;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-3);
+  }
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--nx-touch);
+    padding: var(--nx-space-2) 0;
+  }
+  &__done {
+    color: var(--nx-accent);
+    font-size: var(--nx-text-body);
+    font-weight: 600;
+    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
+  }
+  &__scroll {
     max-height: 60vh;
-    padding: 0 40rpx;
-
-    .area-code-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 32rpx 0;
-      border-bottom: 1rpx solid #f8f9fa;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-
-      &:hover {
-        background-color: #f8f9fa;
-      }
-
-      &.selected {
-        background-color: rgba(102, 126, 234, 0.05);
-
-        .area-name {
-          color: #667eea;
-          font-weight: 500;
-        }
-
-        .area-code {
-          color: #667eea;
-        }
-      }
-
-      .area-info {
-        display: flex;
-        flex-direction: column;
-        gap: 8rpx;
-
-        .area-name {
-          font-size: 32rpx;
-          color: #333333;
-        }
-
-        .area-code {
-          font-size: 28rpx;
-          color: #666666;
-        }
-      }
-
-      :deep(.check-icon) {
-        font-size: 32rpx;
-        color: #667eea;
-      }
-    }
+    border-radius: var(--nx-radius-lg);
   }
+}
 
-  .sheet-footer {
-    padding: 30rpx 40rpx 40rpx 40rpx;
-    border-top: 1rpx solid #f0f0f0;
-
-    :deep(.confirm-btn) {
-      width: 100%;
-      height: 88rpx;
-      border-radius: 16rpx;
-      font-size: 32rpx;
-      font-weight: 600;
-    }
-  }
+:deep(.nx-check) {
+  flex: none;
+  color: var(--nx-accent);
 }
 </style>

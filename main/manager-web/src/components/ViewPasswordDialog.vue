@@ -1,91 +1,105 @@
 <template>
-  <el-dialog :visible.sync="visible" width="400px" center>
-    <div
-      style="margin: 0 10px 10px;display: flex;align-items: center;gap: 10px;font-weight: 700;font-size: 20px;text-align: left;color: #3d4566;">
-      <div
-        style="width: 40px;height: 40px;border-radius: 50%;background: #5778ff;display: flex;align-items: center;justify-content: center;">
-        <img src="@/assets/login/shield.png" alt=""
-          style="width: 19px;height: 23px; filter: brightness(0) invert(1);" />
+  <CustomDialog :title="tt('user.newPasswordTitle', 'New password')" :visible="visible" width="440px"
+    :cancel-text="tt('user.close', 'Close')" :confirm-text="tt('user.copyPassword', 'Copy password')"
+    @update:visible="val => $emit('update:visible', val)" @close="closeDialog"
+    @confirm="copyPassword">
+    <div class="pw">
+      <span class="nx-icon-tile pw__icon" aria-hidden="true"><i class="el-icon-lock"></i></span>
+      <p class="pw__lead">{{ $t('user.resetPasswordSuccess') }}</p>
+      <label class="pw__label" for="nx-generated-password">{{ $t('user.generatedPassword') }}</label>
+      <div class="pw__field">
+        <input id="nx-generated-password" ref="field" class="pw__value nx-mono" :value="password" readonly
+          @focus="$event.target.select()" />
+        <button type="button" class="nx-icon-btn" :aria-label="tt('user.copyPassword', 'Copy password')"
+          @click="copyPassword">
+          <i class="el-icon-document-copy" aria-hidden="true"></i>
+        </button>
       </div>
-      New User Password
+      <p class="pw__hint">{{ tt('user.newPasswordHint', 'This password is shown only once. Share it with the user privately.') }}</p>
     </div>
-    <div style="height: 1px;background: #e8f0ff;" />
-    <div style="margin: 22px 15px;">
-      <div style="font-weight: 400;font-size: 14px;text-align: left;color: #3d4566;">
-        <div style="color: red;display: inline-block;">*</div>
-        New User Password: 
-      </div>
-      <div class="input-46" style="margin-top: 12px;">
-        <el-input v-model="password" type="text" :readonly="true" style="font-weight: bold; color: #333;" />
-      </div>
-    </div>
-    <div style="display: flex;margin: 15px 15px;gap: 7px;">
-      <div class="dialog-btn" style="background: #e6ebff;border: 1px solid #adbdff;color: #5778ff;"
-        @click="closeDialog">
-        Close
-      </div>
-      <div class="dialog-btn" style="background: #5778ff;color: white;" @click="copyPassword">
-        Copy Password
-      </div>
-    </div>
-  </el-dialog>
+  </CustomDialog>
 </template>
 
 <script>
+import CustomDialog from './CustomDialog.vue';
+
 export default {
   name: 'ViewPasswordDialog',
+  components: { CustomDialog },
   props: {
     visible: { type: Boolean, required: true },
     password: { type: String, default: '' }
   },
   methods: {
+    tt(key, fallback) {
+      return this.$te(key) || this.$te(key, 'en') ? this.$t(key) : fallback;
+    },
     closeDialog() {
       this.$emit('update:visible', false)
     },
     copyPassword() {
-      navigator.clipboard.writeText(this.password)
-      this.$message.success({
-        message: 'Password copied',
+      const done = () => this.$message.success({
+        message: this.tt('user.passwordCopied', 'Password copied'),
         showClose: true
-      })
+      });
+      const fail = () => {
+        // Clipboard unavailable (e.g. plain http): select the text so it can be copied by hand
+        if (this.$refs.field) this.$refs.field.select();
+        this.$message.error(this.$t('common.copyFailed'));
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(this.password).then(done, fail);
+      } else {
+        fail();
+      }
     }
   }
 }
 </script>
 
-<style scoped>
-.input-46 {
-  border: 1px solid #e4e6ef;
-  background: #f6f8fb;
-  border-radius: 15px;
-}
-
-.dialog-btn {
-  cursor: pointer;
-  flex: 1;
-  border-radius: 23px;
-  height: 40px;
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 40px;
-  text-align: center;
-}
-
-::v-deep .el-dialog {
-  border-radius: 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-::v-deep .el-dialog__headerbtn {
-  display: none;
-}
-
-::v-deep .el-dialog__body {
-  padding: 4px 6px;
-}
-
-::v-deep .el-input__inner {
-  background-color: #f6f8fb !important;
-  cursor: default !important;
+<style scoped lang="scss">
+.pw {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--nx-space-2);
+  &__icon {
+    margin-bottom: var(--nx-space-2);
+  }
+  &__lead {
+    margin: 0 0 var(--nx-space-3);
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text-2);
+  }
+  &__label {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+    width: 100%;
+    padding: var(--nx-space-1) var(--nx-space-1) var(--nx-space-1) var(--nx-space-4);
+    background: var(--nx-surface-2);
+    border-radius: var(--nx-radius);
+  }
+  &__value {
+    flex: 1;
+    min-width: 0;
+    height: var(--nx-control-h);
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--nx-text);
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  &__hint {
+    margin: 0;
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
 }
 </style>

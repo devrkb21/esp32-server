@@ -1,77 +1,103 @@
 <template>
-  <div class="welcome">
+  <div class="nx-admin">
     <HeaderBar />
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <div class="content-area">
-          <el-card class="user-card" shadow="never">
-            <div class="operation-header">
-              <h2 class="page-title">{{ $t('header.userManagement') }}</h2>
-              <div class="right-operations">
-                <el-input :placeholder="$t('user.searchPhone')" v-model="searchPhone" class="search-input" clearable
-                  @keyup.enter.native="handleSearch" />
-                <CustomButton icon="el-icon-search" type="confirm" @click="handleSearch">{{ $t('user.search') }}</CustomButton>
-              </div>
-            </div>
-            <CustomTable
-              ref="userTable"
-              :data="userList"
-              :columns="tableColumns"
-              :loading="loading"
-              :loading-text="$t('modelConfig.loading')"
-              :show-selection="true"
-              :show-operations="true"
-              :operations-label="$t('modelConfig.action')"
-              :operations-width="300"
-              :total="total"
-              :current-page="currentPage"
-              :page-size="pageSize"
-              :page-size-options="pageSizeOptions"
-              @size-change="handlePageSizeChange"
-              @page-change="goToPage"
-            >
-              <template slot="selection" slot-scope="scope">
-                <el-checkbox v-model="scope.row.selected"></el-checkbox>
-              </template>
-              <template slot="status" slot-scope="scope">
-                <el-tag v-if="scope.row.status === 1" type="success">{{ $t('user.normal') }}</el-tag>
-                <el-tag v-else type="danger">{{ $t('user.disabled') }}</el-tag>
-              </template>
-              <template slot="operations" slot-scope="scope">
-                <el-button size="mini" type="text" @click="resetPassword(scope.row)">{{ $t('user.resetPassword')
-                  }}</el-button>
-                <el-button size="mini" type="text" v-if="scope.row.status === 1"
-                  @click="handleChangeStatus(scope.row, 0)">{{ $t('user.disableAccount') }}</el-button>
-                <el-button size="mini" type="text" v-if="scope.row.status === 0"
-                  @click="handleChangeStatus(scope.row, 1)">{{ $t('user.enableAccount') }}</el-button>
-                <el-button size="mini" type="text" @click="deleteUser(scope.row)">{{ $t('user.deleteUser')
-                  }}</el-button>
-              </template>
-              <template slot="footer-btns">
-                <div class="ctrl_btn">
-                  <CustomButton :icon="isAllSelected ? 'el-icon-circle-close' : 'el-icon-circle-check'" size="small" @click="handleSelectAll">
-                    {{ isAllSelected ? $t('user.deselectAll') : $t('user.selectAll') }}
-                  </CustomButton>
-                  <CustomButton size="small" icon="el-icon-remove-outline" @click="batchDisable">
-                    {{$t('user.disable') }}
-                  </CustomButton>
-                  <CustomButton size="small" type="add" icon="el-icon-circle-check" @click="batchEnable">{{
-                    $t('user.enable')
-                    }}</CustomButton>
-                  <CustomButton size="small" type="delete" icon="el-icon-delete" @click="batchDelete">{{ $t('user.delete')
-                    }}</CustomButton>
-                </div>
-              </template>
-            </CustomTable>
-          </el-card>
+    <main class="nx-page">
+      <header class="nx-page-header">
+        <div class="nx-page-header__text">
+          <h1 class="nx-title">{{ $t('header.userManagement') }}</h1>
+          <p class="nx-page-header__desc">{{ tt('user.pageDesc', 'Everyone who can sign in to Nobix Console, and the robots they own.') }}</p>
         </div>
-      </div>
-    </div>
+        <div class="nx-page-header__actions">
+          <el-input v-model="searchPhone" class="admin-search" prefix-icon="el-icon-search" clearable
+            :placeholder="$t('user.searchPhone')" :aria-label="$t('user.search')"
+            @keyup.enter.native="handleSearch" @clear="handleSearch" />
+          <CustomButton @click="handleSearch">{{ $t('user.search') }}</CustomButton>
+        </div>
+      </header>
+
+      <section class="nx-card nx-card--flush table-card">
+        <div class="table-card__toolbar">
+          <el-checkbox :value="allRowsSelected" :indeterminate="selectedCount > 0 && !allRowsSelected"
+            :disabled="!userList.length" @change="handleSelectAll">
+            {{ selectedCount ? tt('user.selectedCount', '{count} selected', { count: selectedCount }) : $t('user.selectAll') }}
+          </el-checkbox>
+          <span class="nx-spacer"></span>
+          <CustomButton size="small" icon="el-icon-circle-check" :disabled="!selectedCount" @click="batchEnable">
+            {{ $t('user.enable') }}
+          </CustomButton>
+          <CustomButton size="small" icon="el-icon-remove-outline" :disabled="!selectedCount" @click="batchDisable">
+            {{ $t('user.disable') }}
+          </CustomButton>
+          <CustomButton size="small" type="delete" icon="el-icon-delete" :disabled="!selectedCount" @click="batchDelete">
+            {{ $t('user.delete') }}
+          </CustomButton>
+        </div>
+
+        <div v-if="!loading && !userList.length" class="nx-empty">
+          <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-user"></i></span>
+          <template v-if="searchPhone">
+            <p class="nx-empty__title">{{ tt('user.emptySearchTitle', 'No users match your search') }}</p>
+            <p class="nx-empty__text">{{ tt('user.emptySearchText', 'Check the phone number or clear the search.') }}</p>
+            <CustomButton class="nx-empty__action" @click="clearSearch">{{ tt('user.clearSearch', 'Clear search') }}</CustomButton>
+          </template>
+          <template v-else>
+            <p class="nx-empty__title">{{ tt('user.emptyTitle', 'No users yet') }}</p>
+            <p class="nx-empty__text">{{ tt('user.emptyText', 'People appear here after they register an account.') }}</p>
+          </template>
+        </div>
+
+        <div v-else class="table-card__body" :style="{ '--rows': userList.length }">
+          <CustomTable ref="userTable" :data="userList" :columns="tableColumns" :loading="loading"
+            :loading-text="$t('modelConfig.loading')" :show-selection="true" :show-operations="true"
+            :operations-label="$t('modelConfig.action')" :operations-width="220" :total="total"
+            :current-page="currentPage" :page-size="pageSize" :page-size-options="pageSizeOptions"
+            @size-change="handlePageSizeChange" @page-change="goToPage">
+            <template slot="selection" slot-scope="scope">
+              <el-checkbox v-model="scope.row.selected" :aria-label="scope.row.mobile"></el-checkbox>
+            </template>
+            <template slot="mobile" slot-scope="scope">
+              <div class="user-cell">
+                <span class="nx-avatar" aria-hidden="true">{{ initialOf(scope.row.mobile) }}</span>
+                <div class="user-cell__text">
+                  <div class="user-cell__name">
+                    <span class="nx-truncate" :title="scope.row.mobile">{{ scope.row.mobile || '—' }}</span>
+                    <span v-if="isSuperAdmin(scope.row)" class="nx-badge nx-badge--accent">{{ tt('user.superAdmin', 'Super admin') }}</span>
+                  </div>
+                  <div class="nx-caption nx-mono nx-truncate" :title="scope.row.userid">{{ scope.row.userid }}</div>
+                </div>
+              </div>
+            </template>
+            <template slot="deviceCount" slot-scope="scope">
+              <span class="nx-num">{{ scope.row.deviceCount || 0 }}</span>
+            </template>
+            <template slot="createDate" slot-scope="scope">
+              <span class="nx-num nx-muted">{{ scope.row.createDate || '—' }}</span>
+            </template>
+            <template slot="status" slot-scope="scope">
+              <div class="status-cell">
+                <el-switch :value="scope.row.status === 1"
+                  :aria-label="scope.row.status === 1 ? $t('user.disableAccount') : $t('user.enableAccount')"
+                  @change="val => handleChangeStatus(scope.row, val ? 1 : 0)" />
+                <span class="nx-badge" :class="scope.row.status === 1 ? 'nx-badge--success' : 'nx-badge--danger'">
+                  {{ scope.row.status === 1 ? $t('user.normal') : $t('user.disabled') }}
+                </span>
+              </div>
+            </template>
+            <template slot="operations" slot-scope="scope">
+              <div class="row-actions">
+                <el-button size="mini" type="text" @click="resetPassword(scope.row)">{{ $t('user.resetPassword') }}</el-button>
+                <el-button size="mini" type="text" class="row-action--danger" @click="deleteUser(scope.row)">
+                  {{ $t('user.deleteUser') }}
+                </el-button>
+              </div>
+            </template>
+          </CustomTable>
+        </div>
+      </section>
+    </main>
 
     <view-password-dialog :visible.sync="showViewPassword" :password="currentPassword" />
-    <el-footer>
-      <version-footer />
-    </el-footer>
+    <VersionFooter />
   </div>
 </template>
 
@@ -99,38 +125,37 @@ export default {
       tableColumns: []
     };
   },
+  computed: {
+    selectedCount() {
+      return this.userList.filter(user => user.selected).length;
+    },
+    allRowsSelected() {
+      return this.userList.length > 0 && this.selectedCount === this.userList.length;
+    }
+  },
   created() {
     this.initTableColumns();
     this.fetchUsers();
   },
   methods: {
+    // $t with an English fallback for keys that are still pending in src/i18n/_pending/web-system.js
+    tt(key, fallback, params) {
+      if (this.$te(key) || this.$te(key, 'en')) return this.$t(key, params);
+      return String(fallback).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] != null ? params[k] : m));
+    },
+    initialOf(name) {
+      const text = String(name || '').trim();
+      return text ? Array.from(text)[0] : '?';
+    },
+    isSuperAdmin(row) {
+      return row.superAdmin === 1 || row.superAdmin === true;
+    },
     initTableColumns() {
       this.tableColumns = [
-        {
-          prop: 'userid',
-          label: this.$t('user.userid'),
-          align: 'center'
-        },
-        {
-          prop: 'mobile',
-          label: this.$t('user.mobile'),
-          align: 'center'
-        },
-        {
-          prop: 'deviceCount',
-          label: this.$t('user.deviceCount'),
-          align: 'center'
-        },
-        {
-          prop: 'createDate',
-          label: this.$t('user.createDate'),
-          align: 'center'
-        },
-        {
-          prop: 'status',
-          label: this.$t('user.status'),
-          align: 'center'
-        }
+        { prop: 'mobile', label: this.$t('user.username'), align: 'left', minWidth: 240, showOverflowTooltip: false },
+        { prop: 'deviceCount', label: this.$t('user.deviceCount'), align: 'right', width: 120 },
+        { prop: 'createDate', label: this.$t('user.createDate'), align: 'left', minWidth: 170 },
+        { prop: 'status', label: this.$t('user.status'), align: 'left', width: 170, showOverflowTooltip: false }
       ];
     },
     handlePageSizeChange(val) {
@@ -155,6 +180,7 @@ export default {
               selected: false
             }));
             this.total = data.data.total;
+            this.isAllSelected = false;
           }
         }
       );
@@ -163,8 +189,12 @@ export default {
       this.currentPage = 1;
       this.fetchUsers();
     },
+    clearSearch() {
+      this.searchPhone = "";
+      this.handleSearch();
+    },
     handleSelectAll() {
-      this.isAllSelected = !this.isAllSelected;
+      this.isAllSelected = !this.allRowsSelected;
       this.userList.forEach(row => {
         row.selected = this.isAllSelected;
       });
@@ -179,14 +209,14 @@ export default {
       this.$confirm(this.$t('user.confirmDeleteSelected', { count: selectedUsers.length }), this.$t('common.warning'), {
         confirmButtonText: this.$t('common.confirm'),
         cancelButtonText: this.$t('common.cancel'),
+        confirmButtonClass: 'el-button--danger',
         type: "warning",
       })
         .then(async () => {
           const loading = this.$loading({
             lock: true,
             text: this.$t('user.deleting'),
-            spinner: "el-icon-loading",
-            background: "rgba(0, 0, 0, 0.7)",
+            spinner: "el-icon-loading"
           });
 
           try {
@@ -251,31 +281,30 @@ export default {
       this.handleChangeStatus(selectedUsers, 0);
     },
     resetPassword(row) {
-      this.$confirm(this.$t('user.confirmResetPassword'), this.$t('common.warning'), {
-        confirmButtonText: this.$t('common.confirm'),
+      this.$confirm(this.$t('user.confirmResetPassword'), this.$t('user.resetPassword'), {
+        confirmButtonText: this.$t('user.resetPassword'),
         cancelButtonText: this.$t('common.cancel'),
         type: 'warning'
       }).then(() => {
         Api.admin.resetUserPassword(row.userid, ({ data }) => {
           if (data.code === 0) {
-            // Show generated default password
-            this.$alert(this.$t('user.resetPasswordSuccess') + '\n\n' + this.$t('user.generatedPassword') + ': ' + data.data, this.$t('common.success'), {
-              confirmButtonText: this.$t('common.confirm'),
-              dangerouslyUseHTMLString: true
-            });
+            // Show the generated password in the password dialog (copyable)
+            this.currentPassword = String(data.data || '');
+            this.showViewPassword = true;
             this.fetchUsers();
           } else {
             this.$message.error(data.msg || this.$t('user.operationFailed'));
           }
         });
       }).catch(() => {
-        this.$message.info(this.$t('common.deleteCancelled'));
+        // Cancelled: nothing changed
       });
     },
     deleteUser(row) {
-      this.$confirm(this.$t('user.confirmDeleteUser'), this.$t('common.warning'), {
-        confirmButtonText: this.$t('common.confirm'),
+      this.$confirm(this.$t('user.confirmDeleteUser'), row.mobile || this.$t('user.deleteUser'), {
+        confirmButtonText: this.$t('user.deleteUser'),
         cancelButtonText: this.$t('common.cancel'),
+        confirmButtonClass: 'el-button--danger',
         type: 'warning'
       }).then(() => {
         Api.admin.deleteUser(row.userid, ({ data }) => {
@@ -309,7 +338,7 @@ export default {
       const userCount = users.length;
 
       this.$confirm(this.$t('user.confirmStatusChange', { action: actionText, count: userCount }), this.$t('common.warning'), {
-        confirmButtonText: this.$t('common.confirm'),
+        confirmButtonText: actionText,
         cancelButtonText: this.$t('common.cancel'),
         type: 'warning'
       }).then(() => {
@@ -341,15 +370,12 @@ export default {
     handleBatchDelete() {
       this.batchDelete();
     },
-    // This method has been fixed to use existing functionality
     handleBatchStatusChange(status) {
       const selectedUsers = this.userList.filter(user => user.selected);
       if (selectedUsers.length === 0) {
         this.$message.warning(this.$t('user.selectUsersFirst'));
         return;
       }
-
-      // Call the existing handleChangeStatus method which already handles both single and multiple users
       this.handleChangeStatus(selectedUsers, status);
     },
   },
@@ -357,105 +383,105 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.welcome {
-  min-width: 900px;
-  min-height: 506px;
-  height: 100vh;
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  background-size: cover;
-  background: #eff4ff;
-  -webkit-background-size: cover;
-  -o-background-size: cover;
-  overflow: hidden;
-}
-
-.main-wrapper {
-  // Top 63px Bottom 35px
-  height: calc(100vh - 63px - 35px);
-  padding: 20px 22px 0;
-  position: relative;
+// Admin page family: page header + one table card (shared look across the "More" pages)
+.nx-admin {
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100vh;
+  > .nx-page {
+    flex: 1 0 auto;
+  }
 }
-
-.operation-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0 16px 0;
+.admin-search {
+  width: 260px;
+  max-width: 100%;
 }
-
-.page-title {
-  font-weight: 500;
-  font-size: 24px;
-  margin: 0;
-}
-
-.right-operations {
-  display: flex;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.search-input {
-  width: 240px;
-}
-
-.btn-search {
-  background: linear-gradient(135deg, #6b8cff, #a966ff);
-  border: none;
-  color: white;
-}
-
-.content-panel {
-  display: flex;
-  overflow: hidden;
-  height: 100%;
-  border-radius: 15px;
-  background: transparent;
-  border: 1px solid #fff;
-}
-
-.content-area {
-  flex: 1;
-  height: 100%;
-  min-width: 600px;
-  overflow: auto;
-  background-color: white;
+.table-card {
   display: flex;
   flex-direction: column;
-}
-
-.user-card {
-  background: white;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  box-shadow: none;
-  overflow: hidden;
-
-  ::v-deep .el-card__body {
-    padding: 14px 20px;
+  &__toolbar {
     display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: hidden;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--nx-space-2);
+    min-height: 56px;
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-bottom: 1px solid var(--nx-border);
+    ::v-deep .el-checkbox__label {
+      font-size: var(--nx-text-footnote);
+      color: var(--nx-text-2);
+      font-variant-numeric: tabular-nums;
+    }
+    .el-button + .el-button {
+      margin-left: 0;
+    }
+  }
+  // Height follows the row count, capped to the viewport; the table body scrolls inside
+  &__body {
+    height: clamp(280px, calc(var(--rows, 0) * 61px + 100px), max(440px, calc(100vh - 300px)));
+    ::v-deep .custom-table-wrapper {
+      height: 100%;
+    }
+    ::v-deep .table-container {
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    ::v-deep .table-footer {
+      height: 48px;
+      padding: 0 var(--nx-space-5);
+      border-top: 1px solid var(--nx-border);
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    ::v-deep th.el-table__cell:last-child .cell,
+    ::v-deep td.el-table__cell:last-child .cell {
+      text-align: right;
+    }
+  }
+}
+.nx-empty {
+  padding: var(--nx-space-9) var(--nx-space-5);
+}
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px;
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+}
+.row-action--danger.el-button--text {
+  color: var(--nx-danger);
+  &:hover,
+  &:focus {
+    color: var(--nx-danger);
+    background: var(--nx-danger-soft);
   }
 }
 
-.ctrl_btn {
+.user-cell {
   display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-width: 0;
+  &__text {
+    min-width: 0;
+    flex: 1;
+  }
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
 }
-
-:deep(.el-table .el-button--text) {
-  color: #7079aa !important;
-}
-
-:deep(.el-table .el-button--text:hover) {
-  color: #5a64b5 !important;
+.status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nx-space-3);
 }
 </style>

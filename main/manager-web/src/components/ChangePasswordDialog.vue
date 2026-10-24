@@ -1,32 +1,42 @@
 <template>
-  <form>
+  <form class="change-password" novalidate @submit.prevent="confirm">
     <CustomDialog
       :title="$t('changePassword.title')"
       :visible.sync="dialogVisible"
-      width="600px"
+      width="480px"
+      :confirmText="$t('changePassword.confirmButton')"
+      :cancelText="$t('changePassword.cancelButton')"
       @cancel="cancel"
       @confirm="confirm">
       <div class="password-form">
-        <div class="form-label">
-          <span class="required">*</span>
-          {{ $t('changePassword.oldPasswordLabel') }}
+        <p class="password-form__hint">
+          <i class="el-icon-info" aria-hidden="true"></i>
+          {{ tt('changePassword.signOutHint', "You'll be signed out after changing your password.") }}
+        </p>
+
+        <div class="password-field">
+          <label class="password-field__label" for="cp-old">
+            {{ label('changePassword.oldPasswordLabel') }}<span class="password-field__required" aria-hidden="true">*</span>
+          </label>
+          <el-input id="cp-old" v-model="oldPassword" :placeholder="$t('changePassword.oldPasswordPlaceholder')"
+            type="password" show-password autocomplete="current-password" aria-required="true" />
         </div>
-        <div class="input-46" style="margin-top: 12px;">
-          <el-input :placeholder="$t('changePassword.oldPasswordPlaceholder')" v-model="oldPassword" type="password" show-password />
+
+        <div class="password-field">
+          <label class="password-field__label" for="cp-new">
+            {{ label('changePassword.newPasswordLabel') }}<span class="password-field__required" aria-hidden="true">*</span>
+          </label>
+          <el-input id="cp-new" v-model="newPassword" :placeholder="$t('changePassword.newPasswordPlaceholder')"
+            type="password" show-password autocomplete="new-password" aria-required="true" />
         </div>
-        <div class="form-label" style="margin-top: 12px;">
-          <span class="required">*</span>
-          {{ $t('changePassword.newPasswordLabel') }}
-        </div>
-        <div class="input-46" style="margin-top: 12px;">
-          <el-input :placeholder="$t('changePassword.newPasswordPlaceholder')" v-model="newPassword" type="password" show-password />
-        </div>
-        <div class="form-label" style="margin-top: 12px;">
-          <span class="required">*</span>
-          {{ $t('changePassword.confirmPasswordLabel') }}
-        </div>
-        <div class="input-46" style="margin-top: 12px;">
-          <el-input :placeholder="$t('changePassword.confirmPasswordPlaceholder')" v-model="confirmNewPassword" type="password" show-password />
+
+        <div class="password-field">
+          <label class="password-field__label" for="cp-confirm">
+            {{ label('changePassword.confirmPasswordLabel') }}<span class="password-field__required" aria-hidden="true">*</span>
+          </label>
+          <el-input id="cp-confirm" v-model="confirmNewPassword"
+            :placeholder="$t('changePassword.confirmPasswordPlaceholder')" type="password" show-password
+            autocomplete="new-password" aria-required="true" />
         </div>
       </div>
     </CustomDialog>
@@ -67,6 +77,14 @@ export default {
   },
   methods: {
     ...mapActions(['logout']), // Import Vuex logout action
+    // Translate with an English fallback for strings still pending in src/i18n/_pending
+    tt(key, fallback) {
+      return this.$te(key) ? this.$t(key) : fallback;
+    },
+    // Labels sit above fields, so drop the trailing colon some locales include
+    label(key) {
+      return this.$t(key).replace(/\s*[:：]\s*$/, '');
+    },
     confirm() {
       if (!this.oldPassword.trim() || !this.newPassword.trim() || !this.confirmNewPassword.trim()) {
         this.$message.error(this.$t('changePassword.allFieldsRequired'));
@@ -111,19 +129,45 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-4);
 
-.form-label {
-  text-align: left;
+  &__hint {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--nx-space-2);
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: var(--nx-radius);
+    background: var(--nx-info-soft);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-footnote);
+    line-height: 1.45;
+
+    i {
+      flex: none;
+      margin-top: 1px;
+      color: var(--nx-info);
+    }
+  }
 }
 
-.required {
-  color: red;
-  display: inline-block;
-}
+.password-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 
-.input-46 {
-  background: #f6f8fb;
-  border-radius: 15px;
+  &__label {
+    font-size: var(--nx-text-footnote);
+    font-weight: 500;
+    color: var(--nx-text-2);
+  }
+  &__required {
+    margin-left: 2px;
+    color: var(--nx-danger);
+  }
 }
 </style>

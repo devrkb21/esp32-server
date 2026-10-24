@@ -1,100 +1,122 @@
 <template>
-  <div class="welcome" @keyup.enter="retrievePassword">
-    <el-container style="height: 100%;">
-      <!-- Maintain same header -->
-      <el-header>
-        <div style="display: flex;align-items: center;margin-top: 15px;margin-left: 10px;gap: 10px;">
-          <img loading="lazy" alt="ESP Console" src="@/assets/xiaozhi-logo.png" style="width: 45px;height: 45px;" />
-          <span style="font-size: 22px; font-weight: 700; color: #1a1a2e; letter-spacing: -0.5px;">ESP Console</span>
-        </div>
-      </el-header>
-      <div class="login-person">
-        <img loading="lazy" alt="" src="@/assets/login/register-person.png" style="width: 100%;" />
+  <div class="nx-auth">
+    <aside class="nx-auth__aside">
+      <div class="nx-auth__brand">
+        <img src="@/assets/nobix/mark.svg" alt="" width="36" height="36" />
+        <span>Nobix <span class="nx-auth__brand-product">Console</span></span>
       </div>
-      <el-main style="position: relative;">
-        <form @submit.prevent="retrievePassword">
-          <div class="login-box">
-            <!-- Title section -->
-            <div style="display: flex;align-items: center;gap: 20px;margin-bottom: 39px;padding: 0 30px;">
-              <img loading="lazy" alt="" src="@/assets/login/hi.png" style="width: 34px;height: 34px;" />
-              <div class="login-text">{{ $t('retrievePassword.title') }}</div>
-              <div class="login-welcome">
-                {{ $t('retrievePassword.subtitle') }}
+      <div class="nx-auth__hero">
+        <div class="nx-bot" aria-hidden="true">
+          <span class="nx-bot__antenna"></span>
+          <span class="nx-bot__ear nx-bot__ear--l"></span>
+          <span class="nx-bot__ear nx-bot__ear--r"></span>
+          <span class="nx-bot__head">
+            <span class="nx-bot__visor">
+              <span class="nx-bot__eye nx-bot__eye--l"></span>
+              <span class="nx-bot__eye nx-bot__eye--r"></span>
+              <span class="nx-bot__cheek nx-bot__cheek--l"></span>
+              <span class="nx-bot__cheek nx-bot__cheek--r"></span>
+              <span class="nx-bot__smile"></span>
+            </span>
+          </span>
+        </div>
+        <p class="nx-auth__tagline">{{ tt('auth.tagline', 'Look after your robots, their voices and every conversation, all in one calm place.') }}</p>
+      </div>
+    </aside>
+
+    <main class="nx-auth__main">
+      <div class="nx-auth__topbar">
+        <div class="nx-auth__brand nx-auth__brand--compact">
+          <img src="@/assets/nobix/mark.svg" alt="" width="30" height="30" />
+          <span>Nobix <span class="nx-auth__brand-product">Console</span></span>
+        </div>
+      </div>
+
+      <div class="nx-auth__center">
+        <section class="nx-auth-card" aria-labelledby="reset-title">
+          <h1 id="reset-title" class="nx-auth-card__title">{{ $t('retrievePassword.title') }}</h1>
+          <p class="nx-auth-card__subtitle">{{ tt('auth.resetSubtitle', "We'll text you a code so you can choose a new password.") }}</p>
+
+          <form class="nx-auth-form" novalidate @submit.prevent="retrievePassword">
+            <!-- Mobile -->
+            <div class="nx-field">
+              <label class="nx-field__label" for="reset-mobile">{{ $t('retrievePassword.mobile') }}</label>
+              <div class="nx-field__row">
+                <el-select v-model="form.areaCode" class="nx-auth-area" filterable>
+                  <el-option v-for="item in mobileAreaList" :key="item.key" :label="`${item.name} (${item.key})`"
+                    :value="item.key" />
+                </el-select>
+                <el-input id="reset-mobile" v-model="form.mobile" :placeholder="$t('retrievePassword.mobilePlaceholder')"
+                  autocomplete="tel-national" inputmode="tel" />
               </div>
             </div>
 
-            <div style="padding: 0 30px;">
-              <!-- Phone input -->
-              <div class="input-box">
-                <div style="display: flex; align-items: center; width: 100%;">
-                  <el-select v-model="form.areaCode" style="width: 220px; margin-right: 10px;" filterable>
-                    <el-option v-for="item in mobileAreaList" :key="item.key" :label="`${item.name} (${item.key})`"
-                      :value="item.key" />
-                  </el-select>
-                  <el-input v-model="form.mobile" :placeholder="$t('retrievePassword.mobilePlaceholder')" />
-                </div>
+            <!-- Image captcha -->
+            <div class="nx-field">
+              <label class="nx-field__label" for="reset-captcha">{{ $t('retrievePassword.captcha') }}</label>
+              <div class="nx-field__row">
+                <el-input id="reset-captcha" v-model="form.captcha"
+                  :placeholder="$t('retrievePassword.captchaPlaceholder')" autocomplete="off" />
+                <button v-if="captchaUrl" type="button" class="nx-auth-captcha"
+                  :aria-label="tt('auth.refreshCaptcha', 'Get a new code')"
+                  :title="tt('auth.refreshCaptcha', 'Get a new code')" @click="fetchCaptcha">
+                  <img :src="captchaUrl" alt="Captcha" />
+                </button>
               </div>
+            </div>
 
-              <div style="display: flex; align-items: center; margin-top: 20px; width: 100%; gap: 10px;">
-                <div class="input-box" style="width: calc(100% - 130px); margin-top: 0;">
-                  <img loading="lazy" alt="" class="input-icon" src="@/assets/login/shield.png" />
-                  <el-input v-model="form.captcha" :placeholder="$t('retrievePassword.captchaPlaceholder')" style="flex: 1;" />
-                </div>
-                <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="Captcha"
-                  style="width: 150px; height: 40px; cursor: pointer;" @click="fetchCaptcha" />
-              </div>
-
-              <!-- Mobile verification code -->
-              <div style="display: flex; align-items: center; margin-top: 20px; width: 100%; gap: 10px;">
-                <div class="input-box" style="width: calc(100% - 130px); margin-top: 0;">
-                  <img loading="lazy" alt="" class="input-icon" src="@/assets/login/phone.png" />
-                  <el-input v-model="form.mobileCaptcha" :placeholder="$t('retrievePassword.mobileCaptchaPlaceholder')" style="flex: 1;" maxlength="6" />
-                </div>
-                <el-button type="primary" class="send-captcha-btn" :disabled="!canSendMobileCaptcha"
-                  @click="sendMobileCaptcha">
-                  <span>
-                    {{ countdown > 0 ? `${countdown}${$t('register.secondsLater')}` : $t('retrievePassword.getMobileCaptcha') }}
-                  </span>
+            <!-- SMS code -->
+            <div class="nx-field">
+              <label class="nx-field__label" for="reset-sms">{{ $t('retrievePassword.mobileCaptcha') }}</label>
+              <div class="nx-field__row">
+                <el-input id="reset-sms" v-model="form.mobileCaptcha"
+                  :placeholder="$t('retrievePassword.mobileCaptchaPlaceholder')" maxlength="6" inputmode="numeric"
+                  autocomplete="one-time-code" />
+                <el-button class="nx-auth-send" :disabled="!canSendMobileCaptcha" @click="sendMobileCaptcha">
+                  {{ countdown > 0 ? `${countdown}${$t('register.secondsLater')}` : $t('retrievePassword.getMobileCaptcha') }}
                 </el-button>
               </div>
-
-              <!-- New password -->
-              <div class="input-box">
-                <img loading="lazy" alt="" class="input-icon" src="@/assets/login/password.png" />
-                <el-input v-model="form.newPassword" :placeholder="$t('retrievePassword.newPasswordPlaceholder')" type="password" show-password />
-              </div>
-
-              <!-- Confirm new password -->
-              <div class="input-box">
-                <img loading="lazy" alt="" class="input-icon" src="@/assets/login/password.png" />
-                <el-input v-model="form.confirmPassword" :placeholder="$t('retrievePassword.confirmNewPasswordPlaceholder')" type="password" show-password />
-              </div>
-
-              <!-- Bottom links -->
-              <div style="font-weight: 400;font-size: 14px;text-align: left;color: #5778ff;margin-top: 20px;">
-                <div style="cursor: pointer;" @click="goToLogin">{{ $t('retrievePassword.goToLogin') }}</div>
-              </div>
             </div>
 
-            <!-- Button text -->
-            <div class="login-btn" @click="retrievePassword">{{ $t('retrievePassword.resetButton') }}</div>
-
-            <!-- Agreement declaration -->
-            <div style="font-size: 14px;color: #979db1;">
-              {{ $t('retrievePassword.agreeTo') }}
-              <div style="display: inline-block;color: #5778FF;cursor: pointer;" @click="openPage('/user-agreement.html')">{{ $t('register.userAgreement') }}</div>
-              {{ $t('login.and') }}
-              <div style="display: inline-block;color: #5778FF;cursor: pointer;" @click="openPage('/privacy-policy.html')">{{ $t('register.privacyPolicy') }}</div>
+            <!-- New password -->
+            <div class="nx-field">
+              <label class="nx-field__label" for="reset-password">{{ $t('retrievePassword.newPassword') }}</label>
+              <el-input id="reset-password" v-model="form.newPassword"
+                :placeholder="$t('retrievePassword.newPasswordPlaceholder')" type="password" show-password
+                autocomplete="new-password" />
             </div>
-          </div>
-        </form>
-      </el-main>
 
-      <!-- Footer -->
-      <el-footer>
+            <div class="nx-field">
+              <label class="nx-field__label" for="reset-confirm">{{ $t('retrievePassword.confirmNewPassword') }}</label>
+              <el-input id="reset-confirm" v-model="form.confirmPassword"
+                :placeholder="$t('retrievePassword.confirmNewPasswordPlaceholder')" type="password" show-password
+                autocomplete="new-password" />
+            </div>
+
+            <el-button type="primary" native-type="submit" class="nx-auth-submit">
+              {{ $t('retrievePassword.resetButton') }}
+            </el-button>
+
+            <div class="nx-auth-links nx-auth-links--center">
+              <button type="button" class="nx-link" @click="goToLogin">
+                <i class="el-icon-arrow-left" aria-hidden="true"></i> {{ $t('retrievePassword.goToLogin') }}
+              </button>
+            </div>
+          </form>
+
+          <p class="nx-auth-legal">
+            {{ $t('retrievePassword.agreeTo') }}
+            <button type="button" class="nx-link" @click="openPage('/user-agreement.html')">{{ $t('register.userAgreement') }}</button>
+            {{ $t('login.and') }}
+            <button type="button" class="nx-link" @click="openPage('/privacy-policy.html')">{{ $t('register.privacyPolicy') }}</button>
+          </p>
+        </section>
+      </div>
+
+      <footer class="nx-auth__footer">
         <version-footer />
-      </el-footer>
-    </el-container>
+      </footer>
+    </main>
   </div>
 </template>
 
@@ -123,23 +145,6 @@ export default {
     currentLanguage() {
       return i18n.locale || "en";
     },
-    // Get xiaozhi-ai icon for current language
-    xiaozhiAiIcon() {
-      const currentLang = this.currentLanguage;
-      switch (currentLang) {
-        case "zh_CN":
-        case "zh_TW":
-          return require("@/assets/xiaozhi-ai.png");
-        case "de":
-          return require("@/assets/xiaozhi-ai_de.png");
-        case "vi":
-          return require("@/assets/xiaozhi-ai_vi.png");
-        case "en":
-        case "pt_BR":
-        default:
-          return require("@/assets/xiaozhi-ai_en.png");
-      }
-    },
     canSendMobileCaptcha() {
       return this.countdown === 0 && validateMobile(this.form.mobile, this.form.areaCode);
     }
@@ -164,6 +169,10 @@ export default {
     this.fetchCaptcha();
   },
   methods: {
+    // Translate with an English fallback for strings still pending in src/i18n/_pending
+    tt(key, fallback) {
+      return this.$te(key) ? this.$t(key) : fallback;
+    },
     openPage(url) {
       const lang = this.$i18n ? this.$i18n.locale : 'en';
       if (!lang.startsWith('zh')) {
@@ -180,7 +189,7 @@ export default {
           this.captchaUrl = URL.createObjectURL(blob);
 
         } else {
-          console.error('Failed to load captcha:', error);
+          console.error('Failed to load captcha:', res);
           showDanger(this.$t('register.captchaLoadFailed'));
         }
       });
@@ -300,22 +309,5 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import './auth.scss';
-
-.send-captcha-btn {
-  margin-right: -5px;
-  min-width: 100px;
-  height: 40px;
-  line-height: 40px;
-  border-radius: 4px;
-  font-size: 14px;
-  background: rgb(87, 120, 255);
-  border: none;
-  padding: 0;
-
-  &:disabled {
-    background: #c0c4cc;
-    cursor: not-allowed;
-  }
-}
+@import "./auth.scss";
 </style>
