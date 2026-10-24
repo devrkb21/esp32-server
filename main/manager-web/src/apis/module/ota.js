@@ -1,5 +1,6 @@
 import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
+import store from '../../store/index';
 
 export default {
     // Query OTA firmware info with pagination
@@ -103,6 +104,26 @@ export default {
                     this.uploadFirmware(file, callback);
                 });
             }).send();
+    },
+    // Upload a generated assets.bin; resolves with the download URL the robot can fetch.
+    // Uses fetch so the browser writes the multipart boundary itself (the request layer sends
+    // a JSON content-type header by default).
+    uploadAssetsBin(blob) {
+        const formData = new FormData();
+        formData.append('file', blob, 'assets.bin');
+        const headers = {};
+        try {
+            const token = store.getters.getToken;
+            if (token) headers.Authorization = 'Bearer ' + JSON.parse(token).token;
+        } catch (e) { /* no token: the server answers 401 */ }
+        return fetch(`${getServiceUrl()}/otaMag/uploadAssetsBin`, { method: 'POST', body: formData, headers })
+            .then((res) => res.json())
+            .then((body) => {
+                if (!body || body.code !== 0 || !body.data) {
+                    throw { msg: (body && body.msg) || '', code: body && body.code };
+                }
+                return body.data;
+            });
     },
     // Get firmware download URL
     getDownloadUrl(id, callback) {

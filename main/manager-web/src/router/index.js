@@ -72,6 +72,17 @@ const routes = [
       title: 'Companion'
     }
   },
+  // TinyBot theme: builds assets.bin (wake word, chat font) and installs it online
+  {
+    path: '/theme-generator',
+    name: 'ThemeGenerator',
+    component: function () {
+      return import('../views/ThemeGenerator.vue')
+    },
+    meta: {
+      title: 'TinyBot theme'
+    }
+  },
   // User management route
   {
     path: '/user-management',
