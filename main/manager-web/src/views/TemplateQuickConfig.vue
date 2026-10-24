@@ -1,61 +1,60 @@
 <template>
-  <div class="welcome">
+  <div class="template-config">
     <HeaderBar />
 
-    <div class="operation-bar">
-      <h2 class="page-title">{{ $t('templateQuickConfig.title') }}</h2>
-    </div>
+    <main class="nx-page nx-page--narrow">
+      <button type="button" class="nx-back" @click="goToHome">
+        <i class="el-icon-arrow-left" aria-hidden="true"></i>
+        <span>{{ tx('templateQuickConfig.backToTemplates', 'Templates') }}</span>
+      </button>
 
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <div class="content-area">
-          <el-card class="config-card" shadow="never">
-              <div class="config-header">
-              <!-- Color icon effect identical to role config page -->
-              <div class="header-icon">
-                <img loading="lazy" src="@/assets/home/setting-user.png" alt="">
-              </div>
-              <span class="header-title">{{ form.agentName }}</span>
-              <div class="header-actions">
-                <el-button type="primary" class="save-btn" @click="saveConfig">{{ $t('templateQuickConfig.saveConfig') }}</el-button>
-                <el-button class="reset-btn" @click="resetConfig">{{ $t('templateQuickConfig.resetConfig') }}</el-button>
-                <button class="custom-close-btn" @click="goToHome">
-                  ×
-                </button>
-              </div>
-            </div>
-            <div class="divider"></div>
-
-            <el-form ref="form" :model="form" label-width="72px" class="full-height-form">
-              <!-- Assistant Nickname -->
-              <el-form-item :label="$t('templateQuickConfig.agentSettings.agentName')" prop="agentName" class="nickname-item">
-                <el-input
-                  v-model="form.agentName"
-                  :placeholder="$t('templateQuickConfig.agentSettings.agentNamePlaceholder')"
-                  :validate-event="false"
-                  class="form-input"
-                />
-              </el-form-item>
-              
-              <!-- Role Introduction -->
-              <el-form-item :label="$t('templateQuickConfig.agentSettings.systemPrompt')" prop="systemPrompt" class="description-item">
-                <el-input
-                  v-model="form.systemPrompt"
-                  type="textarea"
-                  :placeholder="$t('templateQuickConfig.agentSettings.systemPromptPlaceholder')"
-                  :validate-event="false"
-                  show-word-limit
-                  maxlength="2000"
-                />
-              </el-form-item>
-            </el-form>
-          </el-card>
+      <header class="nx-page-header tq-header">
+        <div class="nx-page-header__text tq-header__text">
+          <span class="nx-avatar tq-header__avatar" aria-hidden="true">{{ agentInitial }}</span>
+          <div class="tq-header__titles">
+            <h1 class="nx-title nx-truncate" :title="form.agentName">{{ form.agentName || $t('templateQuickConfig.title') }}</h1>
+            <p class="nx-page-header__desc">
+              {{ tx('templateQuickConfig.description', 'The name and personality prompt new agents start with.') }}
+            </p>
+          </div>
         </div>
-      </div>
-    </div>
-    <el-footer>
-      <version-footer />
-    </el-footer>
+        <div class="nx-page-header__actions">
+          <el-button @click="resetConfig">{{ $t('templateQuickConfig.resetConfig') }}</el-button>
+          <el-button type="primary" @click="saveConfig">{{ $t('templateQuickConfig.saveConfig') }}</el-button>
+        </div>
+      </header>
+
+      <section class="nx-card tq-card">
+        <el-form ref="form" :model="form" label-position="top" class="tq-form" @submit.native.prevent>
+          <!-- Assistant Nickname -->
+          <el-form-item :label="$t('templateQuickConfig.agentSettings.agentName')" prop="agentName">
+            <el-input
+              v-model="form.agentName"
+              maxlength="64"
+              :placeholder="$t('templateQuickConfig.agentSettings.agentNamePlaceholder')"
+              :validate-event="false"
+            />
+          </el-form-item>
+
+          <!-- Role Introduction -->
+          <el-form-item :label="$t('templateQuickConfig.agentSettings.systemPrompt')" prop="systemPrompt" class="tq-form__prompt">
+            <el-input
+              v-model="form.systemPrompt"
+              type="textarea"
+              :autosize="{ minRows: 14, maxRows: 30 }"
+              :placeholder="$t('templateQuickConfig.agentSettings.systemPromptPlaceholder')"
+              :validate-event="false"
+              maxlength="2000"
+            />
+            <div class="tq-count nx-num" :class="{ 'is-near': promptLength >= 1800 }" aria-live="polite">
+              {{ promptLength }} / 2000
+            </div>
+          </el-form-item>
+        </el-form>
+      </section>
+    </main>
+
+    <VersionFooter />
   </div>
 </template>
 
@@ -91,7 +90,21 @@ export default {
       originalForm: null
     };
   },
+  computed: {
+    promptLength() {
+      return String(this.form.systemPrompt || '').length;
+    },
+    agentInitial() {
+      const name = String(this.form.agentName || '').trim();
+      return name ? Array.from(name)[0] : '·';
+    }
+  },
   methods: {
+    // Translation with an English fallback for keys still waiting in i18n/_pending
+    tx(key, fallback) {
+      const value = this.$t(key);
+      return value && value !== key ? value : fallback;
+    },
     // Return to template management page
     goToHome() {
       this.$router.push('/agent-template-management');
@@ -262,221 +275,72 @@ export default {
 };
 </script>
 
-<style scoped>
-.welcome {
-  min-width: 900px;
-  height: 100vh;
+<style lang="scss" scoped>
+.template-config {
+  min-height: 100vh;
   display: flex;
-  position: relative;
   flex-direction: column;
-  background: #eff4ff;
-  background-size: cover;
-  -webkit-background-size: cover;
-  -o-background-size: cover;
-  overflow: hidden;
+  background: var(--nx-bg);
+  > .nx-page {
+    flex: 1 0 auto;
+  }
 }
 
-.operation-bar {
-  display: flex;
-  justify-content: space-between;
+.tq-header {
   align-items: center;
-  padding: 16px 24px;
 }
-
-.page-title {
-  font-size: 24px;
-  margin: 0;
-  color: #2c3e50;
-}
-
-.main-wrapper {
-  height: calc(100vh - 63px - 35px - 60px);
-  margin: 0 22px;
-  border-radius: 15px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  position: relative;
-  background: rgba(237, 242, 255, 0.5);
+.tq-header__text {
   display: flex;
-  flex-direction: column;
-  padding: 0 !important;
+  align-items: center;
+  gap: var(--nx-space-4);
 }
-
-.content-panel {
+.tq-header__avatar {
+  width: 48px;
+  height: 48px;
+  font-size: var(--nx-text-headline);
+}
+.tq-header__titles {
   flex: 1;
-  display: flex;
-  overflow: hidden;
-  height: 100%;
-  border-radius: 15px;
-  background: transparent;
-  border: 1px solid #fff;
+  min-width: 0;
 }
 
-.content-area {
-  flex: 1;
-  height: 100%;
-  overflow: auto;
-  background-color: white;
-  display: flex;
-  flex-direction: column;
+.tq-card {
+  padding: var(--nx-space-6);
+}
+.tq-form {
+  ::v-deep .el-form-item__label {
+    padding-bottom: 6px;
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-footnote);
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  ::v-deep .el-textarea__inner {
+    padding: var(--nx-space-3) 14px;
+    line-height: 1.6;
+    resize: vertical;
+  }
+}
+.tq-form__prompt {
+  margin-bottom: 0;
+}
+.tq-count {
+  margin-top: 6px;
+  text-align: right;
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-caption);
+  line-height: 1.4;
+  &.is-near {
+    color: var(--nx-warning);
+  }
 }
 
-.config-card {
-  background: white !important;
-  border-radius: 15px !important;
-  overflow: hidden !important;
-  height: 100% !important;
-  margin: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.full-height-form {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  gap: 20px;
-  height: calc(100% - 120px);
-}
-
-.nickname-item {
-  margin-bottom: 0 !important;
-}
-
-.description-item {
-  margin-bottom: 0 !important;
-  display: flex;
-  flex-direction: column;
-}
-
-::v-deep .description-item .el-textarea {
-  height: 300px;
-  min-height: 200px;
-  max-height: 400px;
-  display: flex;
-  flex-direction: column;
-}
-
-::v-deep .description-item .el-textarea__inner {
-  height: 100% !important;
-  min-height: 200px !important;
-  max-height: 400px !important;
-  resize: vertical !important;
-  line-height: 1.6;
-  font-size: 14px;
-  padding: 10px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  background-color: #fff;
-  color: #303133;
-}
-
-::v-deep .el-form-item__label {
-  font-size: 12px !important;
-  color: #3d4566 !important;
-  font-weight: 400;
-  line-height: 22px;
-  padding-bottom: 2px;
-}
-
-::v-deep .el-textarea .el-input__count {
-  color: #909399;
-  background: rgba(255, 255, 255, 0.8);
-  position: absolute;
-  font-size: 12px;
-  right: 10px;
-  bottom: 10px;
-  padding: 2px 5px;
-  border-radius: 3px;
-}
-
-.config-header {
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  background: #f8f9ff;
-  position: relative;
-}
-
-.header-icon {
-  width: 37px;
-  height: 37px;
-  background: #5778ff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.header-icon img {
-  width: 19px;
-  height: 19px;
-}
-
-.header-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.custom-close-btn {
-  position: absolute;
-  top: 25%;
-  right: 0;
-  transform: translateY(-50%);
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  border: 2px solid #cfcfcf;
-  background: none;
-  font-size: 30px;
-  font-weight: lighter;
-  color: #cfcfcf;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  padding: 0;
-  outline: none;
-}
-
-.custom-close-btn:hover {
-  color: #409EFF;
-  border-color: #409EFF;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.header-actions .save-btn {
-  background: #5778ff;
-  color: white;
-  border: none;
-  border-radius: 18px;
-  padding: 8px 16px;
-  height: 32px;
-  font-size: 14px;
-}
-
-.header-actions .reset-btn {
-  background: #e6ebff;
-  color: #5778ff;
-  border: 1px solid #adbdff;
-  border-radius: 18px;
-  padding: 8px 16px;
-  height: 32px;
-}
-
-.header-actions .custom-close-btn {
-  position: static;
-  transform: none;
-  width: 32px;
-  height: 32px;
-  margin-left: 8px;
+@media (max-width: 640px) {
+  .tq-header__avatar {
+    display: none;
+  }
+  .tq-card {
+    padding: var(--nx-space-5) var(--nx-space-4);
+  }
 }
 </style>

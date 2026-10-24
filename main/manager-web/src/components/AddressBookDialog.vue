@@ -1,20 +1,19 @@
 <template>
-  <el-dialog :title="title" :visible="dialogVisible" width="600px" class="address-book-dialog" @close="handleClose">
-    <el-form ref="addressBookForm" :model="form" :rules="rules" label-width="100px" size="medium">
+  <el-dialog :title="title" :visible="dialogVisible" width="520px" class="address-book-dialog" :append-to-body="true" @close="handleClose">
+    <el-form ref="addressBookForm" :model="form" :rules="rules" label-position="top">
       <el-form-item :label="$t('addressBookDialog.name')" prop="name">
         <el-input v-model="form.name" :placeholder="$t('addressBookDialog.namePlaceholder')" clearable></el-input>
       </el-form-item>
       <el-form-item :label="$t('addressBookDialog.description')" prop="description">
         <el-input v-model="form.description" :placeholder="$t('addressBookDialog.descriptionPlaceholder')"
-          type="textarea" :rows="4" maxlength="300" show-word-limit></el-input>
+          type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" maxlength="300" show-word-limit></el-input>
       </el-form-item>
       <el-form-item :label="$t('addressBookDialog.status')" prop="status">
         <el-switch
           v-model="form.status"
           :active-value="1"
           :inactive-value="0"
-          active-color="#13ce66"
-          inactive-color="#909399"
+          :aria-label="$t('addressBookDialog.status')"
         />
       </el-form-item>
     </el-form>
@@ -116,59 +115,14 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.address-book-dialog {
-  ::v-deep .el-dialog {
-    border-radius: 20px;
-    overflow: hidden;
-  }
+// Look comes from the Nobix Element UI styles; only layout here.
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--nx-space-2);
 
-  ::v-deep .el-dialog__body {
-    padding: 20px 30px;
-  }
-
-  ::v-deep .el-form-item {
-    margin-bottom: 20px;
-  }
-
-  ::v-deep .el-form-item__label {
-    font-weight: 500;
-    color: #34495e;
-    font-size: 14px;
-  }
-
-  ::v-deep .el-input {
-    .el-input__inner {
-      height: 36px;
-      font-size: 14px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      transition: all 0.3s ease;
-
-      &:focus {
-        border-color: #5f70f3;
-        box-shadow: 0 0 0 2px rgba(95, 112, 243, 0.2);
-      }
-    }
-  }
-
-  ::v-deep .el-textarea {
-    .el-textarea__inner {
-      font-size: 14px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      transition: all 0.3s ease;
-
-      &:focus {
-        border-color: #5f70f3;
-        box-shadow: 0 0 0 2px rgba(95, 112, 243, 0.2);
-      }
-    }
-  }
-
-  .dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
+  .el-button + .el-button {
+    margin-left: 0;
   }
 }
 </style>

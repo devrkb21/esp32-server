@@ -1,88 +1,108 @@
 <template>
-  <div class="welcome">
+  <div class="nx-admin">
     <HeaderBar />
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <div class="content-area">
-          <el-card class="params-card" shadow="never">
-            <div class="operation-header">
-              <h2 class="page-title">{{ $t('replacementWordManagement.pageTitle') }}</h2>
-              <div class="right-operations">
-                <el-input
-                  :placeholder="$t('replacementWordManagement.searchPlaceholder')"
-                  v-model="searchKeyword"
-                  class="search-input"
-                  @keyup.enter.native="handleSearch"
-                  clearable
-                />
-                <CustomButton icon="el-icon-search" type="confirm" size="small" @click="handleSearch">
-                  {{ $t('replacementWordManagement.search') }}
-                </CustomButton>
+    <main class="nx-page">
+      <header class="nx-page-header">
+        <div class="nx-page-header__text">
+          <h1 class="nx-title">{{ $t('replacementWordManagement.pageTitle') }}</h1>
+          <p class="nx-page-header__desc">{{ tt('replacementWordManagement.pageDesc', 'Word lists that fix how speech is heard, one original|replacement pair per line.') }}</p>
+        </div>
+        <div class="nx-page-header__actions">
+          <el-input v-model="searchKeyword" class="admin-search" prefix-icon="el-icon-search" clearable
+            :placeholder="$t('replacementWordManagement.searchPlaceholder')"
+            :aria-label="$t('replacementWordManagement.search')" @keyup.enter.native="handleSearch" />
+          <CustomButton type="add" icon="el-icon-plus" @click="handleAdd">
+            {{ $t('replacementWordManagement.addFile') }}
+          </CustomButton>
+        </div>
+      </header>
+
+      <section class="nx-card nx-card--flush table-card">
+        <div class="table-card__toolbar">
+          <el-checkbox :value="allSelected" :indeterminate="selectedCount > 0 && !allSelected"
+            :disabled="!filteredParamsList.length" @change="handleSelectAll">
+            {{ selectedCount ? tt('replacementWordManagement.selectedCount', '{count} selected', { count: selectedCount }) : $t('user.selectAll') }}
+          </el-checkbox>
+          <span class="nx-spacer"></span>
+          <CustomButton size="small" type="delete" icon="el-icon-delete" :disabled="!selectedCount" @click="handleBatchDelete">
+            {{ $t('replacementWordManagement.batchDelete') }}
+          </CustomButton>
+        </div>
+
+        <div v-if="!loading && !filteredParamsList.length" class="nx-empty">
+          <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-document"></i></span>
+          <template v-if="searchKeyword && paramsList.length">
+            <p class="nx-empty__title">{{ tt('replacementWordManagement.emptySearchTitle', 'No files match your search') }}</p>
+            <p class="nx-empty__text">{{ tt('replacementWordManagement.emptySearchText', 'Try another file name or clear the search.') }}</p>
+            <CustomButton class="nx-empty__action" @click="searchKeyword = ''">{{ tt('replacementWordManagement.clearSearch', 'Clear search') }}</CustomButton>
+          </template>
+          <template v-else>
+            <p class="nx-empty__title">{{ tt('replacementWordManagement.emptyTitle', 'No replacement files yet') }}</p>
+            <p class="nx-empty__text">{{ tt('replacementWordManagement.emptyText', 'Add a file to correct names and words the robot often mishears.') }}</p>
+            <CustomButton class="nx-empty__action" type="add" icon="el-icon-plus" @click="handleAdd">
+              {{ $t('replacementWordManagement.addFile') }}
+            </CustomButton>
+          </template>
+        </div>
+
+        <div v-else class="table-card__body" :style="{ '--rows': filteredParamsList.length }">
+          <CustomTable
+            ref="paramsTable"
+            :data="filteredParamsList"
+            :columns="tableColumns"
+            :loading="loading"
+            :show-selection="true"
+            :show-operations="true"
+            :operations-label="$t('replacementWordManagement.operation')"
+            :operations-width="220"
+            :total="total"
+            :current-page="currentPage"
+            :page-size="pageSize"
+            :page-size-options="pageSizeOptions"
+            @size-change="handlePageSizeChange"
+            @page-change="goToPage"
+          >
+            <template slot="selection" slot-scope="scope">
+              <el-checkbox v-model="scope.row.selected" :aria-label="scope.row.fileName"
+                @change="handleCheckboxChange(scope.row)"></el-checkbox>
+            </template>
+            <template slot="fileName" slot-scope="scope">
+              <div class="file-cell">
+                <span class="nx-icon-tile nx-icon-tile--neutral file-cell__icon" aria-hidden="true"><i class="el-icon-document"></i></span>
+                <span class="file-cell__name nx-truncate" :title="scope.row.fileName">{{ scope.row.fileName }}</span>
               </div>
-            </div>
-            <CustomTable
-              ref="paramsTable"
-              :data="filteredParamsList"
-              :columns="tableColumns"
-              :loading="loading"
-              :show-selection="true"
-              :show-operations="true"
-              :operations-label="$t('replacementWordManagement.operation')"
-              :total="total"
-              :current-page="currentPage"
-              :page-size="pageSize"
-              :page-size-options="pageSizeOptions"
-              @size-change="handlePageSizeChange"
-              @page-change="goToPage"
-            >
-              <template slot="content" slot-scope="scope">
-                <el-tooltip placement="right" effect="light" popper-class="replace-word-tooltip">
-                  <div slot="content" class="replace-word-content">
-                    <el-tag
-                      v-for="(item, index) in scope.row.content"
-                      :key="index"
-                      size="mini"
-                      class="custom-tag"
-                    >
-                      {{ item }}
-                    </el-tag>
-                  </div>
-                  <span class="content-text">{{ formatContent(scope.row.content) }}</span>
-                </el-tooltip>
-              </template>
-              <template slot="operations" slot-scope="scope">
-                <el-button size="mini" type="text" @click="handleEdit(scope.row)">
-                  {{ $t('replacementWordManagement.edit') }}
-                </el-button>
-                <el-button size="mini" type="text" @click="handleDownload(scope.row)">
-                  {{ $t('replacementWordManagement.download') }}
-                </el-button>
-                <el-button size="mini" type="text" @click="handleDelete(scope.row)">
+            </template>
+            <template slot="wordCount" slot-scope="scope">
+              <span class="nx-num">{{ scope.row.wordCount || 0 }}</span>
+            </template>
+            <template slot="content" slot-scope="scope">
+              <el-tooltip placement="top-start" effect="light" popper-class="replace-word-tooltip"
+                :disabled="!scope.row.content || !scope.row.content.length">
+                <div slot="content" class="replace-word-content">
+                  <span v-for="(item, index) in scope.row.content" :key="index" class="nx-badge nx-mono replace-word-pair">{{ item }}</span>
+                </div>
+                <span class="content-text nx-truncate nx-mono">{{ formatContent(scope.row.content) || '—' }}</span>
+              </el-tooltip>
+            </template>
+            <template slot="createdAt" slot-scope="scope">
+              <span class="nx-num nx-muted">{{ scope.row.createdAt || '—' }}</span>
+            </template>
+            <template slot="updatedAt" slot-scope="scope">
+              <span class="nx-num nx-muted">{{ scope.row.updatedAt || '—' }}</span>
+            </template>
+            <template slot="operations" slot-scope="scope">
+              <div class="row-actions">
+                <el-button size="mini" type="text" @click="handleEdit(scope.row)">{{ $t('replacementWordManagement.edit') }}</el-button>
+                <el-button size="mini" type="text" @click="handleDownload(scope.row)">{{ $t('replacementWordManagement.download') }}</el-button>
+                <el-button size="mini" type="text" class="row-action--danger" @click="handleDelete(scope.row)">
                   {{ $t('replacementWordManagement.delete') }}
                 </el-button>
-              </template>
-              <template slot="footer-btns">
-                <div class="ctrl_btn">
-                  <CustomButton
-                    :icon="allSelected ? 'el-icon-circle-close' : 'el-icon-circle-check'"
-                    size="small"
-                    @click="handleSelectAll"
-                  >
-                    {{ allSelected ? $t('user.deselectAll') : $t('user.selectAll') }}
-                  </CustomButton>
-                  <CustomButton type="add" icon="el-icon-plus" size="small" @click="handleAdd">
-                    {{ $t('replacementWordManagement.addFile') }}
-                  </CustomButton>
-                  <CustomButton size="small" type="delete" icon="el-icon-delete" @click="handleBatchDelete">
-                    {{ $t('replacementWordManagement.batchDelete') }}
-                  </CustomButton>
-                </div>
-              </template>
-            </CustomTable>
-          </el-card>
+              </div>
+            </template>
+          </CustomTable>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
 
     <ReplacementWordDialog
       ref="paramDialog"
@@ -92,7 +112,7 @@
       @submit="handleSubmit"
       @cancel="dialogVisible = false"
     />
-    <el-footer><VersionFooter/></el-footer>
+    <VersionFooter />
   </div>
 </template>
 
@@ -137,6 +157,10 @@ export default {
       return this.selectedRows.size > 0;
     },
 
+    selectedCount() {
+      return this.filteredParamsList.filter(row => row.selected).length;
+    },
+
     allSelected() {
       if (this.filteredParamsList.length === 0) {
         return false;
@@ -152,41 +176,26 @@ export default {
     this.dialogTitle = this.$t('replacementWordManagement.addFile');
   },
   methods: {
+    // $t with an English fallback for keys that are still pending in src/i18n/_pending/web-system.js
+    tt(key, fallback, params) {
+      if (this.$te(key) || this.$te(key, 'en')) return this.$t(key, params);
+      return String(fallback).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] != null ? params[k] : m));
+    },
+
     initTableColumns() {
       this.tableColumns = [
-        {
-          prop: 'fileName',
-          label: this.$t('replacementWordManagement.fileName'),
-          align: 'center'
-        },
-        {
-          prop: 'wordCount',
-          label: this.$t('replacementWordManagement.replacementWordCount'),
-          align: 'center'
-        },
-        {
-          prop: 'content',
-          label: this.$t('replacementWordManagement.replacementWordContent'),
-          align: 'center',
-          slot: 'content'
-        },
-        {
-          prop: 'createdAt',
-          label: this.$t('replacementWordManagement.createTime'),
-          align: 'center'
-        },
-        {
-          prop: 'updatedAt',
-          label: this.$t('replacementWordManagement.updateTime'),
-          align: 'center'
-        }
+        { prop: 'fileName', label: this.$t('replacementWordManagement.fileName'), align: 'left', minWidth: 200, showOverflowTooltip: false },
+        { prop: 'wordCount', label: this.$t('replacementWordManagement.replacementWordCount'), align: 'right', width: 120 },
+        { prop: 'content', label: this.$t('replacementWordManagement.replacementWordContent'), align: 'left', minWidth: 220, slot: 'content', showOverflowTooltip: false },
+        { prop: 'updatedAt', label: this.$t('replacementWordManagement.updateTime'), align: 'left', minWidth: 170 },
+        { prop: 'createdAt', label: this.$t('replacementWordManagement.createTime'), align: 'left', minWidth: 170 }
       ];
     },
 
     formatContent(content) {
       if (!content) return '';
       if (Array.isArray(content)) {
-        return content.join(',');
+        return content.join(', ');
       }
       return content;
     },
@@ -245,8 +254,10 @@ export default {
         this.$t('replacementWordManagement.confirmBatchDelete', { count: ids.length }),
         this.$t('replacementWordManagement.batchDeleteHint'),
         {
-          confirmButtonText: this.$t('common.confirm'),
-          cancelButtonText: this.$t('common.cancel')
+          confirmButtonText: this.$t('replacementWordManagement.delete'),
+          cancelButtonText: this.$t('common.cancel'),
+          confirmButtonClass: 'el-button--danger',
+          type: 'warning'
         }
       ).then(() => {
         Api.correctWord.batchDeleteFile(ids, ({ data }) => {
@@ -326,8 +337,10 @@ export default {
         this.$t('replacementWordManagement.confirmDelete'),
         this.$t('replacementWordManagement.deleteHint'),
         {
-          confirmButtonText: this.$t('common.confirm'),
-          cancelButtonText: this.$t('common.cancel')
+          confirmButtonText: this.$t('replacementWordManagement.delete'),
+          cancelButtonText: this.$t('common.cancel'),
+          confirmButtonClass: 'el-button--danger',
+          type: 'warning'
         }
       ).then(() => {
         Api.correctWord.deleteFile(row.id, ({ data }) => {
@@ -378,135 +391,123 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.welcome {
-  min-width: 900px;
-  min-height: 506px;
-  height: 100vh;
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  background-size: cover;
-  background: #eff4ff;
-  -webkit-background-size: cover;
-  -o-background-size: cover;
-  overflow: hidden;
-}
-
-.main-wrapper {
-  height: calc(100vh - 63px - 35px);
-  padding: 20px 22px 0;
-  position: relative;
+// Admin page family: page header + one table card (shared look across the "More" pages)
+.nx-admin {
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100vh;
+  > .nx-page {
+    flex: 1 0 auto;
+  }
+}
+.admin-search {
+  width: 260px;
+  max-width: 100%;
+}
+.table-card {
+  display: flex;
+  flex-direction: column;
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--nx-space-2);
+    min-height: 56px;
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-bottom: 1px solid var(--nx-border);
+    ::v-deep .el-checkbox__label {
+      font-size: var(--nx-text-footnote);
+      color: var(--nx-text-2);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+  // Height follows the row count, capped to the viewport; the table body scrolls inside
+  &__body {
+    height: clamp(280px, calc(var(--rows, 0) * 61px + 100px), max(440px, calc(100vh - 300px)));
+    ::v-deep .custom-table-wrapper {
+      height: 100%;
+    }
+    ::v-deep .table-container {
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    ::v-deep .table-footer {
+      height: 48px;
+      padding: 0 var(--nx-space-5);
+      border-top: 1px solid var(--nx-border);
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    ::v-deep th.el-table__cell:last-child .cell,
+    ::v-deep td.el-table__cell:last-child .cell {
+      text-align: right;
+    }
+  }
+}
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 2px;
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+}
+.row-action--danger.el-button--text {
+  color: var(--nx-danger);
+  &:hover,
+  &:focus {
+    color: var(--nx-danger);
+    background: var(--nx-danger-soft);
+  }
 }
 
-.operation-header {
+.file-cell {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 0 16px 0;
-}
-
-.page-title {
-  font-weight: 500;
-  font-size: 24px;
-  margin: 0;
-}
-
-.right-operations {
-  display: flex;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.search-input {
-  width: 240px;
-}
-
-.content-panel {
-  display: flex;
-  overflow: hidden;
-  height: 100%;
-  border-radius: 15px;
-  background: transparent;
-  border: 1px solid #fff;
-}
-
-.content-area {
-  flex: 1;
-  height: 100%;
-  min-width: 600px;
-  overflow: auto;
-  background-color: white;
-  display: flex;
-  flex-direction: column;
-}
-
-.params-card {
-  background: white;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  box-shadow: none;
-  overflow: hidden;
-
-  ::v-deep .el-card__body {
-    padding: 14px 20px;
-    display: flex;
-    flex-direction: column;
+  gap: var(--nx-space-3);
+  min-width: 0;
+  &__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--nx-radius-sm);
+    font-size: var(--nx-text-callout);
+  }
+  &__name {
     flex: 1;
-    overflow: hidden;
+    font-weight: 600;
+    color: var(--nx-text);
   }
 }
-
-.ctrl_btn {
-  display: flex;
-}
-
-:deep(.el-table .el-button--text) {
-  color: #7079aa;
-}
-
-:deep(.el-table .el-button--text:hover) {
-  color: #5a64b5;
-}
-
-:deep(.el-table .cell) {
-  .content-text {
-    display: block;
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.custom-tag {
-  background: #e6ebff;
-  color: #5778ff;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: normal;
-  border: none;
+.content-text {
+  display: block;
+  max-width: 100%;
+  color: var(--nx-text-2);
 }
 </style>
 
-<style>
-.replace-word-tooltip {
-  .popper__arrow {
-    border-top-color: transparent !important;
-    border-right-color: #e4e7ed !important;
-  }
+<style lang="scss">
+// Tooltip is appended to <body>, so this block is not scoped
+.replace-word-tooltip.el-tooltip__popper.is-light {
+  padding: var(--nx-space-3);
 }
 .replace-word-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nx-space-1);
   max-width: 400px;
   max-height: 60vh;
   overflow-y: auto;
-  scrollbar-width: thin;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  .replace-word-pair {
+    height: auto;
+    padding: 4px 8px;
+    border-radius: var(--nx-radius-sm);
+    font-weight: 500;
+    color: var(--nx-text);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 </style>

@@ -1,6 +1,7 @@
 <template>
-  <el-dialog :visible.sync="dialogVisible" width="900px" @close="handleClose" class="compact-dialog" :append-to-body="true">
-    <el-form :model="voiceForm" :rules="rules" ref="voiceForm" label-width="auto">
+  <el-dialog :visible.sync="dialogVisible" width="640px" :title="voiceForm.voiceName || $t('editVoiceDialog.voiceName')"
+    @close="handleClose" class="compact-dialog" :append-to-body="true">
+    <el-form :model="voiceForm" :rules="rules" ref="voiceForm" label-position="top">
       <el-row :gutter="20">
         <el-col :span="12">
           <el-form-item :label="$t('editVoiceDialog.voiceCode')" prop="voiceCode">
@@ -27,7 +28,7 @@
       </el-row>
 
       <el-form-item :label="$t('editVoiceDialog.remark')" prop="remark">
-        <el-input v-model="voiceForm.remark" type="textarea" :rows="2" :placeholder="$t('editVoiceDialog.remarkPlaceholder')" class="compact-textarea"
+        <el-input v-model="voiceForm.remark" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" :placeholder="$t('editVoiceDialog.remarkPlaceholder')" class="compact-textarea"
         ></el-input>
         <div class="audio-controls">
            <div class="audio-player">
@@ -38,14 +39,14 @@
         class="custom-audio"
       ></audio>
     </div>
-          <el-button type="primary" size="mini" class="preview-btn">{{ $t('editVoiceDialog.generatePreview') }}</el-button>
+          <el-button size="small" icon="el-icon-video-play" class="preview-btn">{{ $t('editVoiceDialog.generatePreview') }}</el-button>
         </div>
       </el-form-item>
     </el-form>
 
     <div slot="footer" class="dialog-footer">
-      <el-button type="primary" @click="handleSave">{{ $t('button.save') }}</el-button>
       <el-button @click="handleClose">{{ $t('button.close') }}</el-button>
+      <el-button type="primary" @click="handleSave">{{ $t('button.save') }}</el-button>
     </div>
   </el-dialog>
 </template>
@@ -97,53 +98,50 @@ export default {
 }
 </script>
 
-<style scoped>
-.compact-dialog {
-  /deep/ .el-dialog__body {
-    padding: 20px;
-  }
+<style lang="scss" scoped>
+// Look comes from the Nobix Element UI styles; only layout here.
+.compact-input,
+.compact-number,
+.compact-textarea {
+  width: 100%;
+}
 
-  .el-form-item {
-    margin-bottom: 16px;
-  }
+.audio-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--nx-space-3);
+  width: 100%;
+  margin-top: var(--nx-space-3);
+  padding: var(--nx-space-3);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+}
 
-  .compact-input {
+.audio-player {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.custom-audio {
+  display: block;
+  width: 100%;
+  height: var(--nx-control-h);
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--nx-space-2);
+
+  .el-button + .el-button {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  ::v-deep .el-col-12 {
     width: 100%;
-  }
-
-  .compact-number {
-    width: 100%;
-    /deep/ .el-input__inner {
-      padding-right: 10px;
-    }
-  }
-
-  .compact-textarea {
-    width: 100%;
-    margin-bottom: 8px;
-  }
-
-  .audio-controls {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 16px;
-    margin-top: 8px;
-
-
-    .preview-btn {
-      padding: 7px 15px;
-    }
-  }
-
-  .dialog-footer {
-    padding: 16px 20px 0;
-    text-align: right;
-    border-top: 1px solid #EBEEF5;
-
-    .el-button {
-      min-width: 80px;
-    }
   }
 }
 </style>

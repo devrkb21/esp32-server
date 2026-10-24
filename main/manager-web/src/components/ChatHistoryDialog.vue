@@ -2,85 +2,117 @@
     <CustomDialog
         :title="$t('chatHistory.with') + agentName + $t('chatHistory.dialogTitle')"
         :visible.sync="dialogVisible"
-        width="80%"
-        size="large"
+        width="960px"
         :footer="false"
         :close-on-click-modal="false"
         custom-class="chat-history-dialog">
         <template v-slot:title>
-            <span style="font-size: 18px;">
-                {{ $t('chatHistory.with') + agentName + $t('chatHistory.dialogTitle') }}
-                <template v-if="currentMacAddress">
-                    [<MacAddressMask :macAddress="currentMacAddress" />]
-                </template>
-            </span>
-        </template>
-        <div class="chat-container">
-            <div class="session-list" @scroll="handleScroll">
-                <div v-for="session in sessions" :key="session.sessionId" class="session-item"
-                    :class="{ active: currentSessionId === session.sessionId }" @click="selectSession(session)">
-                    <img :src="getUserAvatar(session.sessionId)" class="avatar" />
-                    <div class="session-info">
-                        <div class="session-time">{{ session.title || formatTime(session.createdAt) }}</div>
-                        <div class="message-count">{{ session.chatCount > 99 ? '99' : session.chatCount }}</div>
-                    </div>
-                </div>
-                <div v-if="loading" class="loading">{{ $t('chatHistory.loading') }}</div>
-                <div v-if="!hasMore" class="no-more">{{ $t('chatHistory.noMoreRecords') }}</div>
+            <div class="ch-title">
+                <span class="ch-title__text nx-truncate" :title="$t('chatHistory.with') + agentName + $t('chatHistory.dialogTitle')">
+                    {{ $t('chatHistory.with') + agentName + $t('chatHistory.dialogTitle') }}
+                </span>
+                <span v-if="currentMacAddress" class="nx-badge ch-title__mac nx-mono">
+                    <MacAddressMask :macAddress="currentMacAddress" />
+                </span>
             </div>
-            <div class="chat-content">
-                <div v-if="currentSessionId" class="messages">
-                    <div v-for="(message, index) in messagesWithTime" :key="message.id">
-                        <div v-if="message.type === 'time'" class="time-divider">
-                            {{ message.content }}
+        </template>
+
+        <div class="ch">
+            <!-- Sessions -->
+            <aside class="ch-sessions">
+                <div class="ch-sessions__head">{{ tt('chatHistory.sessions', 'Conversations') }}</div>
+                <div class="ch-sessions__list" role="listbox" :aria-label="tt('chatHistory.sessions', 'Conversations')"
+                    @scroll="handleScroll">
+                    <button v-for="session in sessions" :key="session.sessionId" type="button" class="ch-session"
+                        role="option" :aria-selected="String(currentSessionId === session.sessionId)"
+                        :class="{ 'is-active': currentSessionId === session.sessionId }" @click="selectSession(session)">
+                        <span class="ch-session__avatar" :class="'is-' + sessionTone(session.sessionId)" aria-hidden="true">
+                            <i class="el-icon-user"></i>
+                        </span>
+                        <span class="ch-session__time nx-truncate" :title="session.title || formatTime(session.createdAt)">
+                            {{ session.title || formatTime(session.createdAt) }}
+                        </span>
+                        <span class="ch-session__count nx-num">{{ session.chatCount > 99 ? '99+' : session.chatCount }}</span>
+                    </button>
+
+                    <template v-if="loading && sessions.length === 0">
+                        <div v-for="i in 5" :key="'sk-' + i" class="ch-session ch-session--skeleton" aria-hidden="true">
+                            <span class="nx-skeleton ch-session__avatar"></span>
+                            <span class="nx-skeleton" style="flex: 1"></span>
                         </div>
-                        <div v-else class="message-item" :class="{ 'user-message': message.chatType === 1, 'tool-message': message.chatType === 3 }">
-                            <img :src="message.chatType === 1 ? getUserAvatar(currentSessionId) : require('@/assets/xiaozhi-logo.png')"
-                                class="avatar" />
-                            <div class="message-content">
-                                <template v-if="Array.isArray(extractContentFromString(message.content))">
-                                    <div class="content-wrapper">
+                    </template>
+                    <div v-else-if="loading" class="ch-sessions__note">{{ $t('chatHistory.loading') }}</div>
+                    <div v-else-if="!hasMore && sessions.length > 0" class="ch-sessions__note">{{ $t('chatHistory.noMoreRecords') }}</div>
+                </div>
+            </aside>
+
+            <!-- Conversation -->
+            <section class="ch-thread">
+                <div v-if="currentSessionId" class="ch-messages">
+                    <template v-for="(message, index) in messagesWithTime">
+                        <div v-if="message.type === 'time'" :key="message.id" class="ch-time">
+                            <span>{{ message.content }}</span>
+                        </div>
+                        <div v-else :key="message.id" class="ch-msg"
+                            :class="{ 'ch-msg--user': message.chatType === 1, 'ch-msg--tool': message.chatType === 3 }">
+                            <span v-if="message.chatType !== 1" class="ch-msg__avatar" aria-hidden="true">
+                                <img src="@/assets/nobix/mark.svg" alt="" width="28" height="28" />
+                            </span>
+                            <div class="ch-bubble">
+                                <div class="ch-bubble__body">
+                                    <template v-if="Array.isArray(extractContentFromString(message.content))">
                                         <div v-for="(item, idx) in extractContentFromString(message.content)" :key="idx">
-                                            <div v-if="item.type === 'text'" class="text-content">{{ item.text }}</div>
-                                            <div v-else-if="item.type === 'tool'" class="tool-call-text">{{ item.text }}</div>
-                                            <div v-else-if="item.type === 'tool_result'" class="tool-call-text">
-                                                <div v-if="item.text && item.text.length > 80" class="tool-result-wrapper">
-                                                    <div v-if="isToolResultCollapsed(index, idx)" class="tool-result-collapsed">
+                                            <div v-if="item.type === 'text'" class="ch-text">{{ item.text }}</div>
+                                            <div v-else-if="item.type === 'tool'" class="ch-tool">{{ item.text }}</div>
+                                            <div v-else-if="item.type === 'tool_result'" class="ch-tool">
+                                                <div v-if="item.text && item.text.length > 80" class="ch-tool__result">
+                                                    <div v-if="isToolResultCollapsed(index, idx)" class="ch-tool__collapsed">
                                                         {{ getFirstLineText(item.text) }}
                                                     </div>
-                                                    <div v-else class="tool-result-expanded">
-                                                        {{ item.text }}
-                                                    </div>
-                                                    <span class="tool-toggle-btn" @click="toggleToolResult(index, idx)">
-                                                        <i :class="isToolResultCollapsed(index, idx) ? 'el-icon-arrow-down' : 'el-icon-arrow-up'"></i>
-                                                    </span>
+                                                    <div v-else class="ch-tool__expanded">{{ item.text }}</div>
+                                                    <button type="button" class="ch-tool__toggle"
+                                                        :aria-expanded="String(!isToolResultCollapsed(index, idx))"
+                                                        @click="toggleToolResult(index, idx)">
+                                                        <i :class="isToolResultCollapsed(index, idx) ? 'el-icon-arrow-down' : 'el-icon-arrow-up'"
+                                                            aria-hidden="true"></i>
+                                                    </button>
                                                 </div>
                                                 <div v-else>{{ item.text }}</div>
                                             </div>
                                         </div>
-                                    </div>
-                                </template>
-                                <template v-else>
-                                    {{ extractContentFromString(message.content) }}
-                                </template>
-                                <i v-if="message.audioId" :class="getAudioIconClass(message)"
-                                    @click="playAudio(message)" class="audio-icon"></i>
+                                    </template>
+                                    <div v-else class="ch-text">{{ extractContentFromString(message.content) }}</div>
+                                </div>
+                                <button v-if="message.audioId" type="button" class="ch-audio"
+                                    :class="{ 'is-playing': playingAudioId === message.audioId }"
+                                    :aria-label="playingAudioId === message.audioId ? tt('chatHistory.stopAudio', 'Stop recording') : tt('chatHistory.playAudio', 'Play recording')"
+                                    @click="playAudio(message)">
+                                    <i :class="getAudioIconClass(message)" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
-                    </div>
+                    </template>
                 </div>
-                <div v-else class="no-session-selected">
-                    {{ $t('chatHistory.selectSession') }}
+
+                <div v-else-if="!loading && sessions.length === 0" class="nx-empty ch-empty">
+                    <span class="nx-icon-tile nx-icon-tile--lg"><i class="el-icon-chat-line-round"></i></span>
+                    <h3 class="nx-empty__title">{{ tt('chatHistory.emptyTitle', 'No conversations yet') }}</h3>
+                    <p class="nx-empty__text">
+                        {{ tt('chatHistory.emptyText', 'Conversations appear here after someone talks to this agent.') }}
+                    </p>
                 </div>
-            </div>
-        </div>
-        <div v-if="currentSessionId" class="download-buttons">
-            <el-button type="primary" plain size="small" @click="downloadCurrentSessionWithPrevious">
-                {{ $t('chatHistory.downloadCurrentWithPreviousSessions') }}
-            </el-button>
-            <el-button type="primary" plain size="small" @click="downloadCurrentSession">
-                {{ $t('chatHistory.downloadCurrentSession') }}
-            </el-button>
+
+                <div v-else class="ch-placeholder">{{ $t('chatHistory.selectSession') }}</div>
+
+                <footer v-if="currentSessionId" class="ch-downloads">
+                    <el-button size="small" icon="el-icon-download" @click="downloadCurrentSessionWithPrevious">
+                        {{ $t('chatHistory.downloadCurrentWithPreviousSessions') }}
+                    </el-button>
+                    <el-button size="small" icon="el-icon-download" @click="downloadCurrentSession">
+                        {{ $t('chatHistory.downloadCurrentSession') }}
+                    </el-button>
+                </footer>
+            </section>
         </div>
     </CustomDialog>
 </template>
@@ -369,19 +401,17 @@ export default {
                 }
             });
         }, 300),
-        getUserAvatar(sessionId) {
-            // Extract all digits from sessionId
-            const numbers = sessionId.match(/\d+/g);
-            if (!numbers) return require('@/assets/user-avatar1.png');
-
-            // Sum all digits
+        // Stable soft colour per session (same digit-sum rule the old avatars used)
+        sessionTone(sessionId) {
+            const tones = ['accent', 'info', 'success', 'warning', 'neutral'];
+            const numbers = String(sessionId || '').match(/\d+/g);
+            if (!numbers) return tones[0];
             const sum = numbers.reduce((acc, num) => acc + parseInt(num), 0);
-
-            // Compute mod 5 plus 1 to get number between 1-5
-            const avatarIndex = (sum % 5) + 1;
-
-            // Return corresponding avatar image
-            return require(`@/assets/user-avatar${avatarIndex}.png`);
+            return tones[sum % tones.length];
+        },
+        // Translate with an English fallback for strings still pending in src/i18n/_pending
+        tt(key, fallback) {
+            return this.$te(key) ? this.$t(key) : fallback;
         },
 
         // Download this session chat history
@@ -411,229 +441,385 @@ export default {
 };
 </script>
 
-<style scoped>
-.chat-container {
+<style lang="scss" scoped>
+// ------------------------------------------------------------------ title
+
+.ch-title {
     display: flex;
-    flex: 1;
+    align-items: center;
+    gap: var(--nx-space-2);
+    min-width: 0;
+    padding-right: 40px;
+
+    &__text {
+        font-size: var(--nx-text-headline);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--nx-text);
+    }
+    &__mac {
+        flex: none;
+        font-weight: 500;
+    }
+}
+
+// ------------------------------------------------------------------ layout
+
+.ch {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+    border-top: 1px solid var(--nx-border);
+}
+
+// ------------------------------------------------------------------ sessions
+
+.ch-sessions {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--nx-border);
+    background: var(--nx-bg);
+
+    &__head {
+        padding: var(--nx-space-3) var(--nx-space-4) var(--nx-space-2);
+        font-size: var(--nx-text-caption);
+        font-weight: 500;
+        letter-spacing: 0.01em;
+        color: var(--nx-text-3);
+    }
+    &__list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 0 var(--nx-space-2) var(--nx-space-3);
+    }
+    &__note {
+        padding: var(--nx-space-3) var(--nx-space-2) var(--nx-space-4);
+        text-align: center;
+        font-size: var(--nx-text-caption);
+        color: var(--nx-text-3);
+    }
+}
+
+.ch-session {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    width: 100%;
+    min-height: 52px;
+    margin-bottom: 2px;
+    padding: 0 var(--nx-space-3) 0 var(--nx-space-2);
+    border: 0;
+    border-radius: var(--nx-radius);
+    background: transparent;
+    color: var(--nx-text);
+    font: inherit;
+    font-size: var(--nx-text-callout);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--nx-dur-1) var(--nx-ease);
+
+    &:hover {
+        background: var(--nx-surface-2);
+    }
+    &.is-active {
+        background: var(--nx-surface);
+        box-shadow: var(--nx-shadow-1);
+        font-weight: 600;
+    }
+    &--skeleton {
+        cursor: default;
+        &:hover {
+            background: transparent;
+        }
+    }
+
+    &__avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--nx-surface-2);
+        color: var(--nx-text-2);
+
+        &.is-accent {
+            background: var(--nx-accent-soft);
+            color: var(--nx-accent);
+        }
+        &.is-info {
+            background: var(--nx-info-soft);
+            color: var(--nx-info);
+        }
+        &.is-success {
+            background: var(--nx-success-soft);
+            color: var(--nx-success);
+        }
+        &.is-warning {
+            background: var(--nx-warning-soft);
+            color: var(--nx-warning);
+        }
+        &.is-neutral {
+            background: var(--nx-surface-3);
+            color: var(--nx-text-2);
+        }
+    }
+    &__time {
+        flex: 1 1 auto;
+    }
+    &__count {
+        flex: none;
+        min-width: 24px;
+        height: 20px;
+        padding: 0 6px;
+        border-radius: var(--nx-radius-pill);
+        background: var(--nx-surface-3);
+        color: var(--nx-text-2);
+        font-size: var(--nx-text-caption);
+        font-weight: 600;
+        line-height: 20px;
+        text-align: center;
+    }
+}
+
+// ------------------------------------------------------------------ thread
+
+.ch-thread {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     min-height: 0;
 }
 
-.session-list {
-    width: 250px;
-    border-right: 1px solid #eee;
+.ch-messages {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    padding: 10px;
+    padding: var(--nx-space-5) var(--nx-space-6);
 }
 
-.session-item {
+.ch-time {
     display: flex;
     align-items: center;
-    padding: 10px;
-    cursor: pointer;
-    border-radius: 8px;
-    margin-bottom: 10px;
-}
-
-.session-item:hover {
-    background-color: #f5f5f5;
-}
-
-.session-item.active {
-    background-color: #e6f7ff;
-}
-
-.avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    margin-right: 10px;
-}
-
-.session-info {
-    width: calc(100% - 50px);
-}
-
-.session-time {
-    font-size: 14px;
-    color: #272727;
-    float: left;
-    height: 30px;
-    line-height: 30px;
-    width: calc(100% - 30px);
-    /* Leave space for message count */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.message-count {
-    font-size: 14px;
-    color: #fff;
-    background-color: #b4b4b4;
-    border-radius: 20px;
-    float: left;
-    width: 20px;
-    height: 20px;
-    line-height: 20px;
-    margin-top: 5px;
-    margin-left: 5px;
-}
-
-.chat-content {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-}
-
-.message-item {
-    display: flex;
-    margin-bottom: 20px;
-}
-
-.message-item.user-message {
-    flex-direction: row-reverse;
-}
-
-.message-content {
-    max-width: 60%;
-    padding: 10px 15px;
-    border-radius: 8px;
-    background-color: #f0f0f0;
-    margin: 0 10px;
-    text-align: left;
-    line-height: 20px;
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.audio-icon {
-    font-size: 20px;
-    cursor: pointer;
-    margin: 0 5px;
-    color: #1890ff;
-}
-
-.user-message .message-content {
-    background-color: #1890ff;
-    color: white;
-    flex-direction: row-reverse;
-}
-
-.user-message .audio-icon {
-    color: white;
-}
-
-.content-wrapper {
-    width: 100%;
-}
-
-.text-content {
-    display: block;
-    margin-bottom: 4px;
-}
-
-.tool-call-text {
-    color: #1890ff;
-    font-family: 'Courier New', monospace;
+    gap: var(--nx-space-3);
+    margin: var(--nx-space-2) 0 var(--nx-space-4);
+    font-size: var(--nx-text-caption);
     font-weight: 500;
-    font-size: 12px;
-    display: block;
+    color: var(--nx-text-3);
+    font-variant-numeric: tabular-nums;
+
+    &::before,
+    &::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--nx-border);
+    }
+}
+
+.ch-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--nx-space-2);
+    margin-bottom: var(--nx-space-3);
+
+    &__avatar {
+        flex: none;
+        width: 28px;
+        height: 28px;
+        img {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    &--user {
+        justify-content: flex-end;
+    }
+}
+
+.ch-bubble {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    max-width: min(78%, 560px);
+    min-width: 0;
+    padding: 10px 14px;
+    border-radius: 18px 18px 18px 6px;
+    background: var(--nx-surface-2);
+    color: var(--nx-text);
+    font-size: var(--nx-text-body);
+    line-height: 1.47;
+    text-align: left;
+
+    &__body {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .ch-msg--user & {
+        border-radius: 18px 18px 6px 18px;
+        background: var(--nx-accent-soft);
+    }
+    .ch-msg--tool & {
+        padding: 8px 12px;
+        border: 1px solid var(--nx-border);
+        background: transparent;
+        font-size: var(--nx-text-footnote);
+        color: var(--nx-text-2);
+    }
+}
+
+.ch-text,
+.ch-tool__expanded {
+    white-space: pre-wrap;
+}
+
+.ch-text + .ch-text,
+.ch-text + .ch-tool,
+.ch-tool + .ch-text {
     margin-top: 4px;
 }
 
-.user-message .tool-call-text {
-    color: #e6f7ff;
+.ch-tool {
+    font-family: var(--nx-font-mono);
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-2);
+
+    &__result {
+        position: relative;
+        padding-right: 28px;
+    }
+    &__collapsed {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+    &__toggle {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border: 0;
+        border-radius: var(--nx-radius-sm);
+        background: transparent;
+        color: var(--nx-accent);
+        cursor: pointer;
+        &:hover {
+            background: var(--nx-accent-soft);
+        }
+    }
 }
 
-.tool-message .message-content {
-    background-color: #f0f0f0;
-}
-
-.tool-result-wrapper {
-    position: relative;
-    padding-right: 20px;
-}
-
-.tool-result-collapsed {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tool-toggle-btn {
-    position: absolute;
-    right: 0;
-    top: 0;
-    cursor: pointer;
-    color: #1890ff;
-    font-size: 12px;
-}
-
-.tool-toggle-btn:hover {
-    color: #40a9ff;
-}
-
-.loading,
-.no-more {
-    text-align: center;
-    padding: 10px 10px 30px 10px;
-    color: #999;
-}
-
-.no-session-selected {
-    display: flex;
-    justify-content: center;
+// Play button sits at the trailing edge of every bubble, centred vertically
+.ch-audio {
+    flex: none;
+    align-self: center;
+    display: inline-flex;
     align-items: center;
-    height: 100%;
-    color: #999;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-right: -4px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--nx-surface);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    cursor: pointer;
+    box-shadow: var(--nx-shadow-1);
+    transition: transform var(--nx-dur-1) var(--nx-ease), background-color var(--nx-dur-1) var(--nx-ease);
+
+    &:hover {
+        background: var(--nx-accent);
+        color: var(--nx-on-accent);
+    }
+    &:active {
+        transform: scale(0.94);
+    }
+    &.is-playing {
+        background: var(--nx-accent);
+        color: var(--nx-on-accent);
+    }
 }
 
-.time-divider {
-    text-align: center;
-    margin: 10px 0;
-    color: #999;
-    font-size: 12px;
-}
-
-.time-divider::before,
-.time-divider::after {
-    content: '';
-    display: inline-block;
-    width: 30%;
-    height: 1px;
-    background-color: #eee;
-    vertical-align: middle;
-    margin: 0 10px;
-}
-
-.download-buttons {
-    padding: 20px;
-    display: flex;
-    gap: 10px;
-    border-top: 1px solid #eee;
-    background-color: white;
-}
-
-.download-buttons .el-button {
+.ch-placeholder {
     flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--nx-space-6);
+    text-align: center;
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text-3);
+}
+
+.ch-empty {
+    flex: 1;
+    justify-content: center;
+}
+
+.ch-downloads {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: var(--nx-space-2);
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-top: 1px solid var(--nx-border);
+
+    .el-button + .el-button {
+        margin-left: 0;
+    }
+}
+
+// ------------------------------------------------------------------ narrow
+
+@media (max-width: 720px) {
+    .ch {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+    .ch-sessions {
+        max-height: 176px;
+        border-right: 0;
+        border-bottom: 1px solid var(--nx-border);
+    }
+    .ch-messages {
+        padding: var(--nx-space-4);
+    }
+    .ch-bubble {
+        max-width: 88%;
+    }
+    .ch-downloads {
+        padding: var(--nx-space-3) var(--nx-space-4);
+        .el-button {
+            flex: 1 1 100%;
+            white-space: normal;
+        }
+    }
 }
 </style>
 
-<style>
-.chat-history-dialog {
-    min-width: 700px;
-    max-width: 85vw;
-    /* 兜底，防止 size="large" 那个 height 没有生效时弹框缩成内容高度 */
-    height: calc(100vh - 20px) !important;
-}
+<style lang="scss">
+// el-dialog is rendered by CustomDialog, so size it with a global, more specific selector
+.el-dialog.chat-history-dialog {
+    height: min(760px, calc(100vh - 64px));
 
-.chat-history-dialog .el-dialog__body {
-    padding: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    /* 顶开 size="large" 默认的 100vh - 130px，让 body 真正撑到弹框底部，flex: 1 会自动填满 */
-    max-height: calc(100vh - 74px) !important;
+    .el-dialog__body {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        overflow: hidden;
+    }
 }
 </style>

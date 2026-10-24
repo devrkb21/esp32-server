@@ -1,203 +1,231 @@
 <template>
-  <el-drawer :visible.sync="dialogVisible" direction="rtl" size="80%" :wrapperClosable="false" :withHeader="false">
-    <!-- Custom title area -->
-    <div class="custom-header">
-      <div class="header-left">
-        <h3 class="bold-title">{{ $t('functionDialog.title') }}</h3>
-      </div>
-      <button class="custom-close-btn" @click="closeDialog">×</button>
-    </div>
-
-    <div class="function-manager">
-      <!-- Left: Unselected features -->
-      <div class="function-column">
-        <div class="column-header">
-          <h4 class="column-title">{{ $t('functionDialog.unselectedFunctions') }}</h4>
-          <el-button type="text" @click="selectAll" class="select-all-btn">
-            {{ $t('functionDialog.selectAll') }}
-          </el-button>
+  <el-drawer
+    :visible.sync="dialogVisible"
+    direction="rtl"
+    size="min(1080px, 100%)"
+    custom-class="nx-function-drawer"
+    :wrapperClosable="false"
+    :withHeader="false"
+  >
+    <div class="fd">
+      <!-- Header -->
+      <header class="fd-header">
+        <div class="fd-header__titles">
+          <h3 class="nx-headline">{{ $t('functionDialog.title') }}</h3>
+          <span class="nx-badge nx-badge--accent nx-num">{{ selectedList.length }} / {{ selectedList.length + unselected.length }}</span>
         </div>
-        <div class="function-list">
-          <div v-if="unselected.length">
-            <div v-for="func in unselected" :key="func.name" class="function-item">
-              <el-checkbox :label="func.name" v-model="selectedNames" @change="(val) => handleCheckboxChange(func, val)"
-                @click.native.stop></el-checkbox>
-              <div class="func-tag" @click="handleFunctionClick(func)">
-                <div class="color-dot"></div>
-                <span>{{ func.name }}</span>
-              </div>
-            </div>
-          </div>
-          <div v-else style="display: flex; justify-content: center; align-items: center;">
-            <el-empty :description="$t('functionDialog.noMorePlugins')" />
-          </div>
-        </div>
-      </div>
+        <button type="button" class="nx-icon-btn" :aria-label="tx('functionDialog.close', 'Close')" @click="closeDialog">
+          <i class="el-icon-close" aria-hidden="true"></i>
+        </button>
+      </header>
 
-      <!-- Middle: Selected features -->
-      <div class="function-column">
-        <div class="column-header">
-          <h4 class="column-title">{{ $t('functionDialog.selectedFunctions') }}</h4>
-          <el-button type="text" @click="deselectAll" class="select-all-btn">
-            {{ $t('functionDialog.selectAll') }}
-          </el-button>
-        </div>
-        <div class="function-list">
-          <div v-if="selectedList.length > 0">
-            <div v-for="func in selectedList" :key="func.name" class="function-item">
-              <el-checkbox :label="func.name" v-model="selectedNames" @change="(val) => handleCheckboxChange(func, val)"
-                @click.native.stop></el-checkbox>
-              <div class="func-tag" @click="handleFunctionClick(func)">
-                <div class="color-dot"></div>
-                <span>{{ func.name }}</span>
-              </div>
-            </div>
-          </div>
-          <div v-else style="display: flex; justify-content: center; align-items: center;">
-            <el-empty :description="$t('functionDialog.pleaseSelectPlugin')" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Right: Parameter configuration -->
-      <div class="params-column">
-        <h4 v-if="currentFunction" class="column-title">
-          {{ $t('functionDialog.paramConfig') }} - {{ currentFunction.name }}
-        </h4>
-        <div v-if="currentFunction" class="params-container">
-          <!-- Smart Home Helper if Home Assistant plugin -->
-          <div v-if="isHomeAssistant(currentFunction)" class="ha-assistant-panel">
-            <div class="ha-header">
-              <div class="ha-badge">🏠 {{ $t('functionDialog.smartHomeGuide') }}</div>
-              <p class="ha-desc">{{ $t('functionDialog.smartHomeGuideDesc') }}</p>
-            </div>
-            <div class="ha-quick-actions">
-              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Living Room, Ceiling Light, light.living_room')">
-                💡 {{ $t('functionDialog.addLight') }}
-              </el-button>
-              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Bedroom, Ceiling Fan, fan.bedroom')">
-                🌀 {{ $t('functionDialog.addFan') }}
-              </el-button>
-              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Living Room, AC, climate.living_room')">
-                ❄️ {{ $t('functionDialog.addClimate') }}
-              </el-button>
-              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Kitchen, Coffee Maker, switch.coffee_maker')">
-                🔌 {{ $t('functionDialog.addSwitch') }}
-              </el-button>
-              <el-button size="mini" type="primary" plain @click="insertDeviceTemplate('Entrance, Front Door Lock, lock.front_door')">
-                🔒 {{ $t('functionDialog.addLock') }}
+      <div class="fd-body">
+        <div class="function-manager">
+          <!-- Plugin picker: enabled first, then available -->
+          <div class="function-column">
+            <div class="column-header">
+              <h4 class="column-title">{{ $t('functionDialog.selectedFunctions') }}</h4>
+              <el-button type="text" size="small" class="select-all-btn" :disabled="!selectedList.length" @click="deselectAll">
+                {{ $t('agentTemplateManagement.deselectAll') }}
               </el-button>
             </div>
-            <div class="ha-voice-commands">
-              <div class="ha-cmd-title">🗣️ {{ $t('functionDialog.sampleCommands') }}:</div>
-              <div class="ha-cmd-list">
-                <div class="ha-cmd-item">🇧🇩 <em>"লিভিং রুমের লাইট জ্বালাও / বন্ধ করো"</em> (বাতির আলো ৮০% করো)</div>
-                <div class="ha-cmd-item">🇧🇩 <em>"ফ্যান চালু করো / ৫০% স্পিডে চালাও"</em></div>
-                <div class="ha-cmd-item">🇧🇩 <em>"এসি ২৪ ডিগ্রিতে সেট করো"</em> / <em>"দরজা লক করো"</em></div>
-                <div class="ha-cmd-item">🇬🇧 <em>"Turn on/off living room light"</em> / <em>"Set fan speed to 50%"</em></div>
-              </div>
-            </div>
-          </div>
-
-          <el-form :model="currentFunction" class="param-form">
-            <!-- Iterate fieldsMeta instead of params keys -->
-            <div v-if="currentFunction.fieldsMeta.length == 0">
-              <el-empty :description="currentFunction.name + $t('functionDialog.noNeedToConfig')" />
-            </div>
-            <el-form-item v-for="field in currentFunction.fieldsMeta" :key="field.key" :label="field.label"
-              class="param-item" :class="{ 'textarea-field': field.type === 'array' || field.type === 'json' }">
-              <template #label>
-                <span style="font-size: 16px; margin-right: 6px;">{{ field.label }}</span>
-                <el-tooltip effect="dark" :content="fieldRemark(field)" placement="top">
-                  <img src="@/assets/home/info.png" alt="" class="info-icon">
-                </el-tooltip>
+            <div class="function-list">
+              <template v-if="selectedList.length > 0">
+                <div
+                  v-for="func in selectedList"
+                  :key="func.name"
+                  class="function-item"
+                  :class="{ 'is-current': currentFunction && currentFunction.name === func.name }"
+                >
+                  <el-checkbox
+                    :label="func.name"
+                    v-model="selectedNames"
+                    :aria-label="func.name"
+                    @change="(val) => handleCheckboxChange(func, val)"
+                    @click.native.stop
+                  ></el-checkbox>
+                  <button type="button" class="func-tag" :title="func.name" @click="handleFunctionClick(func)">
+                    <span class="func-initial" aria-hidden="true">{{ initialOf(func.name) }}</span>
+                    <span class="nx-truncate">{{ func.name }}</span>
+                    <i class="el-icon-arrow-right func-chevron" aria-hidden="true"></i>
+                  </button>
+                </div>
               </template>
-              <!-- ARRAY -->
-              <el-input v-if="field.type === 'array'" type="textarea" v-model="currentFunction.params[field.key]"
-                @change="val => handleParamChange(currentFunction, field.key, val)" />
+              <div v-else class="fd-empty-line">{{ $t('functionDialog.pleaseSelectPlugin') }}</div>
+            </div>
 
-              <!-- JSON -->
-              <el-input v-else-if="field.type === 'json'" type="textarea" :rows="6" placeholder="Please enter valid JSON"
-                v-model="textCache[field.key]" @blur="flushJson(field)" />
-
-              <!-- number -->
-              <el-input-number v-else-if="field.type === 'number'" :value="currentFunction.params[field.key]"
-                @change="val => handleParamChange(currentFunction, field.key, val)" />
-
-              <!-- boolean -->
-              <el-switch v-else-if="field.type === 'boolean' || field.type === 'bool'"
-                :value="currentFunction.params[field.key]"
-                @change="val => handleParamChange(currentFunction, field.key, val)" />
-
-              <!-- string or fallback -->
-              <el-input v-else v-model="currentFunction.params[field.key]"
-                @change="val => handleParamChange(currentFunction, field.key, val)" />
-            </el-form-item>
-          </el-form>
-        </div>
-        <div v-else class="empty-tip">{{ $t('functionDialog.pleaseSelectFunctionForParam') }}</div>
-      </div>
-    </div>
-
-    <!-- MCP Area -->
-    <div class="mcp-access-point" v-if="featureStatus.mcpAccessPoint">
-      <div class="mcp-container">
-        <!-- Left Area -->
-        <div class="mcp-left">
-          <div class="mcp-header">
-            <h3 class="bold-title">{{ $t('functionDialog.mcpAccessPoint') }}</h3>
-          </div>
-          <div class="url-header">
-            <div class="address-desc">
-              <span>{{ $t('functionDialog.mcpAddressDesc') }}</span>
-              <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mcp-endpoint-enable.md"
-                target="_blank" class="doc-link">{{ $t('functionDialog.howToDeployMcp') }}</a> &nbsp;&nbsp;|&nbsp;&nbsp;
-              <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mcp-endpoint-integration.md"
-                target="_blank" class="doc-link">{{ $t('functionDialog.howToIntegrateMcp') }}</a> &nbsp;
+            <div class="column-header column-header--second">
+              <h4 class="column-title">{{ tx('functionDialog.available', 'Available') }}</h4>
+              <el-button type="text" size="small" class="select-all-btn" :disabled="!unselected.length" @click="selectAll">
+                {{ $t('functionDialog.selectAll') }}
+              </el-button>
+            </div>
+            <div class="function-list">
+              <template v-if="unselected.length">
+                <div v-for="func in unselected" :key="func.name" class="function-item is-unselected">
+                  <el-checkbox
+                    :label="func.name"
+                    v-model="selectedNames"
+                    :aria-label="func.name"
+                    @change="(val) => handleCheckboxChange(func, val)"
+                    @click.native.stop
+                  ></el-checkbox>
+                  <button type="button" class="func-tag" :title="func.name" @click="handleFunctionClick(func)">
+                    <span class="func-initial" aria-hidden="true">{{ initialOf(func.name) }}</span>
+                    <span class="nx-truncate">{{ func.name }}</span>
+                  </button>
+                </div>
+              </template>
+              <div v-else class="fd-empty-line">{{ $t('functionDialog.noMorePlugins') }}</div>
             </div>
           </div>
-          <el-input v-model="mcpUrl" readonly class="url-input">
-            <template #suffix>
-              <el-button @click="copyUrl" class="inner-copy-btn" icon="el-icon-document-copy">
-                {{ $t('functionDialog.copy') }}
-              </el-button>
+
+          <!-- Parameter configuration -->
+          <div class="params-column">
+            <template v-if="currentFunction">
+              <div class="params-head">
+                <span class="nx-icon-tile params-head__icon" aria-hidden="true">{{ initialOf(currentFunction.name) }}</span>
+                <div class="params-head__text">
+                  <div class="nx-caption">{{ $t('functionDialog.paramConfig') }}</div>
+                  <h4 class="nx-headline nx-truncate" :title="currentFunction.name">{{ currentFunction.name }}</h4>
+                </div>
+              </div>
+
+              <div class="params-container">
+                <!-- Smart Home Helper if Home Assistant plugin -->
+                <div v-if="isHomeAssistant(currentFunction)" class="ha-assistant-panel">
+                  <div class="ha-header">
+                    <div class="ha-badge"><i class="el-icon-house" aria-hidden="true"></i> {{ $t('functionDialog.smartHomeGuide') }}</div>
+                    <p class="ha-desc">{{ $t('functionDialog.smartHomeGuideDesc') }}</p>
+                  </div>
+                  <div class="ha-quick-actions">
+                    <el-button size="mini" icon="el-icon-sunny" @click="insertDeviceTemplate('Living Room, Ceiling Light, light.living_room')">
+                      {{ $t('functionDialog.addLight') }}
+                    </el-button>
+                    <el-button size="mini" icon="el-icon-refresh" @click="insertDeviceTemplate('Bedroom, Ceiling Fan, fan.bedroom')">
+                      {{ $t('functionDialog.addFan') }}
+                    </el-button>
+                    <el-button size="mini" icon="el-icon-cold-drink" @click="insertDeviceTemplate('Living Room, AC, climate.living_room')">
+                      {{ $t('functionDialog.addClimate') }}
+                    </el-button>
+                    <el-button size="mini" icon="el-icon-switch-button" @click="insertDeviceTemplate('Kitchen, Coffee Maker, switch.coffee_maker')">
+                      {{ $t('functionDialog.addSwitch') }}
+                    </el-button>
+                    <el-button size="mini" icon="el-icon-lock" @click="insertDeviceTemplate('Entrance, Front Door Lock, lock.front_door')">
+                      {{ $t('functionDialog.addLock') }}
+                    </el-button>
+                  </div>
+                  <div class="ha-voice-commands">
+                    <div class="ha-cmd-title">{{ $t('functionDialog.sampleCommands') }}</div>
+                    <ul class="ha-cmd-list">
+                      <li lang="bn"><em>"লিভিং রুমের লাইট জ্বালাও / বন্ধ করো"</em> (বাতির আলো ৮০% করো)</li>
+                      <li lang="bn"><em>"ফ্যান চালু করো / ৫০% স্পিডে চালাও"</em></li>
+                      <li lang="bn"><em>"এসি ২৪ ডিগ্রিতে সেট করো"</em> / <em>"দরজা লক করো"</em></li>
+                      <li lang="en"><em>"Turn on/off living room light"</em> / <em>"Set fan speed to 50%"</em></li>
+                    </ul>
+                  </div>
+                </div>
+
+                <el-form :model="currentFunction" label-position="top" class="param-form">
+                  <!-- Iterate fieldsMeta instead of params keys -->
+                  <div v-if="currentFunction.fieldsMeta.length == 0" class="fd-empty">
+                    <span class="nx-icon-tile" aria-hidden="true"><i class="el-icon-check"></i></span>
+                    <p class="nx-callout">{{ currentFunction.name + $t('functionDialog.noNeedToConfig') }}</p>
+                  </div>
+                  <el-form-item
+                    v-for="field in currentFunction.fieldsMeta"
+                    :key="field.key"
+                    :label="field.label"
+                    class="param-item"
+                    :class="{ 'textarea-field': field.type === 'array' || field.type === 'json' }"
+                  >
+                    <template #label>
+                      <span class="param-label">{{ field.label }}</span>
+                      <el-tooltip :content="fieldRemark(field)" placement="top">
+                        <i class="el-icon-question info-icon" tabindex="0" :aria-label="fieldRemark(field)"></i>
+                      </el-tooltip>
+                    </template>
+                    <!-- ARRAY -->
+                    <el-input v-if="field.type === 'array'" type="textarea" :autosize="{ minRows: 3, maxRows: 10 }" v-model="currentFunction.params[field.key]"
+                      @change="val => handleParamChange(currentFunction, field.key, val)" />
+
+                    <!-- JSON -->
+                    <el-input v-else-if="field.type === 'json'" type="textarea" :rows="6" class="param-json" placeholder="Please enter valid JSON"
+                      v-model="textCache[field.key]" @blur="flushJson(field)" />
+
+                    <!-- number -->
+                    <el-input-number v-else-if="field.type === 'number'" :value="currentFunction.params[field.key]"
+                      @change="val => handleParamChange(currentFunction, field.key, val)" />
+
+                    <!-- boolean -->
+                    <el-switch v-else-if="field.type === 'boolean' || field.type === 'bool'"
+                      :value="currentFunction.params[field.key]"
+                      @change="val => handleParamChange(currentFunction, field.key, val)" />
+
+                    <!-- string or fallback -->
+                    <el-input v-else v-model="currentFunction.params[field.key]"
+                      @change="val => handleParamChange(currentFunction, field.key, val)" />
+                  </el-form-item>
+                </el-form>
+              </div>
             </template>
-          </el-input>
+            <div v-else class="fd-empty fd-empty--center">
+              <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-s-tools"></i></span>
+              <p class="nx-callout">{{ $t('functionDialog.pleaseSelectFunctionForParam') }}</p>
+            </div>
+          </div>
         </div>
 
-        <!-- Right Area -->
-        <div class="mcp-right">
-          <div class="mcp-header">
-            <h3 class="bold-title">{{ $t('functionDialog.accessPointStatus') }}</h3>
-          </div>
-          <div class="status-container">
-            <span class="status-indicator" :class="mcpStatus"></span>
-            <span class="status-text">{{
-              mcpStatus === 'connected' ? $t('functionDialog.connected') :
-                mcpStatus === 'loading' ? $t('functionDialog.loading') : $t('functionDialog.disconnected')
-            }}</span>
-            <button class="refresh-btn" @click="refreshStatus">
-              <span class="refresh-icon">↻</span>
-              <span>{{ $t('functionDialog.refresh') }}</span>
-            </button>
-          </div>
-          <div class="mcp-tools-list">
-            <div v-if="mcpTools.length > 0" class="tools-grid">
-              <el-button v-for="tool in mcpTools" :key="tool" size="small" class="tool-btn" plain>
-                {{ tool }}
-              </el-button>
+        <!-- MCP Area -->
+        <section class="mcp-access-point" v-if="featureStatus.mcpAccessPoint">
+          <div class="mcp-container">
+            <div class="mcp-left">
+              <h3 class="nx-headline mcp-title">{{ $t('functionDialog.mcpAccessPoint') }}</h3>
+              <p class="address-desc">
+                {{ $t('functionDialog.mcpAddressDesc') }}
+                <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mcp-endpoint-enable.md"
+                  target="_blank" rel="noopener" class="doc-link">{{ $t('functionDialog.howToDeployMcp') }}</a>
+                <span class="doc-sep" aria-hidden="true">·</span>
+                <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mcp-endpoint-integration.md"
+                  target="_blank" rel="noopener" class="doc-link">{{ $t('functionDialog.howToIntegrateMcp') }}</a>
+              </p>
+              <div class="url-row">
+                <el-input v-model="mcpUrl" readonly class="url-input" />
+                <el-button icon="el-icon-document-copy" class="inner-copy-btn" @click="copyUrl">
+                  {{ $t('functionDialog.copy') }}
+                </el-button>
+              </div>
             </div>
-            <div v-else class="no-tools">
-              <span>{{ $t('functionDialog.noAvailableTools') }}</span>
+
+            <div class="mcp-right">
+              <h3 class="nx-headline mcp-title">{{ $t('functionDialog.accessPointStatus') }}</h3>
+              <div class="status-container">
+                <span class="nx-badge" :class="mcpStatus === 'connected' ? 'nx-badge--success' : mcpStatus === 'loading' ? 'nx-badge--warning' : ''" role="status">
+                  <span class="status-indicator" :class="mcpStatus" aria-hidden="true"></span>
+                  {{
+                    mcpStatus === 'connected' ? $t('functionDialog.connected') :
+                      mcpStatus === 'loading' ? $t('functionDialog.loading') : $t('functionDialog.disconnected')
+                  }}
+                </span>
+                <el-button size="small" icon="el-icon-refresh" class="refresh-btn" @click="refreshStatus">
+                  {{ $t('functionDialog.refresh') }}
+                </el-button>
+              </div>
+              <div class="mcp-tools-list">
+                <div v-if="mcpTools.length > 0" class="tools-grid">
+                  <span v-for="tool in mcpTools" :key="tool" class="tool-chip nx-mono" :title="tool">{{ tool }}</span>
+                </div>
+                <div v-else class="no-tools">{{ $t('functionDialog.noAvailableTools') }}</div>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
-    </div>
 
-    <div class="drawer-footer">
-      <el-button @click="closeDialog">{{ $t('functionDialog.cancel') }}</el-button>
-      <el-button type="primary" @click="saveSelection">{{ $t('functionDialog.saveConfig') }}</el-button>
+      <footer class="drawer-footer">
+        <el-button @click="closeDialog">{{ $t('functionDialog.cancel') }}</el-button>
+        <el-button type="primary" @click="saveSelection">{{ $t('functionDialog.saveConfig') }}</el-button>
+      </footer>
     </div>
   </el-drawer>
 </template>
@@ -223,6 +251,11 @@ export default {
     agentId: {
       type: String,
       required: true
+    },
+    // Optional plugin name to show first in the parameter pane
+    focusName: {
+      type: String,
+      default: ''
     }
   },
   data() {
@@ -310,7 +343,8 @@ export default {
           }
         });
         // Point to the first item by default on right side
-        this.currentFunction = this.selectedList[0] || null;
+        this.currentFunction = (this.focusName && this.selectedList.find(f => f.name === this.focusName))
+          || this.selectedList[0] || null;
 
         // Load MCP data
         this.loadMcpAddress();
@@ -322,6 +356,16 @@ export default {
     }
   },
   methods: {
+    // Translation with an English fallback for keys still waiting in i18n/_pending
+    tx(key, fallback) {
+      const value = this.$t(key);
+      return value && value !== key ? value : fallback;
+    },
+    initialOf(name) {
+      const text = String(name || '');
+      const match = text.match(/[\p{L}\p{N}]/u);
+      return match ? match[0] : text.charAt(0);
+    },
     /**
      * Load feature status
      */
@@ -521,481 +565,429 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.ha-assistant-panel {
-  background: linear-gradient(135deg, rgba(22, 119, 255, 0.08), rgba(82, 196, 26, 0.08));
-  border: 1px solid rgba(22, 119, 255, 0.25);
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-
-  .ha-header {
-    margin-bottom: 10px;
-    .ha-badge {
-      font-weight: 600;
-      font-size: 14px;
-      color: #1890ff;
-    }
-    .ha-desc {
-      font-size: 12px;
-      color: #666;
-      margin: 4px 0 0 0;
-    }
-  }
-
-  .ha-quick-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .ha-voice-commands {
-    background: rgba(255, 255, 255, 0.85);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 12px;
-    border-left: 3px solid #52c41a;
-
-    .ha-cmd-title {
-      font-weight: 600;
-      color: #333;
-      margin-bottom: 4px;
-    }
-    .ha-cmd-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      color: #444;
-    }
-  }
-}
-
-.function-manager {
-  display: grid;
-  grid-template-columns: max-content max-content 1fr;
-  gap: 12px;
-  height: calc(58vh);
-}
-
-.custom-header {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #EBEEF5;
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .bold-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin: 0;
-  }
-
-  .select-all-btn {
-    padding: 0;
-    height: auto;
-    font-size: 14px;
-  }
-}
-
-.function-column {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: auto;
-  height: 100%; 
-  padding: 10px;
-  border-right: 1px solid #EBEEF5;
-  scrollbar-width: none;
-  overflow-x: hidden;
-  box-sizing: border-box;
-}
+// Tools sheet: slides in from the right edge (same edge it leaves by). Header, scrolling body,
+// footer pinned to the bottom above the MCP section.
 
 .mcp-access-point {
   position: relative;
   z-index: 1;
-  background: white;
-}
-
-.function-column::-webkit-scrollbar {
-  display: none;
-}
-
-.function-list {
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.function-item {
-  padding: 8px 12px;
-  margin: 4px 0;
-  width: 100%;
+  margin-top: var(--nx-space-5);
+  padding: var(--nx-space-5);
+  background: var(--nx-surface-2);
+  border-radius: var(--nx-radius-lg);
   text-align: left;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+}
 
-  &:hover {
-    background-color: #f5f7fa;
+.drawer-footer {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-3) var(--nx-space-6) var(--nx-space-5);
+  border-top: 1px solid var(--nx-border);
+  background: var(--nx-surface);
+  .el-button + .el-button {
+    margin-left: 0;
   }
 }
 
-.params-column {
-  min-width: 280px;
-  padding: 10px;
+.fd {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--nx-surface);
+  color: var(--nx-text);
+}
+
+.fd-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-5) var(--nx-space-5) var(--nx-space-4) var(--nx-space-6);
+  border-bottom: 1px solid var(--nx-border);
+}
+.fd-header__titles {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-width: 0;
+}
+
+.fd-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  scrollbar-width: none;
+  padding: var(--nx-space-5) var(--nx-space-6);
 }
 
-.params-column::-webkit-scrollbar {
-  display: none;
+.function-manager {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: var(--nx-space-5);
+  align-items: start;
 }
 
+// ------------------------------------------------------------------ picker
+
+.function-column {
+  min-width: 0;
+  padding: var(--nx-space-2);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-surface);
+}
 .column-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-2) var(--nx-space-2) var(--nx-space-1) var(--nx-space-3);
+  &--second {
+    margin-top: var(--nx-space-2);
+    padding-top: var(--nx-space-3);
+    border-top: 1px solid var(--nx-border);
+  }
 }
-
 .column-title {
-  text-align: center;
-  width: 100%;
+  margin: 0;
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-caption);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
-
+.select-all-btn {
+  padding: 0;
+  font-size: var(--nx-text-caption);
+}
+.function-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.function-item {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-2);
+  min-height: 40px;
+  padding: 0 var(--nx-space-2) 0 var(--nx-space-3);
+  border-radius: var(--nx-radius-sm);
+  transition: background-color var(--nx-dur-1) var(--nx-ease);
+  &:hover {
+    background: var(--nx-surface-2);
+  }
+  &.is-current {
+    background: var(--nx-accent-soft);
+    .func-tag {
+      color: var(--nx-accent);
+    }
+  }
+  &.is-unselected .func-tag {
+    color: var(--nx-text-2);
+    cursor: default;
+  }
+}
 .func-tag {
   display: flex;
   align-items: center;
+  gap: var(--nx-space-2);
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--nx-text);
+  font: inherit;
+  font-size: var(--nx-text-callout);
+  text-align: left;
   cursor: pointer;
-  flex-grow: 1;
-  margin-left: 8px;
 }
-
-.color-dot {
-  flex-shrink: 0;
-  width: 8px;
-  height: 8px;
-  background-color: #5778ff;
-  margin-right: 8px;
-  border-radius: 50%;
-}
-
-.param-form {
-  .param-item {
-    font-size: 16px;
-
-    &.textarea-field {
-      ::v-deep .el-form-item__content {
-        margin-left: 0 !important;
-        display: block;
-        width: 100%;
-      }
-
-      ::v-deep .el-form-item__label {
-        display: block;
-        width: 100% !important;
-        margin-bottom: 8px;
-      }
-    }
-  }
-
-  .param-input {
-    width: 100%;
-  }
-
-  ::v-deep .el-form-item {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 12px;
-
-    .el-form-item__label {
-      font-size: 14px !important;
-      color: #606266;
-      text-align: left;
-      padding-right: 10px;
-      flex-shrink: 0;
-      width: auto !important;
-    }
-
-    .el-form-item__content {
-      margin-left: 0 !important;
-      flex-grow: 1;
-
-      .el-input__inner {
-        text-align: left;
-        padding-left: 8px;
-        width: 100%;
-      }
-    }
-  }
-}
-
-.params-container {
-  padding: 16px;
-  border-radius: 4px;
-  min-width: 280px;
-}
-
-.empty-tip {
-  padding: 20px;
-  color: #909399;
-  text-align: center;
-}
-
-
-.drawer-footer {
-  position: absolute;
-  bottom: 0;
-  z-index: 2;
-  width: 100%;
-  border-top: 1px solid #e8e8e8;
-  padding: 10px 16px;
-  text-align: center;
-  background: #fff;
-}
-
-.info-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 1vh;
-}
-
-.custom-close-btn {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  border: 2px solid #cfcfcf;
-  background: none;
-  font-size: 30px;
-  font-weight: lighter;
-  color: #cfcfcf;
-  cursor: pointer;
-  display: flex;
+.func-initial {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  z-index: 1;
-  padding: 0;
-  outline: none;
-  transition: all 0.3s;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-surface-2);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-caption);
+  font-weight: 700;
+  text-transform: uppercase;
 }
-
-.custom-close-btn:hover {
-  color: #409EFF;
-  border-color: #409EFF;
+.function-item.is-current .func-initial {
+  background: var(--nx-surface);
+  color: var(--nx-accent);
+}
+.func-chevron {
+  margin-left: auto;
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-caption);
+}
+.fd-empty-line {
+  padding: var(--nx-space-2) var(--nx-space-3) var(--nx-space-3);
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-footnote);
 }
 
 ::v-deep .el-checkbox__label {
   display: none;
 }
 
-.mcp-access-point {
-  border-top: 1px solid #EBEEF5;
-  padding: 20px 24px;
-  text-align: left;
-}
+// ------------------------------------------------------------------ parameters
 
-.mcp-header {
-  .bold-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin: 5px 0 30px 0;
+.params-column {
+  min-width: 0;
+  padding: var(--nx-space-5);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-surface);
+}
+.params-head {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  margin-bottom: var(--nx-space-5);
+  &__icon {
+    font-size: var(--nx-text-body);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  &__text {
+    min-width: 0;
   }
 }
+.params-container {
+  min-width: 0;
+}
+.fd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nx-space-3);
+  padding: var(--nx-space-7) var(--nx-space-4);
+  text-align: center;
+  p {
+    margin: 0;
+    max-width: 360px;
+  }
+  &--center {
+    min-height: 280px;
+    justify-content: center;
+  }
+}
+
+.param-form {
+  ::v-deep .el-form-item {
+    margin-bottom: var(--nx-space-4);
+  }
+  ::v-deep .el-form-item__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 6px;
+    line-height: 1.4;
+  }
+  ::v-deep .el-input-number {
+    width: 200px;
+    max-width: 100%;
+  }
+}
+.param-label {
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-footnote);
+  font-weight: 500;
+}
+.info-icon {
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-footnote);
+  cursor: help;
+}
+.param-json ::v-deep .el-textarea__inner {
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-footnote);
+}
+
+// Home Assistant helper
+.ha-assistant-panel {
+  margin-bottom: var(--nx-space-5);
+  padding: var(--nx-space-4);
+  border-radius: var(--nx-radius);
+  background: var(--nx-info-soft);
+
+  .ha-header {
+    margin-bottom: var(--nx-space-3);
+  }
+  .ha-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--nx-info);
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+  }
+  .ha-desc {
+    margin: 4px 0 0;
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-footnote);
+  }
+  .ha-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nx-space-2);
+    margin-bottom: var(--nx-space-3);
+    .el-button + .el-button {
+      margin-left: 0;
+    }
+  }
+  .ha-voice-commands {
+    padding: var(--nx-space-3);
+    border-radius: var(--nx-radius-sm);
+    background: var(--nx-surface);
+    font-size: var(--nx-text-footnote);
+  }
+  .ha-cmd-title {
+    margin-bottom: 6px;
+    color: var(--nx-text);
+    font-weight: 600;
+  }
+  .ha-cmd-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding-left: var(--nx-space-4);
+    color: var(--nx-text-2);
+  }
+}
+
+// ------------------------------------------------------------------ MCP
 
 .mcp-container {
-  display: flex;
-  justify-content: space-between;
-  gap: 30px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--nx-space-6);
 }
-
 .mcp-left,
 .mcp-right {
-  flex: 1;
-  padding-bottom: 50px;
+  min-width: 0;
 }
-
-.url-header {
-  margin-bottom: 8px;
-  color: black;
-
-  h4 {
-    margin: 0 0 15px 0;
-    font-size: 16px;
-    font-weight: normal;
-  }
-
-  .address-desc {
-    display: flex;
-    align-items: center;
-    font-size: 14px;
-    margin-bottom: 12px;
-
-    .doc-link {
-      color: #1677ff;
-      text-decoration: none;
-      margin-left: 4px;
-
-      &:hover {
-        text-decoration: underline;
-      }
-    }
-  }
+.mcp-title {
+  margin-bottom: var(--nx-space-2);
 }
-
+.address-desc {
+  margin: 0 0 var(--nx-space-3);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-footnote);
+}
+.doc-link:hover {
+  text-decoration: underline;
+}
+.doc-sep {
+  margin: 0 6px;
+  color: var(--nx-text-3);
+}
+.url-row {
+  display: flex;
+  gap: var(--nx-space-2);
+}
 .url-input {
-  border-radius: 4px 0 0 4px;
-  font-size: 14px;
-  height: 36px;
-  box-sizing: border-box;
-
+  flex: 1;
+  min-width: 0;
   ::v-deep .el-input__inner {
-    background-color: #f5f5f5 !important;
-  }
-
-  ::v-deep .el-input__suffix {
-    right: 0;
-    display: flex;
-    align-items: center;
-    padding-right: 10px;
-
-    .inner-copy-btn {
-      pointer-events: auto;
-      border: none;
-      background: #1677ff;
-      color: white;
-      padding: 6px;
-      margin-top: 4px;
-      margin-left: 4px;
-    }
+    background: var(--nx-surface);
+    font-family: var(--nx-font-mono);
+    font-size: var(--nx-text-footnote);
   }
 }
-
-.mcp-right {
-  h4 {
-    margin: 0 0 10px 0;
-    font-size: 16px;
-    font-weight: normal;
-    color: black;
-  }
+.inner-copy-btn {
+  flex: none;
 }
-
 .status-container {
   display: flex;
   align-items: center;
-
-  .status-indicator {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 8px;
-
-    &.disconnected {
-      background-color: #909399;
-      /* Gray - Not Connected */
-    }
-
-    &.connected {
-      background-color: #67C23A;
-      /* Green - Connected */
-    }
-
-    &.loading {
-      background-color: #E6A23C;
-      /* Orange - Loading */
-      animation: pulse 1.5s infinite;
-    }
+  flex-wrap: wrap;
+  gap: var(--nx-space-3);
+}
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nx-text-3);
+  &.connected {
+    background: var(--nx-success);
   }
-
-  .status-text {
-    font-size: 14px;
-    margin-right: 10px;
-  }
-
-  .refresh-btn {
-    display: flex;
-    align-items: center;
-    padding: 2px 10px;
-    background: white;
-    color: black;
-    border: 1px solid #DCDFE6;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.3s;
-
-    &:hover {
-      background: #1677ff;
-      color: white;
-      border-color: #1677ff;
-    }
-
-    .refresh-icon {
-      margin-right: 6px;
-      font-size: 14px;
-    }
+  &.loading {
+    background: var(--nx-warning);
+    animation: fd-pulse 1.5s var(--nx-ease) infinite;
   }
 }
-
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-
+@keyframes fd-pulse {
   50% {
     opacity: 0.4;
   }
+}
+.mcp-tools-list {
+  margin-top: var(--nx-space-3);
+}
+.tools-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tool-chip {
+  max-width: 100%;
+  padding: 3px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border);
+  color: var(--nx-text-2);
+  font-size: var(--nx-text-caption);
+}
+.no-tools {
+  color: var(--nx-text-3);
+  font-size: var(--nx-text-footnote);
+}
 
-  100% {
-    opacity: 1;
+@media (max-width: 760px) {
+  .function-manager,
+  .mcp-container {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fd-body {
+    padding: var(--nx-space-4);
+  }
+  .drawer-footer {
+    padding: var(--nx-space-3) var(--nx-space-4) var(--nx-space-4);
   }
 }
 
-.mcp-tools-list {
-  margin-top: 10px;
+@media (prefers-reduced-motion: reduce) {
+  .status-indicator.loading {
+    animation: none;
+  }
+}
+</style>
 
-  .tools-grid {
+<style lang="scss">
+// Drawer chrome (rendered outside the component root)
+.nx-function-drawer {
+  border-radius: var(--nx-radius-xl) 0 0 var(--nx-radius-xl);
+  overflow: hidden;
+  .el-drawer__body {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .tool-btn {
-    padding: 6px 12px;
-    border-color: #1677ff;
-    color: #1677ff;
-    background-color: white;
-    font-size: 12px;
-
-    &:hover {
-      background-color: #1677ff;
-      color: white;
-      border-color: #1677ff;
-    }
-  }
-
-  .no-tools {
-    text-align: center;
-    color: #909399;
-    font-size: 14px;
-    padding: 10px 0;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
   }
 }
 </style>

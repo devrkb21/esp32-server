@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { getCompanionEvents } from '@/api/companion'
 import { t } from '@/i18n'
 import { nextPrayer } from '../companionUtils.mjs'
-import { agoText, MOOD_EMOJI, moodText, notifyError, useCompanion, WEATHER_EMOJI } from './context'
+import { agoText, notifyError, useCompanion, WEATHER_EMOJI } from './context'
 
 defineOptions({
   name: 'CompanionStatusPanel',
@@ -14,7 +14,7 @@ const { dev, deviceId } = useCompanion()
 
 const stats = computed(() => dev.value?.stats || {})
 const hasStats = computed(() => Object.keys(stats.value).length > 0)
-const bond = computed(() => Math.max(0, Math.min(100, stats.value.bond_score ?? 0)))
+const hasDeviceInfo = computed(() => !!(stats.value.fw || stats.value.ip || stats.value.rssi))
 
 const highScores = computed(() => {
   const hs = stats.value.high_scores || {}
@@ -101,145 +101,195 @@ function eventText(e: CompanionEvent): string {
 </script>
 
 <template>
-  <view v-if="dev" class="flex flex-col gap-[20rpx]">
-    <!-- Status -->
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <view class="flex items-center justify-between">
-        <view class="flex-1">
-          <view class="flex items-center gap-[12rpx]">
-            <view class="h-[18rpx] w-[18rpx] rounded-full" :class="dev.online ? 'bg-[#52c41a]' : 'bg-[#bfbfbf]'" />
-            <text class="text-[34rpx] text-[#232338] font-semibold">
-              {{ dev.online ? t('companion.online') : t('companion.offline') }}
+  <view v-if="dev">
+    <!-- Today: weather and next prayer -->
+    <view class="nx-group">
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-icon-tile nx-icon-tile--neutral status__weather-icon" aria-hidden="true">
+            {{ weatherIcon }}
+          </view>
+          <view class="nx-row__main">
+            <template v-if="weather?.ok">
+              <view class="nx-row__title nx-truncate">
+                <text class="nx-num status__temp">
+                  {{ weather.temp }}°
+                </text>
+                {{ weather.text }} · {{ weather.city }}
+              </view>
+              <view class="nx-row__subtitle nx-num">
+                {{ t('companion.weatherLine', { hi: weather.hi ?? '–', lo: weather.lo ?? '–', rain: weather.rain_prob ?? 0 }) }}
+              </view>
+            </template>
+            <view v-else class="nx-row__subtitle">
+              {{ t('companion.weatherNone') }}
+            </view>
+          </view>
+        </view>
+        <view v-if="next" class="nx-row">
+          <view class="nx-icon-tile status__row-icon">
+            <wd-icon name="time" size="18px" />
+          </view>
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.nextPrayer', { name: t(`companion.prayer.${next.key}`), time: next.time }) }}
+            <text v-if="next.tomorrow" class="nx-caption">
+              {{ t('companion.tomorrowNote') }}
             </text>
           </view>
-          <text class="mt-[8rpx] block text-[24rpx] text-[#8c8c8c]">
-            {{ t('companion.lastSeen', { time: agoText(dev.last_seen) }) }}{{ stats.state ? ` · ${stats.state}` : '' }}
-          </text>
-        </view>
-        <view v-if="stats.mood" class="flex flex-col items-center">
-          <text class="text-[56rpx]">
-            {{ MOOD_EMOJI[stats.mood] || '🙂' }}
-          </text>
-          <text class="text-[22rpx] text-[#65686f]">
-            {{ moodText(stats.mood) }}
-          </text>
         </view>
       </view>
-
-      <view v-if="!hasStats" class="mt-[20rpx] text-[24rpx] text-[#9d9ea3]">
-        {{ t('companion.noStats') }}
-      </view>
-
-      <template v-else>
-        <view v-if="stats.bond_score !== undefined" class="mt-[24rpx]">
-          <view class="mb-[8rpx] flex justify-between text-[24rpx] text-[#65686f]">
-            <text>{{ t('companion.bond', { level: stats.bond_level ?? 0 }) }}</text>
-            <text>{{ stats.bond_score }}/100</text>
-          </view>
-          <wd-progress :percentage="bond" hide-text color="#336cff" />
-        </view>
-
-        <view class="mt-[24rpx] flex gap-[16rpx]">
-          <view class="flex flex-1 flex-col items-center rounded-[16rpx] bg-[#f5f7fb] py-[18rpx]">
-            <text class="text-[32rpx] text-[#232338] font-semibold">
-              🔥 {{ stats.streak ?? 0 }}
-            </text>
-            <text class="text-[22rpx] text-[#8c8c8c]">
-              {{ t('companion.streak') }}
-            </text>
-          </view>
-          <view class="flex flex-1 flex-col items-center rounded-[16rpx] bg-[#f5f7fb] py-[18rpx]">
-            <text class="text-[32rpx] text-[#232338] font-semibold">
-              🍅 {{ stats.pomodoros_today ?? 0 }}
-            </text>
-            <text class="text-[22rpx] text-[#8c8c8c]">
-              {{ t('companion.pomodorosToday') }}
-            </text>
-          </view>
-          <view class="flex flex-1 flex-col items-center rounded-[16rpx] bg-[#f5f7fb] py-[18rpx]">
-            <text class="text-[32rpx] text-[#232338] font-semibold">
-              🔊 {{ stats.volume ?? '–' }}
-            </text>
-            <text class="text-[22rpx] text-[#8c8c8c]">
-              {{ t('companion.volume') }}
-            </text>
-          </view>
-        </view>
-
-        <view v-if="highScores.length" class="mt-[20rpx] text-[24rpx] text-[#65686f]">
-          🏆 {{ t('companion.highScores') }}:
-          <text v-for="(hs, i) in highScores" :key="hs.key">
-            {{ i ? ' · ' : ' ' }}{{ hs.name }} {{ hs.value }}
-          </text>
-        </view>
-        <view v-if="lastTouch" class="mt-[8rpx] text-[24rpx] text-[#65686f]">
-          👆 {{ t('companion.lastTouch', { time: lastTouch }) }}
-        </view>
-        <view v-if="stats.fw || stats.ip || stats.rssi" class="mt-[8rpx] text-[22rpx] text-[#9d9ea3]">
-          <text v-if="stats.fw">
-            {{ t('companion.firmware') }} {{ stats.fw }}
-          </text>
-          <text v-if="stats.ip">
-            · {{ stats.ip }}
-          </text>
-          <text v-if="stats.rssi">
-            · {{ t('companion.wifi') }} {{ stats.rssi }} dBm
-          </text>
-        </view>
-      </template>
     </view>
 
-    <!-- Weather and next prayer -->
-    <view class="flex items-center gap-[24rpx] rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="text-[64rpx]">
-        {{ weatherIcon }}
-      </text>
-      <view class="flex-1">
-        <template v-if="weather?.ok">
-          <view class="text-[28rpx] text-[#232338]">
-            <text class="font-semibold">
-              {{ weather.temp }}°
-            </text>
-            {{ weather.text }} · {{ weather.city }}
+    <!-- Activity -->
+    <view v-if="hasStats" class="nx-group">
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.pomodorosToday') }}
           </view>
-          <view class="text-[22rpx] text-[#8c8c8c]">
-            {{ t('companion.weatherLine', { hi: weather.hi ?? '–', lo: weather.lo ?? '–', rain: weather.rain_prob ?? 0 }) }}
+          <view class="nx-num nx-row__value">
+            {{ stats.pomodoros_today ?? 0 }}
           </view>
-        </template>
-        <view v-else class="text-[24rpx] text-[#9d9ea3]">
-          {{ t('companion.weatherNone') }}
         </view>
-        <view v-if="next" class="mt-[6rpx] text-[24rpx] text-[#65686f]">
-          🕌 {{ t('companion.nextPrayer', { name: t(`companion.prayer.${next.key}`), time: next.time }) }}{{ next.tomorrow ? ` ${t('companion.tomorrowNote')}` : '' }}
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.volume') }}
+          </view>
+          <view class="nx-row__value nx-num">
+            {{ stats.volume ?? '–' }}
+          </view>
+        </view>
+        <view v-if="lastTouch" class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.lastTouch', { time: lastTouch }) }}
+          </view>
+        </view>
+        <view v-if="highScores.length" class="nx-row status__scores">
+          <view class="nx-row__title">
+            {{ t('companion.highScores') }}
+          </view>
+          <view class="status__chips">
+            <view v-for="hs in highScores" :key="hs.key" class="nx-badge">
+              {{ hs.name }} <text class="nx-num">
+                {{ hs.value }}
+              </text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view v-if="stats.state" class="nx-group__footer">
+        {{ stats.state }}
+      </view>
+    </view>
+
+    <!-- Device info -->
+    <view v-if="hasDeviceInfo" class="nx-group">
+      <view class="nx-group__body">
+        <view v-if="stats.fw" class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.firmware') }}
+          </view>
+          <view class="nx-row__value nx-truncate nx-mono">
+            {{ stats.fw }}
+          </view>
+        </view>
+        <view v-if="stats.ip" class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            IP
+          </view>
+          <view class="nx-row__value nx-mono nx-truncate">
+            {{ stats.ip }}
+          </view>
+        </view>
+        <view v-if="stats.rssi" class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.wifi') }}
+          </view>
+          <view class="nx-row__value nx-num">
+            {{ stats.rssi }} dBm
+          </view>
         </view>
       </view>
     </view>
 
     <!-- Recent events -->
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[16rpx] block text-[30rpx] text-[#232338] font-semibold">
+    <view class="nx-group">
+      <view class="nx-group__header">
         {{ t('companion.events') }}
-      </text>
-      <view v-if="!events.length" class="py-[20rpx] text-center text-[24rpx] text-[#9d9ea3]">
-        {{ t('companion.noEvents') }}
       </view>
-      <view
-        v-for="(e, i) in events"
-        :key="`${e.type}-${e.ts}-${i}`"
-        class="flex items-center justify-between border-b-[1rpx] border-b-[#f0f0f0] border-b-solid py-[16rpx] last:border-b-0"
-      >
-        <text class="flex-1 text-[26rpx] text-[#232338]">
-          {{ eventText(e) }}
-        </text>
-        <text class="ml-[16rpx] text-[22rpx] text-[#9d9ea3]">
-          {{ agoText(e.rx || e.ts) }}
-        </text>
-      </view>
-      <view v-if="!moreEvents && (dev.events || []).length > 0" class="mt-[16rpx]">
-        <wd-button size="small" plain block :loading="loadingMore" @click="showMore">
-          {{ t('companion.showMoreEvents') }}
-        </wd-button>
+      <view class="nx-group__body">
+        <view v-if="!events.length" class="nx-row">
+          <view class="nx-row__main nx-row__subtitle status__none">
+            {{ t('companion.noEvents') }}
+          </view>
+        </view>
+        <view v-for="(e, i) in events" :key="`${e.type}-${e.ts}-${i}`" class="nx-row">
+          <view class="nx-row__main nx-row__title status__event">
+            {{ eventText(e) }}
+          </view>
+          <view class="nx-caption nx-num status__when">
+            {{ agoText(e.rx || e.ts) }}
+          </view>
+        </view>
+        <view
+          v-if="!moreEvents && (dev.events || []).length > 0"
+          class="nx-row nx-row--tap cmp-add-row status__more"
+          role="button"
+          @click="showMore"
+        >
+          <wd-loading v-if="loadingMore" size="16px" />
+          <text>{{ t('companion.showMoreEvents') }}</text>
+        </view>
       </view>
     </view>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.status {
+  &__weather-icon {
+    font-size: var(--nx-text-title);
+  }
+
+  &__row-icon {
+    width: 72rpx;
+    height: 72rpx;
+  }
+
+  &__temp {
+    margin-right: 8rpx;
+    font-weight: 600;
+  }
+
+  &__scores {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--nx-space-2);
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--nx-space-1);
+  }
+
+  &__event {
+    font-size: var(--nx-text-callout);
+    overflow-wrap: anywhere;
+  }
+
+  &__when {
+    flex: none;
+  }
+
+  &__none {
+    text-align: center;
+    color: var(--nx-text-3);
+  }
+
+  &__more {
+    justify-content: center;
+    gap: var(--nx-space-1);
+  }
+}
+</style>

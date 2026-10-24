@@ -605,9 +605,11 @@
     color: var(--nx-text);
     background: var(--nx-surface-2) !important;
   }
-  .el-pager li.active {
-    background: var(--nx-accent-soft) !important;
-    color: var(--nx-accent);
+  .el-pager li.active,
+  &.is-background .el-pager li:not(.disabled).active {
+    background: var(--nx-accent) !important;
+    color: var(--nx-on-accent) !important;
+    font-weight: 600;
   }
   button:disabled {
     color: var(--nx-text-3);

@@ -249,33 +249,6 @@ function cloneSerializable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-// tabs
-const tabList = [
-  {
-    label: 'Role Config',
-    value: 'home',
-    icon: '/static/tabbar/robot.png',
-    activeIcon: '/static/tabbar/robot_activate.png',
-  },
-  {
-    label: 'Device Management',
-    value: 'category',
-    icon: '/static/tabbar/device.png',
-    activeIcon: '/static/tabbar/device_activate.png',
-  },
-  {
-    label: 'Chat History',
-    value: 'settings',
-    icon: '/static/tabbar/chat.png',
-    activeIcon: '/static/tabbar/chat_activate.png',
-  },
-  {
-    label: 'Voiceprint Management',
-    value: 'profile',
-    icon: '/static/tabbar/voiceprint.png',
-    activeIcon: '/static/tabbar/voiceprint_activate.png',
-  },
-]
 function handleCloseTag(id: string) {
   dynamicTags.value = dynamicTags.value.filter(tag => tag.id !== id)
 }
@@ -907,7 +880,7 @@ async function playAudio(voice: VoiceOption, event: Event) {
       id: voice.value || voice.id,
       isClone: voice.isClone,
       voiceDemo: voice.voiceDemo || voice.voice_demo,
-      ttsVoice: voice.ttsVoice || voiceDetails.value[voice.value]?.ttsVoice,
+      ttsVoice: voice.ttsVoice || (voiceDetails.value[voice.value] as (TtsVoice & { ttsVoice?: string | null }) | undefined)?.ttsVoice,
     }, getVoiceCloneAudioId, getEnvBaseUrl())
 
     // User may cancel or switch while waiting for temporary URL.
@@ -1250,6 +1223,156 @@ watch(agentId, (currentAgentId, previousAgentId) => {
   }
 }, { flush: 'sync' })
 
+// ---- Layout helpers for the grouped settings list (display only) ----
+
+// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
+function tx(key: string, fallback: string, params?: Record<string, string | number>) {
+  const value = t(key, params)
+  if (value !== key)
+    return value
+  if (!params)
+    return fallback
+  return Object.entries(params).reduce((text, [name, val]) => text.replace(`{${name}}`, String(val)), fallback)
+}
+
+type PickerKey = 'vad' | 'asr' | 'llm' | 'slm' | 'vllm' | 'intent' | 'memory' | 'tts' | 'language' | 'report'
+
+const PICKER_TITLE_KEYS: Record<PickerKey, string> = {
+  vad: 'agent.vad',
+  asr: 'agent.asr',
+  llm: 'agent.llm',
+  slm: 'agent.slm',
+  vllm: 'agent.vllm',
+  intent: 'agent.intent',
+  memory: 'agent.memory',
+  tts: 'agent.tts',
+  language: 'agent.language',
+  report: 'agent.reportMode',
+}
+
+// The one list picker that is open (voice has its own sheet with previews)
+const activePicker = computed<PickerKey | ''>(() => {
+  return (Object.keys(PICKER_TITLE_KEYS) as PickerKey[]).find(key => pickerShow.value[key]) || ''
+})
+
+const pickerSheetVisible = computed({
+  get: () => Boolean(activePicker.value),
+  set: (value: boolean) => {
+    if (!value && activePicker.value)
+      onPickerCancel(activePicker.value)
+  },
+})
+
+function toModelActions(options: ModelOption[] = []) {
+  return options.map(item => ({ name: item.modelName, value: item.id }))
+}
+
+const pickerActions = computed<Array<{ name: string, value: any }>>(() => {
+  switch (activePicker.value) {
+    case 'vad': return toModelActions(modelOptions.value.VAD)
+    case 'asr': return toModelActions(modelOptions.value.ASR)
+    case 'llm':
+    case 'slm': return toModelActions(modelOptions.value.LLM)
+    case 'vllm': return toModelActions(modelOptions.value.VLLM)
+    case 'intent': return toModelActions(modelOptions.value.Intent)
+    case 'memory': return toModelActions(modelOptions.value.Memory)
+    case 'tts': return toModelActions(modelOptions.value.TTS)
+    case 'language': return languageOptions.value
+    case 'report': return reportOptions
+    default: return []
+  }
+})
+
+const pickerCurrentValue = computed(() => {
+  switch (activePicker.value) {
+    case 'vad': return formData.value.vadModelId
+    case 'asr': return formData.value.asrModelId
+    case 'llm': return formData.value.llmModelId
+    case 'slm': return formData.value.slmModelId
+    case 'vllm': return formData.value.vllmModelId
+    case 'intent': return formData.value.intentModelId
+    case 'memory': return formData.value.memModelId
+    case 'tts': return formData.value.ttsModelId
+    case 'language': return selectedTtsLanguage.value
+    case 'report': return formData.value.chatHistoryConf
+    default: return undefined
+  }
+})
+
+const pickerTitle = computed(() => activePicker.value ? t(PICKER_TITLE_KEYS[activePicker.value]) : '')
+
+const modelRows = computed(() => [
+  { key: 'llm', label: t('agent.llm'), value: displayNames.value.llm, show: true },
+  { key: 'slm', label: t('agent.slm'), value: displayNames.value.slm, show: true },
+  { key: 'vllm', label: t('agent.vllm'), value: displayNames.value.vllm, show: true },
+  { key: 'asr', label: t('agent.asr'), value: displayNames.value.asr, show: true },
+  { key: 'vad', label: t('agent.vad'), value: displayNames.value.vad, show: true },
+  { key: 'intent', label: t('agent.intent'), value: displayNames.value.intent, show: true },
+  { key: 'memory', label: t('agent.memory'), value: displayNames.value.memory, show: true },
+  { key: 'report', label: t('agent.reportMode'), value: displayNames.value.report, show: isVisibleReport.value },
+])
+
+const selectedTemplateName = computed(() => {
+  return roleTemplates.value.find(item => item.id === selectedTemplateId.value)?.agentName || ''
+})
+
+const showTemplateSheet = ref(false)
+
+function chooseTemplate(templateId: string) {
+  showTemplateSheet.value = false
+  void selectRoleTemplate(templateId)
+}
+
+const agentInitial = computed(() => {
+  const name = (formData.value.agentName || '').trim()
+  return name ? Array.from(name)[0].toUpperCase() : '?'
+})
+
+const toolCount = computed(() => (formData.value.functions || []).length)
+
+const speedPitchSummary = computed(() => {
+  const { ttsVolume, ttsRate, ttsPitch } = speedPitchStore.speedPitch
+  if (!ttsVolume && !ttsRate && !ttsPitch)
+    return tx('agent.voiceTuningDefault', 'Standard')
+  return [ttsVolume, ttsRate, ttsPitch].map(value => (value > 0 ? `+${value}` : `${value}`)).join(' / ')
+})
+
+const showActionBar = computed(() => hasUnsavedChanges.value || saving.value || snapshotReloadBlocked.value)
+
+// Full-screen text editor sheet for the prompt and memory
+type EditorField = 'systemPrompt' | 'summaryMemory'
+const editorField = ref<EditorField | ''>('')
+const editorDraft = ref('')
+
+const editorVisible = computed({
+  get: () => Boolean(editorField.value),
+  set: (value: boolean) => {
+    if (!value)
+      editorField.value = ''
+  },
+})
+
+const editorTitle = computed(() => editorField.value === 'summaryMemory' ? t('agent.historyMemory') : t('agent.roleDescription'))
+const editorPlaceholder = computed(() => editorField.value === 'summaryMemory' ? t('agent.memoryContent') : t('agent.inputRoleDescription'))
+const editorMaxLength = computed(() => editorField.value === 'systemPrompt' ? 2000 : -1)
+
+function openEditor(field: EditorField) {
+  if (field === 'summaryMemory' && isMemoryDisabled.value)
+    return
+  editorDraft.value = String(formData.value[field] || '')
+  editorField.value = field
+}
+
+function applyEditor() {
+  if (editorField.value)
+    formData.value[editorField.value] = editorDraft.value
+  editorField.value = ''
+}
+
+function previewText(value?: string | null) {
+  return (value || '').replace(/\s+/g, ' ').trim()
+}
+
 onMounted(async () => {
   loadAgentTags()
 
@@ -1268,426 +1391,505 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view class="bg-[#f5f7fb] px-[20rpx]">
-    <view class="mb-[24rpx] flex items-center justify-between border border-[#eeeeee] rounded-[20rpx] bg-white p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-      <view>
-        <text class="block text-[32rpx] text-[#232338] font-bold">
-          {{ t('agent.editTitle') }}
-        </text>
-        <text v-if="currentVersionNo" class="mt-[8rpx] block text-[24rpx] text-[#65686f]">
-          {{ t('agentSnapshot.currentVersion') }} #{{ currentVersionNo }}
-        </text>
+  <view class="agent-edit" :class="{ 'agent-edit--with-bar': showActionBar }">
+    <!-- First load -->
+    <view v-if="loading && !originalAgentDetail" class="agent-edit__loading">
+      <view class="nx-card agent-hero">
+        <view class="nx-skeleton agent-hero__avatar" />
+        <view class="agent-hero__text">
+          <view class="nx-skeleton agent-edit__skel-title" />
+          <view class="nx-skeleton agent-edit__skel-line" />
+        </view>
       </view>
-      <wd-button
-        size="small"
-        type="primary"
-        :disabled="saving || snapshotReloadBlocked"
-        custom-class="!bg-[#336cff] !h-[64rpx] !rounded-[32rpx]"
-        @click="openSnapshotPanel"
-      >
-        {{ t('agentSnapshot.title') }}
-      </wd-button>
+      <view v-for="n in 3" :key="n" class="nx-group">
+        <view class="nx-group__body">
+          <view v-for="m in 3" :key="m" class="nx-row">
+            <view class="nx-skeleton agent-edit__skel-row" />
+          </view>
+        </view>
+      </view>
     </view>
 
-    <!-- Basic Information Title
-    <view class="pb-[20rpx] first:pt-[20rpx]">
-      <text class="text-[32rpx] text-[#232338] font-bold">
-        {{ t('agent.basicInfo') }}
-      </text>
-    </view -->
-
-    <!-- Basic Information Card -->
-    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-      <view class="mb-[24rpx] last:mb-0">
-        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
-          {{ t('agent.agentName') }}
-        </text>
-        <input
-          v-model="formData.agentName"
-          class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] leading-[1.4] outline-none focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-          type="text"
-          :placeholder="t('agent.inputAgentName')"
-        >
-      </view>
-
-      <view class="mb-[24rpx] last:mb-0">
-        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
-          {{ t('agent.agentTag') }}
-        </text>
-        <input
-          v-if="inputVisible"
-          v-model="inputValue"
-          class="mb-[10rpx] box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] leading-[1.4] outline-none focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-          type="text"
-          :maxlength="20"
-          :placeholder="t('agent.inputAgentTag')"
-          @keyup.enter="handleInputConfirm"
-          @blur="handleInputConfirm"
-        >
-        <view class="flex flex-wrap gap-[10rpx_10rpx]">
-          <wd-tag v-for="tag in dynamicTags" :key="tag.id" class="items-center border !flex !border-[rgba(51,108,255,0.2)] !bg-[rgba(51,108,255,0.1)] !text-[#336cff]" round closable @close="handleCloseTag(tag.id)">
-            {{ tag.tagName }}
-          </wd-tag>
-          <wd-button v-if="!inputVisible" class="!bg-[rgba(51,108,255,0.1)] !text-[#336cff]" size="small" icon="add" @click="showInput">
-            {{ t('agent.addAgentTag') }}
-          </wd-button>
+    <template v-else>
+      <!-- Identity -->
+      <view class="nx-card agent-hero">
+        <view class="agent-hero__avatar">
+          {{ agentInitial }}
+        </view>
+        <view class="agent-hero__text">
+          <text class="nx-truncate agent-hero__name" :title="formData.agentName">
+            {{ formData.agentName || t('agent.editTitle') }}
+          </text>
+          <text class="nx-num agent-hero__meta">
+            {{ currentVersionNo ? `${t('agentSnapshot.currentVersion')} #${currentVersionNo}` : t('agent.editTitle') }}
+          </text>
+        </view>
+        <view v-if="hasUnsavedChanges" class="nx-badge nx-badge--warning">
+          {{ tx('agent.unsavedBadge', 'Unsaved') }}
         </view>
       </view>
 
-      <view class="mb-[24rpx] last:mb-0">
-        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
-          {{ t('agent.roleMode') }}
-        </text>
-        <view class="mt-0 flex flex-wrap gap-[12rpx]">
+      <!-- Restore reload notice -->
+      <view v-if="snapshotReloadBlocked" class="agent-notice">
+        <wd-icon name="warning" size="18px" custom-class="agent-notice__icon" />
+        <view class="agent-notice__main">
+          <text class="agent-notice__text">
+            {{ t(snapshotReloadFailed ? 'agentSnapshot.reloadAfterRestoreFailed' : 'agentSnapshot.reloadAfterRestorePending') }}
+          </text>
           <view
-            v-for="template in roleTemplates"
-            :key="template.id"
-            class="cursor-pointer rounded-[20rpx] px-[24rpx] py-[12rpx] text-[24rpx] transition-all duration-300"
-            :class="selectedTemplateId === template.id
-              ? 'bg-[#336cff] text-white border border-[#336cff]'
-              : 'bg-[rgba(51,108,255,0.1)] text-[#336cff] border border-[rgba(51,108,255,0.2)]'"
-            @click="selectRoleTemplate(template.id)"
+            v-if="snapshotReloadFailed"
+            class="agent-notice__action"
+            role="button"
+            @click="retrySnapshotReload"
           >
-            {{ template.agentName }}
+            {{ t('agentSnapshot.retryReload') }}
           </view>
         </view>
       </view>
 
-      <view class="mb-[24rpx] last:mb-0">
-        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
-          {{ t('agent.contextProvider') }}
-        </text>
-        <view class="mt-0 flex flex-wrap items-center gap-[12rpx]">
-          <text class="text-[26rpx] text-[#65686f]">
-            {{ t('agent.contextProviderSuccess', { count: providerStore.providers.length }) }}
-          </text>
-          <a class="text-[26rpx] text-[#5778ff] no-underline" href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/context-provider-integration.md" target="_blank">
+      <!-- Identity group -->
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ t('agent.basicInfo') }}
+        </view>
+        <view class="nx-group__body">
+          <view class="nx-row">
+            <text class="nx-row__title agent-label">
+              {{ t('agent.agentName') }}
+            </text>
+            <input
+              v-model="formData.agentName"
+              class="agent-inline-input"
+              type="text"
+              :maxlength="64"
+              :placeholder="t('agent.inputAgentName')"
+              placeholder-class="agent-placeholder"
+            >
+          </view>
+
+          <view class="nx-row nx-row--tap" @click="showTemplateSheet = true">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.roleMode') }}
+              </view>
+            </view>
+            <text class="nx-row__value nx-truncate">
+              {{ selectedTemplateName || tx('agent.templateNone', 'None') }}
+            </text>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+
+          <view class="nx-row agent-tags-row">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.agentTag') }}
+              </view>
+              <view class="agent-tags">
+                <view v-for="tag in dynamicTags" :key="tag.id" class="agent-tag">
+                  <text class="nx-truncate">
+                    {{ tag.tagName }}
+                  </text>
+                  <view class="agent-tag__close" role="button" :aria-label="t('common.delete')" @click="handleCloseTag(tag.id)">
+                    <wd-icon name="close" size="12px" />
+                  </view>
+                </view>
+                <input
+                  v-if="inputVisible"
+                  v-model="inputValue"
+                  class="agent-tag-input"
+                  type="text"
+                  :maxlength="20"
+                  :focus="inputVisible"
+                  :placeholder="t('agent.inputAgentTag')"
+                  placeholder-class="agent-placeholder"
+                  @confirm="handleInputConfirm"
+                  @blur="handleInputConfirm"
+                >
+                <view v-else class="agent-tag agent-tag--add" role="button" @click="showInput">
+                  <wd-icon name="add" size="12px" />
+                  <text>{{ t('agent.addAgentTag') }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Personality -->
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ tx('agent.groupPersonality', 'Personality') }}
+        </view>
+        <view class="nx-group__body">
+          <view class="nx-row nx-row--tap" @click="openEditor('systemPrompt')">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.roleDescription') }}
+              </view>
+              <text class="agent-preview" :class="{ 'agent-preview--empty': !previewText(formData.systemPrompt) }">
+                {{ previewText(formData.systemPrompt) || t('agent.inputRoleDescription') }}
+              </text>
+            </view>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+          <view
+            class="nx-row"
+            :class="{ 'nx-row--tap': !isMemoryDisabled, 'agent-row--disabled': isMemoryDisabled }"
+            @click="openEditor('summaryMemory')"
+          >
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.historyMemory') }}
+              </view>
+              <text class="agent-preview" :class="{ 'agent-preview--empty': !previewText(formData.summaryMemory) }">
+                {{ previewText(formData.summaryMemory) || t('agent.memoryContent') }}
+              </text>
+            </view>
+            <wd-icon v-if="!isMemoryDisabled" name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+        </view>
+        <view v-if="isMemoryDisabled" class="nx-group__footer">
+          {{ tx('agent.memoryReadOnlyHint', 'Memory can be edited when the memory model is set to local short-term memory.') }}
+        </view>
+      </view>
+
+      <!-- Voice -->
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ t('agent.voiceSettings') }}
+        </view>
+        <view class="nx-group__body">
+          <view class="nx-row nx-row--tap" @click="openPicker('tts')">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.tts') }}
+              </view>
+            </view>
+            <text class="nx-row__value nx-truncate">
+              {{ displayNames.tts }}
+            </text>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+          <view class="nx-row nx-row--tap" @click="openPicker('language')">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.language') }}
+              </view>
+            </view>
+            <text class="nx-row__value nx-truncate">
+              {{ displayNames.language || '—' }}
+            </text>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+          <view class="nx-row nx-row--tap" @click="openPicker('voiceprint')">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.voiceprint') }}
+              </view>
+            </view>
+            <text class="nx-row__value nx-truncate">
+              {{ displayNames.voiceprint }}
+            </text>
+            <view
+              v-if="currentVoiceOption && hasVoicePreview(currentVoiceOption)"
+              class="agent-play"
+              :class="{ 'is-playing': playingVoiceId === currentVoiceOption.value }"
+              role="button"
+              :aria-label="t('agent.playDemo')"
+              @click.stop="playAudio(currentVoiceOption, $event)"
+            >
+              <wd-icon :name="playingVoiceId === currentVoiceOption.value ? 'pause-circle' : 'play-circle'" size="22px" />
+            </view>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+          <view class="nx-row nx-row--tap" @click="handleRegulate">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.languageConfig') }}
+              </view>
+            </view>
+            <text class="nx-row__value nx-num">
+              {{ speedPitchSummary }}
+            </text>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+        </view>
+        <view v-if="ttsOptionsLoading" class="nx-group__footer">
+          {{ t('common.loading') }}
+        </view>
+      </view>
+
+      <!-- Models -->
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ t('agent.modelConfig') }}
+        </view>
+        <view class="nx-group__body">
+          <template v-for="row in modelRows" :key="row.key">
+            <view v-show="row.show" class="nx-row nx-row--tap" @click="openPicker(row.key)">
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-truncate">
+                  {{ row.label }}
+                </view>
+              </view>
+              <text class="nx-row__value nx-truncate">
+                {{ row.value }}
+              </text>
+              <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+            </view>
+          </template>
+        </view>
+      </view>
+
+      <!-- Capabilities -->
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ tx('agent.groupCapabilities', 'Capabilities') }}
+        </view>
+        <view class="nx-group__body">
+          <view class="nx-row nx-row--tap" @click="handleTools">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.plugins') }}
+              </view>
+            </view>
+            <text class="nx-row__value nx-num">
+              {{ tx('agent.toolsEnabledCount', '{count} on', { count: toolCount }) }}
+            </text>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+          <view class="nx-row nx-row--tap" @click="openContextProviderDialog">
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agent.contextProvider') }}
+              </view>
+              <view class="nx-row__subtitle">
+                {{ t('agent.contextProviderSuccess', { count: providerStore.providers.length }) }}
+              </view>
+            </view>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+          </view>
+        </view>
+        <view class="nx-group__footer">
+          <a class="agent-link" href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/context-provider-integration.md" target="_blank">
             {{ t('agent.contextProviderDocLink') }}
           </a>
-          <wd-button class="!bg-[rgba(51,108,255,0.1)] !text-[#336cff]" size="small" @click="openContextProviderDialog">
-            {{ t('agent.editContextProvider') }}
-          </wd-button>
         </view>
       </view>
 
-      <view class="mb-[24rpx] last:mb-0">
-        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
-          {{ t('agent.roleDescription') }}
-        </text>
-        <textarea
-          v-model="formData.systemPrompt"
-          :maxlength="2000"
-          :placeholder="t('agent.inputRoleDescription')"
-          class="box-border h-[500rpx] w-full resize-none break-words break-all border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] text-[26rpx] text-[#232338] leading-[1.6] outline-none focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-        />
-        <view class="mt-[8rpx] text-right text-[22rpx] text-[#9d9ea3]">
-          {{ (formData.systemPrompt || '').length }}/2000
+      <!-- Versions -->
+      <view class="nx-group">
+        <view class="nx-group__header">
+          {{ tx('agent.groupVersions', 'Versions') }}
         </view>
-      </view>
-    </view>
-
-    <!-- Model Configuration Title -->
-    <view class="pb-[20rpx]">
-      <text class="text-[32rpx] text-[#232338] font-bold">
-        {{ t('agent.modelConfig') }}
-      </text>
-    </view>
-
-    <!-- Model Configuration Card -->
-    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-      <view class="flex flex-col gap-[16rpx]">
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vad')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.vad') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.vad }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('asr')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.asr') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.asr }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('llm')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.llm') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.llm }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('slm')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.slm') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.slm }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vllm')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.vllm') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.vllm }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('intent')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.intent') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.intent }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('memory')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.memory') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.memory }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view v-show="isVisibleReport" class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('report')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.reportMode') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.report }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-      </view>
-    </view>
-
-    <!-- Voice Settings Title -->
-    <view class="pb-[20rpx]">
-      <text class="text-[32rpx] text-[#232338] font-bold">
-        {{ t('agent.voiceSettings') }}
-      </text>
-    </view>
-
-    <!-- Voice Settings Card -->
-    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-      <view class="flex flex-col gap-[16rpx]">
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('tts')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.tts') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.tts }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('language')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.language') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.language }}
-          </text>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('voiceprint')">
-          <text class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.voiceprint') }}
-          </text>
-          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
-            {{ displayNames.voiceprint }}
-          </text>
-          <view v-if="currentVoiceOption && hasVoicePreview(currentVoiceOption)" class="mr-[12rpx] flex items-center" @click.stop="playAudio(currentVoiceOption, $event)">
-            <wd-icon
-              :name="playingVoiceId === currentVoiceOption.value ? 'pause-circle' : 'play-circle'"
-              size="20px"
-              :custom-class="playingVoiceId === currentVoiceOption.value ? 'text-[#336cff]' : 'text-[#65686f]'"
-            />
-          </view>
-          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-        </view>
-
-        <view class="flex items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx]">
-          <view class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.languageConfig') }}
-          </view>
-          <view class="cursor-pointer rounded-[20rpx] bg-[rgba(51,108,255,0.1)] px-[24rpx] py-[12rpx] text-[24rpx] text-[#336cff] transition-all duration-300 active:bg-[#336cff] active:text-white" @click="handleRegulate">
-            <text>{{ t('agent.editFunctions') }}</text>
-          </view>
-        </view>
-
-        <view class="flex items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx]">
-          <view class="text-[28rpx] text-[#232338] font-medium">
-            {{ t('agent.plugins') }}
-          </view>
-          <view class="cursor-pointer rounded-[20rpx] bg-[rgba(51,108,255,0.1)] px-[24rpx] py-[12rpx] text-[24rpx] text-[#336cff] transition-all duration-300 active:bg-[#336cff] active:text-white" @click="handleTools">
-            <text>{{ t('agent.editFunctions') }}</text>
+        <view class="nx-group__body">
+          <view
+            class="nx-row nx-row--tap"
+            :class="{ 'agent-row--disabled': saving || snapshotReloadBlocked }"
+            :disabled="saving || snapshotReloadBlocked"
+            role="button"
+            :aria-disabled="saving || snapshotReloadBlocked"
+            @click="openSnapshotPanel"
+          >
+            <view class="nx-icon-tile nx-icon-tile--neutral agent-row-icon">
+              <wd-icon name="time" size="18px" />
+            </view>
+            <view class="nx-row__main">
+              <view class="nx-row__title">
+                {{ t('agentSnapshot.title') }}
+              </view>
+            </view>
+            <text v-if="currentVersionNo" class="nx-row__value nx-num">
+              #{{ currentVersionNo }}
+            </text>
+            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
           </view>
         </view>
       </view>
-    </view>
+    </template>
 
-    <!-- Memory History Title -->
-    <view class="pb-[20rpx]">
-      <text class="text-[32rpx] text-[#232338] font-bold">
-        {{ t('agent.historyMemory') }}
-      </text>
-    </view>
-
-    <!-- Memory History Card -->
-    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-      <view class="mb-[24rpx] last:mb-0">
-        <textarea
-          v-model="formData.summaryMemory"
-          :placeholder="t('agent.memoryContent')"
-          :disabled="isMemoryDisabled"
-          :style="isMemoryDisabled ? 'background: #f0f0f0' : ''"
-          class="box-border h-[500rpx] w-full resize-none break-words break-all border border-[#eeeeee] rounded-[12rpx] p-[20rpx] text-[26rpx] leading-[1.6] opacity-80 outline-none"
-        />
-      </view>
-    </view>
-
-    <!-- Save Button -->
-    <view class="mt-[40rpx] p-0">
-      <view
-        v-if="snapshotReloadBlocked"
-        class="mb-[18rpx] rounded-[16rpx] bg-[rgba(245,108,108,0.1)] p-[20rpx] text-[24rpx] text-[#a34848] leading-[1.6]"
-      >
-        <text class="block">
-          {{ t(snapshotReloadFailed ? 'agentSnapshot.reloadAfterRestoreFailed' : 'agentSnapshot.reloadAfterRestorePending') }}
-        </text>
-        <wd-button
-          v-if="snapshotReloadFailed"
-          size="small"
-          type="info"
-          custom-class="mt-[14rpx] !h-[60rpx]"
-          @click="retrySnapshotReload"
-        >
-          {{ t('agentSnapshot.retryReload') }}
-        </wd-button>
-      </view>
+    <!-- Save: pinned when there is something to save -->
+    <view v-if="showActionBar" class="nx-action-bar">
       <wd-button
         type="primary"
+        block
+        size="large"
         :loading="saving"
         :disabled="saving || ttsOptionsLoading || snapshotReloadBlocked"
-        custom-class="w-full h-[80rpx] rounded-[16rpx] text-[30rpx] font-semibold bg-[#336cff] active:bg-[#2d5bd1]"
+        custom-class="agent-save-btn"
         @click="saveAgent"
       >
         {{ saving ? t('agent.saving') : t('agent.save') }}
       </wd-button>
     </view>
-    <!-- Model Selector -->
-    <wd-action-sheet
-      v-model="pickerShow.vad"
-      :actions="modelOptions.VAD && modelOptions.VAD.map(item => ({ name: item.modelName, value: item.id }))"
-      @close="onPickerCancel('vad')"
-      @select="({ item }) => onPickerConfirm('vad', item.value, item.name)"
-    />
 
-    <wd-action-sheet
-      v-model="pickerShow.asr"
-      :actions="modelOptions.ASR && modelOptions.ASR.map(item => ({ name: item.modelName, value: item.id }))"
-      @close="onPickerCancel('asr')"
-      @select="({ item }) => onPickerConfirm('asr', item.value, item.name)"
-    />
-
-    <wd-action-sheet
-      v-model="pickerShow.llm"
-      :actions="modelOptions.LLM && modelOptions.LLM.map(item => ({ name: item.modelName, value: item.id }))"
-      @close="onPickerCancel('llm')"
-      @select="({ item }) => onPickerConfirm('llm', item.value, item.name)"
-    />
-
-    <wd-action-sheet
-      v-model="pickerShow.slm"
-      :actions="modelOptions.LLM && modelOptions.LLM.map(item => ({ name: item.modelName, value: item.id }))"
-      @close="onPickerCancel('slm')"
-      @select="({ item }) => onPickerConfirm('slm', item.value, item.name)"
-    />
-
-    <wd-action-sheet
-      v-model="pickerShow.vllm"
-      :actions="modelOptions.VLLM && modelOptions.VLLM.map(item => ({ name: item.modelName, value: item.id }))"
-      @close="onPickerCancel('vllm')"
-      @select="({ item }) => onPickerConfirm('vllm', item.value, item.name)"
-    />
-
-    <wd-action-sheet
-      v-model="pickerShow.intent"
-      :actions="modelOptions.Intent && modelOptions.Intent.map(item => ({ name: item.modelName, value: item.id }))"
-      @close="onPickerCancel('intent')"
-      @select="({ item }) => onPickerConfirm('intent', item.value, item.name)"
-    />
-
-    <wd-action-sheet
-      v-model="pickerShow.memory"
-      :actions="modelOptions.Memory && modelOptions.Memory.map(item => ({ name: item.modelName, value: item.id }))"
-      @close="onPickerCancel('memory')"
-      @select="({ item }) => onPickerConfirm('memory', item.value, item.name)"
-    />
-
-    <wd-action-sheet
-      v-model="pickerShow.tts"
-      :actions="modelOptions.TTS && modelOptions.TTS.map(item => ({ name: item.modelName, value: item.id }))"
-      class="custom-sheet-tts"
-      @close="onPickerCancel('tts')"
-      @select="({ item }) => onPickerConfirm('tts', item.value, item.name)"
-    />
-
-    <!-- Custom Voice Selector Popup -->
-    <wd-popup v-model="pickerShow.voiceprint" class="custom-popup" position="bottom" @close="onPickerCancel('voiceprint')">
-      <view class="overflow-hidden rounded-[20rpx] bg-white pb-[20rpx] pt-[20rpx]">
-        <view class="max-h-[600rpx] overflow-y-auto">
-          <view
-            v-for="voice in voiceOptions"
-            :key="voice.value"
-            class="flex items-center justify-between border-b border-[#f5f5f5] p-[32rpx] transition-all active:bg-[#f5f7fb]"
-            @click="onPickerConfirm('voiceprint', voice.value, voice.name)"
-          >
-            <text :class="`flex-1 text-[28rpx] text-[#232338] ${hasVoicePreview(voice) ? '' : 'text-center'}`">
-              {{ voice.name }}
+    <!-- List picker (models, language, report mode) -->
+    <wd-popup
+      v-model="pickerSheetVisible"
+      position="bottom"
+      custom-class="nx-sheet"
+      safe-area-inset-bottom
+    >
+      <view class="nx-sheet__inner">
+        <view class="nx-sheet__handle" />
+        <view class="nx-sheet__header">
+          <text class="nx-headline nx-truncate">
+            {{ pickerTitle }}
+          </text>
+        </view>
+        <scroll-view scroll-y class="nx-sheet__scroll">
+          <view v-if="!pickerActions.length" class="nx-empty agent-sheet-empty">
+            <text class="nx-empty__text">
+              {{ tx('agent.noOptions', 'Nothing to choose from yet.') }}
             </text>
-            <view v-if="hasVoicePreview(voice)" class="ml-[20rpx]" @click.stop="playAudio(voice, $event)">
-              <wd-icon
-                :name="playingVoiceId === voice.value ? 'pause-circle' : 'play-circle'"
-                size="24px"
-                :custom-class="playingVoiceId === voice.value ? 'text-[#336cff]' : 'text-[#9d9ea3]'"
-              />
+          </view>
+          <view v-else class="nx-group__body">
+            <view
+              v-for="item in pickerActions"
+              :key="String(item.value)"
+              class="nx-row nx-row--tap"
+              @click="onPickerConfirm(activePicker, item.value, item.name)"
+            >
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-break">
+                  {{ item.name }}
+                </view>
+              </view>
+              <wd-icon v-if="pickerCurrentValue === item.value" name="check" size="18px" custom-class="nx-check" />
             </view>
           </view>
+        </scroll-view>
+      </view>
+    </wd-popup>
+
+    <!-- Voice picker with previews -->
+    <wd-popup
+      v-model="pickerShow.voiceprint"
+      position="bottom"
+      custom-class="nx-sheet"
+      safe-area-inset-bottom
+      @close="onPickerCancel('voiceprint')"
+    >
+      <view class="nx-sheet__inner">
+        <view class="nx-sheet__handle" />
+        <view class="nx-sheet__header">
+          <text class="nx-headline">
+            {{ t('agent.voiceprint') }}
+          </text>
+        </view>
+        <scroll-view scroll-y class="nx-sheet__scroll">
+          <view v-if="!voiceOptions.length" class="nx-empty agent-sheet-empty">
+            <text class="nx-empty__text">
+              {{ tx('agent.noOptions', 'Nothing to choose from yet.') }}
+            </text>
+          </view>
+          <view v-else class="nx-group__body">
+            <view
+              v-for="voice in voiceOptions"
+              :key="voice.value"
+              class="nx-row nx-row--tap"
+              @click="onPickerConfirm('voiceprint', voice.value, voice.name)"
+            >
+              <view
+                v-if="hasVoicePreview(voice)"
+                class="agent-play"
+                :class="{ 'is-playing': playingVoiceId === voice.value }"
+                role="button"
+                :aria-label="t('agent.playDemo')"
+                @click.stop="playAudio(voice, $event)"
+              >
+                <wd-icon :name="playingVoiceId === voice.value ? 'pause-circle' : 'play-circle'" size="24px" />
+              </view>
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-truncate">
+                  {{ voice.name }}
+                </view>
+              </view>
+              <wd-icon v-if="formData.ttsVoiceId === voice.value" name="check" size="18px" custom-class="nx-check" />
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+    </wd-popup>
+
+    <!-- Role template picker -->
+    <wd-popup
+      v-model="showTemplateSheet"
+      position="bottom"
+      custom-class="nx-sheet"
+      safe-area-inset-bottom
+    >
+      <view class="nx-sheet__inner">
+        <view class="nx-sheet__handle" />
+        <view class="nx-sheet__header">
+          <text class="nx-headline">
+            {{ t('agent.roleMode') }}
+          </text>
+        </view>
+        <scroll-view scroll-y class="nx-sheet__scroll">
+          <view v-if="!roleTemplates.length" class="nx-empty agent-sheet-empty">
+            <text class="nx-empty__text">
+              {{ tx('agent.noOptions', 'Nothing to choose from yet.') }}
+            </text>
+          </view>
+          <view v-else class="nx-group__body">
+            <view
+              v-for="template in roleTemplates"
+              :key="template.id"
+              class="nx-row nx-row--tap"
+              @click="chooseTemplate(template.id)"
+            >
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-truncate">
+                  {{ template.agentName }}
+                </view>
+              </view>
+              <wd-icon v-if="selectedTemplateId === template.id" name="check" size="18px" custom-class="nx-check" />
+            </view>
+          </view>
+        </scroll-view>
+        <view class="nx-group__footer">
+          {{ tx('agent.templateHint', 'A template fills in the prompt, voice and models. Review them before you save.') }}
         </view>
       </view>
     </wd-popup>
-    <wd-action-sheet
-      v-model="pickerShow.language"
-      :actions="languageOptions"
-      @close="onPickerCancel('language')"
-      @select="({ item }) => onPickerConfirm('language', item.value, item.name)"
-    />
-    <wd-action-sheet
-      v-model="pickerShow.report"
-      :actions="reportOptions"
-      @close="onPickerCancel('report')"
-      @select="({ item }) => onPickerConfirm('report', item.value, item.name)"
-    />
+
+    <!-- Full-screen text editor -->
+    <wd-popup
+      v-model="editorVisible"
+      position="bottom"
+      custom-class="nx-sheet nx-sheet--full"
+      safe-area-inset-bottom
+    >
+      <view class="agent-editor">
+        <view class="agent-editor__bar">
+          <text class="agent-editor__btn" role="button" @click="editorVisible = false">
+            {{ t('common.cancel') }}
+          </text>
+          <text class="nx-headline nx-truncate agent-editor__title">
+            {{ editorTitle }}
+          </text>
+          <text class="agent-editor__btn agent-editor__btn--primary" role="button" @click="applyEditor">
+            {{ tx('agent.editorDone', 'Done') }}
+          </text>
+        </view>
+        <view class="agent-editor__body">
+          <textarea
+            v-if="editorVisible"
+            v-model="editorDraft"
+            class="agent-editor__textarea"
+            :maxlength="editorMaxLength"
+            :placeholder="editorPlaceholder"
+            placeholder-class="agent-placeholder"
+            :auto-focus="true"
+          />
+        </view>
+        <view v-if="editorField === 'systemPrompt'" class="nx-num agent-editor__count">
+          {{ editorDraft.length }}/2000
+        </view>
+      </view>
+    </wd-popup>
+
     <AgentSnapshotPanel
       v-model:visible="showSnapshotPanel"
       :agent-id="agentId"
@@ -1700,22 +1902,328 @@ onMounted(async () => {
 </template>
 
 <style lang="scss" scoped>
-::v-deep .wd-tag__close {
-  color: #336cff !important;
-}
-::v-deep .custom-popup {
-  .wd-popup {
-    padding: 20rpx !important;
-    background: transparent !important;
+.agent-edit {
+  padding: var(--nx-space-4) var(--nx-gutter) calc(var(--nx-space-6) + env(safe-area-inset-bottom));
+  &--with-bar {
+    padding-bottom: calc(200rpx + env(safe-area-inset-bottom));
+  }
+
+  &__skel-title {
+    width: 50%;
+    height: 34rpx;
+  }
+  &__skel-line {
+    width: 30%;
+    height: 24rpx;
+    margin-top: var(--nx-space-2);
+  }
+  &__skel-row {
+    width: 100%;
+    height: 28rpx;
   }
 }
-::v-deep .custom-sheet-tts {
-  .wd-action-sheet {
-    padding: 8px 0 !important;
-    overflow: hidden;
+
+// Identity header card
+.agent-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  margin-bottom: var(--nx-space-5);
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 104rpx;
+    height: 104rpx;
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-title);
+    font-weight: 700;
   }
-  .wd-action-sheet__actions {
-    padding: 0 !important;
+  &__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  &__name {
+    display: block;
+    font-size: var(--nx-text-title);
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--nx-text);
+  }
+  &__meta {
+    margin-top: 4rpx;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+}
+
+.agent-notice {
+  display: flex;
+  gap: var(--nx-space-2);
+  margin-bottom: var(--nx-space-5);
+  padding: var(--nx-space-3) var(--nx-space-4);
+  border-radius: var(--nx-radius-lg);
+  background: var(--nx-warning-soft);
+  color: var(--nx-text);
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+  }
+  &__text {
+    display: block;
+    font-size: var(--nx-text-footnote);
+    line-height: 1.5;
+  }
+  &__action {
+    display: inline-flex;
+    margin-top: var(--nx-space-2);
+    padding: var(--nx-space-1) 0;
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+  }
+}
+
+:deep(.agent-notice__icon) {
+  flex: none;
+  margin-top: 2rpx;
+  color: var(--nx-warning);
+}
+
+.agent-label {
+  flex: none;
+}
+
+.agent-inline-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--nx-touch);
+  text-align: right;
+  font-size: var(--nx-text-body);
+  color: var(--nx-text);
+}
+
+:deep(.agent-placeholder) {
+  color: var(--nx-text-3);
+}
+
+.agent-tags-row {
+  align-items: flex-start;
+}
+
+.agent-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--nx-space-2);
+  margin-top: var(--nx-space-2);
+}
+
+.agent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nx-space-1);
+  max-width: 100%;
+  height: 56rpx;
+  padding: 0 var(--nx-space-1) 0 var(--nx-space-3);
+  box-sizing: border-box;
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-accent-soft);
+  color: var(--nx-accent);
+  font-size: var(--nx-text-footnote);
+  font-weight: 500;
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44rpx;
+    height: 44rpx;
+    border-radius: 50%;
+    &:active {
+      background: var(--nx-surface-2);
+    }
+  }
+  &--add {
+    padding: 0 var(--nx-space-3);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    &:active {
+      background: var(--nx-surface-3);
+    }
+  }
+}
+
+.agent-tag-input {
+  flex: 1;
+  min-width: 240rpx;
+  height: 56rpx;
+  padding: 0 var(--nx-space-3);
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface-2);
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-text);
+}
+
+.agent-preview {
+  display: -webkit-box;
+  margin-top: 4rpx;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: var(--nx-text-footnote);
+  line-height: 1.45;
+  color: var(--nx-text-2);
+  overflow-wrap: anywhere;
+  &--empty {
+    color: var(--nx-text-3);
+  }
+}
+
+.agent-row--disabled {
+  opacity: 0.55;
+}
+
+.agent-row-icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: var(--nx-radius-sm);
+}
+
+.agent-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 64rpx;
+  height: 64rpx;
+  color: var(--nx-text-3);
+  &.is-playing {
+    color: var(--nx-accent);
+  }
+  &:active {
+    opacity: 0.6;
+  }
+}
+
+.agent-link {
+  color: var(--nx-accent);
+  text-decoration: none;
+}
+
+:deep(.nx-row__chevron) {
+  color: var(--nx-text-3);
+}
+
+:deep(.agent-save-btn) {
+  border-radius: var(--nx-radius);
+}
+
+// Sheets
+:deep(.wd-popup.nx-sheet) {
+  overflow: hidden;
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+  background: var(--nx-bg);
+}
+
+:deep(.wd-popup.nx-sheet--full) {
+  height: 92vh;
+}
+
+.nx-sheet {
+  &__inner {
+    padding: 0 var(--nx-gutter) var(--nx-space-4);
+  }
+  &__handle {
+    width: 72rpx;
+    height: 10rpx;
+    margin: var(--nx-space-2) auto 0;
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-surface-3);
+  }
+  &__header {
+    display: flex;
+    align-items: center;
+    min-height: var(--nx-touch);
+    padding: var(--nx-space-2) 0;
+  }
+  &__scroll {
+    max-height: 60vh;
+    border-radius: var(--nx-radius-lg);
+  }
+}
+
+.agent-sheet-empty {
+  padding: var(--nx-space-6) var(--nx-space-4);
+}
+
+:deep(.nx-check) {
+  flex: none;
+  color: var(--nx-accent);
+}
+
+// Full-screen editor
+.agent-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    min-height: var(--nx-touch);
+    padding: var(--nx-space-2) var(--nx-gutter);
+    border-bottom: 1rpx solid var(--nx-border);
+  }
+  &__title {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+  &__btn {
+    flex: none;
+    min-width: 120rpx;
+    padding: var(--nx-space-2) 0;
+    color: var(--nx-accent);
+    font-size: var(--nx-text-body);
+    &--primary {
+      text-align: right;
+      font-weight: 600;
+    }
+    &:active {
+      opacity: 0.6;
+    }
+  }
+  &__body {
+    flex: 1;
+    min-height: 0;
+    margin: var(--nx-space-4) var(--nx-gutter) 0;
+    padding: var(--nx-space-4);
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-surface);
+    box-shadow: var(--nx-shadow-1);
+  }
+  &__textarea {
+    width: 100%;
+    height: 100%;
+    font-size: var(--nx-text-body);
+    line-height: 1.6;
+    color: var(--nx-text);
+  }
+  &__count {
+    padding: var(--nx-space-2) var(--nx-gutter) var(--nx-space-4);
+    text-align: right;
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
   }
 }
 </style>

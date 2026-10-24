@@ -5,7 +5,7 @@
         ref="tableRef"
         :data="data"
         :class="['custom-table', tableClass]"
-        height="100%"
+        :height="autoHeight ? null : '100%'"
         v-loading="loading"
         :element-loading-text="loadingText"
         :element-loading-spinner="loadingSpinner"
@@ -20,8 +20,10 @@
           v-if="showSelection"
           width="55"
           align="center"
-          label="Select"
         >
+          <template slot="header">
+            <span class="nx-visually-hidden">Select</span>
+          </template>
           <template slot-scope="scope">
             <slot
               v-if="$scopedSlots.selection"
@@ -103,6 +105,11 @@ export default {
     CustomPagination
   },
   props: {
+    // Grow with the rows instead of filling a fixed-height parent
+    autoHeight: {
+      type: Boolean,
+      default: false
+    },
     // Table data
     data: {
       type: Array,
@@ -185,6 +192,7 @@ export default {
   },
   computed: {
     tableContainerHeight() {
+      if (this.autoHeight) return 'auto';
       return this.showPagination ? 'calc(100% - 48px)' : '100%';
     }
   },

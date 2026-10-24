@@ -2,84 +2,92 @@
     <CustomDialog
         :title="$t('voiceClone.dialogTitle')"
         :visible.sync="innerVisible"
-        width="960px"
-        size="large"
+        width="720px"
         :footer="false"
         @close="handleDialogClose"
     >
-        <div class="dialog-content">
-            <!-- Step indicator -->
-            <div class="steps-header">
-                <div class="step-item" :class="{ 'active': currentStep === 1, 'completed': currentStep > 1 }">
-                    <div class="step-number">
-                        <i class="el-icon-check" v-if="currentStep > 1"></i>
-                        <span v-else>1</span>
-                    </div>
-                    <div class="step-label">{{ $t('voiceClone.stepUpload') }}</div>
-                    <div class="step-line"></div>
-                </div>
-                <div class="step-item" :class="{ 'active': currentStep === 2, 'completed': currentStep > 2 }">
-                    <div class="step-number">
-                        <i class="el-icon-check" v-if="currentStep > 2"></i>
-                        <span v-else>2</span>
-                    </div>
-                    <div class="step-label">{{ $t('voiceClone.stepEdit') }}</div>
-                </div>
+        <template slot="title">
+            <div class="dialog-title vcd-title">
+                <span>{{ $t('voiceClone.dialogTitle') }}</span>
+                <span v-if="voiceCloneData && voiceCloneData.name" class="vcd-title__name nx-truncate"
+                    :title="voiceCloneData.name">{{ voiceCloneData.name }}</span>
             </div>
+        </template>
+
+        <div class="vcd">
+            <!-- Steps -->
+            <ol class="vcd-steps" :aria-label="$t('voiceClone.dialogTitle')">
+                <li class="vcd-step" :class="{ 'is-active': currentStep === 1, 'is-done': currentStep > 1 }"
+                    :aria-current="currentStep === 1 ? 'step' : null">
+                    <span class="vcd-step__num">
+                        <i v-if="currentStep > 1" class="el-icon-check" aria-hidden="true"></i>
+                        <span v-else>1</span>
+                    </span>
+                    <span class="vcd-step__label">{{ $t('voiceClone.stepUpload') }}</span>
+                </li>
+                <li class="vcd-steps__line" :class="{ 'is-done': currentStep > 1 }" aria-hidden="true"></li>
+                <li class="vcd-step" :class="{ 'is-active': currentStep === 2 }"
+                    :aria-current="currentStep === 2 ? 'step' : null">
+                    <span class="vcd-step__num">2</span>
+                    <span class="vcd-step__label">{{ $t('voiceClone.stepEdit') }}</span>
+                </li>
+            </ol>
 
             <!-- Step 1: Audio upload -->
-            <div v-if="currentStep === 1" class="step-content">
-                <div class="upload-area">
-                    <el-upload class="audio-uploader" drag :action="uploadAction" :auto-upload="false"
-                        :on-change="handleFileChange" :show-file-list="false" accept="audio/*">
-                        <i class="el-icon-upload"></i>
-                        <div class="el-upload__text">{{ $t('voiceClone.dragOrClick') }}</div>
-                        <div class="el-upload__tip">{{ $t('voiceClone.uploadTip') }}</div>
-                    </el-upload>
-                </div>
+            <div v-if="currentStep === 1" class="vcd-body">
+                <el-upload class="vcd-dropzone" drag :action="uploadAction" :auto-upload="false"
+                    :on-change="handleFileChange" :show-file-list="false" accept="audio/*">
+                    <span class="nx-icon-tile nx-icon-tile--lg"><i class="el-icon-microphone" aria-hidden="true"></i></span>
+                    <div class="vcd-dropzone__title">{{ $t('voiceClone.dragOrClick') }}</div>
+                    <div class="vcd-dropzone__tip">{{ $t('voiceClone.uploadTip') }}</div>
+                </el-upload>
             </div>
 
             <!-- Step 2: Audio editing -->
-            <div v-if="currentStep === 2" class="step-content">
-                <div class="audio-edit-area">
-                    <div class="edit-tips">
-                        <p>{{ $t('voiceClone.editTip1') }}</p>
+            <div v-if="currentStep === 2" class="vcd-body">
+                <div class="vcd-tips">
+                    <i class="el-icon-info" aria-hidden="true"></i>
+                    <div>
+                        <p class="vcd-tips__lead">{{ $t('voiceClone.editTip1') }}</p>
                         <p>{{ $t('voiceClone.editTip2') }}</p>
                     </div>
-
-                    <!-- Waveform display area -->
-                    <div class="waveform-container">
-                        <canvas ref="waveformCanvas" class="waveform-canvas" @mousedown="handleWaveformMouseDown"
-                            @mousemove="handleWaveformMouseMove" @mouseup="handleWaveformMouseUp"></canvas>
-                        <div class="selection-overlay" v-if="isSelecting || selectionStart !== null"
-                            :style="selectionStyle"></div>
-                        <div class="duration-display">
-                            {{ $t('voiceClone.selectedDuration', { duration: selectedDuration.toFixed(1) }) }}
-                        </div>
-                    </div>
-
-                    <!-- Audio control buttons -->
-                    <div class="audio-controls">
-                        <el-button size="small" :icon="isPlaying ? 'el-icon-video-pause' : 'el-icon-video-play'"
-                            @click="togglePlay" type="primary">
-                            {{ isPlaying ? $t('voiceClone.pause') : $t('voiceClone.play') }}
-                        </el-button>
-                        <el-button size="small" icon="el-icon-scissors" @click="handleTrim"
-                            :disabled="selectionStart === null">
-                            {{ $t('voiceClone.trim') }}
-                        </el-button>
-                        <el-button size="small" icon="el-icon-refresh-left" @click="handleReset">
-                            {{ $t('voiceClone.reset') }}
-                        </el-button>
-                    </div>
-
-                    <!-- Audio elements -->
-                    <audio ref="audioPlayer" @timeupdate="handleTimeUpdate" @ended="handleAudioEnded"
-                        style="display: none;"></audio>
                 </div>
+
+                <!-- Waveform: drag across it to select the part to keep -->
+                <div class="vcd-wave">
+                    <canvas ref="waveformCanvas" class="vcd-wave__canvas" @mousedown="handleWaveformMouseDown"
+                        @mousemove="handleWaveformMouseMove" @mouseup="handleWaveformMouseUp"
+                        @mouseleave="handleWaveformMouseUp"></canvas>
+                    <div class="vcd-wave__selection" v-if="isSelecting || selectionStart !== null"
+                        :style="selectionStyle"></div>
+                    <div class="vcd-wave__duration nx-num"
+                        :class="{ 'is-invalid': selectedDuration && (selectedDuration < 8 || selectedDuration > 60) }">
+                        {{ $t('voiceClone.selectedDuration', { duration: selectedDuration.toFixed(1) }) }}
+                    </div>
+                </div>
+
+                <!-- Audio control buttons -->
+                <div class="vcd-controls">
+                    <CustomButton size="small" :icon="isPlaying ? 'el-icon-video-pause' : 'el-icon-video-play'"
+                        @click="togglePlay">
+                        {{ isPlaying ? $t('voiceClone.pause') : $t('voiceClone.play') }}
+                    </CustomButton>
+                    <CustomButton size="small" icon="el-icon-scissors" :disabled="selectionStart === null"
+                        @click="handleTrim">
+                        {{ $t('voiceClone.trim') }}
+                    </CustomButton>
+                    <CustomButton size="small" icon="el-icon-refresh-left" @click="handleReset">
+                        {{ $t('voiceClone.reset') }}
+                    </CustomButton>
+                </div>
+
+                <!-- Audio elements -->
+                <audio ref="audioPlayer" @timeupdate="handleTimeUpdate" @ended="handleAudioEnded"
+                    style="display: none;"></audio>
             </div>
         </div>
-        <div class="custom-footer">
+
+        <div class="vcd-footer">
             <CustomButton @click="handleCancel">
                 {{ currentStep === 1 ? $t('voiceClone.cancel') : $t('voiceClone.prevStep') }}
             </CustomButton>
@@ -166,6 +174,11 @@ export default {
         }
     },
     methods: {
+        // Resolve a CSS custom property (design token) for canvas drawing
+        tokenColor(el, name) {
+            const value = el ? getComputedStyle(el).getPropertyValue(name).trim() : '';
+            return value || 'gray';
+        },
         handleCancel() {
             if (this.currentStep === 2) {
                 this.currentStep = 1;
@@ -275,9 +288,7 @@ export default {
             // Clear canvas
             ctx.clearRect(0, 0, width, height);
 
-            // Draw background
-            ctx.fillStyle = '#e0f2ff';
-            ctx.fillRect(0, 0, width, height);
+            // Background is the container's token fill (--nx-surface-2); the canvas stays transparent
 
             if (this.waveformData.length === 0) {
                 console.error('Waveform data is empty');
@@ -287,9 +298,10 @@ export default {
             // Find maximum value for normalization
             const maxValue = Math.max(...this.waveformData);
 
-            // Draw waveform
-            ctx.fillStyle = '#4ade80';
-            ctx.strokeStyle = '#4ade80';
+            // Draw waveform in the accent token
+            const barColor = this.tokenColor(canvas, '--nx-accent');
+            ctx.fillStyle = barColor;
+            ctx.strokeStyle = barColor;
             ctx.lineWidth = 1;
 
             const barWidth = width / this.waveformData.length;
@@ -531,175 +543,229 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.steps-header {
+.vcd-title {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0 50px;
-}
+    align-items: baseline;
+    gap: var(--nx-space-2);
+    min-width: 0;
 
-.step-item {
-    display: flex;
-    align-items: center;
-    position: relative;
-
-    &.active {
-        .step-number {
-            background: #6b8cff;
-            color: white;
-        }
-
-        .step-label {
-            color: #333;
-            font-weight: 600;
-        }
-    }
-
-    &.completed {
-        .step-number {
-            background: #67c23a;
-            color: white;
-        }
-
-        .step-line {
-            background: #67c23a;
-        }
+    &__name {
+        font-size: var(--nx-text-callout);
+        font-weight: 400;
+        color: var(--nx-text-2);
     }
 }
 
-.step-number {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: #e4e7ed;
-    color: #909399;
+.vcd {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-5);
+}
+
+// ------------------------------------------------------------ steps
+.vcd-steps {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 16px;
-    z-index: 1;
+    gap: var(--nx-space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    &__line {
+        flex: 1 1 auto;
+        min-width: 24px;
+        height: 2px;
+        border-radius: var(--nx-radius-pill);
+        background: var(--nx-surface-3);
+        transition: background-color var(--nx-dur-3) var(--nx-ease);
+
+        &.is-done {
+            background: var(--nx-success);
+        }
+    }
 }
 
-.step-label {
-    margin-left: 12px;
-    color: #909399;
-    font-size: 14px;
+.vcd-step {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    flex: none;
+    color: var(--nx-text-3);
+    font-size: var(--nx-text-callout);
+
+    &__num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--nx-surface-2);
+        color: var(--nx-text-2);
+        font-size: var(--nx-text-footnote);
+        font-weight: 700;
+        transition: background-color var(--nx-dur-2) var(--nx-ease), color var(--nx-dur-2) var(--nx-ease);
+    }
+
+    &.is-active {
+        color: var(--nx-text);
+        font-weight: 600;
+
+        .vcd-step__num {
+            background: var(--nx-accent);
+            color: var(--nx-on-accent);
+        }
+    }
+    &.is-done {
+        color: var(--nx-text-2);
+
+        .vcd-step__num {
+            background: var(--nx-success-soft);
+            color: var(--nx-success);
+        }
+    }
 }
 
-.step-line {
-    width: 200px;
-    height: 2px;
-    background: #e4e7ed;
-    margin-left: 12px;
-}
-.step-content {
-    padding: 20px 0;
-}
-
-.upload-area {
-    padding: 40px 0;
-}
-
-.audio-uploader {
+// ------------------------------------------------------------ step 1
+.vcd-dropzone {
     ::v-deep .el-upload {
+        display: block;
         width: 100%;
     }
-
     ::v-deep .el-upload-dragger {
-        width: 100%;
-        height: 280px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-
-        .el-icon-upload {
-            font-size: 67px;
-            color: #c0c4cc;
-            margin: 0 0 16px;
-            line-height: 50px;
-        }
+        gap: var(--nx-space-3);
+        width: 100%;
+        height: auto;
+        min-height: 240px;
+        padding: var(--nx-space-7) var(--nx-space-5);
+        transition: border-color var(--nx-dur-2) var(--nx-ease), background-color var(--nx-dur-2) var(--nx-ease);
+    }
+    ::v-deep .el-upload-dragger.is-dragover {
+        border-color: var(--nx-accent);
+        background: var(--nx-accent-soft);
     }
 
-    .el-upload__text {
-        color: #606266;
-        font-size: 14px;
-        margin-bottom: 8px;
+    &__title {
+        font-size: var(--nx-text-callout);
+        font-weight: 500;
+        color: var(--nx-text);
     }
-
-    .el-upload__tip {
-        font-size: 12px;
-        color: #909399;
-        margin-top: 7px;
+    &__tip {
+        max-width: 420px;
+        font-size: var(--nx-text-caption);
+        line-height: 1.5;
+        color: var(--nx-text-3);
+        text-align: center;
     }
 }
 
-.audio-edit-area {
-    padding: 0 20px;
+// ------------------------------------------------------------ step 2
+.vcd-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-4);
 }
 
-.edit-tips {
-    margin-bottom: 20px;
-    padding: 12px;
-    background: #f0f9ff;
-    border-radius: 4px;
-    border-left: 3px solid #1890ff;
+.vcd-tips {
+    display: flex;
+    gap: var(--nx-space-3);
+    padding: var(--nx-space-3) var(--nx-space-4);
+    border-radius: var(--nx-radius);
+    background: var(--nx-info-soft);
+    color: var(--nx-info);
 
+    > i {
+        margin-top: 2px;
+        font-size: var(--nx-text-body);
+    }
     p {
-        margin: 4px 0;
-        font-size: 13px;
-        color: #606266;
+        margin: 0;
+        font-size: var(--nx-text-footnote);
+        line-height: 1.5;
+        color: var(--nx-text-2);
 
-        &:first-child {
-            font-weight: 500;
+        &.vcd-tips__lead {
+            font-weight: 600;
+            color: var(--nx-text);
         }
     }
 }
 
-.waveform-container {
+.vcd-wave {
     position: relative;
     width: 100%;
-    height: 200px;
-    margin-bottom: 20px;
-    border: 1px solid #e4e7ed;
-    border-radius: 4px;
+    height: 180px;
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-surface-2);
     overflow: hidden;
     cursor: crosshair;
+    user-select: none;
+
+    &__canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+    &__selection {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-left: 2px solid var(--nx-accent);
+        border-right: 2px solid var(--nx-accent);
+        background: color-mix(in srgb, var(--nx-accent) 16%, transparent);
+        pointer-events: none;
+    }
+    &__duration {
+        position: absolute;
+        top: var(--nx-space-2);
+        right: var(--nx-space-2);
+        padding: 4px 10px;
+        border-radius: var(--nx-radius-pill);
+        background: var(--nx-surface);
+        box-shadow: var(--nx-shadow-1);
+        color: var(--nx-text);
+        font-size: var(--nx-text-caption);
+        font-weight: 600;
+
+        &.is-invalid {
+            background: var(--nx-danger-soft);
+            color: var(--nx-danger);
+        }
+    }
 }
 
-.waveform-canvas {
-    width: 100%;
-    height: 100%;
-}
-
-.selection-overlay {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    background: rgba(107, 140, 255, 0.3);
-    border: 1px solid #6b8cff;
-    pointer-events: none;
-}
-
-.duration-display {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-}
-
-.audio-controls {
+.vcd-controls {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
-    margin-top: 20px;
+    gap: var(--nx-space-2);
+
+    .el-button + .el-button {
+        margin-left: 0;
+    }
 }
-.custom-footer {
-    text-align: right;
+
+.vcd-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--nx-space-2);
+    margin-top: var(--nx-space-6);
+
+    .el-button + .el-button {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .vcd-step__label {
+        font-size: var(--nx-text-footnote);
+    }
+    .vcd-wave {
+        height: 140px;
+    }
 }
 </style>

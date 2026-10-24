@@ -3,16 +3,18 @@
     :title="title"
     :visible.sync="dialogVisible"
     :close-on-click-modal="false"
-    width="600px"
+    width="640px"
+    :cancel-text="$t('button.cancel')"
+    :confirm-text="title || $t('voiceClone.addVoiceClone')"
     @close="handleClose"
     @open="handleOpen"
     @cancel="handleCancel"
     @confirm="handleSubmit"
   >
-    <el-form ref="form" :model="form" :rules="rules" label-width="auto">
+    <el-form ref="form" :model="form" :rules="rules" label-position="top" class="vrd-form" @submit.native.prevent>
       <el-form-item :label="$t('voiceClone.platformName')" prop="modelId">
         <el-select v-model="form.modelId" :placeholder="$t('voiceClone.platformNamePlaceholder')" filterable
-          style="width: 100%" @change="handlePlatformChange">
+          class="vrd-full" @change="handlePlatformChange">
           <el-option v-for="model in platformList" :key="model.id" :label="model.modelName" :value="model.id">
           </el-option>
         </el-select>
@@ -20,24 +22,26 @@
 
       <el-form-item :label="$t('voiceClone.voiceId')" prop="voiceIds">
         <el-select v-model="form.voiceIds" :placeholder="$t('voiceClone.voiceIdPlaceholder')" filterable multiple
-          allow-create default-first-option style="width: 100%">
+          allow-create default-first-option class="vrd-full vrd-mono">
           <el-option v-for="voiceId in voiceIdList" :key="voiceId" :label="voiceId" :value="voiceId">
           </el-option>
         </el-select>
       </el-form-item>
 
-      <el-form-item :label="$t('voiceClone.userId')" prop="userId">
-        <el-select v-model="form.userId" :placeholder="$t('voiceClone.userIdPlaceholder')" filterable remote
-          :remote-method="remoteSearchUser" :loading="userLoading" style="width: 100%">
-          <el-option v-for="user in userList" :key="user.userid" :label="user.mobile" :value="user.userid">
-          </el-option>
-        </el-select>
-      </el-form-item>
+      <div class="vrd-grid">
+        <el-form-item :label="$t('voiceClone.userId')" prop="userId">
+          <el-select v-model="form.userId" :placeholder="$t('voiceClone.userIdPlaceholder')" filterable remote
+            :remote-method="remoteSearchUser" :loading="userLoading" class="vrd-full">
+            <el-option v-for="user in userList" :key="user.userid" :label="user.mobile" :value="user.userid">
+            </el-option>
+          </el-select>
+        </el-form-item>
 
-      <el-form-item :label="$t('voiceClone.languages')" prop="languages">
-        <el-input v-model="form.languages" :placeholder="$t('voiceClone.languagesPlaceholder')" style="width: 100%">
-        </el-input>
-      </el-form-item>
+        <el-form-item :label="$t('voiceClone.languages')" prop="languages">
+          <el-input v-model="form.languages" :placeholder="$t('voiceClone.languagesPlaceholder')">
+          </el-input>
+        </el-form-item>
+      </div>
     </el-form>
   </CustomDialog>
 </template>
@@ -159,3 +163,42 @@ export default {
   }
 }
 </script>
+
+
+<style lang="scss" scoped>
+.vrd-form {
+  ::v-deep .el-form-item {
+    min-width: 0;
+    margin-bottom: var(--nx-space-4);
+  }
+  ::v-deep .el-form-item__label {
+    padding-bottom: var(--nx-space-1);
+    line-height: 1.4;
+  }
+}
+
+.vrd-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--nx-space-4);
+
+  ::v-deep .el-form-item {
+    margin-bottom: 0;
+  }
+}
+
+.vrd-full {
+  width: 100%;
+}
+
+.vrd-mono ::v-deep .el-tag {
+  font-family: var(--nx-font-mono);
+}
+
+@media (max-width: 560px) {
+  .vrd-grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--nx-space-4);
+  }
+}
+</style>

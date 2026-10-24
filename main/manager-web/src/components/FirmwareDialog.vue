@@ -1,41 +1,64 @@
 <template>
   <CustomDialog
     :title="title"
-    :visible.sync="visible"
-    width="800px"
+    :visible="visible"
+    width="640px"
+    @update:visible="val => $emit('update:visible', val)"
     @confirm="submit"
     @close="cancel"
     @open="handleOpen"
     :confirmLoading="saving"
   >
-    <el-form ref="form" :model="form" :rules="rules" label-width="auto" label-position="left" class="firmware-form">
-      <el-form-item :label="$t('firmwareDialog.firmwareName')" prop="firmwareName">
-        <el-input v-model="form.firmwareName" :placeholder="$t('firmwareDialog.firmwareNamePlaceholder')" />
-      </el-form-item>
-      <el-form-item :label="$t('firmwareDialog.firmwareType')" prop="type">
-        <el-select v-model="form.type" :placeholder="$t('firmwareDialog.firmwareTypePlaceholder')"
-          class="custom-select" filterable :disabled="isTypeDisabled">
-          <el-option v-for="item in firmwareTypes" :key="item.key" :label="item.name" :value="item.key"></el-option>
-        </el-select>
-      </el-form-item>
-      <el-form-item :label="$t('firmwareDialog.version')" prop="version">
-        <el-input v-model="form.version" :placeholder="$t('firmwareDialog.versionPlaceholder')" />
-      </el-form-item>
-      <el-form-item :label="$t('firmwareDialog.firmwareFile')" prop="firmwarePath">
-        <el-upload ref="upload" class="upload-demo" action="#" :http-request="handleUpload"
+    <el-form ref="form" :model="form" :rules="rules" label-position="top" class="firmware-form">
+      <!-- Step 1: the file -->
+      <div class="fw-step">
+        <span class="fw-step__num nx-num" aria-hidden="true">1</span>
+        <span class="fw-step__title">{{ tt('firmwareDialog.stepFile', 'Upload the firmware file') }}</span>
+      </div>
+      <el-form-item prop="firmwarePath" class="fw-upload-item">
+        <el-upload ref="upload" class="fw-upload" drag action="#" :http-request="handleUpload"
           :before-upload="beforeUpload" :accept="'.bin,.apk,.wav'" :limit="1" :multiple="false" :auto-upload="true"
           :on-remove="handleRemove">
-          <el-button size="small" type="primary">{{ $t('firmwareDialog.clickUpload') }}</el-button>
-          <div slot="tip" class="el-upload__tip">{{ $t('firmwareDialog.uploadTip') }}</div>
+          <span class="nx-icon-tile fw-upload__icon" aria-hidden="true"><i class="el-icon-upload2"></i></span>
+          <div class="fw-upload__title">
+            {{ tt('firmwareDialog.dropHere', 'Drop the file here, or') }}
+            <em>{{ $t('firmwareDialog.clickUpload') }}</em>
+          </div>
+          <div class="fw-upload__tip">{{ $t('firmwareDialog.uploadTip') }}</div>
         </el-upload>
-        <el-progress v-if="isUploading || uploadStatus === 'success'" :percentage="uploadProgress"
-          :status="uploadStatus"></el-progress>
-        <div class="hint-text">
+        <el-progress v-if="isUploading || uploadStatus === 'success'" class="fw-progress" :percentage="uploadProgress"
+          :status="uploadStatus || undefined" :stroke-width="6"></el-progress>
+        <p v-if="form.id && form.firmwarePath && !isUploading && uploadStatus !== 'success'" class="fw-note">
+          <i class="el-icon-document" aria-hidden="true"></i>
+          {{ tt('firmwareDialog.keepCurrentFile', 'The current file is kept unless you upload a new one.') }}
+        </p>
+        <div class="fw-hint" role="note">
+          <i class="el-icon-info" aria-hidden="true"></i>
           <span>{{ $t('firmwareDialog.uploadHint') }}</span>
         </div>
       </el-form-item>
+
+      <!-- Step 2: details -->
+      <div class="fw-step">
+        <span class="fw-step__num nx-num" aria-hidden="true">2</span>
+        <span class="fw-step__title">{{ tt('firmwareDialog.stepDetails', 'Describe the build') }}</span>
+      </div>
+      <el-form-item :label="$t('firmwareDialog.firmwareName')" prop="firmwareName">
+        <el-input v-model="form.firmwareName" :placeholder="$t('firmwareDialog.firmwareNamePlaceholder')" />
+      </el-form-item>
+      <div class="fw-grid">
+        <el-form-item :label="$t('firmwareDialog.firmwareType')" prop="type">
+          <el-select v-model="form.type" :placeholder="$t('firmwareDialog.firmwareTypePlaceholder')"
+            class="fw-select" filterable :disabled="isTypeDisabled">
+            <el-option v-for="item in firmwareTypes" :key="item.key" :label="item.name" :value="item.key"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('firmwareDialog.version')" prop="version">
+          <el-input v-model="form.version" class="fw-version" :placeholder="$t('firmwareDialog.versionPlaceholder')" />
+        </el-form-item>
+      </div>
       <el-form-item :label="$t('firmwareDialog.remark')" prop="remark">
-        <el-input type="textarea" v-model="form.remark"
+        <el-input type="textarea" v-model="form.remark" :rows="3"
           :placeholder="$t('firmwareDialog.remarkPlaceholder')" />
       </el-form-item>
     </el-form>
@@ -100,6 +123,9 @@ export default {
     }
   },
   methods: {
+    tt(key, fallback) {
+      return this.$te(key) || this.$te(key, 'en') ? this.$t(key) : fallback;
+    },
     submit() {
       this.$refs.form.validate(valid => {
         if (valid) {
@@ -111,7 +137,7 @@ export default {
           this.saving = true
           // Hand over dialog close logic to parent after submit
           this.$emit('submit', this.form)
-          // 兜底：父组件若未在回调内重置 saving，3 秒后强制释放加载状态
+          // Fallback: release the loading state after 3 s if the parent never resets it
           setTimeout(() => {
             this.saving = false
           }, 3000)
@@ -215,23 +241,108 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.firmware-form {
-  .custom-select {
+.fw-step {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-2);
+  margin: 0 0 var(--nx-space-3);
+  &:not(:first-child) {
+    margin-top: var(--nx-space-2);
+    padding-top: var(--nx-space-5);
+    border-top: 1px solid var(--nx-border);
+  }
+  &__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-caption);
+    font-weight: 700;
+  }
+  &__title {
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+}
+.fw-upload-item ::v-deep .el-form-item__content {
+  line-height: 1.4;
+}
+.fw-upload {
+  width: 100%;
+  ::v-deep .el-upload,
+  ::v-deep .el-upload-dragger {
     width: 100%;
   }
-  .upload-demo {
-    text-align: left;
-  }
-  .el-upload__tip {
-    line-height: 1.2;
-    padding-top: 2%;
-    color: #909399;
-  }
-  .hint-text {
+  ::v-deep .el-upload-dragger {
+    height: auto;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: var(--nx-space-2);
+    padding: var(--nx-space-6) var(--nx-space-4);
+    transition: border-color var(--nx-dur-2) var(--nx-ease), background-color var(--nx-dur-2) var(--nx-ease);
+    &.is-dragover {
+      border-color: var(--nx-accent);
+      background: var(--nx-accent-soft);
+    }
   }
+  &__icon {
+    margin-bottom: var(--nx-space-1);
+  }
+  &__title {
+    font-size: var(--nx-text-callout);
+    color: var(--nx-text);
+    em {
+      font-style: normal;
+      font-weight: 600;
+      color: var(--nx-accent);
+    }
+  }
+  &__tip {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+}
+.fw-progress {
+  margin-top: var(--nx-space-3);
+}
+.fw-note {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-2);
+  margin: var(--nx-space-3) 0 0;
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-text-2);
+}
+.fw-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--nx-space-2);
+  margin-top: var(--nx-space-3);
+  padding: var(--nx-space-3);
+  border-radius: var(--nx-radius);
+  background: var(--nx-info-soft);
+  color: var(--nx-info);
+  font-size: var(--nx-text-footnote);
+  line-height: 1.45;
+  i {
+    margin-top: 2px;
+  }
+}
+.fw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: var(--nx-space-4);
+}
+.fw-select {
+  width: 100%;
+}
+.fw-version ::v-deep .el-input__inner {
+  font-family: var(--nx-font-mono);
 }
 </style>

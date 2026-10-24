@@ -2,17 +2,17 @@
   <CustomDialog
     :title="title"
     :visible.sync="dialogVisible"
-    width="600px"
+    width="480px"
     @confirm="submit"
     @close="cancel"
     :confirmLoading="saving"
   >
-    <el-form :model="form" :rules="rules" ref="form" label-width="auto" label-position="left">
+    <el-form :model="form" :rules="rules" ref="form" label-position="top">
       <el-form-item :label="$t('dictTypeDialog.dictName')" prop="dictName" class="form-item">
         <el-input v-model="form.dictName" :placeholder="$t('dictTypeDialog.dictNamePlaceholder')" />
       </el-form-item>
       <el-form-item :label="$t('dictTypeDialog.dictType')" prop="dictType" class="form-item">
-        <el-input v-model="form.dictType" :placeholder="$t('dictTypeDialog.dictTypePlaceholder')" />
+        <el-input v-model="form.dictType" class="mono-input" :placeholder="$t('dictTypeDialog.dictTypePlaceholder')" />
       </el-form-item>
     </el-form>
   </CustomDialog>
@@ -29,7 +29,9 @@ export default {
     },
     title: {
       type: String,
-      default: () => this.$t('dictTypeDialog.addDictType')
+      default() {
+        return this.$t('dictTypeDialog.addDictType');
+      }
     },
     dictTypeData: {
       type: Object,
@@ -92,3 +94,10 @@ export default {
   }
 };
 </script>
+
+<style scoped lang="scss">
+.mono-input ::v-deep .el-input__inner {
+  font-family: var(--nx-font-mono);
+  font-size: var(--nx-text-footnote);
+}
+</style>

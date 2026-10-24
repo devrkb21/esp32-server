@@ -17,8 +17,6 @@ import { usePluginStore } from '@/store'
 const message = useMessage()
 const pluginStore = usePluginStore()
 
-const segmentedList = ref<string[]>([t('agent.tools.notSelected'), t('agent.tools.selected')])
-const currentSegmented = ref(t('agent.tools.notSelected'))
 const notSelectedList = ref<any[]>([])
 const selectedList = ref<any[]>([])
 
@@ -216,7 +214,8 @@ function handleJsonChange(key: string, value: string, field: any) {
 
 // Home Assistant Smart Home Helpers
 function isHomeAssistant(func: any) {
-  if (!func) return false
+  if (!func)
+    return false
   const code = String(func.providerCode || '').toLowerCase()
   const id = String(func.id || '').toUpperCase()
   const name = String(func.name || '').toLowerCase()
@@ -226,12 +225,73 @@ function isHomeAssistant(func: any) {
 }
 
 function insertMobileDeviceTemplate(templateText: string) {
-  if (!currentFunction.value) return
-  const current = arrayTextCache.value['devices'] || ''
+  if (!currentFunction.value)
+    return
+  const current = arrayTextCache.value.devices || ''
   const updated = current ? `${current.trim()}\n${templateText}` : templateText
   const devicesField = currentFunction.value.fieldsMeta?.find((f: any) => f.key === 'devices')
   handleArrayChange('devices', updated, devicesField)
   uni.showToast({ title: 'Template added', icon: 'none' })
+}
+
+// Quick-insert device templates for the smart home helper
+const haTemplates = [
+  { labelKey: 'agent.tools.addLight', template: 'Living Room, Light, light.living_room' },
+  { labelKey: 'agent.tools.addFan', template: 'Bedroom, Ceiling Fan, fan.bedroom' },
+  { labelKey: 'agent.tools.addClimate', template: 'Living Room, AC, climate.living_room' },
+  { labelKey: 'agent.tools.addSwitch', template: 'Kitchen, Plug, switch.kitchen_plug' },
+  { labelKey: 'agent.tools.addLock', template: 'Entrance, Front Door Lock, lock.front_door' },
+]
+
+const haSampleCommands = [
+  '"লিভিং রুমের লাইট জ্বালাও / নিভাও" (আলো ৮০% করো)',
+  '"ফ্যান চালু করো" / "এসি ২৪ ডিগ্রিতে রাখো"',
+  '"Turn on/off living room light" / "Lock front door"',
+]
+
+// One row per plugin: switch on = selected for this agent
+interface PluginRow {
+  id: string
+  name: string
+  providerCode: string
+  func: any
+  selected: any
+}
+
+const pluginRows = computed<PluginRow[]>(() => {
+  const rows: PluginRow[] = allFunctions.value.map(func => ({
+    id: func.id,
+    name: func.name,
+    providerCode: func.providerCode || '',
+    func,
+    selected: selectedList.value.find(item => item.id === func.id) || null,
+  }))
+  selectedList.value
+    .filter(item => !allFunctions.value.some(func => func.id === item.id))
+    .forEach(item => rows.push({ id: item.id, name: item.name, providerCode: '', func: null, selected: item }))
+  return rows
+})
+
+function togglePlugin(row: PluginRow, enabled: boolean) {
+  if (enabled && !row.selected && row.func) {
+    selectFunction(notSelectedList.value.find(item => item.id === row.id) || row.func)
+  }
+  else if (!enabled && row.selected) {
+    removeFunction(row.selected)
+  }
+}
+
+// Safe area for the custom navigation bar
+const safeTop = (uni.getSystemInfoSync().safeAreaInsets?.top) || 0
+
+// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
+function tx(key: string, fallback: string, params?: Record<string, string | number>) {
+  const value = t(key, params)
+  if (value !== key)
+    return value
+  if (!params)
+    return fallback
+  return Object.entries(params).reduce((text, [name, val]) => text.replace(`{${name}}`, String(val)), fallback)
 }
 
 // Close parameter editing dialog
@@ -299,389 +359,511 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view class="h-screen flex flex-col bg-[#f5f7fb]">
-    <!-- Header Navigation -->
-    <wd-navbar
-      title=""
-      safe-area-inset-top
-      left-arrow
-      :bordered="false"
-      @click-left="goBack"
-    >
-      <template #left>
-        <wd-icon name="arrow-left" size="18" />
-      </template>
-    </wd-navbar>
+  <view class="nx-subpage">
+    <view class="nx-subpage__nav" :style="{ paddingTop: `${safeTop}px` }">
+      <view class="nx-subpage__back" role="button" :aria-label="tx('agent.navBack', 'Back')" @click="goBack">
+        <wd-icon name="arrow-left" size="20px" />
+      </view>
+      <text class="nx-subpage__nav-title nx-truncate">
+        {{ t('agent.plugins') }}
+      </text>
+      <view class="nx-subpage__back" />
+    </view>
 
-    <!-- Content area -->
-    <scroll-view
-      scroll-y
-      class="box-border flex-1 bg-transparent px-[20rpx]"
-      :style="{ height: 'calc(100vh - 120rpx)' }"
-      :scroll-with-animation="true"
-    >
-      <!-- Built-in plugins area -->
-      <view class="mt-[20rpx] flex flex-1 flex-col">
-        <view class="text-[32rpx] text-[#333] font-medium">
-          {{ t('agent.tools.builtInPlugins') }}
-        </view>
-        <view
-          class="mt-[20rpx] box-border flex flex-1 flex-col rounded-[10rpx] bg-white p-[20rpx]"
-        >
-          <!-- Segmented controller -->
-          <wd-segmented
-            v-model:value="currentSegmented"
-            :options="segmentedList"
-          />
-
-          <!-- Plugin list -->
-          <view class="mt-[20rpx] flex-1 overflow-hidden">
-            <!-- Unselected plugins -->
-            <scroll-view
-              v-if="currentSegmented === t('agent.tools.notSelected')"
-              class="max-h-[600rpx] bg-transparent"
-              scroll-y
-            >
-              <view
-                v-if="notSelectedList.length === 0"
-                class="h-[400rpx] flex items-center justify-center"
-              >
-                <wd-status-tip image="content" :tip="t('agent.tools.noMorePlugins')" />
-              </view>
-              <view v-else class="p-[20rpx] space-y-[20rpx]">
-                <view
-                  v-for="func in notSelectedList"
-                  :key="func.id"
-                  class="flex items-center justify-between border border-[#e9ecef] rounded-[10rpx] bg-[#f8f9fa] p-[20rpx]"
-                  @click="selectFunction(func)"
-                >
-                  <view class="flex-1">
-                    <view
-                      class="mb-[10rpx] text-[30rpx] text-[#333] font-medium"
-                    >
-                      {{ func.name }}
-                    </view>
-                    <view class="text-[24rpx] text-[#666]">
-                      {{ func.providerCode }}
-                    </view>
-                  </view>
-                  <view
-                    class="h-[60rpx] w-[60rpx] flex items-center justify-center rounded-full bg-[#1677ff]"
-                  >
-                    <text class="text-[36rpx] text-white">
-                      +
-                    </text>
-                  </view>
-                </view>
-              </view>
-            </scroll-view>
-
-            <!-- Selected plugins -->
-            <scroll-view v-else class="max-h-[600rpx] bg-transparent" scroll-y>
-              <view
-                v-if="selectedList.length === 0"
-                class="h-[400rpx] flex items-center justify-center"
-              >
-                <wd-status-tip image="content" :tip="t('agent.tools.pleaseSelectPlugin')" />
-              </view>
-              <view v-else class="p-[20rpx] space-y-[20rpx]">
-                <view
-                  v-for="func in selectedList"
-                  :key="func.id"
-                  class="border border-[#d4edff] rounded-[10rpx] bg-[#f0f7ff] p-[20rpx]"
-                >
-                  <view class="flex items-center justify-between">
-                    <view class="flex-1" @click="editFunction(func)">
-                      <view
-                        class="mb-[10rpx] text-[30rpx] text-[#333] font-medium"
-                      >
-                        {{ func.name }}
-                      </view>
-                      <view class="text-[24rpx] text-[#1677ff]">
-                        {{ t('agent.tools.clickToConfigure') }}
-                      </view>
-                    </view>
-                    <view class="flex space-x-[20rpx]">
-                      <!-- Configure button -->
-                      <view
-                        class="h-[60rpx] w-[60rpx] flex items-center justify-center rounded-full bg-[#1677ff]"
-                        @click="editFunction(func)"
-                      >
-                        <text class="text-[24rpx] text-white">
-                          ⚙
-                        </text>
-                      </view>
-                      <!-- Remove button -->
-                      <view
-                        class="h-[60rpx] w-[60rpx] flex items-center justify-center rounded-full bg-[#ff4757]"
-                        @click="removeFunction(func)"
-                      >
-                        <text class="text-[32rpx] text-white">
-                          ×
-                        </text>
-                      </view>
-                    </view>
-                  </view>
-                </view>
-              </view>
-            </scroll-view>
+    <scroll-view scroll-y class="nx-subpage__scroll">
+      <view class="nx-subpage__content">
+        <view class="nx-large-title">
+          <view class="nx-large-title__title">
+            {{ t('agent.plugins') }}
+          </view>
+          <view class="nx-large-title__subtitle">
+            {{ tx('agent.toolsSubtitle', 'Choose what your agent can do. Changes apply after you save the agent.') }}
           </view>
         </view>
-      </view>
 
-      <!-- MCP endpoint area -->
-      <view class="mt-[20rpx] flex flex-1 flex-col">
-        <view class="text-[32rpx] text-[#333] font-medium">
-          {{ t('agent.tools.mcpEndpoint') }}
-        </view>
-        <view
-          class="mt-[20rpx] box-border flex flex-1 flex-col rounded-[10rpx] bg-white p-[20rpx]"
-        >
-          <view class="flex items-center justify-between text-[24rpx]">
-            <input
-              v-model="mcpAddress"
-              type="text"
-              disabled
-              class="flex-1 rounded-[10rpx] bg-[#f5f7fb] p-[20rpx]"
-            >
-            <view
-              class="ml-[20rpx] h-[70rpx] flex items-center justify-center rounded-[10rpx] bg-[#1677ff] px-[20rpx] text-[24rpx] text-white"
-              @click="copyMcpAddress"
-            >
-              {{ t('agent.tools.copy') }}
+        <!-- Built-in tools -->
+        <view class="nx-group">
+          <view class="nx-group__header">
+            {{ t('agent.tools.builtInPlugins') }}
+          </view>
+          <view v-if="!pluginRows.length" class="nx-group__body">
+            <view class="nx-empty tools-empty">
+              <text class="nx-empty__text">
+                {{ t('agent.tools.noMorePlugins') }}
+              </text>
             </view>
           </view>
-          <!-- Tool list -->
-          <view class="mt-[20rpx] flex-1 overflow-hidden">
-            <scroll-view class="max-h-[600rpx] bg-transparent" scroll-y>
-              <view
-                v-if="mcpTools && mcpTools.length === 0"
-                class="h-[400rpx] flex items-center justify-center"
-              >
-                <wd-status-tip image="content" :tip="t('agent.tools.noTools')" />
+          <view v-else class="nx-group__body">
+            <view
+              v-for="row in pluginRows"
+              :key="row.id"
+              class="nx-row"
+              :class="{ 'nx-row--tap': !!row.selected }"
+              @click="row.selected && editFunction(row.selected)"
+            >
+              <view class="nx-icon-tile tools-icon" :class="{ 'nx-icon-tile--neutral': !row.selected }">
+                <wd-icon name="app" size="18px" />
               </view>
-              <view v-else class="p-[20rpx]">
-                <view class="flex flex-wrap">
-                  <view
-                    v-for="tool in mcpTools"
-                    :key="tool"
-                    class="mb-[20rpx] mr-[20rpx] rounded-[10rpx] bg-[#f5f7fb] p-[20rpx]"
-                  >
-                    {{ tool }}
-                  </view>
+              <view class="nx-row__main">
+                <view class="nx-row__title nx-truncate">
+                  {{ row.name }}
+                </view>
+                <view class="nx-row__subtitle nx-truncate">
+                  {{ row.selected ? t('agent.tools.clickToConfigure') : row.providerCode }}
                 </view>
               </view>
-            </scroll-view>
+              <view @click.stop>
+                <wd-switch
+                  :model-value="!!row.selected"
+                  size="22px"
+                  @change="({ value }) => togglePlugin(row, value)"
+                />
+              </view>
+            </view>
+          </view>
+          <view class="nx-group__footer nx-num">
+            {{ tx('agent.toolsEnabledCount', '{count} on', { count: selectedList.length }) }}
+          </view>
+        </view>
+
+        <!-- MCP endpoint -->
+        <view class="nx-group">
+          <view class="nx-group__header">
+            {{ t('agent.tools.mcpEndpoint') }}
+          </view>
+          <view class="nx-group__body">
+            <view class="nx-row">
+              <view class="nx-row__main">
+                <text class="nx-mono nx-break tools-address">
+                  {{ mcpAddress || '—' }}
+                </text>
+              </view>
+              <view class="tools-copy" role="button" :aria-label="t('agent.tools.copy')" @click="copyMcpAddress">
+                <wd-icon name="copy" size="16px" />
+                <text>{{ t('agent.tools.copy') }}</text>
+              </view>
+            </view>
+            <view class="nx-row tools-mcp-list">
+              <view v-if="mcpTools && mcpTools.length === 0" class="nx-row__subtitle">
+                {{ t('agent.tools.noTools') }}
+              </view>
+              <view v-else class="tools-chips">
+                <text v-for="tool in mcpTools" :key="tool" class="nx-badge nx-mono tools-chip">
+                  {{ tool }}
+                </text>
+              </view>
+            </view>
           </view>
         </view>
       </view>
     </scroll-view>
 
-    <!-- Parameter edit dialog -->
-    <wd-action-sheet
+    <!-- Parameter sheet -->
+    <wd-popup
       v-model="showParamDialog"
-      :title="`${t('agent.tools.parameterConfig')} - ${currentFunction?.name || ''}`"
-      custom-header-class="h-[75vh]"
+      position="bottom"
+      custom-class="nx-sheet nx-sheet--full"
+      safe-area-inset-bottom
       @close="closeParamEdit"
     >
-      <scroll-view
-        scroll-y
-        class="bg-[#f5f7fb]"
-        :style="{ height: 'calc(75vh - 60rpx)' }"
-      >
-        <view class="p-[30rpx] pb-[40rpx]">
-          <!-- No parameters hint -->
-          <view
-            v-if="
-              !currentFunction?.fieldsMeta
-                || currentFunction.fieldsMeta.length === 0
-            "
-            class="h-[400rpx] flex items-center justify-center"
-          >
-            <text class="text-[28rpx] text-[#999]">
-              {{ currentFunction?.name }} {{ t('agent.tools.noParamsNeeded') }}
-            </text>
-          </view>
+      <view class="param-sheet">
+        <view class="param-sheet__bar">
+          <text class="nx-headline nx-truncate param-sheet__title">
+            {{ currentFunction?.name || t('agent.tools.parameterConfig') }}
+          </text>
+          <text class="param-sheet__done" role="button" @click="showParamDialog = false">
+            {{ tx('agent.editorDone', 'Done') }}
+          </text>
+        </view>
 
-          <!-- Parameter form - card layout -->
-          <view v-else class="flex flex-col gap-[24rpx]">
-            <!-- Smart Home / Home Assistant Helper Card -->
+        <scroll-view scroll-y class="param-sheet__scroll">
+          <view class="param-sheet__content">
+            <view class="nx-group__header">
+              {{ t('agent.tools.parameterConfig') }}
+            </view>
+
+            <!-- No parameters -->
             <view
-              v-if="isHomeAssistant(currentFunction)"
-              class="border border-[#d4edff] rounded-[20rpx] bg-[#f0f7ff] p-[24rpx]"
-              style="box-shadow: 0 2rpx 12rpx rgba(22, 119, 255, 0.08);"
+              v-if="!currentFunction?.fieldsMeta || currentFunction.fieldsMeta.length === 0"
+              class="nx-group__body"
             >
-              <view class="mb-[14rpx] flex items-center justify-between">
-                <text class="text-[28rpx] text-[#1677ff] font-semibold">
-                  🏠 {{ t('agent.tools.smartHomeGuide') }}
+              <view class="nx-empty tools-empty">
+                <text class="nx-empty__text">
+                  {{ currentFunction?.name }} {{ t('agent.tools.noParamsNeeded') }}
                 </text>
-              </view>
-              <text class="mb-[20rpx] block text-[24rpx] text-[#65686f] leading-[1.5]">
-                {{ t('agent.tools.smartHomeGuideDesc') }}
-              </text>
-              <!-- Quick Insert Chips -->
-              <view class="mb-[20rpx] flex flex-wrap gap-[14rpx]">
-                <view
-                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
-                  @click="insertMobileDeviceTemplate('Living Room, Light, light.living_room')"
-                >
-                  💡 {{ t('agent.tools.addLight') }}
-                </view>
-                <view
-                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
-                  @click="insertMobileDeviceTemplate('Bedroom, Ceiling Fan, fan.bedroom')"
-                >
-                  🌀 {{ t('agent.tools.addFan') }}
-                </view>
-                <view
-                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
-                  @click="insertMobileDeviceTemplate('Living Room, AC, climate.living_room')"
-                >
-                  ❄️ {{ t('agent.tools.addClimate') }}
-                </view>
-                <view
-                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
-                  @click="insertMobileDeviceTemplate('Kitchen, Plug, switch.kitchen_plug')"
-                >
-                  🔌 {{ t('agent.tools.addSwitch') }}
-                </view>
-                <view
-                  class="rounded-[30rpx] bg-white px-[20rpx] py-[10rpx] text-[24rpx] text-[#1677ff] shadow-sm active:bg-[#e6f4ff]"
-                  @click="insertMobileDeviceTemplate('Entrance, Front Door Lock, lock.front_door')"
-                >
-                  🔒 {{ t('agent.tools.addLock') }}
-                </view>
-              </view>
-              <!-- Voice Command Examples -->
-              <view class="rounded-[14rpx] bg-white/80 p-[16rpx] text-[22rpx] text-[#555] leading-[1.6]">
-                <text class="mb-[6rpx] block text-[#232338] font-medium">
-                  🗣️ {{ t('agent.tools.sampleCommands') }}:
-                </text>
-                <text class="block">🇧🇩 "লিভিং রুমের লাইট জ্বালাও / নিভাও" (আলো ৮০% করো)</text>
-                <text class="block">🇧🇩 "ফ্যান চালু করো" / "এসি ২৪ ডিগ্রিতে রাখো"</text>
-                <text class="block">🇬🇧 "Turn on/off living room light" / "Lock front door"</text>
               </view>
             </view>
 
-            <view
-              v-for="field in currentFunction.fieldsMeta"
-              :key="field.key"
-              class="border border-[#eeeeee] rounded-[20rpx] bg-white p-[30rpx]"
-              style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);"
-            >
-              <!-- Field information -->
-              <view class="mb-[24rpx]">
-                <text class="mb-[8rpx] block text-[32rpx] text-[#232338] font-medium">
-                  {{ field.label }}
-                </text>
-                <text v-if="getFieldRemark(field)" class="block text-[24rpx] text-[#65686f] leading-[1.5]">
-                  {{ getFieldRemark(field) }}
-                </text>
-              </view>
-
-              <!-- Input controls -->
-              <view>
-                <!-- String type -->
-                <input
-                  v-if="field.type === 'string'"
-                  v-model="tempParams[field.key]"
-                  class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-                  type="text"
-                  :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
-                  @input="
-                    handleParamChange(field.key, $event.detail.value, field)
-                  "
-                >
-
-                <!-- Array type -->
-                <view v-else-if="field.type === 'array'">
-                  <text class="mb-[16rpx] block text-[24rpx] text-[#65686f]">
-                    {{ t('agent.tools.eachLineOneItem') }}
+            <template v-else>
+              <!-- Smart home helper -->
+              <view v-if="isHomeAssistant(currentFunction)" class="nx-group">
+                <view class="nx-group__body ha-card">
+                  <text class="nx-row__title ha-card__title">
+                    {{ t('agent.tools.smartHomeGuide') }}
                   </text>
-                  <textarea
-                    v-model="arrayTextCache[field.key]"
-                    class="box-border min-h-[200rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] text-[26rpx] text-[#232338] leading-[1.6] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-                    :placeholder="`${t('agent.tools.pleaseInput')}${field.label}，${t('agent.tools.eachLineOneItem')}`"
-                    @input="
-                      handleArrayChange(field.key, $event.detail.value, field)
-                    "
-                  />
-                </view>
-
-                <!-- JSON type -->
-                <view v-else-if="field.type === 'json'">
-                  <text class="mb-[16rpx] block text-[24rpx] text-[#65686f]">
-                    {{ t('agent.tools.pleaseInputValidJson') }}
+                  <text class="nx-row__subtitle ha-card__desc">
+                    {{ t('agent.tools.smartHomeGuideDesc') }}
                   </text>
-                  <textarea
-                    v-model="jsonTextCache[field.key]"
-                    class="box-border min-h-[300rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] text-[26rpx] text-[#232338] leading-[1.6] font-mono focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-                    :placeholder="t('agent.tools.pleaseInputValidJson')"
-                    @blur="
-                      handleJsonChange(field.key, $event.detail.value, field)
-                    "
-                  />
-                </view>
-
-                <!-- Number type -->
-                <input
-                  v-else-if="field.type === 'number'"
-                  v-model="tempParams[field.key]"
-                  class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-                  type="number"
-                  :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
-                  @input="
-                    handleParamChange(
-                      field.key,
-                      Number($event.detail.value),
-                      field,
-                    )
-                  "
-                >
-
-                <!-- Boolean type -->
-                <view
-                  v-else-if="field.type === 'boolean' || field.type === 'bool'"
-                  class="flex items-center justify-between py-[20rpx]"
-                >
-                  <view class="flex-1">
-                    <text class="mb-[8rpx] block text-[28rpx] text-[#232338]">
-                      {{ t('agent.tools.enableFunction') }}
+                  <view class="tools-chips ha-card__chips">
+                    <view
+                      v-for="item in haTemplates"
+                      :key="item.labelKey"
+                      class="ha-chip"
+                      role="button"
+                      @click="insertMobileDeviceTemplate(item.template)"
+                    >
+                      <wd-icon name="add" size="12px" />
+                      <text>{{ t(item.labelKey) }}</text>
+                    </view>
+                  </view>
+                  <view class="ha-card__samples">
+                    <text class="ha-card__samples-title">
+                      {{ t('agent.tools.sampleCommands') }}
                     </text>
-                    <text class="block text-[24rpx] text-[#65686f]">
-                      {{ t('agent.tools.toggleFunction') }}
+                    <text v-for="line in haSampleCommands" :key="line" class="ha-card__sample">
+                      {{ line }}
                     </text>
                   </view>
-                  <switch
-                    :checked="tempParams[field.key]"
-                    @change="
-                      handleParamChange(field.key, $event.detail.value, field)
-                    "
-                  />
                 </view>
-
-                <!-- Default string type -->
-                <input
-                  v-else
-                  v-model="tempParams[field.key]"
-                  class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-                  type="text"
-                  :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
-                  @input="
-                    handleParamChange(field.key, $event.detail.value, field)
-                  "
-                >
               </view>
-            </view>
+
+              <view v-for="field in currentFunction.fieldsMeta" :key="field.key" class="nx-group">
+                <view class="nx-group__body param-field">
+                  <text class="nx-row__title">
+                    {{ field.label }}
+                  </text>
+                  <text v-if="getFieldRemark(field)" class="nx-row__subtitle param-field__remark">
+                    {{ getFieldRemark(field) }}
+                  </text>
+
+                  <!-- String type -->
+                  <input
+                    v-if="field.type === 'string'"
+                    v-model="tempParams[field.key]"
+                    class="param-input"
+                    type="text"
+                    :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
+                    placeholder-class="param-placeholder"
+                    @input="handleParamChange(field.key, $event.detail.value, field)"
+                  >
+
+                  <!-- Array type -->
+                  <view v-else-if="field.type === 'array'">
+                    <text class="param-field__hint">
+                      {{ t('agent.tools.eachLineOneItem') }}
+                    </text>
+                    <textarea
+                      v-model="arrayTextCache[field.key]"
+                      class="param-input param-input--area"
+                      :maxlength="-1"
+                      :placeholder="`${t('agent.tools.pleaseInput')}${field.label}，${t('agent.tools.eachLineOneItem')}`"
+                      placeholder-class="param-placeholder"
+                      @input="handleArrayChange(field.key, $event.detail.value, field)"
+                    />
+                  </view>
+
+                  <!-- JSON type -->
+                  <view v-else-if="field.type === 'json'">
+                    <text class="param-field__hint">
+                      {{ t('agent.tools.pleaseInputValidJson') }}
+                    </text>
+                    <textarea
+                      v-model="jsonTextCache[field.key]"
+                      class="param-input param-input--area nx-mono param-input--code"
+                      :maxlength="-1"
+                      :placeholder="t('agent.tools.pleaseInputValidJson')"
+                      placeholder-class="param-placeholder"
+                      @blur="handleJsonChange(field.key, $event.detail.value, field)"
+                    />
+                  </view>
+
+                  <!-- Number type -->
+                  <input
+                    v-else-if="field.type === 'number'"
+                    v-model="tempParams[field.key]"
+                    class="param-input nx-num"
+                    type="number"
+                    :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
+                    placeholder-class="param-placeholder"
+                    @input="handleParamChange(field.key, Number($event.detail.value), field)"
+                  >
+
+                  <!-- Boolean type -->
+                  <view v-else-if="field.type === 'boolean' || field.type === 'bool'" class="param-switch">
+                    <view class="nx-row__main">
+                      <text class="nx-row__title">
+                        {{ t('agent.tools.enableFunction') }}
+                      </text>
+                      <text class="nx-row__subtitle param-switch__sub">
+                        {{ t('agent.tools.toggleFunction') }}
+                      </text>
+                    </view>
+                    <wd-switch
+                      :model-value="!!tempParams[field.key]"
+                      size="22px"
+                      @change="({ value }) => handleParamChange(field.key, value, field)"
+                    />
+                  </view>
+
+                  <!-- Default string type -->
+                  <input
+                    v-else
+                    v-model="tempParams[field.key]"
+                    class="param-input"
+                    type="text"
+                    :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
+                    placeholder-class="param-placeholder"
+                    @input="handleParamChange(field.key, $event.detail.value, field)"
+                  >
+                </view>
+              </view>
+            </template>
           </view>
-        </view>
-      </scroll-view>
-    </wd-action-sheet>
+        </scroll-view>
+      </view>
+    </wd-popup>
   </view>
 </template>
 
 <style scoped lang="scss">
-::v-deep .wd-action-sheet__header {
-  padding-right: 30rpx;
+.nx-subpage {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--nx-bg);
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: var(--nx-space-2);
+    padding-left: var(--nx-gutter);
+    padding-right: var(--nx-gutter);
+    min-height: var(--nx-touch);
+    background: var(--nx-bg);
+  }
+  &__back {
+    display: flex;
+    align-items: center;
+    flex: none;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    color: var(--nx-accent);
+    &:active {
+      opacity: 0.6;
+    }
+  }
+  &__nav-title {
+    flex: 1;
+    text-align: center;
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__scroll {
+    flex: 1;
+    height: 0;
+  }
+  &__content {
+    padding: 0 var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
+  }
+}
+
+.tools-icon {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: var(--nx-radius-sm);
+}
+
+.tools-empty {
+  padding: var(--nx-space-6) var(--nx-space-4);
+}
+
+.tools-address {
+  font-size: var(--nx-text-footnote);
+  color: var(--nx-text);
+  line-height: 1.5;
+}
+
+.tools-copy {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-1);
+  flex: none;
+  height: 64rpx;
+  padding: 0 var(--nx-space-3);
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-accent-soft);
+  color: var(--nx-accent);
+  font-size: var(--nx-text-footnote);
+  font-weight: 600;
+  &:active {
+    opacity: 0.7;
+  }
+}
+
+.tools-mcp-list {
+  align-items: flex-start;
+}
+
+.tools-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nx-space-2);
+}
+
+.tools-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Parameter sheet
+:deep(.wd-popup.nx-sheet) {
+  overflow: hidden;
+  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
+  background: var(--nx-bg);
+}
+
+:deep(.wd-popup.nx-sheet--full) {
+  height: 88vh;
+}
+
+.param-sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-3);
+    flex: none;
+    min-height: var(--nx-touch);
+    padding: var(--nx-space-2) var(--nx-gutter);
+    border-bottom: 1rpx solid var(--nx-border);
+  }
+  &__title {
+    flex: 1;
+    min-width: 0;
+  }
+  &__done {
+    flex: none;
+    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-body);
+    font-weight: 600;
+  }
+  &__scroll {
+    flex: 1;
+    height: 0;
+  }
+  &__content {
+    padding: var(--nx-space-4) var(--nx-gutter) var(--nx-space-6);
+  }
+}
+
+.param-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-4);
+
+  &__remark {
+    margin-top: 0;
+  }
+  &__hint {
+    display: block;
+    margin-bottom: var(--nx-space-2);
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+}
+
+.param-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--nx-touch);
+  padding: 0 var(--nx-space-3);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+  color: var(--nx-text);
+  font-size: var(--nx-text-body);
+
+  &--area {
+    height: 280rpx;
+    padding: var(--nx-space-3);
+    line-height: 1.55;
+  }
+  &--code {
+    height: 360rpx;
+    font-size: var(--nx-text-footnote);
+  }
+}
+
+:deep(.param-placeholder) {
+  color: var(--nx-text-3);
+}
+
+.param-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  &__sub {
+    display: block;
+  }
+}
+
+.ha-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-2);
+  padding: var(--nx-space-4);
+
+  &__title {
+    font-weight: 600;
+  }
+  &__desc {
+    margin-top: 0;
+    line-height: 1.5;
+  }
+  &__chips {
+    margin-top: var(--nx-space-1);
+  }
+  &__samples {
+    display: flex;
+    flex-direction: column;
+    gap: 4rpx;
+    margin-top: var(--nx-space-2);
+    padding: var(--nx-space-3);
+    border-radius: var(--nx-radius);
+    background: var(--nx-surface-2);
+  }
+  &__samples-title {
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__sample {
+    font-size: var(--nx-text-footnote);
+    line-height: 1.6;
+    color: var(--nx-text-2);
+  }
+}
+
+.ha-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nx-space-1);
+  height: 60rpx;
+  padding: 0 var(--nx-space-3);
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-accent-soft);
+  color: var(--nx-accent);
+  font-size: var(--nx-text-footnote);
+  font-weight: 500;
+  &:active {
+    opacity: 0.7;
+  }
 }
 </style>

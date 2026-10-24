@@ -34,7 +34,7 @@ test('companion module is registered and routed', () => {
 });
 
 test('device list opens the companion page with the manager-api device id', () => {
-  assert.match(deviceViewSource, /@click="openCompanion\(scope\.row\)"/);
+  assert.match(deviceViewSource, /@click="openCompanion\((?:scope\.)?row\)"/);
   assert.match(deviceViewSource, /name: 'CompanionManagement',\s*query: \{\s*deviceId: row\.device_id,/);
   assert.match(companionViewSource, /deviceId: this\.\$route\.query\.deviceId/);
 });

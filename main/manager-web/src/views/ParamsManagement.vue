@@ -1,187 +1,177 @@
 <template>
-  <div class="welcome">
+  <div class="nx-admin">
     <HeaderBar />
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <div class="content-area">
-          <el-card class="params-card" shadow="never">
-            <div class="operation-header">
-              <div class="title-block">
-                <h2 class="page-title">{{ $t('paramManagement.pageTitle') }}</h2>
-                <span class="total-hint">{{ $t('paramManagement.totalRecords', { total: filteredTotal }) }}</span>
-              </div>
-              <div class="right-operations">
-                <el-input
-                  :placeholder="$t('paramManagement.searchPlaceholder')"
-                  v-model="searchCode"
-                  class="search-input"
-                  @keyup.enter.native="handleSearch"
-                  @clear="handleSearch"
-                  clearable
-                />
-                <CustomButton icon="el-icon-search" type="confirm" @click="handleSearch">
-                  {{ $t('paramManagement.search') }}
-                </CustomButton>
-              </div>
-            </div>
-
-            <!-- Primary Category -->
-            <div class="group-tabs" v-loading="loading && !allParams.length">
-              <button
-                v-for="tab in categoryTabs"
-                :key="tab.key"
-                type="button"
-                class="group-tab"
-                :class="{ active: activeCategory === tab.key }"
-                @click="selectCategory(tab.key)"
-              >
-                <span class="group-tab-label">{{ tab.label }}</span>
-                <span class="group-tab-count">{{ tab.count }}</span>
-              </button>
-            </div>
-
-            <!-- Secondary Subcategory -->
-            <div class="sub-tabs" v-if="subCategoryTabs.length > 1">
-              <button
-                v-for="tab in subCategoryTabs"
-                :key="tab.key"
-                type="button"
-                class="sub-tab"
-                :class="{ active: activeSubCategory === tab.key }"
-                @click="selectSubCategory(tab.key)"
-              >
-                {{ tab.label }}
-                <em>{{ tab.count }}</em>
-              </button>
-            </div>
-
-            <div class="params-body" v-loading="loading">
-              <template v-if="displaySections.length">
-                <el-collapse v-model="activeCollapse" class="params-collapse">
-                  <el-collapse-item
-                    v-for="section in displaySections"
-                    :key="section.key"
-                    :name="section.key"
-                  >
-                    <template slot="title">
-                      <div class="section-title">
-                        <span class="section-name">{{ section.label }}</span>
-                        <span class="section-count">{{ section.items.length }}</span>
-                        <span v-if="section.hint" class="section-hint">{{ section.hint }}</span>
-                      </div>
-                    </template>
-                    <el-table
-                      :data="section.items"
-                      class="params-table"
-                      size="small"
-                      :header-cell-class-name="'params-table-header'"
-                    >
-                      <el-table-column width="48" align="center" :label="$t('paramManagement.select')">
-                        <template slot-scope="scope">
-                          <el-checkbox v-model="scope.row.selected" @change="syncSelectAllState" />
-                        </template>
-                      </el-table-column>
-                      <el-table-column
-                        prop="paramCode"
-                        :label="$t('paramManagement.paramCode')"
-                        min-width="220"
-                        show-overflow-tooltip
-                      >
-                        <template slot-scope="scope">
-                          <code class="param-code">{{ scope.row.paramCode }}</code>
-                        </template>
-                      </el-table-column>
-                      <el-table-column
-                        :label="$t('paramManagement.valueType')"
-                        width="90"
-                        align="center"
-                      >
-                        <template slot-scope="scope">
-                          <span class="type-tag" :class="'type-' + (scope.row.valueType || 'string')">
-                            {{ scope.row.valueType || 'string' }}
-                          </span>
-                        </template>
-                      </el-table-column>
-                      <el-table-column
-                        :label="$t('paramManagement.paramValue')"
-                        min-width="180"
-                        show-overflow-tooltip
-                      >
-                        <template slot-scope="scope">
-                          <div class="value-cell" v-if="isSensitiveParam(scope.row.paramCode)">
-                            <span class="value-text">
-                              {{ scope.row.showValue ? formatValue(scope.row.paramValue) : maskSensitiveValue(scope.row.paramValue) }}
-                            </span>
-                            <el-button size="mini" type="text" @click="toggleSensitiveValue(scope.row)">
-                              {{ scope.row.showValue ? $t('paramManagement.hide') : $t('paramManagement.view') }}
-                            </el-button>
-                          </div>
-                          <span v-else class="value-text">{{ formatValue(scope.row.paramValue) }}</span>
-                        </template>
-                      </el-table-column>
-                      <el-table-column
-                        prop="remark"
-                        :label="$t('paramManagement.remark')"
-                        min-width="200"
-                        show-overflow-tooltip
-                      />
-                      <el-table-column
-                        :label="$t('paramManagement.operation')"
-                        width="120"
-                        align="center"
-                        fixed="right"
-                      >
-                        <template slot-scope="scope">
-                          <el-button size="mini" type="text" @click="editParam(scope.row)">
-                            {{ $t('paramManagement.edit') }}
-                          </el-button>
-                          <el-button size="mini" type="text" @click="deleteParam(scope.row)">
-                            {{ $t('paramManagement.delete') }}
-                          </el-button>
-                        </template>
-                      </el-table-column>
-                    </el-table>
-                  </el-collapse-item>
-                </el-collapse>
-              </template>
-              <div v-else class="empty-state">
-                {{ $t('paramManagement.emptyResult') }}
-              </div>
-            </div>
-
-            <div class="table-footer">
-              <div class="ctrl_btn">
-                <CustomButton
-                  :icon="isAllSelected ? 'el-icon-circle-close' : 'el-icon-circle-check'"
-                  size="small"
-                  @click="handleSelectAll"
-                >
-                  {{ isAllSelected ? $t('paramManagement.deselectAll') : $t('paramManagement.selectAll') }}
-                </CustomButton>
-                <CustomButton icon="el-icon-plus" type="add" size="small" @click="showAddDialog">
-                  {{ $t('paramManagement.add') }}
-                </CustomButton>
-                <CustomButton size="small" type="delete" icon="el-icon-delete" @click="deleteSelectedParams">
-                  {{ $t('paramManagement.delete') }}
-                </CustomButton>
-                <CustomButton
-                  icon="el-icon-refresh"
-                  size="small"
-                  @click="fetchParams"
-                >
-                  {{ $t('paramManagement.refresh') }}
-                </CustomButton>
-              </div>
-              <div class="footer-meta">
-                <span>{{ $t('paramManagement.selectedCount', { count: selectedCount }) }}</span>
-                <span class="sep">·</span>
-                <span>{{ $t('paramManagement.groupHint') }}</span>
-              </div>
-            </div>
-          </el-card>
+    <main class="nx-page">
+      <header class="nx-page-header">
+        <div class="nx-page-header__text">
+          <h1 class="nx-title">{{ $t('paramManagement.pageTitle') }}</h1>
+          <p class="nx-page-header__desc">{{ tt('paramManagement.pageDesc', 'Server settings stored as key–value pairs, grouped by namespace.') }}</p>
         </div>
+        <div class="nx-page-header__actions">
+          <el-input
+            v-model="searchCode"
+            class="admin-search"
+            prefix-icon="el-icon-search"
+            clearable
+            :placeholder="$t('paramManagement.searchPlaceholder')"
+            :aria-label="$t('paramManagement.search')"
+            @keyup.enter.native="handleSearch"
+            @clear="handleSearch"
+          />
+          <el-tooltip :content="$t('paramManagement.refresh')" placement="bottom">
+            <button type="button" class="nx-icon-btn" :aria-label="$t('paramManagement.refresh')" :disabled="loading"
+              @click="fetchParams">
+              <i class="el-icon-refresh" :class="{ 'is-spinning': loading }" aria-hidden="true"></i>
+            </button>
+          </el-tooltip>
+          <CustomButton icon="el-icon-plus" type="add" @click="showAddDialog">
+            {{ $t('paramManagement.addParam') }}
+          </CustomButton>
+        </div>
+      </header>
+
+      <!-- Namespace filter chips -->
+      <div v-if="allParams.length" class="chip-row" role="group" :aria-label="$t('paramManagement.groupHint')">
+        <button
+          v-for="tab in categoryTabs"
+          :key="tab.key"
+          type="button"
+          class="chip"
+          :class="{ 'is-active': activeCategory === tab.key }"
+          :aria-pressed="activeCategory === tab.key ? 'true' : 'false'"
+          @click="selectCategory(tab.key)"
+        >
+          <span>{{ tab.label }}</span>
+          <span class="chip__count nx-num">{{ tab.count }}</span>
+        </button>
       </div>
-    </div>
+      <div v-if="subCategoryTabs.length > 1" class="chip-row chip-row--sub" role="group">
+        <button
+          v-for="tab in subCategoryTabs"
+          :key="tab.key"
+          type="button"
+          class="chip chip--sub"
+          :class="{ 'is-active': activeSubCategory === tab.key }"
+          :aria-pressed="activeSubCategory === tab.key ? 'true' : 'false'"
+          @click="selectSubCategory(tab.key)"
+        >
+          <span>{{ tab.label }}</span>
+          <span class="chip__count nx-num">{{ tab.count }}</span>
+        </button>
+      </div>
+
+      <section class="nx-card nx-card--flush params-card">
+        <div class="params-card__toolbar">
+          <el-checkbox :value="isAllSelected" :indeterminate="selectedCount > 0 && !isAllSelected"
+            :disabled="!filteredParams.length" @change="handleSelectAll">
+            {{ selectedCount ? $t('paramManagement.selectedCount', { count: selectedCount }) : $t('paramManagement.selectAll') }}
+          </el-checkbox>
+          <span class="params-card__meta nx-num">
+            {{ $t('paramManagement.totalRecords', { total: filteredTotal }) }}
+            <span aria-hidden="true">·</span>
+            {{ $t('paramManagement.groupHint') }}
+          </span>
+          <span class="nx-spacer"></span>
+          <CustomButton size="small" type="delete" icon="el-icon-delete" :disabled="!selectedCount"
+            @click="deleteSelectedParams">
+            {{ $t('paramManagement.delete') }}
+          </CustomButton>
+        </div>
+
+        <!-- First load: skeleton rows -->
+        <div v-if="loading && !allParams.length" class="params-skeleton" aria-busy="true">
+          <div v-for="n in 6" :key="n" class="params-skeleton__row">
+            <span class="nx-skeleton params-skeleton__code"></span>
+            <span class="nx-skeleton params-skeleton__value"></span>
+          </div>
+        </div>
+
+        <div v-else class="params-body" v-loading="loading">
+          <el-collapse v-if="displaySections.length" v-model="activeCollapse" class="params-collapse">
+            <el-collapse-item v-for="section in displaySections" :key="section.key" :name="section.key">
+              <template slot="title">
+                <div class="section-title">
+                  <span class="section-title__name nx-truncate">{{ section.label }}</span>
+                  <span class="nx-badge nx-num">{{ section.items.length }}</span>
+                  <span v-if="section.hint" class="section-title__hint">{{ section.hint }}</span>
+                </div>
+              </template>
+              <el-table :data="section.items" class="params-table">
+                <el-table-column width="52" align="center">
+                  <template slot-scope="scope">
+                    <el-checkbox v-model="scope.row.selected" :aria-label="scope.row.paramCode" @change="syncSelectAllState" />
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('paramManagement.paramCode')" min-width="230">
+                  <template slot-scope="scope">
+                    <span class="param-code nx-mono nx-truncate" :title="scope.row.paramCode">{{ scope.row.paramCode }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('paramManagement.valueType')" width="100">
+                  <template slot-scope="scope">
+                    <span class="nx-badge" :class="typeBadge(scope.row.valueType)">{{ scope.row.valueType || 'string' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('paramManagement.paramValue')" min-width="240">
+                  <template slot-scope="scope">
+                    <div v-if="isSensitiveParam(scope.row.paramCode)" class="value-cell">
+                      <span class="value-text nx-mono nx-truncate" :class="{ 'is-masked': !scope.row.showValue }"
+                        :title="scope.row.showValue ? String(scope.row.paramValue || '') : null">
+                        {{ scope.row.showValue ? formatValue(scope.row.paramValue) : maskSensitiveValue(scope.row.paramValue) }}
+                      </span>
+                      <button type="button" class="nx-icon-btn value-btn"
+                        :aria-label="scope.row.showValue ? $t('paramManagement.hide') : $t('paramManagement.view')"
+                        :title="scope.row.showValue ? $t('paramManagement.hide') : $t('paramManagement.view')"
+                        @click="toggleSensitiveValue(scope.row)">
+                        <i :class="scope.row.showValue ? 'el-icon-lock' : 'el-icon-view'" aria-hidden="true"></i>
+                      </button>
+                      <button type="button" class="nx-icon-btn value-btn" :aria-label="tt('paramManagement.copyValue', 'Copy value')"
+                        :title="tt('paramManagement.copyValue', 'Copy value')" @click="copyValue(scope.row.paramValue)">
+                        <i class="el-icon-document-copy" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                    <span v-else class="value-text nx-mono nx-truncate" :title="String(scope.row.paramValue == null ? '' : scope.row.paramValue)">
+                      {{ formatValue(scope.row.paramValue) }}
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="remark" :label="$t('paramManagement.remark')" min-width="200" show-overflow-tooltip>
+                  <template slot-scope="scope">
+                    <span class="remark-text">{{ scope.row.remark || '—' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('paramManagement.operation')" width="140" align="right" fixed="right">
+                  <template slot-scope="scope">
+                    <div class="row-actions">
+                      <el-button size="mini" type="text" @click="editParam(scope.row)">{{ $t('paramManagement.edit') }}</el-button>
+                      <el-button size="mini" type="text" class="row-action--danger" @click="deleteParam(scope.row)">
+                        {{ $t('paramManagement.delete') }}
+                      </el-button>
+                    </div>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-collapse-item>
+          </el-collapse>
+
+          <div v-else-if="!loading" class="nx-empty">
+            <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-s-operation"></i></span>
+            <template v-if="appliedSearch">
+              <p class="nx-empty__title">{{ $t('paramManagement.emptyResult') }}</p>
+              <p class="nx-empty__text">{{ tt('paramManagement.emptySearchText', 'Try another code or remark, or clear the search.') }}</p>
+              <CustomButton class="nx-empty__action" @click="clearSearch">{{ tt('paramManagement.clearSearch', 'Clear search') }}</CustomButton>
+            </template>
+            <template v-else>
+              <p class="nx-empty__title">{{ tt('paramManagement.emptyTitle', 'No parameters yet') }}</p>
+              <p class="nx-empty__text">{{ tt('paramManagement.emptyText', 'Add a parameter to configure the server.') }}</p>
+              <CustomButton class="nx-empty__action" type="add" icon="el-icon-plus" @click="showAddDialog">
+                {{ $t('paramManagement.addParam') }}
+              </CustomButton>
+            </template>
+          </div>
+        </div>
+      </section>
+    </main>
 
     <param-dialog
       ref="paramDialog"
@@ -191,9 +181,7 @@
       @submit="handleSubmit"
       @cancel="dialogVisible = false"
     />
-    <el-footer>
-      <version-footer />
-    </el-footer>
+    <VersionFooter />
   </div>
 </template>
 
@@ -385,6 +373,30 @@ export default {
     this.fetchParams();
   },
   methods: {
+    // $t with an English fallback for keys that are still pending in src/i18n/_pending/web-system.js
+    tt(key, fallback) {
+      return this.$te(key) || this.$te(key, 'en') ? this.$t(key) : fallback;
+    },
+    typeBadge(type) {
+      const map = { number: 'nx-badge--info', boolean: 'nx-badge--success', json: 'nx-badge--warning', array: 'nx-badge--warning' };
+      return map[type] || '';
+    },
+    clearSearch() {
+      this.searchCode = "";
+      this.handleSearch();
+    },
+    copyValue(value) {
+      const text = value == null ? '' : String(value);
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        this.$message.error(this.$t('common.copyFailed'));
+        return;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        this.$message.success(this.$t('common.copySuccess'));
+      }).catch(() => {
+        this.$message.error(this.$t('common.copyFailed'));
+      });
+    },
     getTopGroup(paramCode = '') {
       if (paramCode.startsWith('server.')) return 'server';
       if (paramCode.startsWith('plugins.')) return 'plugins';
@@ -689,9 +701,11 @@ export default {
         });
         return;
       }
-      this.$confirm(this.$t('paramManagement.confirmBatchDelete', { paramCount }), this.$t('message.warning'), {
-        confirmButtonText: this.$t('button.ok'),
+      const title = paramCount === 1 && params[0].paramCode ? params[0].paramCode : this.$t('message.warning');
+      this.$confirm(this.$t('paramManagement.confirmBatchDelete', { paramCount }), title, {
+        confirmButtonText: this.$t('paramManagement.delete'),
         cancelButtonText: this.$t('button.cancel'),
+        confirmButtonClass: 'el-button--danger',
         type: 'warning'
       }).then(() => {
         Api.admin.deleteParam(paramIds, ({ data }) => {
@@ -733,332 +747,248 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.welcome {
-  min-width: 900px;
-  min-height: 506px;
-  height: 100vh;
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  background: #eff4ff;
-  overflow: hidden;
-}
-
-.main-wrapper {
-  height: calc(100vh - 63px - 35px);
-  padding: 20px 22px 0;
-  position: relative;
+.nx-admin {
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100vh;
+  > .nx-page {
+    flex: 1 0 auto;
+  }
 }
-
-.operation-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0 12px 0;
-  gap: 16px;
-}
-
-.title-block {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.page-title {
-  font-weight: 500;
-  font-size: 24px;
-  margin: 0;
-}
-
-.total-hint {
-  color: #8b93b5;
-  font-size: 13px;
-}
-
-.right-operations {
-  display: flex;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.search-input {
+.admin-search {
   width: 280px;
+  max-width: 100%;
 }
-
-.content-panel {
-  display: flex;
-  overflow: hidden;
-  height: 100%;
-  border-radius: 15px;
-  background: transparent;
-  border: 1px solid #fff;
+.is-spinning {
+  animation: nx-spin 0.9s linear infinite;
 }
-
-.content-area {
-  flex: 1;
-  height: 100%;
-  min-width: 600px;
-  overflow: hidden;
-  background-color: white;
-  display: flex;
-  flex-direction: column;
-}
-
-.params-card {
-  background: white;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  box-shadow: none;
-  overflow: hidden;
-
-  ::v-deep .el-card__body {
-    padding: 14px 20px;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: hidden;
-    min-height: 0;
+@keyframes nx-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-.group-tabs {
+// ---------------------------------------------------------------- filter chips
+.chip-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-bottom: 10px;
+  gap: var(--nx-space-2);
+  margin-bottom: var(--nx-space-3);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  &--sub {
+    margin-top: calc(-1 * var(--nx-space-1));
+  }
 }
-
-.group-tab {
+.chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border: 1px solid #e4e8f5;
-  background: #f7f9ff;
-  color: #5a648f;
-  border-radius: 8px;
-  padding: 7px 12px;
+  flex: none;
+  gap: 6px;
+  height: var(--nx-control-h-sm);
+  padding: 0 var(--nx-space-3);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-pill);
+  background: var(--nx-surface);
+  color: var(--nx-text-2);
+  font: inherit;
+  font-size: var(--nx-text-footnote);
+  font-weight: 500;
   cursor: pointer;
-  font-size: 13px;
-  transition: all 0.15s ease;
-
+  white-space: nowrap;
+  transition: background-color var(--nx-dur-1) var(--nx-ease), color var(--nx-dur-1) var(--nx-ease),
+    border-color var(--nx-dur-1) var(--nx-ease), transform var(--nx-dur-1) var(--nx-ease);
   &:hover {
-    border-color: #b7c3ef;
-    color: #3f4c88;
+    background: var(--nx-surface-2);
+    color: var(--nx-text);
   }
-
-  &.active {
-    background: linear-gradient(135deg, #6b8cff, #7a6dff);
+  &:active {
+    transform: scale(0.97);
+  }
+  &.is-active {
+    background: var(--nx-accent-soft);
     border-color: transparent;
-    color: #fff;
-    box-shadow: 0 4px 12px rgba(107, 140, 255, 0.28);
-
-    .group-tab-count {
-      background: rgba(255, 255, 255, 0.22);
-      color: #fff;
+    color: var(--nx-accent);
+    font-weight: 600;
+  }
+  &__count {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+  &.is-active &__count {
+    color: inherit;
+    opacity: 0.8;
+  }
+  &--sub {
+    height: 28px;
+    border-color: transparent;
+    background: transparent;
+    &.is-active {
+      background: var(--nx-surface-3);
+      color: var(--nx-text);
     }
   }
 }
 
-.group-tab-count {
-  min-width: 22px;
-  padding: 0 6px;
-  height: 20px;
-  line-height: 20px;
-  border-radius: 10px;
-  background: #e8ecfb;
-  color: #5a648f;
-  font-size: 12px;
-  text-align: center;
-}
-
-.sub-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 0 12px;
-}
-
-.sub-tab {
-  border: none;
-  background: transparent;
-  color: #7079aa;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  em {
-    font-style: normal;
-    margin-left: 4px;
-    opacity: 0.7;
+// ---------------------------------------------------------------- card
+.params-card {
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--nx-space-2) var(--nx-space-4);
+    min-height: 56px;
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-bottom: 1px solid var(--nx-border);
+    ::v-deep .el-checkbox__label {
+      font-size: var(--nx-text-footnote);
+      color: var(--nx-text-2);
+      font-variant-numeric: tabular-nums;
+    }
   }
-
-  &:hover {
-    background: #eef2ff;
-  }
-
-  &.active {
-    background: #e8ecfb;
-    color: #4d59a8;
-    font-weight: 600;
+  &__meta {
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
   }
 }
-
 .params-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding-right: 4px;
+  min-height: 160px;
+}
+.params-skeleton {
+  padding: var(--nx-space-2) var(--nx-space-5);
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-6);
+    height: 52px;
+    border-bottom: 1px solid var(--nx-border);
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+  &__code {
+    width: 28%;
+    height: 14px;
+  }
+  &__value {
+    width: 40%;
+    height: 14px;
+  }
 }
 
+// Sections: one collapsible group per namespace
 .params-collapse {
-  border: none;
-
-  ::v-deep .el-collapse-item {
-    margin-bottom: 10px;
-    border: 1px solid #eef1fb;
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
+  border: 0;
   ::v-deep .el-collapse-item__header {
-    height: 44px;
-    line-height: 44px;
-    padding: 0 14px;
-    background: #f8faff;
-    border-bottom: 1px solid transparent;
-    font-weight: 500;
-    color: #3f4a75;
+    height: 52px;
+    line-height: 1.4;
+    padding: 0 var(--nx-space-5);
+    border-bottom: 1px solid var(--nx-border);
+    transition: background-color var(--nx-dur-1) var(--nx-ease);
+    &:hover {
+      background: var(--nx-surface-2);
+    }
+    &.focusing:focus:not(:hover) {
+      color: var(--nx-text);
+    }
   }
-
-  ::v-deep .el-collapse-item__wrap {
-    border-bottom: none;
+  ::v-deep .el-collapse-item:last-child .el-collapse-item__header:not(.is-active),
+  ::v-deep .el-collapse-item:last-child .el-collapse-item__wrap {
+    border-bottom: 0;
   }
-
+  ::v-deep .el-collapse-item__arrow {
+    margin: 0 0 0 auto;
+    color: var(--nx-text-3);
+  }
   ::v-deep .el-collapse-item__content {
     padding: 0;
   }
-
-  ::v-deep .el-collapse-item.is-active .el-collapse-item__header {
-    border-bottom-color: #eef1fb;
-  }
 }
-
 .section-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding-right: 8px;
-}
-
-.section-name {
-  font-size: 14px;
-}
-
-.section-count {
-  font-size: 12px;
-  color: #7b84ad;
-  background: #eef1fb;
-  border-radius: 10px;
-  padding: 0 8px;
-  height: 20px;
-  line-height: 20px;
-}
-
-.section-hint {
-  font-size: 12px;
-  color: #9aa3c7;
+  gap: var(--nx-space-2);
+  min-width: 0;
+  padding-right: var(--nx-space-3);
+  &__name {
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__hint {
+    font-size: var(--nx-text-caption);
+    font-weight: 400;
+    color: var(--nx-text-3);
+  }
 }
 
 .params-table {
   width: 100%;
-
-  ::v-deep .params-table-header {
-    background: #fcfdff;
-    color: #6a739c;
-    font-weight: 500;
+  ::v-deep th.el-table__cell:nth-child(2) .cell,
+  ::v-deep td.el-table__cell:nth-child(2) .cell {
+    padding-left: 4px;
+  }
+  ::v-deep th.el-table__cell:last-child .cell,
+  ::v-deep td.el-table__cell:last-child .cell {
+    padding-right: var(--nx-space-5);
   }
 }
-
 .param-code {
-  font-family: Consolas, 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 12px;
-  color: #3d4a7a;
-  background: #f3f6ff;
-  padding: 2px 6px;
-  border-radius: 4px;
+  display: block;
+  color: var(--nx-text);
 }
-
-.type-tag {
-  display: inline-block;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #eef1f8;
-  color: #6a739c;
-
-  &.type-number { background: #e8f5ff; color: #2f7db8; }
-  &.type-boolean { background: #e9f8ef; color: #2f8a55; }
-  &.type-json,
-  &.type-array { background: #f6efff; color: #7a4fb3; }
-}
-
 .value-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  min-width: 0;
 }
-
 .value-text {
-  color: #4a5378;
-  word-break: break-all;
+  display: block;
+  min-width: 0;
+  color: var(--nx-text-2);
+  &.is-masked {
+    letter-spacing: 0.08em;
+  }
 }
-
-.empty-state {
-  padding: 64px 0;
-  text-align: center;
-  color: #9aa3c7;
-  font-size: 14px;
+.value-cell .value-text {
+  flex: 0 1 auto;
+  margin-right: var(--nx-space-1);
 }
-
-.table-footer {
-  display: flex;
+.value-btn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--nx-radius-sm);
+  font-size: var(--nx-text-callout);
+}
+.remark-text {
+  color: var(--nx-text-2);
+}
+.row-actions {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #eef1fb;
-  margin-top: 8px;
+  justify-content: flex-end;
+  gap: 2px;
+  .el-button + .el-button {
+    margin-left: 0;
+  }
 }
-
-.ctrl_btn {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-}
-
-.footer-meta {
-  color: #8b93b5;
-  font-size: 12px;
-  white-space: nowrap;
-
-  .sep {
-    margin: 0 6px;
+.row-action--danger.el-button--text {
+  color: var(--nx-danger);
+  &:hover,
+  &:focus {
+    color: var(--nx-danger);
+    background: var(--nx-danger-soft);
   }
 }
 
-:deep(.el-table .el-button--text) {
-  color: #7079aa;
-}
-
-:deep(.el-table .el-button--text:hover) {
-  color: #5a64b5;
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
 }
 </style>

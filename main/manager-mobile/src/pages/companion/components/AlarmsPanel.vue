@@ -85,42 +85,60 @@ function confirmDelete() {
 </script>
 
 <template>
-  <view v-if="dev" class="flex flex-col gap-[20rpx]">
-    <view class="rounded-[20rpx] bg-white px-[28rpx] py-[8rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <view v-if="!alarms.length" class="py-[40rpx] text-center text-[26rpx] text-[#9d9ea3]">
-        {{ t('companion.alarm.none') }}
+  <view v-if="dev">
+    <view class="cmp-section-head">
+      <view class="cmp-section-head__title">
+        {{ t('companion.tab.alarms') }}
       </view>
-      <view
-        v-for="a in alarms"
-        :key="a.id"
-        class="flex items-center gap-[20rpx] border-b-[1rpx] border-b-[#f0f0f0] border-b-solid py-[22rpx] last:border-b-0"
-      >
-        <text class="w-[130rpx] text-[44rpx] text-[#232338] font-semibold" :class="a.enabled ? '' : 'opacity-40'">
-          {{ a.time }}
-        </text>
-        <view class="min-w-0 flex-1" @click="openEditor(a)">
-          <text class="block truncate text-[28rpx] text-[#232338]">
-            {{ a.label || t('companion.alarm.defaultLabel') }}
-          </text>
-          <text class="block truncate text-[22rpx] text-[#8c8c8c]">
-            {{ daysText(a.days) }}{{ a.say ? ` · 🔊 ${a.say}` : '' }}
-          </text>
-        </view>
-        <wd-switch :model-value="a.enabled" size="20" @change="({ value }) => toggleEnabled(a, !!value)" />
+      <view v-if="alarms.length" class="cmp-pill" role="button" @click="openEditor()">
+        <wd-icon name="add" size="14px" />
+        {{ t('companion.alarm.add') }}
       </view>
     </view>
 
-    <wd-button type="primary" block @click="openEditor()">
-      + {{ t('companion.alarm.add') }}
-    </wd-button>
+    <view v-if="!alarms.length" class="nx-empty alarms__empty">
+      <view class="nx-icon-tile nx-icon-tile--lg">
+        <wd-icon name="clock" size="28px" />
+      </view>
+      <view class="nx-empty__title">
+        {{ t('companion.alarm.none') }}
+      </view>
+      <view class="nx-btn nx-btn--primary alarms__empty-btn" @click="openEditor()">
+        <wd-icon name="add" size="16px" />
+        {{ t('companion.alarm.add') }}
+      </view>
+    </view>
 
-    <wd-popup v-model="editorOpen" position="bottom" safe-area-inset-bottom custom-style="border-radius: 24rpx 24rpx 0 0;">
-      <view class="max-h-[85vh] overflow-y-auto bg-white p-[32rpx]">
-        <view class="mb-[24rpx] flex items-center justify-between">
-          <text class="text-[34rpx] text-[#232338] font-semibold">
+    <view v-else class="nx-group">
+      <view class="nx-group__body">
+        <view v-for="a in alarms" :key="a.id" class="nx-row alarms__row" :class="{ 'is-off': !a.enabled }">
+          <view class="nx-row__main alarms__main" role="button" @click="openEditor(a)">
+            <view class="cmp-time-hero alarms__time">
+              {{ a.time }}
+            </view>
+            <view class="nx-truncate nx-row__subtitle">
+              {{ a.label || t('companion.alarm.defaultLabel') }} · {{ daysText(a.days) }}
+            </view>
+            <view v-if="a.say" class="nx-caption nx-truncate alarms__say" :title="a.say">
+              <wd-icon name="sound" size="12px" /> {{ a.say }}
+            </view>
+          </view>
+          <wd-switch :model-value="a.enabled" size="24px" @change="({ value }) => toggleEnabled(a, !!value)" />
+        </view>
+      </view>
+    </view>
+
+    <!-- Edit sheet -->
+    <wd-popup v-model="editorOpen" position="bottom" safe-area-inset-bottom :z-index="100" custom-class="cmp-sheet">
+      <view class="cmp-sheet__inner">
+        <view class="cmp-sheet__handle" />
+        <view class="cmp-sheet__header">
+          <view class="cmp-sheet__title">
             {{ isNew ? t('companion.alarm.new') : t('companion.alarm.edit') }}
-          </text>
-          <wd-icon name="close" size="20" @click="editorOpen = false" />
+          </view>
+          <view class="cmp-sheet__close" role="button" :aria-label="t('common.cancel')" @click="editorOpen = false">
+            <wd-icon name="close" size="18px" />
+          </view>
         </view>
 
         <wd-datetime-picker
@@ -129,61 +147,129 @@ function confirmDelete() {
           :label="t('companion.time')"
           :cancel-button-text="t('common.cancel')"
           :confirm-button-text="t('common.confirm')"
-        />
+        >
+          <view class="alarms__picker" role="button" :aria-label="t('companion.time')">
+            <view class="cmp-time-hero alarms__picker-time">
+              {{ draft.time || '--:--' }}
+            </view>
+            <view class="nx-caption">
+              {{ t('companion.time') }}
+            </view>
+          </view>
+        </wd-datetime-picker>
 
-        <text class="mb-[12rpx] mt-[24rpx] block text-[26rpx] text-[#65686f]">
-          {{ t('companion.daysLabel') }}
-        </text>
-        <DayChips v-model="draft.days" />
-
-        <text class="mb-[8rpx] mt-[28rpx] block text-[26rpx] text-[#65686f]">
-          {{ t('companion.label') }}
-        </text>
-        <wd-input v-model="draft.label" :maxlength="24" clearable placeholder="Wake up" />
-        <text class="mt-[6rpx] block text-[22rpx] text-[#9d9ea3]">
-          {{ t('companion.labelHint') }}
-        </text>
-
-        <text class="mb-[8rpx] mt-[28rpx] block text-[26rpx] text-[#65686f]">
-          {{ t('companion.alarm.say') }}
-        </text>
-        <wd-textarea
-          v-model="draft.say"
-          :maxlength="300"
-          show-word-limit
-          :placeholder="t('companion.alarm.sayPlaceholder')"
-          custom-class="!bg-[#f5f7fb] !rounded-[12rpx]"
-        />
-        <text class="mt-[6rpx] block text-[22rpx] text-[#9d9ea3]">
-          {{ t('companion.sayHint') }}
-        </text>
-
-        <view class="mt-[28rpx] flex items-center justify-between">
-          <text class="text-[26rpx] text-[#65686f]">
-            {{ t('companion.alarm.snooze') }}
-          </text>
-          <wd-input-number v-model="draft.snooze_min" :min="0" :max="60" />
+        <view class="cmp-field">
+          <view class="cmp-field__label">
+            {{ t('companion.daysLabel') }}
+          </view>
+          <DayChips v-model="draft.days" />
         </view>
 
-        <view class="mt-[28rpx] flex items-center justify-between">
-          <text class="text-[26rpx] text-[#65686f]">
-            {{ t('companion.enabled') }}
-          </text>
-          <wd-switch v-model="draft.enabled" size="20" />
+        <view class="cmp-field">
+          <view class="cmp-field__label">
+            {{ t('companion.label') }}
+          </view>
+          <view class="cmp-field__box">
+            <wd-input v-model="draft.label" :maxlength="24" clearable no-border placeholder="Wake up" />
+          </view>
+          <view class="cmp-field__help">
+            {{ t('companion.labelHint') }}
+          </view>
         </view>
 
-        <view class="mt-[40rpx] flex gap-[16rpx]">
-          <wd-button v-if="!isNew" type="error" plain custom-class="flex-1" @click="confirmDelete">
-            {{ t('common.delete') }}
-          </wd-button>
-          <wd-button type="info" plain custom-class="flex-1" @click="editorOpen = false">
-            {{ t('common.cancel') }}
-          </wd-button>
-          <wd-button type="primary" custom-class="flex-1" :loading="saving" @click="submit">
+        <view class="cmp-field">
+          <view class="cmp-field__label">
+            {{ t('companion.alarm.say') }}
+          </view>
+          <view class="cmp-field__box">
+            <wd-textarea
+              v-model="draft.say"
+              :maxlength="300"
+              show-word-limit
+              :placeholder="t('companion.alarm.sayPlaceholder')"
+            />
+          </view>
+          <view class="cmp-field__help">
+            {{ t('companion.sayHint') }}
+          </view>
+        </view>
+
+        <view class="nx-group">
+          <view class="nx-group__body">
+            <view class="nx-row cmp-stepper-row">
+              <view class="nx-row__main nx-row__title">
+                {{ t('companion.alarm.snooze') }}
+              </view>
+              <wd-input-number v-model="draft.snooze_min" :min="0" :max="60" />
+            </view>
+            <view class="nx-row">
+              <view class="nx-row__main nx-row__title">
+                {{ t('companion.enabled') }}
+              </view>
+              <wd-switch v-model="draft.enabled" size="22px" />
+            </view>
+          </view>
+        </view>
+
+        <view class="cmp-sheet__actions">
+          <wd-button block size="large" :loading="saving" @click="submit">
             {{ t('companion.save') }}
           </wd-button>
+          <view v-if="!isNew" class="cmp-sheet__delete" role="button" @click="confirmDelete">
+            {{ t('common.delete') }}
+          </view>
         </view>
       </view>
     </wd-popup>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.alarms {
+  &__empty {
+    padding-top: var(--nx-space-5);
+  }
+
+  &__empty-btn {
+    margin-top: var(--nx-space-3);
+  }
+
+  &__row {
+    padding-top: var(--nx-space-2);
+    padding-bottom: var(--nx-space-3);
+
+    &.is-off .alarms__time,
+    &.is-off .nx-row__subtitle {
+      color: var(--nx-text-3);
+    }
+  }
+
+  &__main {
+    min-height: var(--nx-touch);
+  }
+
+  &__say {
+    margin-top: 4rpx;
+  }
+
+  &__picker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4rpx;
+    margin-bottom: var(--nx-space-4);
+    padding: var(--nx-space-4);
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-surface);
+
+    &:active {
+      background: var(--nx-surface-2);
+    }
+  }
+
+  &__picker-time {
+    font-size: calc(var(--nx-text-display) * 1.5);
+    line-height: 1.1;
+  }
+}
+</style>

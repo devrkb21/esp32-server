@@ -21,27 +21,6 @@ defineOptions({
   name: 'ChatDetail',
 })
 
-// Get distance from screen boundary to safe area
-let safeAreaInsets: any
-let systemInfo: any
-
-// #ifdef MP-WEIXIN
-systemInfo = uni.getWindowInfo()
-safeAreaInsets = systemInfo.safeArea
-  ? {
-      top: systemInfo.safeArea.top,
-      right: systemInfo.windowWidth - systemInfo.safeArea.right,
-      bottom: systemInfo.windowHeight - systemInfo.safeArea.bottom,
-      left: systemInfo.safeArea.left,
-    }
-  : null
-// #endif
-
-// #ifndef MP-WEIXIN
-systemInfo = uni.getSystemInfoSync()
-safeAreaInsets = systemInfo.safeAreaInsets
-// #endif
-
 // Page parameters
 const sessionId = ref('')
 const agentId = ref('')
@@ -273,6 +252,31 @@ function isToolResultCollapsed(messageIndex, itemIndex) {
   return !expandedToolResults.value[key]
 }
 
+/** Show a centred time stamp before the first message and after a pause of 5+ minutes */
+function showTimeBefore(index: number): boolean {
+  if (index === 0)
+    return true
+  const cur = Date.parse(String(messageList.value[index]?.createdAt || '').replace(' ', 'T'))
+  const prev = Date.parse(String(messageList.value[index - 1]?.createdAt || '').replace(' ', 'T'))
+  if (Number.isNaN(cur) || Number.isNaN(prev))
+    return false
+  return cur - prev >= 5 * 60 * 1000
+}
+
+/** Speaker label for user messages recognised by voiceprint (empty for the default user) */
+function userSpeaker(message: ChatMessage): string {
+  if (message.chatType !== 1)
+    return ''
+  const name = getSpeakerName(message)
+  return name && name !== t('chatHistory.userName') ? name : ''
+}
+
+/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
+function tx(key: string, fallback: string) {
+  const text = t(key)
+  return text === key ? fallback : text
+}
+
 function getFirstLineText(text: string) {
   if (!text) {
     return ''
@@ -307,128 +311,116 @@ onUnload(() => {
 </script>
 
 <template>
-  <view class="h-screen flex flex-col bg-[#f5f7fb]">
-    <!-- Status bar background -->
-    <view class="w-full bg-white" :style="{ height: `${safeAreaInsets?.top}px` }" />
-
+  <view class="chat">
     <!-- Navigation bar -->
-    <wd-navbar :title="t('chatHistory.pageTitle')">
+    <wd-navbar
+      :title="t('chatHistory.pageTitle')"
+
+      safe-area-inset-top placeholder fixed
+      :bordered="false"
+      custom-class="chat__nav"
+    >
       <template #left>
-        <wd-icon name="arrow-left" size="18" @click="goBack" />
+        <view class="chat__back" role="button" :aria-label="tx('chatHistory.back', 'Back')" @click="goBack">
+          <wd-icon name="arrow-left" size="20px" />
+        </view>
       </template>
     </wd-navbar>
 
     <!-- Chat messages list -->
     <scroll-view
       scroll-y
-      :style="{ height: `calc(100vh - ${safeAreaInsets?.top || 0}px - 120rpx)` }"
-      class="box-border flex-1 bg-[#f5f7fb] p-[20rpx]"
+      class="chat__scroll"
       :scroll-into-view="`message-${messageList.length - 1}`"
     >
-      <view v-if="loading" class="flex flex-col items-center justify-center gap-[20rpx] p-[100rpx_0]">
-        <wd-loading />
-        <text class="text-[28rpx] text-[#65686f]">
-          {{ t('chatHistory.loading') }}
-        </text>
-      </view>
+      <view class="chat__body">
+        <!-- Loading skeleton -->
+        <view v-if="loading" class="chat__list" role="status" :aria-label="t('chatHistory.loading')">
+          <view v-for="i in 4" :key="i" class="chat__item" :class="i % 2 ? 'is-robot' : 'is-user'">
+            <view class="nx-skeleton chat__skeleton" :class="{ 'chat__skeleton--wide': i === 3 }" />
+          </view>
+        </view>
 
-      <view v-else class="flex flex-col gap-[20rpx]">
-        <view
-          v-for="(message, index) in messageList"
-          :id="`message-${index}`"
-          :key="index"
-          class="w-full flex"
-          :class="{
-            'justify-end': message.chatType === 1,
-            'justify-start': message.chatType === 2,
-          }"
-        >
+        <view v-else-if="!messageList.length" class="nx-empty">
+          <view class="nx-icon-tile nx-icon-tile--lg">
+            <wd-icon name="chat" size="28px" />
+          </view>
+          <view class="nx-empty__title">
+            {{ t('chatHistory.noChatRecords') }}
+          </view>
+          <view class="nx-btn nx-btn--primary chat__retry" @click="loadChatHistory">
+            {{ tx('chatHistory.refresh', 'Refresh') }}
+          </view>
+        </view>
+
+        <view v-else class="chat__list">
           <view
-            class="max-w-[80%] flex flex-col gap-[8rpx]"
+            v-for="(message, index) in messageList"
+            :id="`message-${index}`"
+            :key="index"
+            class="chat__item"
             :class="{
-              'items-end': message.chatType === 1,
-              'items-start': message.chatType === 2,
-              'tool-message': message.chatType === 3,
+              'is-user': message.chatType === 1,
+              'is-robot': message.chatType === 2,
+              'is-tool': message.chatType === 3,
             }"
           >
-            <!-- Message bubble -->
-            <view
-              class="shadow-message break-words rounded-[20rpx] p-[24rpx] leading-[1.4]"
-              :class="{
-                'bg-[#336cff] text-white': message.chatType === 1,
-                'bg-white text-[#232338] border border-[#eeeeee]': [2, 3].includes(message.chatType),
-              }"
-            >
-              <template v-if="Array.isArray(extractContentFromString(message.content))">
-                <div class="content-wrapper">
-                  <div v-for="(item, idx) in extractContentFromString(message.content)" :key="idx">
-                    <div v-if="item.type === 'text'" class="text-content">
-                      {{ item.text }}
-                    </div>
-                    <div v-else-if="item.type === 'tool'" class="tool-call-text">
-                      {{ item.text }}
-                    </div>
-                    <div v-else-if="item.type === 'tool_result'" class="tool-call-text">
-                      <div v-if="item.text && item.text.length > 80" class="tool-result-wrapper">
-                        <div v-if="isToolResultCollapsed(index, idx)" class="tool-result-collapsed">
-                          {{ getFirstLineText(item.text) }}
-                        </div>
-                        <div v-else class="tool-result-expanded">
-                          {{ item.text }}
-                        </div>
-                        <span class="tool-toggle-btn" @click="toggleToolResult(index, idx)">
-                          <wd-icon :name="isToolResultCollapsed(index, idx) ? 'arrow-down' : 'arrow-up'" size="12" />
-                        </span>
-                      </div>
-                      <div v-else>
-                        {{ item.text }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </template>
-              <!-- Content area - flex alignment for icon and text -->
-              <view v-else class="flex items-center gap-[12rpx]">
-                <!-- Audio play icon -->
-                <view
-                  v-if="message.audioId"
-                  class="flex-shrink-0 cursor-pointer transition-transform duration-200 active:scale-90"
-                  :class="{
-                    'text-white animate-pulse-audio': message.chatType === 1 && playingAudioId === message.audioId,
-                    'text-[#ffd700]': message.chatType === 1 && playingAudioId === message.audioId && playingAudioId,
-                    'text-[#336cff] animate-pulse-audio': message.chatType === 2 && playingAudioId === message.audioId,
-                    'text-[#ff6b35]': message.chatType === 2 && playingAudioId === message.audioId && playingAudioId,
-                    'text-white': message.chatType === 1 && playingAudioId !== message.audioId,
-                    'text-[#336cff]': message.chatType === 2 && playingAudioId !== message.audioId,
-                  }"
-                  @click="playAudio(message.audioId)"
-                >
-                  <wd-icon
-                    :name="playingAudioId === message.audioId ? 'pause-circle-filled' : 'play-circle-filled'"
-                    size="20"
-                  />
-                </view>
-
-                <!-- Message content container -->
-                <view class="min-w-0 flex-1">
-                  <!-- Message content -->
-                  <text class="block text-[28rpx]">
-                    {{ getMessageContent(message) }}
-                  </text>
-                </view>
-              </view>
+            <view v-if="showTimeBefore(index)" class="nx-num chat__time">
+              {{ formatTime(message.createdAt) }}
             </view>
 
-            <!-- Speaker info -->
-            <text
-              class="mx-[12rpx] text-[22rpx] text-[#9d9ea3]"
-              :class="{
-                'text-right': message.chatType === 1,
-                'text-left': message.chatType === 2,
-              }"
-            >
-              {{ formatTime(message.createdAt) }}
-            </text>
+            <view v-if="userSpeaker(message)" class="nx-truncate chat__speaker">
+              {{ userSpeaker(message) }}
+            </view>
+
+            <view class="chat__bubble">
+              <template v-if="Array.isArray(extractContentFromString(message.content))">
+                <view v-for="(item, idx) in extractContentFromString(message.content)" :key="idx" class="chat__part">
+                  <view v-if="item.type === 'text'" class="chat__text">
+                    {{ item.text }}
+                  </view>
+                  <view v-else-if="item.type === 'tool'" class="chat__tool nx-mono nx-break">
+                    <wd-icon name="tools" size="12px" />
+                    {{ item.text }}
+                  </view>
+                  <view v-else-if="item.type === 'tool_result'" class="chat__tool nx-mono nx-break">
+                    <view v-if="item.text && item.text.length > 80" class="chat__tool-result">
+                      <view class="chat__tool-body" :class="{ 'is-collapsed': isToolResultCollapsed(index, idx) }">
+                        {{ isToolResultCollapsed(index, idx) ? getFirstLineText(item.text) : item.text }}
+                      </view>
+                      <view
+                        class="chat__tool-toggle"
+                        role="button"
+                        :aria-label="isToolResultCollapsed(index, idx) ? tx('chatHistory.expand', 'Show more') : tx('chatHistory.collapse', 'Show less')"
+                        @click="toggleToolResult(index, idx)"
+                      >
+                        <wd-icon :name="isToolResultCollapsed(index, idx) ? 'arrow-down' : 'arrow-up'" size="12px" />
+                      </view>
+                    </view>
+                    <view v-else>
+                      {{ item.text }}
+                    </view>
+                  </view>
+                </view>
+              </template>
+
+              <view v-else class="chat__content">
+                <!-- Audio playback -->
+                <view
+                  v-if="message.audioId"
+                  class="chat__play"
+                  :class="{ 'is-playing': playingAudioId === message.audioId }"
+                  role="button"
+                  :aria-label="playingAudioId === message.audioId ? tx('chatHistory.stopAudio', 'Stop audio') : tx('chatHistory.playAudio', 'Play audio')"
+                  @click="playAudio(message.audioId)"
+                >
+                  <wd-icon :name="playingAudioId === message.audioId ? 'pause' : 'play'" size="14px" />
+                </view>
+                <text class="chat__text">
+                  {{ getMessageContent(message) }}
+                </text>
+              </view>
+            </view>
           </view>
         </view>
       </view>
@@ -436,65 +428,201 @@ onUnload(() => {
   </view>
 </template>
 
-<style>
-/* Custom shadow and animation effects */
-.shadow-message {
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
-}
+<style lang="scss" scoped>
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--nx-bg);
 
-@keyframes pulse-audio {
-  0%,
-  100% {
-    opacity: 1;
+  &__back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    margin-left: calc(var(--nx-space-2) * -1);
+    color: var(--nx-text);
   }
-  50% {
-    opacity: 0.6;
+
+  &__scroll {
+    flex: 1;
+    height: 0;
+  }
+
+  &__body {
+    padding: var(--nx-space-3) var(--nx-gutter) calc(var(--nx-space-6) + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--nx-space-2);
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    &.is-user {
+      align-items: flex-end;
+    }
+  }
+
+  &__time {
+    align-self: center;
+    margin: var(--nx-space-3) 0 var(--nx-space-1);
+    font-size: var(--nx-text-caption);
+    font-weight: 500;
+    color: var(--nx-text-3);
+  }
+
+  &__speaker {
+    max-width: 70%;
+    margin: 0 var(--nx-space-2) 4rpx;
+    font-size: var(--nx-text-caption);
+    color: var(--nx-text-3);
+  }
+
+  &__bubble {
+    max-width: 80%;
+    padding: var(--nx-space-2) var(--nx-space-3);
+    border-radius: var(--nx-radius-lg);
+    background: var(--nx-surface);
+    box-shadow: var(--nx-shadow-1);
+    color: var(--nx-text);
+    font-size: var(--nx-text-body);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    box-sizing: border-box;
+  }
+
+  &__item.is-robot &__bubble {
+    border-bottom-left-radius: var(--nx-radius-sm);
+  }
+
+  &__item.is-user &__bubble {
+    border-bottom-right-radius: var(--nx-radius-sm);
+    background: var(--nx-accent-soft);
+    box-shadow: none;
+  }
+
+  &__item.is-tool &__bubble {
+    background: var(--nx-surface-2);
+    box-shadow: none;
+  }
+
+  &__content {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--nx-space-2);
+  }
+
+  &__text {
+    display: block;
+    min-width: 0;
+    white-space: pre-wrap;
+  }
+
+  &__part + &__part {
+    margin-top: var(--nx-space-1);
+  }
+
+  &__play {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 52rpx;
+    height: 52rpx;
+    margin-top: -2rpx;
+    border-radius: 50%;
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    transition: transform var(--nx-dur-1) var(--nx-ease);
+
+    &:active {
+      transform: scale(0.92);
+    }
+
+    &.is-playing {
+      background: var(--nx-accent);
+      color: var(--nx-on-accent);
+    }
+  }
+
+  &__item.is-user &__play {
+    background: var(--nx-surface);
+  }
+
+  &__item.is-user &__play.is-playing {
+    background: var(--nx-accent);
+  }
+
+  &__tool {
+    display: block;
+    padding: var(--nx-space-1) var(--nx-space-2);
+    border-radius: var(--nx-radius-sm);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    line-height: 1.5;
+  }
+
+  &__tool-result {
+    position: relative;
+    padding-right: 48rpx;
+  }
+
+  &__tool-body.is-collapsed {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__tool-toggle {
+    position: absolute;
+    top: -12rpx;
+    right: -12rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56rpx;
+    height: 56rpx;
+    color: var(--nx-accent);
+  }
+
+  &__skeleton {
+    width: 360rpx;
+    height: 72rpx;
+    border-radius: var(--nx-radius-lg);
+
+    &--wide {
+      width: 480rpx;
+      height: 120rpx;
+    }
+  }
+
+  &__retry {
+    margin-top: var(--nx-space-3);
   }
 }
 
-.animate-pulse-audio {
-  animation: pulse-audio 1.5s infinite;
+:deep(.chat__nav) {
+  background: var(--nx-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1rpx solid var(--nx-border);
 }
 
-.text-content {
-  display: block;
-  margin-bottom: 8rpx;
-}
-
-.tool-call-text {
-  color: #1890ff;
-  font-family: 'Courier New', monospace;
-  font-weight: 500;
-  font-size: 24rpx;
-  display: block;
-  margin-top: 8rpx;
-}
-
-.user-message .tool-call-text {
-  color: #e6f7ff;
-}
-
-.tool-message .message-content {
-  background-color: #f0f0f0;
-}
-
-.tool-result-wrapper {
-  position: relative;
-  padding-right: 40rpx;
-}
-
-.tool-result-collapsed {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tool-toggle-btn {
-  position: absolute;
-  right: 0;
-  top: 0;
-  cursor: pointer;
-  color: #1890ff;
-  font-size: 24rpx;
+@media (prefers-reduced-transparency: reduce) {
+  :deep(.chat__nav) {
+    background: var(--nx-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 </style>

@@ -1,104 +1,110 @@
 <template>
-  <div class="doc-section">
-    <div class="doc-section-header">
-      <div class="doc-section-left">
-        <div class="doc-section-title">{{`${$t('knowledgeBaseManagement.currentKnowledgeBaseDocuments')}（${kb?.name}）`}}</div>
-        <div class="doc-section-count" v-if="kb">{{ $t('knowledgeBaseManagement.totalDocuments', { total }) }}</div>
+  <section class="nx-card nx-card--flush kd" :aria-label="tx('knowledgeBaseManagement.documents', 'Documents')">
+    <div class="kd__head">
+      <div class="nx-row kd__title">
+        <h2 class="nx-headline">{{ tx('knowledgeBaseManagement.documents', 'Documents') }}</h2>
+        <span v-if="kb" class="nx-badge nx-num">{{ $t('knowledgeBaseManagement.totalDocuments', { total }) }}</span>
       </div>
-      <div class="doc-section-actions">
+      <div class="kd__actions">
         <el-input
-          :placeholder="$t('knowledgeFileUpload.documentNamePlaceholder')"
           v-model="searchDocName"
-          class="doc-search-input"
+          class="kd__search"
           size="small"
           prefix-icon="el-icon-search"
+          :placeholder="$t('knowledgeFileUpload.documentNamePlaceholder')"
+          :aria-label="$t('knowledgeBaseManagement.search')"
           clearable
+          @keyup.enter.native="handleSearch"
+          @clear="handleSearch"
         />
-        <CustomButton size="small" @click="handleSearch">{{ $t('knowledgeBaseManagement.search') }}</CustomButton>
-        <CustomButton type="add" size="small" @click="handleUpload">{{ $t('knowledgeBaseManagement.add') }}</CustomButton>
-        <CustomButton type="confirm" size="small" @click="handleRetrievalTest">{{ $t('knowledgeFileUpload.retrievalTest') }}</CustomButton>
+        <CustomButton type="add" size="small" icon="el-icon-upload2" @click="handleUpload">
+          {{ $t('knowledgeFileUpload.uploadDocument') }}
+        </CustomButton>
       </div>
     </div>
-    <div class="doc-grid" v-loading="docLoading" :element-loading-text="$t('knowledgeBaseManagement.loading')">
-      <div v-for="doc in documents" :key="doc.id" class="doc-card">
-        <div class="doc-card-top">
-          <img class="doc-file-icon" :src="getFileIconSrc(doc.name)" />
-          <div class="doc-card-info">
-            <div class="doc-card-name" :title="doc.name">{{ doc.name }}</div>
-            <div class="doc-card-meta">{{ $t('knowledgeFileUpload.uploadTime') }} {{ formatDate(doc.createdAt) }}</div>
-          </div>
-        </div>
-        <div class="doc-card-bottom">
-          <div class="doc-card-progress">
-            <div class="progress-ring">
-              <svg viewBox="0 0 40 40">
-                <circle class="bg" cx="20" cy="20" r="15"/>
-                <circle class="fg" :class="getProgressClass(doc)" cx="20" cy="20" r="15"
-                  stroke-dasharray="94.25"
-                  :stroke-dashoffset="getProgressOffset(doc)"/>
-              </svg>
-              <span class="progress-ring-text" :style="{ color: getProgressTextColor(doc) }">{{ getProgressText(doc) }}</span>
+
+    <div class="kd__body" v-loading="docLoading" :element-loading-text="$t('knowledgeBaseManagement.loading')">
+      <el-table v-show="documents.length || docLoading" :data="documents" row-key="id" class="kd-table">
+        <el-table-column :label="$t('knowledgeFileUpload.documentName')" min-width="240">
+          <template slot-scope="scope">
+            <div class="kd-doc">
+              <span class="kd-doc__ext" :class="'kd-doc__ext--' + fileKind(scope.row.name)">{{ fileExt(scope.row.name) }}</span>
+              <div class="kd-doc__text">
+                <span class="kd-doc__name nx-truncate" :title="scope.row.name">{{ scope.row.name }}</span>
+                <span class="nx-caption nx-num">{{ formatDate(scope.row.createdAt) }}</span>
+              </div>
             </div>
-            <div class="progress-container">
-              <span class="progress-label" :class="getProgressClass(doc)">{{ getDocStatusText(doc) }}</span>
-              <span class="doc-slice-count">{{ $t('knowledgeFileUpload.sliceCount') }} <b>{{ doc.sliceCount }}</b></span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="$t('knowledgeFileUpload.status')" min-width="150">
+          <template slot-scope="scope">
+            <span class="nx-badge" :class="statusBadgeClass(scope.row)">
+              <i :class="statusIcon(scope.row)" aria-hidden="true"></i>
+              {{ getDocStatusText(scope.row) }}
+              <span v-if="scope.row.parseStatusCode === 1" class="nx-num">· {{ getProgressText(scope.row) }}</span>
+            </span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="$t('knowledgeFileUpload.sliceCount')" width="110" align="right">
+          <template slot-scope="scope">
+            <span class="nx-num kd-count">{{ scope.row.sliceCount != null ? formatCount(scope.row.sliceCount) : '—' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column :label="$t('knowledgeFileUpload.operation')" width="190" align="right">
+          <template slot-scope="scope">
+            <div class="kd-actions">
+              <el-button v-if="scope.row.parseStatusCode === 3" type="text" size="small"
+                @click.stop="$emit('view-slices', scope.row)">
+                {{ $t('knowledgeFileUpload.viewSlices') }}
+              </el-button>
+              <el-button v-else type="text" size="small" :disabled="scope.row.parseStatusCode === 1"
+                :loading="scope.row.parsing" @click.stop="handleParse(scope.row)">
+                {{ $t('knowledgeFileUpload.parse') }}
+              </el-button>
+              <el-tooltip :content="$t('knowledgeBaseManagement.delete')" placement="top" :open-delay="400">
+                <el-button class="kd-delete" type="text" size="small" icon="el-icon-delete"
+                  :aria-label="$t('knowledgeBaseManagement.delete')" :loading="deleteLoadingMap[scope.row.id]"
+                  @click.stop="handleDelete(scope.row)"></el-button>
+              </el-tooltip>
             </div>
-          </div>
-          <div class="doc-card-actions">
-            <el-button
-              v-if="doc.parseStatusCode === 3"
-              type="text"
-              @click.stop="$emit('view-slices', doc)"
-            >
-              {{ $t('knowledgeFileUpload.viewSlices') }}
-            </el-button>
-            <el-button
-              v-else
-              type="text"
-              :disabled="doc.parseStatusCode === 1"
-              :loading="doc.parsing"
-              @click.stop="handleParse(doc)"
-            >
-              {{ $t('knowledgeFileUpload.parse') }}
-            </el-button>
-            <el-button type="text" class="delete-btn" :loading="deleteLoadingMap[doc.id]" @click.stop="handleDelete(doc)">
-              {{ $t('knowledgeBaseManagement.delete') }}
-            </el-button>
-          </div>
-        </div>
-      </div>
-      <div v-if="documents.length === 0 && !docLoading" class="doc-empty">
-        <el-empty :description="$t('knowledgeBaseManagement.noData')"></el-empty>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div v-if="documents.length === 0 && !docLoading" class="nx-empty">
+        <span class="nx-icon-tile nx-icon-tile--lg"><i class="el-icon-document-add" aria-hidden="true"></i></span>
+        <h3 class="nx-empty__title">
+          {{ searchDocName ? $t('knowledgeBaseManagement.noData') : tx('knowledgeBaseManagement.docsEmptyTitle', 'No documents yet') }}
+        </h3>
+        <p v-if="!searchDocName" class="nx-empty__text">
+          {{ tx('knowledgeBaseManagement.docsEmptyText', 'Upload PDFs, Word files, spreadsheets or text files to get started.') }}
+        </p>
+        <CustomButton class="nx-empty__action" type="add" icon="el-icon-upload2" @click="handleUpload">
+          {{ $t('knowledgeFileUpload.uploadDocument') }}
+        </CustomButton>
       </div>
     </div>
-    <CustomPagination
-      class="pagination-wrapper"
-      :total="total"
-      :current-page="currentPage"
-      :page-size="pageSize"
-      :page-size-options="pageSizeOptions"
-      @page-change="handlePageChange"
-      @size-change="handleSizeChange"
-    />
-  </div>
+
+    <div v-if="total > 0" class="kd__foot">
+      <CustomPagination
+        :total="total"
+        :current-page="currentPage"
+        :page-size="pageSize"
+        :page-size-options="pageSizeOptions"
+        @page-change="handlePageChange"
+        @size-change="handleSizeChange"
+      />
+    </div>
+  </section>
 </template>
 
 <script>
 import Api from "@/apis/api";
 import CustomButton from "@/components/CustomButton.vue";
 import CustomPagination from "@/components/CustomPagination.vue";
-
-const iconMap = {
-  pdf: require('@/assets/knowledge-base/pdf.png'),
-  doc: require('@/assets/knowledge-base/docX.png'),
-  docx: require('@/assets/knowledge-base/docX.png'),
-  xls: require('@/assets/knowledge-base/xlsx.png'),
-  xlsx: require('@/assets/knowledge-base/xlsx.png'),
-  csv: require('@/assets/knowledge-base/xlsx.png'),
-  md: require('@/assets/knowledge-base/MD.png'),
-  markdown: require('@/assets/knowledge-base/MD.png'),
-  txt: require('@/assets/knowledge-base/txt.png'),
-};
 
 export default {
   name: 'LibraryItem',
@@ -136,6 +142,13 @@ export default {
     }
   },
   methods: {
+    // $t with an English fallback for keys still waiting in i18n/_pending
+    tx(key, fallback, params) {
+      const value = this.$t(key, params);
+      if (value !== key) return value;
+      return String(fallback).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] != null ? params[k] : m));
+    },
+
     fetchDocuments() {
       if (!this.kb || !this.kb.datasetId) return;
       this.docLoading = true;
@@ -200,9 +213,10 @@ export default {
       if (!this.kb) return;
       this.$confirm(
         this.$t('knowledgeFileUpload.confirmDelete'),
-        this.$t('message.warning'),
+        doc.name || this.$t('message.warning'),
         {
-          confirmButtonText: this.$t('knowledgeBaseDialog.confirm'),
+          confirmButtonText: this.$t('knowledgeFileUpload.delete'),
+          confirmButtonClass: 'el-button--danger',
           cancelButtonText: this.$t('knowledgeBaseDialog.cancel'),
           type: 'warning'
         }
@@ -313,30 +327,11 @@ export default {
       );
     },
 
-    getFileIconSrc(fileName) {
-      if (!fileName) return require('@/assets/knowledge-base/default.png');
-      const ext = fileName.split('.').pop().toLowerCase();
-      return iconMap[ext] || require('@/assets/knowledge-base/default.png');
-    },
-
     getProgressClass(doc) {
       const code = doc.parseStatusCode;
       if (code === 3) return 'complete';
       if (code === 1) return 'processing';
       return 'pending';
-    },
-
-    getProgressOffset(doc) {
-      const code = doc.parseStatusCode;
-      const circumference = 94.25;
-      if (code === 3) return 0;
-      if (code === 1) {
-        const progress = doc.chunkNum && doc.totalChunkNum
-          ? Math.round((doc.chunkNum / doc.totalChunkNum) * 100)
-          : 50;
-        return circumference * (1 - progress / 100);
-      }
-      return circumference;
     },
 
     getProgressText(doc) {
@@ -351,11 +346,41 @@ export default {
       return '0%';
     },
 
-    getProgressTextColor(doc) {
+    // Status badge: colour always paired with an icon and a word
+    statusBadgeClass(doc) {
       const code = doc.parseStatusCode;
-      if (code === 3) return '#34c759';
-      if (code === 1) return '#2f5bff';
-      return '#7888a8';
+      if (code === 3) return 'nx-badge--success';
+      if (code === 1) return 'nx-badge--info';
+      if (code === 4) return 'nx-badge--danger';
+      if (code === 2) return 'nx-badge--warning';
+      return '';
+    },
+
+    statusIcon(doc) {
+      const code = doc.parseStatusCode;
+      if (code === 3) return 'el-icon-circle-check';
+      if (code === 1) return 'el-icon-time';
+      if (code === 4) return 'el-icon-warning-outline';
+      if (code === 2) return 'el-icon-remove-outline';
+      return 'el-icon-more-outline';
+    },
+
+    fileExt(fileName) {
+      const parts = String(fileName || '').split('.');
+      return parts.length > 1 ? parts.pop().slice(0, 4).toUpperCase() : 'FILE';
+    },
+
+    fileKind(fileName) {
+      const ext = this.fileExt(fileName).toLowerCase();
+      if (ext === 'pdf') return 'pdf';
+      if (['doc', 'docx', 'md', 'mdx', 'txt', 'mark'].includes(ext)) return 'text';
+      if (['xls', 'xlsx', 'csv'].includes(ext)) return 'sheet';
+      if (['ppt', 'pptx'].includes(ext)) return 'slides';
+      return 'other';
+    },
+
+    formatCount(value) {
+      return (Number(value) || 0).toLocaleString();
     },
 
     getDocStatusText(doc) {
@@ -371,6 +396,7 @@ export default {
     formatDate(dateString) {
       if (!dateString) return '';
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     },
   }
@@ -378,246 +404,145 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-/* ========== Document Section ========== */
-.doc-section {
-  background: #fff;
-  border-radius: 10px;
-  padding: 16px 20px;
-  flex: 1;
+.kd {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-}
+  min-width: 0;
 
-.doc-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.doc-section-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.doc-section-title {
-  font-size: 18px;
-  font-weight: 500;
-  color: #1f2a44;
-}
-
-.doc-section-count {
-  font-size: 18px;
-  color: #788ba8;
-}
-
-.doc-section-actions {
-  display: flex;
-  align-items: center;
-}
-
-.doc-search-input {
-  width: 200px;
-  margin-right: 10px;
-}
-
-/* ========== Document Grid ========== */
-.doc-grid {
-  padding: 10px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill,minmax(300px, 1fr));
-  gap: 16px 20px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.doc-card {
-  max-height: 110px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 18px;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.25s;
-  position: relative;
-  box-shadow: 0 0 6px rgba(47, 91, 255, 0.15);
-
-  &:hover {
-    box-shadow: 0 0 6px rgba(47, 91, 255, 0.15);
-    border: 1px solid #6b80eb;
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--nx-space-3);
+    min-height: 64px;
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-bottom: 1px solid var(--nx-border);
+  }
+  &__title {
+    min-width: 0;
+  }
+  &__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--nx-space-2);
+  }
+  &__search {
+    width: 220px;
+  }
+  &__body {
+    min-height: 240px;
+  }
+  &__foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--nx-space-3) var(--nx-space-5);
+    border-top: 1px solid var(--nx-border);
   }
 }
 
-.doc-card-top {
+.kd-table {
+  width: 100%;
+
+  &::before {
+    display: none;
+  }
+  ::v-deep th.el-table__cell:first-child .cell,
+  ::v-deep td.el-table__cell:first-child .cell {
+    padding-left: var(--nx-space-5);
+  }
+  ::v-deep th.el-table__cell:last-child .cell,
+  ::v-deep td.el-table__cell:last-child .cell {
+    padding-right: var(--nx-space-4);
+  }
+}
+
+.kd-doc {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 12px;
-}
-
-.doc-file-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 10px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.doc-card-info {
-  flex: 1;
+  gap: var(--nx-space-3);
   min-width: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  text-align: left;
-}
+  padding: var(--nx-space-1) 0;
 
-.doc-card-name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #1f2a44;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-
-.doc-card-meta {
-  font-size: 13px;
-  color: #7888a8;
-}
-
-.doc-card-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.doc-card-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* ========== Progress Ring ========== */
-.progress-ring {
-  width: 40px;
-  height: 40px;
-  position: relative;
-
-  svg {
+  &__ext {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
     width: 40px;
     height: 40px;
-    transform: rotate(-90deg);
-  }
+    border-radius: var(--nx-radius);
+    background: var(--nx-surface-2);
+    color: var(--nx-text-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 700;
+    letter-spacing: 0.02em;
 
-  .bg {
-    fill: none;
-    stroke: #e7ecf5;
-    stroke-width: 4;
-  }
-
-  .fg {
-    fill: none;
-    stroke-width: 4;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 0.5s ease;
-
-    &.complete { stroke: #34c759; }
-    &.processing { stroke: #2f5bff; }
-    &.pending { stroke: #e7ecf5; }
-  }
-}
-
-.progress-ring-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  font-weight: 600;
-  color: #7888a8;
-}
-
-.progress-container {
-  height: 36px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-start;
-  .progress-label {
-    font-size: 12px;
-    color: #7888a8;
-  
-    &.complete { color: #34c759; }
-    &.processing { color: #2f5bff; }
-  }
-
-  .doc-slice-count {
-    font-size: 12px;
-    > b {
-      font-weight: bold;
-      font-size: 14px;
+    &--pdf {
+      background: var(--nx-danger-soft);
+      color: var(--nx-danger);
+    }
+    &--text {
+      background: var(--nx-info-soft);
+      color: var(--nx-info);
+    }
+    &--sheet {
+      background: var(--nx-success-soft);
+      color: var(--nx-success);
+    }
+    &--slides {
+      background: var(--nx-warning-soft);
+      color: var(--nx-warning);
     }
   }
+  &__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  &__name {
+    font-weight: 600;
+    color: var(--nx-text);
+  }
 }
 
+.kd-count {
+  color: var(--nx-text-2);
+}
 
-.doc-card-actions {
-  display: flex;
+.kd-actions {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: flex-end;
+  gap: var(--nx-space-1);
+  width: 100%;
 
-  :deep(.el-button--text) {
-    padding: 4px 8px;
-    font-size: 13px;
-  }
-
-  .delete-btn {
-    color: #f56c6c !important;
-    &:hover {
-      color: #f78989 !important;
-    }
+  .el-button + .el-button {
+    margin-left: 0;
   }
 }
 
-.doc-empty {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 300px;
-  color: #b0bbc9;
-  font-size: 14px;
+.kd-delete {
+  width: 32px;
+  color: var(--nx-text-2);
 
-  i {
-    font-size: 48px;
-    margin-bottom: 12px;
+  &:hover,
+  &:focus {
+    color: var(--nx-danger);
   }
 }
 
-.pagination-wrapper {
-  margin-top: 20px;
-}
-
-@media (max-width: 1144px) {
-  .doc-grid {
-    grid-template-columns: repeat(3, 1fr);
+@media (max-width: 640px) {
+  .kd__head {
+    padding: var(--nx-space-3) var(--nx-space-4);
   }
-}
-
-@media (max-width: 900px) {
-  .doc-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .kd__actions {
+    width: 100%;
+  }
+  .kd__search {
+    flex: 1 1 160px;
+    width: auto;
   }
 }
 </style>

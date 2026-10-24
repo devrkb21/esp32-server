@@ -44,7 +44,8 @@ module.exports = defineConfig({
     port: 8001, // Specify port 8001
     proxy: {
       '/xiaozhi': {
-        target: 'http://127.0.0.1:8002',
+        // Override with DEV_PROXY_TARGET, e.g. the Docker manager-api on http://127.0.0.1:18002
+        target: process.env.DEV_PROXY_TARGET || 'http://127.0.0.1:8002',
         changeOrigin: true
       }
     },

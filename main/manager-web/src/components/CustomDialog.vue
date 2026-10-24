@@ -22,9 +22,9 @@
     <slot></slot>
     <template slot="footer">
       <div v-if="footer" class="dialog-footer">
-        <CustomButton @click="handleCancel">{{ cancelText }}</CustomButton>
-        <CustomButton :loading="confirmLoading" type="confirm" @click="handleConfirm">
-          <span class="confirm-inner">{{ confirmText }}</span>
+        <CustomButton @click="handleCancel">{{ cancelText || $t('button.cancel') }}</CustomButton>
+        <CustomButton :loading="confirmLoading" :type="confirmType" :disabled="confirmDisabled" @click="handleConfirm">
+          <span class="confirm-inner">{{ confirmText || $t('button.save') }}</span>
         </CustomButton>
       </div>
     </template>
@@ -81,13 +81,23 @@ export default {
       default: "small",
       validator: (val) => ["small", "large"].includes(val),
     },
+    // Empty = the localized "Cancel" / "Save"
     cancelText: {
       type: String,
-      default: "Cancel"
+      default: ""
     },
     confirmText: {
       type: String,
-      default: "Confirm Save"
+      default: ""
+    },
+    // "confirm" (primary) or "delete" (danger) for destructive dialogs
+    confirmType: {
+      type: String,
+      default: "confirm"
+    },
+    confirmDisabled: {
+      type: Boolean,
+      default: false
     }
   },
   data() {

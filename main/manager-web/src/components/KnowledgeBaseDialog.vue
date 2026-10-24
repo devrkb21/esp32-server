@@ -1,16 +1,20 @@
 <template>
-  <CustomDialog :title="title" :visible.sync="dialogVisible" width="600px" class="knowledge-base-dialog" @close="handleClose" @confirm="handleSubmit">
-    <el-form ref="knowledgeBaseForm" :model="form" :rules="rules" label-width="100px" size="medium">
+  <CustomDialog :title="title" :visible.sync="dialogVisible" width="640px" class="knowledge-base-dialog"
+    :cancel-text="$t('knowledgeBaseDialog.cancel')" :confirm-text="$t('knowledgeBaseDialog.save')"
+    @close="handleClose" @confirm="handleSubmit">
+    <el-form ref="knowledgeBaseForm" :model="form" :rules="rules" label-position="top" class="kbd-form"
+      @submit.native.prevent>
       <el-form-item :label="$t('knowledgeBaseDialog.name')" prop="name">
-        <el-input v-model="form.name" :placeholder="$t('knowledgeBaseDialog.namePlaceholder')" clearable></el-input>
+        <el-input v-model="form.name" :placeholder="$t('knowledgeBaseDialog.namePlaceholder')" maxlength="50"
+          clearable></el-input>
       </el-form-item>
       <el-form-item :label="$t('knowledgeBaseDialog.description')" prop="description">
         <el-input v-model="form.description" :placeholder="$t('knowledgeBaseDialog.descriptionPlaceholder')"
-          type="textarea" :rows="4" maxlength="300" show-word-limit></el-input>
+          type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" maxlength="300" show-word-limit></el-input>
       </el-form-item>
       <el-form-item :label="$t('knowledgeBaseDialog.ragModel')" prop="ragModelId">
         <el-select v-model="form.ragModelId" :placeholder="$t('knowledgeBaseDialog.ragModelPlaceholder')" clearable
-          filterable style="width: 100%" @focus="loadRAGModels">
+          filterable class="kbd-select" @focus="loadRAGModels">
           <el-option v-for="model in ragModels" :key="model.id" :label="model.modelName" :value="model.id">
           </el-option>
         </el-select>
@@ -131,11 +135,8 @@ export default {
       this.$emit("update:visible", false);
     },
     handleSubmit() {
-      console.log('KnowledgeBaseDialog handleSubmit called');
       this.$refs.knowledgeBaseForm.validate(valid => {
-        console.log('Form validation result:', valid);
         if (valid) {
-          console.log('Emitting submit event with form:', this.form);
           this.$emit("submit", {
             ...this.form
           });
@@ -147,17 +148,13 @@ export default {
         return; // Already loaded, avoid duplicate loading
       }
 
-      console.log('Start loading RAG models list');
       Api.model.getRAGModels((res) => {
-        console.log('RAG models list response:', res);
         if (res.data && res.data.code === 0) {
           this.ragModels = res.data.data || [];
-          console.log('RAG models list loaded successfully, total:', this.ragModels.length);
 
           // Default to first RAG model when creating knowledge base without ragModelId
           if (!this.form.id && !this.form.ragModelId && this.ragModels.length > 0) {
             this.$set(this.form, 'ragModelId', this.ragModels[0].id);
-            console.log('Default RAG model set:', this.ragModels[0].id);
           }
         } else {
           console.error('Failed to get RAG model list:', res.data?.msg);
@@ -170,74 +167,20 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.knowledge-base-dialog {
-  ::v-deep .el-dialog {
-    border-radius: 20px;
-    overflow: hidden;
-  }
-
-  ::v-deep .el-dialog__body {
-    padding: 20px 30px;
-  }
-
+.kbd-form {
   ::v-deep .el-form-item {
-    margin-bottom: 20px;
+    margin-bottom: var(--nx-space-4);
   }
-
+  ::v-deep .el-form-item:last-child {
+    margin-bottom: 0;
+  }
   ::v-deep .el-form-item__label {
-    font-weight: 500;
-    color: #34495e;
-    font-size: 14px;
+    padding-bottom: var(--nx-space-1);
+    line-height: 1.4;
   }
+}
 
-  ::v-deep .el-input {
-    .el-input__inner {
-      height: 36px;
-      font-size: 14px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      transition: all 0.3s ease;
-
-      &:focus {
-        border-color: #5f70f3;
-        box-shadow: 0 0 0 2px rgba(95, 112, 243, 0.2);
-      }
-    }
-  }
-
-  ::v-deep .el-textarea {
-    .el-textarea__inner {
-      font-size: 14px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      transition: all 0.3s ease;
-
-      &:focus {
-        border-color: #5f70f3;
-        box-shadow: 0 0 0 2px rgba(95, 112, 243, 0.2);
-      }
-    }
-  }
-
-  ::v-deep .el-select {
-    .el-input__inner {
-      height: 36px;
-      font-size: 14px;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      transition: all 0.3s ease;
-
-      &:focus {
-        border-color: #5f70f3;
-        box-shadow: 0 0 0 2px rgba(95, 112, 243, 0.2);
-      }
-    }
-  }
-
-  .dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-  }
+.kbd-select {
+  width: 100%;
 }
 </style>

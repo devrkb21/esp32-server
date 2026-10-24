@@ -17,6 +17,9 @@ defineOptions({
 })
 
 const speedPitchStore = useSpeedPitch()
+
+// Safe area for the custom navigation bar
+const safeTop = (uni.getSystemInfoSync().safeAreaInsets?.top) || 0
 const SPEED_PITCH_FIELDS = ['ttsVolume', 'ttsRate', 'ttsPitch'] as const
 
 const localSettings = ref({
@@ -24,6 +27,28 @@ const localSettings = ref({
   ttsRate: 0,
   ttsPitch: 0,
 })
+
+// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
+function tx(key: string, fallback: string) {
+  const value = t(key)
+  return value === key ? fallback : value
+}
+
+const sliders = computed(() => [
+  { key: 'ttsVolume' as const, label: t('agent.ttsVolume'), hint: t('agent.volumeHint') },
+  { key: 'ttsRate' as const, label: t('agent.ttsRate'), hint: t('agent.speedHint') },
+  { key: 'ttsPitch' as const, label: t('agent.ttsPitch'), hint: t('agent.pitchHint') },
+])
+
+const hasLocalChanges = computed(() => SPEED_PITCH_FIELDS.some(field => localSettings.value[field] !== speedPitchStore.speedPitch[field]))
+
+function formatSigned(value: number) {
+  return value > 0 ? `+${value}` : `${value}`
+}
+
+function resetField(field: typeof SPEED_PITCH_FIELDS[number]) {
+  localSettings.value[field] = 0
+}
 
 function handleConfirm() {
   const changedFields = SPEED_PITCH_FIELDS.filter((field) => {
@@ -48,110 +73,171 @@ onMounted(() => {
 </script>
 
 <template>
-  <view class="h-screen flex flex-col bg-[#f5f7fb]">
-    <!-- Header Navigation -->
-    <wd-navbar
-      :title="t('agent.languageConfig')"
-      safe-area-inset-top
-      left-arrow
-      :bordered="false"
-      @click-left="goBack"
-    >
-      <template #left>
-        <wd-icon name="arrow-left" size="18" />
-      </template>
-    </wd-navbar>
-    <view class="flex flex-1 flex-col overflow-hidden">
-      <view class="flex flex-1 flex-col gap-[50rpx] overflow-y-auto px-[40rpx] py-[50rpx]">
-        <!-- Volume Adjustment -->
-        <view class="flex flex-col gap-[20rpx]">
-          <text class="text-[30rpx] text-[#232338] font-semibold">
-            {{ t('agent.ttsVolume') }}
-          </text>
-          <view class="flex items-center gap-[20rpx]">
-            <wd-slider
-              v-model="localSettings.ttsVolume"
-              :min="-100"
-              :max="100"
-              :step="1"
-              :show-value="false"
-              custom-class="voice-slider"
-              class="flex-1"
-            />
-            <text class="min-w-[80rpx] text-right text-[28rpx] text-[#336cff] font-medium">
-              {{ localSettings.ttsVolume }}
-            </text>
+  <view class="nx-subpage">
+    <view class="nx-subpage__nav" :style="{ paddingTop: `${safeTop}px` }">
+      <view class="nx-subpage__back" role="button" :aria-label="tx('agent.navBack', 'Back')" @click="goBack">
+        <wd-icon name="arrow-left" size="20px" />
+      </view>
+      <text class="nx-subpage__nav-title nx-truncate">
+        {{ t('agent.languageConfig') }}
+      </text>
+      <view class="nx-subpage__back" />
+    </view>
+
+    <scroll-view scroll-y class="nx-subpage__scroll">
+      <view class="nx-subpage__content">
+        <view class="nx-large-title">
+          <view class="nx-large-title__title">
+            {{ t('agent.languageConfig') }}
           </view>
-          <text class="mt-[10rpx] text-[24rpx] text-[#9d9ea3]">
-            {{ t('agent.volumeHint') }}
-          </text>
+          <view class="nx-large-title__subtitle">
+            {{ tx('agent.voiceTuningSubtitle', 'Fine-tune how your agent sounds. 0 is the voice’s natural setting.') }}
+          </view>
         </view>
 
-        <!-- Speed Adjustment -->
-        <view class="flex flex-col gap-[20rpx]">
-          <text class="text-[30rpx] text-[#232338] font-semibold">
-            {{ t('agent.ttsRate') }}
-          </text>
-          <view class="flex items-center gap-[20rpx]">
+        <view v-for="item in sliders" :key="item.key" class="nx-group">
+          <view class="nx-group__body tune-card">
+            <view class="tune-card__head">
+              <text class="nx-row__title">
+                {{ item.label }}
+              </text>
+              <view class="nx-num tune-card__value" :class="{ 'is-default': localSettings[item.key] === 0 }">
+                {{ formatSigned(localSettings[item.key]) }}
+              </view>
+            </view>
             <wd-slider
-              v-model="localSettings.ttsRate"
+              v-model="localSettings[item.key]"
               :min="-100"
               :max="100"
               :step="1"
-              :show-value="false"
-              custom-class="voice-slider"
-              class="flex-1"
+              hide-min-max
+              hide-label
+              custom-class="tune-card__slider"
             />
-            <text class="min-w-[80rpx] text-right text-[28rpx] text-[#336cff] font-medium">
-              {{ localSettings.ttsRate }}
-            </text>
+            <view class="tune-card__foot">
+              <text class="tune-card__hint">
+                {{ item.hint }}
+              </text>
+              <text
+                v-if="localSettings[item.key] !== 0"
+                class="tune-card__reset"
+                role="button"
+                @click="resetField(item.key)"
+              >
+                {{ tx('agent.voiceTuningReset', 'Reset') }}
+              </text>
+            </view>
           </view>
-          <text class="mt-[10rpx] text-[24rpx] text-[#9d9ea3]">
-            {{ t('agent.speedHint') }}
-          </text>
         </view>
 
-        <!-- Pitch Adjustment -->
-        <view class="flex flex-col gap-[20rpx]">
-          <text class="text-[30rpx] text-[#232338] font-semibold">
-            {{ t('agent.ttsPitch') }}
-          </text>
-          <view class="flex items-center gap-[20rpx]">
-            <wd-slider
-              v-model="localSettings.ttsPitch"
-              :min="-100"
-              :max="100"
-              :step="1"
-              :show-value="false"
-              custom-class="voice-slider"
-              class="flex-1"
-            />
-            <text class="min-w-[80rpx] text-right text-[28rpx] text-[#336cff] font-medium">
-              {{ localSettings.ttsPitch }}
-            </text>
-          </view>
-          <text class="mt-[10rpx] text-[24rpx] text-[#9d9ea3]">
-            {{ t('agent.pitchHint') }}
-          </text>
+        <view class="nx-group__footer">
+          {{ tx('agent.voiceTuningFooter', 'Changes apply after you save the agent.') }}
         </view>
       </view>
+    </scroll-view>
 
-      <view class="flex gap-[20rpx] border-t border-[#eee] px-[30rpx] py-[30rpx]">
-        <wd-button type="primary" class="h-[80rpx] flex-1 rounded-[12rpx] text-[28rpx] !bg-[#336cff]" @click="handleConfirm">
-          {{ t('agent.save') }}
-        </wd-button>
-      </view>
+    <view class="nx-action-bar">
+      <wd-button type="primary" block size="large" custom-class="tune-save" @click="handleConfirm">
+        {{ hasLocalChanges ? t('agent.save') : tx('agent.editorDone', 'Done') }}
+      </wd-button>
     </view>
   </view>
 </template>
 
 <style scoped lang="scss">
-/* Custom slider styles */
-:deep(.wd-slider) {
-  --wd-slider-bar-background: #e6ebff;
-  --wd-slider-bar-active-background: #336cff;
-  --wd-slider-thumb-border-color: #336cff;
-  --wd-slider-thumb-background: #336cff;
-  --wd-slider-thumb-size: 32rpx;
+.nx-subpage {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--nx-bg);
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: var(--nx-space-2);
+    padding-left: var(--nx-gutter);
+    padding-right: var(--nx-gutter);
+    min-height: var(--nx-touch);
+    background: var(--nx-bg);
+  }
+  &__back {
+    display: flex;
+    align-items: center;
+    flex: none;
+    width: var(--nx-touch);
+    height: var(--nx-touch);
+    color: var(--nx-accent);
+    &:active {
+      opacity: 0.6;
+    }
+  }
+  &__nav-title {
+    flex: 1;
+    text-align: center;
+    font-size: var(--nx-text-headline);
+    font-weight: 600;
+    color: var(--nx-text);
+  }
+  &__scroll {
+    flex: 1;
+    height: 0;
+  }
+  &__content {
+    padding: 0 var(--nx-gutter) calc(220rpx + env(safe-area-inset-bottom));
+  }
+}
+
+.tune-card {
+  padding: var(--nx-space-4);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  &__value {
+    min-width: 88rpx;
+    padding: 4rpx var(--nx-space-2);
+    border-radius: var(--nx-radius-pill);
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    font-weight: 600;
+    text-align: center;
+    &.is-default {
+      background: var(--nx-surface-2);
+      color: var(--nx-text-2);
+    }
+  }
+  &__foot {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--nx-space-3);
+  }
+  &__hint {
+    flex: 1;
+    font-size: var(--nx-text-caption);
+    line-height: 1.5;
+    color: var(--nx-text-3);
+  }
+  &__reset {
+    flex: none;
+    color: var(--nx-accent);
+    font-size: var(--nx-text-footnote);
+    font-weight: 600;
+  }
+}
+
+:deep(.tune-card__slider) {
+  --wot-slider-axie-bg: var(--nx-surface-3);
+  --wot-slider-line-color: var(--nx-accent);
+  --wot-slider-handle-bg: var(--nx-surface);
+  margin: var(--nx-space-3) 0 var(--nx-space-2);
+}
+
+:deep(.tune-save) {
+  border-radius: var(--nx-radius);
 }
 </style>

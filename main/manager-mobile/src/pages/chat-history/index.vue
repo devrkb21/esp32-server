@@ -18,26 +18,11 @@ interface Props {
   agentId?: string
 }
 
-// Get distance from screen boundary to safe area
-let safeAreaInsets: any
-let systemInfo: any
-
-// #ifdef MP-WEIXIN
-systemInfo = uni.getWindowInfo()
-safeAreaInsets = systemInfo.safeArea
-  ? {
-      top: systemInfo.safeArea.top,
-      right: systemInfo.windowWidth - systemInfo.safeArea.right,
-      bottom: systemInfo.windowHeight - systemInfo.safeArea.bottom,
-      left: systemInfo.safeArea.left,
-    }
-  : null
-// #endif
-
-// #ifndef MP-WEIXIN
-systemInfo = uni.getSystemInfoSync()
-safeAreaInsets = systemInfo.safeAreaInsets
-// #endif
+/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
+function tx(key: string, fallback: string) {
+  const text = t(key)
+  return text === key ? fallback : text
+}
 
 // Chat session data
 const sessionList = ref<ChatSession[]>([])
@@ -189,222 +174,148 @@ defineExpose({
 </script>
 
 <template>
-  <view class="chat-history-container" style="background: #f5f7fb; min-height: 100%;">
-    <!-- Loading state -->
-    <view v-if="loading && sessionList.length === 0" class="loading-container">
-      <wd-loading color="#336cff" />
-      <text class="loading-text">
-        {{ t('chatHistory.loading') }}
-      </text>
+  <view class="chats">
+    <view class="nx-large-title">
+      <view class="nx-large-title__title">
+        {{ tx('chatHistory.listTitle', 'Conversations') }}
+      </view>
+      <view class="nx-large-title__subtitle">
+        {{ tx('chatHistory.listSubtitle', 'What your robot talked about, newest first.') }}
+      </view>
+    </view>
+
+    <!-- Loading skeleton -->
+    <view v-if="loading && sessionList.length === 0" class="nx-group">
+      <view class="nx-group__body">
+        <view v-for="i in 5" :key="i" class="nx-row">
+          <view class="nx-skeleton chats__skeleton-icon" />
+          <view class="nx-row__main">
+            <view class="nx-skeleton chats__skeleton-line" />
+            <view class="nx-skeleton chats__skeleton-line chats__skeleton-line--short" />
+          </view>
+        </view>
+      </view>
     </view>
 
     <!-- Session list -->
-    <view v-else-if="sessionList.length > 0" class="session-container">
-      <!-- Chat session list -->
-      <view class="session-list">
+    <view v-else-if="sessionList.length > 0" class="nx-group">
+      <view class="nx-group__body">
         <view
           v-for="session in sessionList"
           :key="session.sessionId"
-          class="session-item"
+          class="nx-row nx-row--tap"
           @click="goToChatDetail(session)"
         >
-          <view class="session-card">
-            <view class="session-info">
-              <view class="session-header">
-                <text class="session-title">
-                  {{ session.title || `${t('chatHistory.conversationRecord')} ${session.sessionId.substring(0, 8)}...` }}
-                </text>
-                <text class="session-time">
-                  {{ formatTime(session.createdAt) }}
-                </text>
+          <view class="nx-icon-tile chats__icon">
+            <wd-icon name="chat" size="18px" />
+          </view>
+          <view class="nx-row__main">
+            <view class="chats__line">
+              <view
+                class="nx-row__title nx-truncate chats__title"
+                :title="session.title || session.sessionId"
+              >
+                {{ session.title || `${t('chatHistory.conversationRecord')} ${session.sessionId.substring(0, 8)}…` }}
               </view>
-              <view class="session-meta">
-                <text class="chat-count">
-                  {{ t('chatHistory.totalChats', { count: session.chatCount }) }}
-                </text>
+              <view class="nx-caption nx-num chats__time">
+                {{ formatTime(session.createdAt) }}
               </view>
             </view>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <view class="nx-row__subtitle nx-num">
+              {{ t('chatHistory.totalChats', { count: session.chatCount }) }}
+            </view>
           </view>
+          <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
         </view>
       </view>
 
       <!-- Load more state -->
-      <view v-if="loadingMore" class="loading-more">
-        <wd-loading color="#336cff" size="24" />
-        <text class="loading-more-text">
-          {{ t('chatHistory.loading') }}
-        </text>
+      <view v-if="loadingMore" class="chats__more" role="status">
+        <wd-loading size="16px" />
+        <text>{{ t('chatHistory.loading') }}</text>
       </view>
 
       <!-- No more data -->
-      <view v-else-if="!hasMore && sessionList.length > 0" class="no-more">
-        <text class="no-more-text">
-          {{ t('chatHistory.noMoreData') }}
-        </text>
+      <view v-else-if="!hasMore && sessionList.length > 0" class="chats__more">
+        {{ t('chatHistory.noMoreData') }}
       </view>
     </view>
 
     <!-- Empty state -->
-    <view v-else-if="!loading" class="empty-state">
-      <wd-icon name="chat" custom-class="empty-icon" />
-      <text class="empty-text">
+    <view v-else-if="!loading" class="nx-empty">
+      <view class="nx-icon-tile nx-icon-tile--lg">
+        <wd-icon name="chat" size="28px" />
+      </view>
+      <view class="nx-empty__title">
         {{ t('chatHistory.noChatRecords') }}
-      </text>
-      <text class="empty-desc">
+      </view>
+      <view class="nx-empty__text">
         {{ t('chatHistory.chatRecordsDescription') }}
-      </text>
+      </view>
+      <view class="nx-btn nx-btn--primary chats__empty-btn" @click="refresh">
+        {{ tx('chatHistory.refresh', 'Refresh') }}
+      </view>
     </view>
   </view>
 </template>
 
 <style lang="scss" scoped>
-.chat-history-container {
+.chats {
   position: relative;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 100rpx 40rpx;
-}
-
-.loading-text {
-  margin-top: 20rpx;
-  font-size: 28rpx;
-  color: #666666;
-}
-
-.loading-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 30rpx;
-  gap: 16rpx;
-
-  .loading-more-text {
-    font-size: 26rpx;
-    color: #666666;
-  }
-}
-
-.no-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 30rpx;
-
-  .no-more-text {
-    font-size: 26rpx;
-    color: #999999;
-  }
-}
-
-.navbar-section {
-  background: #ffffff;
-}
-
-.status-bar {
-  background: #ffffff;
-  width: 100%;
-}
-
-.session-list {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-  padding: 20rpx;
+  min-height: 100%;
+  padding: 0 var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
+  background: var(--nx-bg);
   box-sizing: border-box;
-}
 
-.session-item {
-  background: #fbfbfb;
-  border-radius: 20rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  border: 1rpx solid #eeeeee;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:active {
-    background: #f8f9fa;
+  &__icon {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: var(--nx-radius-sm);
   }
-}
 
-.session-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 32rpx;
+  &__line {
+    display: flex;
+    align-items: baseline;
+    gap: var(--nx-space-2);
+  }
 
-  .session-info {
-    width: 94%;
+  &__title {
+    flex: 1;
+    font-weight: 600;
+  }
 
-    .session-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12rpx;
+  &__time {
+    flex: none;
+  }
 
-      .session-title {
-        font-size: 32rpx;
-        font-weight: 600;
-        color: #232338;
-        width: 70%;
-        word-break: break-all;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
+  &__more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--nx-space-1);
+    padding: var(--nx-space-4) 0 0;
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-3);
+  }
 
-      .session-time {
-        font-size: 24rpx;
-        color: #9d9ea3;
-      }
+  &__empty-btn {
+    margin-top: var(--nx-space-3);
+  }
+
+  &__skeleton-icon {
+    width: 64rpx;
+    height: 64rpx;
+  }
+
+  &__skeleton-line {
+    width: 65%;
+    height: 28rpx;
+
+    &--short {
+      width: 30%;
+      height: 22rpx;
+      margin-top: 12rpx;
     }
-
-    .session-meta {
-      .chat-count {
-        font-size: 28rpx;
-        color: #65686f;
-      }
-    }
-  }
-
-  :deep(.arrow-icon) {
-    font-size: 24rpx;
-    color: #c7c7cc;
-    margin-left: 16rpx;
-  }
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 100rpx 40rpx;
-  text-align: center;
-
-  :deep(.empty-icon) {
-    font-size: 120rpx;
-    color: #d9d9d9;
-    margin-bottom: 32rpx;
-  }
-
-  .empty-text {
-    font-size: 32rpx;
-    color: #666666;
-    margin-bottom: 16rpx;
-    font-weight: 500;
-  }
-
-  .empty-desc {
-    font-size: 26rpx;
-    color: #999999;
-    line-height: 1.5;
   }
 }
 </style>

@@ -50,46 +50,57 @@ async function startNow() {
 </script>
 
 <template>
-  <view v-if="dev" class="flex flex-col gap-[20rpx]">
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[12rpx] block text-[30rpx] text-[#232338] font-semibold">
-        🍅 {{ t('companion.focus.title') }}
-      </text>
-      <view class="flex items-center justify-between py-[18rpx]">
-        <text class="text-[26rpx] text-[#65686f]">
-          {{ t('companion.focus.work') }}
-        </text>
-        <wd-input-number v-model="draft.work_min" :min="1" :max="120" input-width="50" @change="dirty = true" />
+  <view v-if="dev">
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.focus.title') }}
       </view>
-      <view class="flex items-center justify-between py-[18rpx]">
-        <text class="text-[26rpx] text-[#65686f]">
-          {{ t('companion.focus.shortBreak') }}
-        </text>
-        <wd-input-number v-model="draft.short_break_min" :min="1" :max="60" input-width="50" @change="dirty = true" />
+      <view class="nx-group__body">
+        <view class="nx-row cmp-stepper-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.focus.work') }}
+          </view>
+          <wd-input-number v-model="draft.work_min" :min="1" :max="120" input-width="50" @change="dirty = true" />
+        </view>
+        <view class="nx-row cmp-stepper-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.focus.shortBreak') }}
+          </view>
+          <wd-input-number v-model="draft.short_break_min" :min="1" :max="60" input-width="50" @change="dirty = true" />
+        </view>
+        <view class="nx-row cmp-stepper-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.focus.longBreak') }}
+          </view>
+          <wd-input-number v-model="draft.long_break_min" :min="1" :max="90" input-width="50" @change="dirty = true" />
+        </view>
+        <view class="nx-row cmp-stepper-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.focus.rounds') }}
+          </view>
+          <wd-input-number v-model="draft.rounds" :min="1" :max="12" input-width="50" @change="dirty = true" />
+        </view>
       </view>
-      <view class="flex items-center justify-between py-[18rpx]">
-        <text class="text-[26rpx] text-[#65686f]">
-          {{ t('companion.focus.longBreak') }}
-        </text>
-        <wd-input-number v-model="draft.long_break_min" :min="1" :max="90" input-width="50" @change="dirty = true" />
-      </view>
-      <view class="flex items-center justify-between py-[18rpx]">
-        <text class="text-[26rpx] text-[#65686f]">
-          {{ t('companion.focus.rounds') }}
-        </text>
-        <wd-input-number v-model="draft.rounds" :min="1" :max="12" input-width="50" @change="dirty = true" />
-      </view>
-      <view class="mt-[20rpx] flex gap-[16rpx]">
-        <wd-button type="primary" plain custom-class="flex-1" :loading="saving" @click="submit">
-          {{ t('companion.save') }}
-        </wd-button>
-        <wd-button type="primary" custom-class="flex-1" :loading="starting" @click="startNow">
-          ▶ {{ t('companion.focus.startNow') }}
-        </wd-button>
+      <view class="nx-group__footer">
+        {{ t('companion.focus.hint', { rounds: draft.rounds, done: doneToday }) }}
       </view>
     </view>
-    <view class="rounded-[20rpx] bg-white p-[28rpx] text-[24rpx] text-[#65686f] leading-[1.5]">
-      {{ t('companion.focus.hint', { rounds: draft.rounds, done: doneToday }) }}
+
+    <view class="focus__actions">
+      <wd-button block size="large" :loading="starting" @click="startNow">
+        {{ t('companion.focus.startNow') }}
+      </wd-button>
+      <wd-button block type="info" :loading="saving" @click="submit">
+        {{ t('companion.save') }}
+      </wd-button>
     </view>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.focus__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-2);
+}
+</style>

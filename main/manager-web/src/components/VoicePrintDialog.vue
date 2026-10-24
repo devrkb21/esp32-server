@@ -3,30 +3,40 @@
     :title="title"
     :visible.sync="innerVisible"
     :confirm-loading="saving"
-    width="600px"
+    width="560px"
+    :confirmText="$t('voicePrintDialog.save')"
+    :cancelText="$t('voicePrintDialog.cancel')"
     @confirm="submit"
     @cancel="cancel"
   >
-    <el-form :model="form" :rules="rules" ref="form" label-width="auto" label-position="left" class="param-form">
-      <el-form-item :label="$t('voicePrintDialog.voicePrintVector')" prop="audioId" class="form-item">
-        <el-select v-model="form.audioId" :placeholder="$t('voicePrintDialog.selectVoiceMessage')" class="custom-select" filterable>
+    <el-form :model="form" :rules="rules" ref="form" label-position="top" class="vp-form">
+      <el-form-item :label="$t('voicePrintDialog.voicePrintVector')" prop="audioId">
+        <el-select v-model="form.audioId" :placeholder="$t('voicePrintDialog.selectVoiceMessage')" class="vp-form__select"
+          popper-class="vp-audio-menu" filterable>
           <el-option v-for="item in valueTypeOptions" :key="item.audioId" :label="item.content" :value="item.audioId">
-            <span style="float: left">{{ item.content }}</span>
-            <span style="float: right; color: #8492a6; font-size: 13px">
-              <i :class="getAudioIconClass(item.audioId)" @click.stop="playAudio(item.audioId)"
-                class="audio-icon"></i>
+            <span class="vp-audio">
+              <span class="vp-audio__text">{{ item.content }}</span>
+              <button v-if="item.audioId" type="button" class="vp-audio__play"
+                :class="{ 'is-playing': playingAudioId === item.audioId }"
+                :aria-label="playingAudioId === item.audioId ? tx('voicePrintDialog.stop', 'Stop') : tx('voicePrintDialog.play', 'Play')"
+                @click.stop="playAudio(item.audioId)">
+                <i :class="getAudioIconClass(item.audioId)" aria-hidden="true"></i>
+              </button>
             </span>
           </el-option>
         </el-select>
+        <div class="vp-form__help">
+          {{ tx('voicePrintDialog.vectorHelp', 'Pick a recent sentence this person said to TinyBot. Use ▶ to listen first.') }}
+        </div>
       </el-form-item>
 
-      <el-form-item :label="$t('voicePrintDialog.name')" prop="sourceName" class="form-item">
-        <el-input v-model="form.sourceName" :placeholder="$t('voicePrintDialog.enterName')" class="custom-input"></el-input>
+      <el-form-item :label="$t('voicePrintDialog.name')" prop="sourceName">
+        <el-input v-model="form.sourceName" :placeholder="$t('voicePrintDialog.enterName')"></el-input>
       </el-form-item>
 
-      <el-form-item :label="$t('voicePrintDialog.description')" prop="introduce" class="form-item remark-item">
-        <el-input type="textarea" v-model="form.introduce" :placeholder="$t('voicePrintDialog.enterDescription')" :rows="3" class="custom-textarea"
-          maxlength="100" show-word-limit></el-input>
+      <el-form-item :label="$t('voicePrintDialog.description')" prop="introduce" class="vp-form__last">
+        <el-input type="textarea" v-model="form.introduce" :placeholder="$t('voicePrintDialog.enterDescription')"
+          :autosize="{ minRows: 3, maxRows: 6 }" maxlength="100" show-word-limit></el-input>
       </el-form-item>
     </el-form>
   </CustomDialog>
@@ -70,13 +80,13 @@ export default {
       ],
       rules: {
         introduce: [
-          { required: true, message: 'Please enter description', trigger: "blur" }
+          { required: true, message: this.$t('voicePrintDialog.requiredDescription'), trigger: "blur" }
         ],
         sourceName: [
-          { required: true, message: 'Please enter name', trigger: "blur" }
+          { required: true, message: this.$t('voicePrintDialog.requiredName'), trigger: "blur" }
         ],
         audioId: [
-          { required: true, message: 'Please select audio vector', trigger: "change" }
+          { required: true, message: this.$t('voicePrintDialog.requiredAudioVector'), trigger: "change" }
         ]
       }
     };
@@ -92,9 +102,13 @@ export default {
     }
   },
   methods: {
+    // Pending i18n keys fall back to their English text until the lead merges them
+    tx(key, fallback) {
+      return this.$te(key) || this.$te(key, 'en') ? this.$t(key) : fallback;
+    },
     getAudioIconClass(audioId) {
       if (this.playingAudioId === audioId) {
-        return 'el-icon-loading';
+        return 'el-icon-video-pause';
       }
       return 'el-icon-video-play';
     },
@@ -182,105 +196,62 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.audio-icon {
-  font-size: 20px;
-  cursor: pointer;
-  margin: 0 5px;
-  color: #1890ff;
-}
-
-.param-form {
-  .form-item {
-    margin-bottom: 20px;
-
-    :deep(.el-form-item__label) {
-      color: #475569;
-      font-weight: 500;
-      padding-right: 12px;
-      text-align: right;
-      font-size: 14px;
-      letter-spacing: 0.2px;
-    }
-  }
-
-  .custom-input {
-    :deep(.el-input__inner) {
-      background-color: #ffffff;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-      height: 42px;
-      padding: 0 14px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      font-size: 14px;
-      color: #334155;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-
-      &:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        background-color: #ffffff;
-      }
-
-      &::placeholder {
-        color: #94a3b8;
-        font-weight: 400;
-      }
-    }
-  }
-
-  .custom-select {
+.vp-form {
+  &__select {
     width: 100%;
-
-    :deep(.el-input__inner) {
-      background-color: #ffffff;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-      height: 42px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      font-size: 14px;
-      color: #334155;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-
-      &:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        background-color: #ffffff;
-      }
-
-      &::placeholder {
-        color: #94a3b8;
-        font-weight: 400;
-      }
-    }
   }
-
-  .custom-textarea {
-    :deep(.el-textarea__inner) {
-      background-color: #ffffff;
-      border-radius: 8px;
-      border: 1px solid #e2e8f0;
-      padding: 12px 14px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      font-size: 14px;
-      color: #334155;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      line-height: 1.5;
-
-      &:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        background-color: #ffffff;
-      }
-
-      &::placeholder {
-        color: #94a3b8;
-        font-weight: 400;
-      }
-    }
+  &__help {
+    margin-top: var(--nx-space-1);
+    font-size: var(--nx-text-caption);
+    line-height: 1.4;
+    color: var(--nx-text-3);
   }
+  &__last {
+    margin-bottom: 0;
+  }
+}
+</style>
 
-  .remark-item :deep(.el-form-item__label) {
-    margin-top: -4px;
+<style lang="scss">
+// Option rows live in the select popper (appended to <body>)
+.vp-audio-menu .vp-audio {
+  display: flex;
+  align-items: center;
+  gap: var(--nx-space-3);
+  min-width: 0;
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__play {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--nx-surface-2);
+    color: var(--nx-accent);
+    font-size: var(--nx-text-callout);
+    cursor: pointer;
+    transition: background-color var(--nx-dur-1) var(--nx-ease), transform var(--nx-dur-1) var(--nx-ease);
+
+    &:hover {
+      background: var(--nx-accent-soft);
+    }
+    &:active {
+      transform: scale(0.92);
+    }
+    &.is-playing {
+      background: var(--nx-accent);
+      color: var(--nx-on-accent);
+    }
   }
 }
 </style>

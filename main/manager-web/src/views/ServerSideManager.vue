@@ -1,40 +1,72 @@
 <template>
-  <div class="welcome">
+  <div class="nx-admin">
     <HeaderBar />
-    <div class="main-wrapper">
-      <div class="content-panel">
-        <div class="content-area">
-          <el-card class="params-card" shadow="never">
-            <div class="operation-header">
-              <h2 class="page-title">{{ $t('serverSideManager.pageTitle') }}</h2>
-            </div>
-            <el-card class="server-list-card">
-              <div v-for="(item, index) in paramsList" :key="index" class="server-list" v-loading="loading">
-                <div class="server-card">
-                  <div class="server-info">
-                    <span class="server-label">{{ $t('serverSideManager.wsAddress') }}</span>
-                    <span class="server-value">{{ item.address }}</span>
-                  </div>
-                  <el-button class="copy-button" type="text" size="small" @click="copyAddress(item.address)">{{ $t('common.copyAddress') }}</el-button>
-                </div>
-                <el-divider />
-                <div class="header-actions">
-                  <CustomButton icon="el-icon-refresh-right" size="small" @click="emitAction(item, actionMap.restart)">{{
-                    $t('serverSideManager.restart') }}</CustomButton>
-                  <CustomButton icon="el-icon-setting" size="small" type="confirm" @click="emitAction(item, actionMap.update_config)">
-                    {{ $t('serverSideManager.updateConfig') }}
-                  </CustomButton>
-                </div>
-                <el-empty v-if="paramsList.length === 0 && !loading" :description="$t('common.noData')"></el-empty>
-              </div>
-            </el-card>
-          </el-card>
+    <main class="nx-page nx-page--narrow">
+      <header class="nx-page-header">
+        <div class="nx-page-header__text">
+          <h1 class="nx-title">{{ $t('serverSideManager.pageTitle') }}</h1>
+          <p class="nx-page-header__desc">{{ tt('serverSideManager.pageDesc', 'Voice servers your robots connect to. Restart one or push the latest config to it.') }}</p>
         </div>
-      </div>
-    </div>
-    <el-footer>
-      <version-footer />
-    </el-footer>
+        <div class="nx-page-header__actions">
+          <CustomButton icon="el-icon-refresh" :loading="loading" @click="fetchParams">
+            {{ tt('serverSideManager.refresh', 'Refresh') }}
+          </CustomButton>
+        </div>
+      </header>
+
+      <section class="nx-card nx-card--flush settings-card">
+        <div class="settings-card__head">
+          <h2 class="nx-headline">{{ tt('serverSideManager.listTitle', 'WebSocket servers') }}</h2>
+          <span v-if="!loading" class="nx-badge nx-num">{{ paramsList.length }}</span>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="loading && !paramsList.length" aria-busy="true">
+          <div v-for="n in 2" :key="n" class="setting-row">
+            <span class="nx-skeleton skeleton-tile"></span>
+            <div class="setting-row__text">
+              <span class="nx-skeleton skeleton-line skeleton-line--short"></span>
+              <span class="nx-skeleton skeleton-line"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty -->
+        <div v-else-if="!paramsList.length" class="nx-empty">
+          <span class="nx-icon-tile nx-icon-tile--lg" aria-hidden="true"><i class="el-icon-monitor"></i></span>
+          <p class="nx-empty__title">{{ tt('serverSideManager.emptyTitle', 'No servers connected') }}</p>
+          <p class="nx-empty__text">{{ tt('serverSideManager.emptyText', 'Servers appear here once they register with the console.') }}</p>
+          <CustomButton class="nx-empty__action" icon="el-icon-refresh" @click="fetchParams">
+            {{ tt('serverSideManager.refresh', 'Refresh') }}
+          </CustomButton>
+        </div>
+
+        <!-- Server rows -->
+        <ul v-else class="setting-list" v-loading="loading">
+          <li v-for="(item, index) in paramsList" :key="index" class="setting-row">
+            <span class="nx-icon-tile nx-icon-tile--neutral" aria-hidden="true"><i class="el-icon-monitor"></i></span>
+            <div class="setting-row__text">
+              <span class="setting-row__label">{{ $t('serverSideManager.wsAddress') }}</span>
+              <span class="setting-row__value nx-mono nx-break">{{ item.address }}</span>
+            </div>
+            <div class="setting-row__actions">
+              <el-tooltip :content="$t('common.copyAddress')" placement="top">
+                <button type="button" class="nx-icon-btn" :aria-label="$t('common.copyAddress')" @click="copyAddress(item.address)">
+                  <i class="el-icon-document-copy" aria-hidden="true"></i>
+                </button>
+              </el-tooltip>
+              <CustomButton size="small" icon="el-icon-setting" @click="emitAction(item, actionMap.update_config)">
+                {{ $t('serverSideManager.updateConfig') }}
+              </CustomButton>
+              <CustomButton size="small" icon="el-icon-refresh-right" @click="emitAction(item, actionMap.restart)">
+                {{ $t('serverSideManager.restart') }}
+              </CustomButton>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </main>
+    <VersionFooter />
   </div>
 </template>
 
@@ -74,6 +106,10 @@ export default {
     }
   },
   methods: {
+    // $t with an English fallback for keys that are still pending in src/i18n/_pending/web-system.js
+    tt(key, fallback) {
+      return this.$te(key) || this.$te(key, 'en') ? this.$t(key) : fallback;
+    },
     fetchParams() {
       this.loading = true;
       Api.admin.getWsServerList(
@@ -81,7 +117,7 @@ export default {
         ({ data }) => {
           this.loading = false;
           if (data.code === 0) {
-            this.paramsList = data.data.map(item => ({ address: item }));
+            this.paramsList = (data.data || []).map(item => ({ address: item }));
           } else {
             this.$message.error({
               message: data.msg || this.$t('serverSideManager.getServerListFailed'),
@@ -97,7 +133,8 @@ export default {
       }
       this.$confirm(actionItem.message, actionItem.title, {
         confirmButtonText: actionItem.confirmText,
-        cancelButtonText: this.$t('common.cancel')
+        cancelButtonText: this.$t('common.cancel'),
+        type: actionItem.value === 'restart' ? 'warning' : undefined
       }).then(() => {
         Api.admin.sendWsServerAction({
           targetWs: rowItem.address,
@@ -115,9 +152,15 @@ export default {
             showClose: true
           })
         })
+      }).catch(() => {
+        // Cancelled: nothing to do
       })
     },
     copyAddress(address) {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        this.$message.error(this.$t('common.copyFailed'));
+        return;
+      }
       navigator.clipboard.writeText(address).then(() => {
         this.$message.success(this.$t('common.copySuccess'));
       }).catch(() => {
@@ -129,144 +172,81 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.welcome {
-  min-width: 900px;
-  min-height: 506px;
-  height: 100vh;
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  background-size: cover;
-  background: #eff4ff;
-  -webkit-background-size: cover;
-  -o-background-size: cover;
-  overflow: hidden;
-}
-
-.main-wrapper {
-  height: calc(100vh - 63px - 35px);
-  padding: 20px 22px 0;
-  position: relative;
+.nx-admin {
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100vh;
+  > .nx-page {
+    flex: 1 0 auto;
+  }
 }
 
-.page-title {
-  font-weight: 500;
-  font-size: 24px;
+// Settings card: title + description left, controls right (like system settings)
+.settings-card {
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    padding: var(--nx-space-4) var(--nx-space-5);
+    border-bottom: 1px solid var(--nx-border);
+  }
+}
+.setting-list {
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
-
-.content-panel {
+.setting-row {
   display: flex;
-  overflow: hidden;
-  height: 100%;
-  border-radius: 15px;
-  background: transparent;
-  border: 1px solid #fff;
-}
-
-.content-area {
-  flex: 1;
-  height: 100%;
-  min-width: 600px;
-  overflow: auto;
-  background-color: white;
-  display: flex;
-  flex-direction: column;
-}
-
-.params-card {
-  background: white;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: none;
-  box-shadow: none;
-  overflow: hidden;
-
-  ::v-deep .el-card__body {
-    padding: 14px 20px;
+  align-items: center;
+  gap: var(--nx-space-4);
+  min-height: 72px;
+  padding: var(--nx-space-4) var(--nx-space-5);
+  & + & {
+    border-top: 1px solid var(--nx-border);
+  }
+  &__text {
     display: flex;
     flex-direction: column;
+    gap: 2px;
     flex: 1;
-    overflow: hidden;
+    min-width: 0;
+  }
+  &__label {
+    font-size: var(--nx-text-footnote);
+    color: var(--nx-text-2);
+  }
+  &__value {
+    color: var(--nx-text);
+  }
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-2);
+    flex: none;
+    .el-button + .el-button {
+      margin-left: 0;
+    }
+  }
+  @media (max-width: 640px) {
+    flex-wrap: wrap;
+    &__actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
   }
 }
-
-.server-list {
-  padding: 16px 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 8px #ececec;
+.skeleton-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--nx-radius);
 }
-
-.server-list-card {
-  flex: 1;
-  border: none;
-  border-radius: 8px;
-  box-shadow: none;
-
-  ::v-deep .el-card__body {
-    gap: 20px;
-    overflow: auto;
-    padding: 16px;
-    height: 100%;
-    box-sizing: border-box;
+.skeleton-line {
+  width: 70%;
+  height: 14px;
+  &--short {
+    width: 30%;
+    height: 12px;
   }
-
-  ::v-deep .el-divider {
-    margin: 16px 0 !important;
-    background: #ecf2fb !important;
-  }
-}
-
-.header-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.operation-header {
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0 16px 0;
-  box-sizing: border-box;
-}
-
-.server-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  border-radius: 10px;
-  background: rgba(239, 243, 252, 0.4);
-  border: 1px solid #ecf2fb;
-}
-
-.server-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.server-label {
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.server-value {
-  margin-top: 10px;
-  font-size: 14px;
-}
-
-.server-actions {
-  display: flex;
-  gap: 8px;
-}
-.copy-button {
-  font-size: 14px;
-  color: #5778ff;
 }
 </style>

@@ -61,111 +61,221 @@ async function pick(r: GeocodeResult) {
   }
 }
 
+/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
+function tx(key: string, fallback: string) {
+  const text = t(key)
+  return text === key ? fallback : text
+}
+
 function place(r: GeocodeResult) {
   return [r.admin1, r.country].filter(Boolean).join(', ')
 }
 </script>
 
 <template>
-  <view v-if="dev && prayer" class="flex flex-col gap-[20rpx]">
-    <view class="rounded-[20rpx] bg-white px-[28rpx] py-[8rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <view class="flex items-center justify-between py-[20rpx]">
-        <text class="text-[28rpx] text-[#232338]">
-          {{ t('companion.prayer.enable') }}
-        </text>
-        <wd-switch :model-value="prayer.enabled" size="20" @change="({ value }) => setFlag('enabled', !!value)" />
-      </view>
-      <view class="flex items-center justify-between border-t-[1rpx] border-t-[#f0f0f0] border-t-solid py-[20rpx]">
-        <text class="text-[28rpx] text-[#232338]">
-          {{ t('companion.prayer.remind') }}
-        </text>
-        <wd-switch :model-value="prayer.remind" size="20" :disabled="!prayer.enabled" @change="({ value }) => setFlag('remind', !!value)" />
-      </view>
-    </view>
-
-    <view v-if="prayer.enabled && days.length" class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[16rpx] block text-[30rpx] text-[#232338] font-semibold">
-        🕌 {{ t('companion.prayer.times', { city: prayer.city || '' }) }}
-      </text>
-      <view class="flex py-[10rpx] text-[22rpx] text-[#8c8c8c]">
-        <text class="flex-1" />
-        <text class="w-[180rpx] text-center">
-          {{ t('companion.prayer.today') }} {{ days[0].date.slice(5) }}
-        </text>
-        <text v-if="days[1]" class="w-[180rpx] text-center">
-          {{ t('companion.prayer.tomorrow') }} {{ days[1].date.slice(5) }}
-        </text>
-      </view>
-      <view
-        v-for="k in PRAYER_KEYS"
-        :key="k"
-        class="flex rounded-[10rpx] py-[14rpx] text-[28rpx]"
-        :class="next && !next.tomorrow && next.key === k ? 'bg-[#eef3ff] text-[#336cff] font-semibold' : 'text-[#232338]'"
-      >
-        <text class="flex-1 pl-[12rpx]">
-          {{ t(`companion.prayer.${k}`) }}
-        </text>
-        <text class="w-[180rpx] text-center">
-          {{ days[0][k] }}
-        </text>
-        <text v-if="days[1]" class="w-[180rpx] text-center">
-          {{ days[1][k] }}
-        </text>
-      </view>
-      <text class="mt-[16rpx] block text-[22rpx] text-[#9d9ea3]">
-        {{ t('companion.prayer.method') }}
-      </text>
-    </view>
-    <view v-else-if="!prayer.enabled" class="rounded-[20rpx] bg-white p-[28rpx] text-center text-[24rpx] text-[#9d9ea3]">
-      {{ t('companion.prayer.off') }}
-    </view>
-
-    <view class="rounded-[20rpx] bg-white p-[28rpx] shadow-[0_2rpx_12rpx_rgba(0,0,0,0.04)]">
-      <text class="mb-[12rpx] block text-[30rpx] text-[#232338] font-semibold">
-        {{ t('companion.prayer.changeCity') }}
-      </text>
-      <wd-search
-        v-model="query"
-        hide-cancel
-        :placeholder="t('companion.prayer.searchPlaceholder')"
-        custom-class="!p-0"
-        @search="search"
-      />
-      <view class="mt-[16rpx]">
-        <wd-button size="small" block :loading="searching" :disabled="query.trim().length < 2" @click="search">
-          {{ t('companion.prayer.search') }}
-        </wd-button>
-      </view>
-      <view class="mt-[16rpx] flex items-center justify-between">
-        <text class="text-[26rpx] text-[#65686f]">
-          {{ t('companion.prayer.sameForWeather') }}
-        </text>
-        <wd-switch v-model="sameForWeather" size="18" />
-      </view>
-
-      <view v-if="searched && !results.length" class="py-[20rpx] text-center text-[24rpx] text-[#9d9ea3]">
-        {{ t('companion.prayer.noResults') }}
-      </view>
-      <view
-        v-for="(r, i) in results"
-        :key="`${r.name}-${r.lat}-${r.lon}-${i}`"
-        class="flex items-center border-b-[1rpx] border-b-[#f0f0f0] border-b-solid py-[18rpx] last:border-b-0"
-        @click="pick(r)"
-      >
-        <view class="flex-1">
-          <text class="block text-[28rpx] text-[#232338]">
-            {{ r.name }}
-          </text>
-          <text class="block text-[22rpx] text-[#8c8c8c]">
-            {{ place(r) }} · {{ Number(r.lat).toFixed(2) }}, {{ Number(r.lon).toFixed(2) }}
-          </text>
+  <view v-if="dev && prayer">
+    <view class="nx-group">
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.prayer.enable') }}
+          </view>
+          <wd-switch :model-value="prayer.enabled" size="24px" @change="({ value }) => setFlag('enabled', !!value)" />
         </view>
-        <wd-icon name="arrow-right" size="16" color="#bfbfbf" />
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__title" :class="{ prayer__muted: !prayer.enabled }">
+            {{ t('companion.prayer.remind') }}
+          </view>
+          <wd-switch :model-value="prayer.remind" size="24px" :disabled="!prayer.enabled" @change="({ value }) => setFlag('remind', !!value)" />
+        </view>
       </view>
+    </view>
 
-      <text class="mt-[16rpx] block text-[22rpx] text-[#9d9ea3]">
+    <view v-if="prayer.enabled && days.length" class="nx-group">
+      <view class="nx-group__header nx-truncate">
+        {{ t('companion.prayer.times', { city: prayer.city || '' }) }}
+      </view>
+      <view class="nx-group__body">
+        <view class="nx-row nx-num prayer__head">
+          <view class="nx-row__main" />
+          <view class="prayer__col">
+            {{ t('companion.prayer.today') }} {{ days[0].date.slice(5) }}
+          </view>
+          <view v-if="days[1]" class="prayer__col">
+            {{ t('companion.prayer.tomorrow') }} {{ days[1].date.slice(5) }}
+          </view>
+        </view>
+        <view
+          v-for="k in PRAYER_KEYS"
+          :key="k"
+          class="nx-row prayer__row"
+          :class="{ 'is-next': next && !next.tomorrow && next.key === k }"
+        >
+          <view class="nx-row__main prayer__name">
+            <text>{{ t(`companion.prayer.${k}`) }}</text>
+            <view v-if="next && !next.tomorrow && next.key === k" class="nx-badge nx-badge--accent">
+              {{ tx('companion.prayer.next', 'Next') }}
+            </view>
+          </view>
+          <view class="prayer__col nx-num prayer__time">
+            {{ days[0][k] }}
+          </view>
+          <view v-if="days[1]" class="prayer__col prayer__time nx-num prayer__time--later" :class="{ 'is-next': next && next.tomorrow && next.key === k }">
+            {{ days[1][k] }}
+          </view>
+        </view>
+      </view>
+      <view class="nx-group__footer">
+        {{ t('companion.prayer.method') }}
+      </view>
+    </view>
+    <view v-else-if="!prayer.enabled" class="nx-group">
+      <view class="nx-group__body">
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__subtitle prayer__off">
+            {{ t('companion.prayer.off') }}
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- City -->
+    <view class="nx-group">
+      <view class="nx-group__header">
+        {{ t('companion.prayer.changeCity') }}
+      </view>
+      <view class="nx-group__body">
+        <view class="nx-row prayer__search">
+          <wd-input
+            v-model="query"
+            prefix-icon="search"
+            clearable
+            no-border
+            confirm-type="search"
+            :placeholder="t('companion.prayer.searchPlaceholder')"
+            custom-class="prayer__input"
+            @confirm="search"
+          />
+          <view
+            class="cmp-pill"
+            :class="{ prayer__disabled: query.trim().length < 2 }"
+            role="button"
+            @click="search"
+          >
+            <wd-loading v-if="searching" size="14px" />
+            <text v-else>
+              {{ t('companion.prayer.search') }}
+            </text>
+          </view>
+        </view>
+
+        <view v-if="searched && !results.length" class="nx-row">
+          <view class="nx-row__main nx-row__subtitle prayer__off">
+            {{ t('companion.prayer.noResults') }}
+          </view>
+        </view>
+        <view
+          v-for="(r, i) in results"
+          :key="`${r.name}-${r.lat}-${r.lon}-${i}`"
+          class="nx-row nx-row--tap"
+          @click="pick(r)"
+        >
+          <view class="nx-row__main">
+            <view class="nx-row__title nx-truncate">
+              {{ r.name }}
+            </view>
+            <view class="nx-row__subtitle nx-truncate nx-num">
+              {{ place(r) }} · {{ Number(r.lat).toFixed(2) }}, {{ Number(r.lon).toFixed(2) }}
+            </view>
+          </view>
+          <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
+        </view>
+
+        <view class="nx-row">
+          <view class="nx-row__main nx-row__title">
+            {{ t('companion.prayer.sameForWeather') }}
+          </view>
+          <wd-switch v-model="sameForWeather" size="22px" />
+        </view>
+      </view>
+      <view class="nx-group__footer">
         {{ t('companion.prayer.weatherCity', { city: dev.weather?.city || '–' }) }}
-      </text>
+      </view>
     </view>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.prayer {
+  &__muted {
+    color: var(--nx-text-3);
+  }
+
+  &__head {
+    min-height: 0;
+    padding-top: var(--nx-space-2);
+    padding-bottom: var(--nx-space-2);
+    font-size: var(--nx-text-caption);
+    font-weight: 500;
+    color: var(--nx-text-3);
+  }
+
+  &__col {
+    flex: none;
+    width: 160rpx;
+    text-align: right;
+  }
+
+  &__name {
+    display: flex;
+    align-items: center;
+    gap: var(--nx-space-1);
+    color: var(--nx-text);
+  }
+
+  &__time {
+    font-size: var(--nx-text-body);
+    color: var(--nx-text);
+
+    &--later {
+      color: var(--nx-text-3);
+    }
+
+    &.is-next {
+      color: var(--nx-accent);
+      font-weight: 600;
+    }
+  }
+
+  &__row.is-next {
+    background: var(--nx-accent-soft);
+
+    .prayer__name,
+    .prayer__time:not(.prayer__time--later) {
+      color: var(--nx-accent);
+      font-weight: 600;
+    }
+  }
+
+  &__off {
+    text-align: center;
+    color: var(--nx-text-3);
+  }
+
+  &__search {
+    gap: var(--nx-space-2);
+  }
+
+  &__disabled {
+    opacity: 0.5;
+  }
+}
+
+:deep(.prayer__input) {
+  flex: 1;
+  min-width: 0;
+  padding: var(--nx-space-1) var(--nx-space-2);
+  border-radius: var(--nx-radius);
+  background: var(--nx-surface-2);
+}
+</style>
