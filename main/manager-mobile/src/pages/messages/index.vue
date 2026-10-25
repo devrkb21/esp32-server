@@ -13,12 +13,13 @@
 import type { ChatSession } from '@/api/chat-history/types'
 import type { CommandType, CompanionCommand, CompanionDevice, CompanionMessage, GameName } from '@/api/companion/types'
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, ref, watch } from 'vue'
 import { getChatSessions } from '@/api/chat-history/chat-history'
 import { getCompanion, sendCompanionCommand, sendCompanionMessage } from '@/api/companion/companion'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
-import { loadRobots, robot } from '@/utils/tbRobot'
+import { robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import {
   agoParts,
@@ -247,6 +248,10 @@ async function refreshAll() {
 }
 
 // ---------------------------------------------------------------- life cycle
+
+// This page is about one product feature; a robot whose product lacks it sees <tb-not-here />.
+const { missing: notHere, allowed: featureAllowed } = useFeatureGate('messages')
+
 let poll: ReturnType<typeof setInterval> | undefined
 function stopPoll() {
   if (poll)
@@ -254,7 +259,8 @@ function stopPoll() {
   poll = undefined
 }
 onShow(async () => {
-  await loadRobots()
+  if (!(await featureAllowed()))
+    return
   reload(Boolean(view.value))
   loadSessions()
   stopPoll()
@@ -264,6 +270,8 @@ onHide(stopPoll)
 onUnload(stopPoll)
 watch(() => robot.deviceId, () => {
   view.value = null
+  if (notHere.value)
+    return
   reload()
 })
 watch(() => robot.agentId, () => {
@@ -275,12 +283,14 @@ watch(() => robot.agentId, () => {
 <template>
   <view class="tb-wrap msgs">
     <tb-page-header :title="t('nav.messages')" :description="t('mmsg.desc')" back>
-      <template v-if="robot.deviceId" #actions>
+      <template v-if="robot.deviceId && !notHere" #actions>
         <tb-button variant="quiet" size="s" icon="refresh" :loading="refreshing" :aria-label="t('mmsg.refresh')" @click="refreshAll" />
       </template>
     </tb-page-header>
 
-    <view v-if="!robot.deviceId && robot.loaded" class="msgs__none">
+    <tb-not-here v-if="notHere" />
+
+    <view v-else-if="!robot.deviceId && robot.loaded" class="msgs__none">
       <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
         <tb-button variant="primary" icon="robots" @click="goRobots">
           {{ t('common.goRobots') }}

@@ -2,7 +2,8 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 
 // Every page lives in src/views/<owner>/, one owner per folder (see .bunshin/owners.json).
 // `meta.bare` pages render without the app shell (sign-in pages). `meta.admin` pages are for super
-// admins. `meta.title` is an i18n key. Old paths redirect so bookmarks keep working.
+// admins. `meta.needs` names the product feature a page is about: when the chosen robot lacks it,
+// the shell shows a calm "not on this device" state instead of the page (see AppShell). `meta.title` is an i18n key. Old paths redirect so bookmarks keep working.
 const v = {
   login: () => import('../views/auth/Login.vue'),
   register: () => import('../views/auth/Register.vue'),
@@ -36,6 +37,7 @@ const v = {
   features: () => import('../views/system/FeatureManagement.vue'),
   server: () => import('../views/system/ServerSideManager.vue'),
   theme: () => import('../views/theme/ThemeGenerator.vue'),
+  products: () => import('../views/products/ProductManagement.vue'),
 };
 
 export const routes = [
@@ -52,12 +54,12 @@ export const routes = [
   { path: '/more', name: 'More', component: v.more, meta: { title: 'nav.more' } },
   { path: '/robots', name: 'Robots', component: v.robots, meta: { title: 'nav.robots' } },
   { path: '/device-management', name: 'DeviceManagement', component: v.devices, meta: { title: 'nav.devices' } },
-  { path: '/day', name: 'Day', component: v.day, meta: { title: 'nav.day' } },
-  { path: '/messages', name: 'Messages', component: v.messages, meta: { title: 'nav.messages' } },
-  { path: '/look', name: 'Look', component: v.look, meta: { title: 'nav.look' } },
-  { path: '/robot', name: 'RobotSettings', component: v.robot, meta: { title: 'nav.robot' } },
-  { path: '/role-config', name: 'RoleConfig', component: v.roleConfig, meta: { title: 'nav.character' } },
-  { path: '/voice-print', name: 'VoicePrint', component: v.voicePrint, meta: { title: 'nav.voiceprint' } },
+  { path: '/day', name: 'Day', component: v.day, meta: { title: 'nav.day', needs: 'day' } },
+  { path: '/messages', name: 'Messages', component: v.messages, meta: { title: 'nav.messages', needs: 'messages' } },
+  { path: '/look', name: 'Look', component: v.look, meta: { title: 'nav.look', needs: 'look' } },
+  { path: '/robot', name: 'RobotSettings', component: v.robot, meta: { title: 'nav.robot', needs: 'companion' } },
+  { path: '/role-config', name: 'RoleConfig', component: v.roleConfig, meta: { title: 'nav.character', needs: 'character' } },
+  { path: '/voice-print', name: 'VoicePrint', component: v.voicePrint, meta: { title: 'nav.voiceprint', needs: 'voiceprint' } },
 
   { path: '/user-management', name: 'UserManagement', component: v.users, meta: { admin: true, title: 'nav.users' } },
   { path: '/ota-management', name: 'OtaManagement', component: v.ota, meta: { admin: true, title: 'nav.ota' } },
@@ -74,6 +76,7 @@ export const routes = [
   { path: '/sms-settings', name: 'SmsSettings', component: v.sms, meta: { admin: true, title: 'nav.sms' } },
   { path: '/dict-management', name: 'DictManagement', component: v.dict, meta: { admin: true, title: 'nav.dict' } },
   { path: '/feature-management', name: 'FeatureManagement', component: v.features, meta: { admin: true, title: 'nav.features' } },
+  { path: '/product-management', name: 'ProductManagement', component: v.products, meta: { admin: true, title: 'nav.products' } },
   { path: '/server-side-management', name: 'ServerSideManager', component: v.server, meta: { admin: true, title: 'nav.server' } },
   { path: '/theme-generator', name: 'ThemeGenerator', component: v.theme, meta: { title: 'nav.themeGenerator' } },
 

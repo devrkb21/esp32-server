@@ -78,13 +78,19 @@
           </header>
 
           <ul class="rb-rows">
-            <li v-for="r in g.robots" :key="r.deviceId" class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
-              <TbFace class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="76"
+            <template v-for="r in g.robots" :key="r.deviceId">
+            <li v-if="r.productHead" class="rb-row rb-row--product">
+              <span>{{ productName(r, lang) }}</span>
+            </li>
+            <li class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
+              <TbFace v-if="r.features.includes('companion')" class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="76"
                 :alt="$t('robots.faceAlt', { name: r.name || g.agent.agentName })" />
+              <span v-else class="rb-row__face rb-row__device" aria-hidden="true"><TbIcon name="devices" :size="26" /></span>
               <div class="rb-row__id">
                 <p class="rb-row__name">
                   <span v-if="r.name">{{ r.name }}</span>
                   <span v-else class="rb-row__unnamed">{{ $t('robots.unnamed') }}</span>
+                  <TbTag class="rb-row__product">{{ productName(r, lang) }}</TbTag>
                 </p>
                 <p class="rb-row__mac">
                   <span v-if="r.mac.valid" class="rb-mac" tabindex="0" :aria-label="$t('robots.macLabel', { mac: r.mac.text })">{{ r.mac.prefix }}<span class="rb-mac__dots" aria-hidden="true">{{ maskDots(r.mac.middle) }}</span><span class="rb-mac__mask" aria-hidden="true">{{ r.mac.middle }}</span>{{ r.mac.suffix }}</span>
@@ -106,6 +112,7 @@
                 <TbButton size="s" variant="quiet" icon="agent" :to="{ path: '/role-config', query: { agentId: g.agent.id } }">{{ $t('robots.character') }}</TbButton>
               </div>
             </li>
+            </template>
 
             <li v-if="g.failed" class="rb-row rb-row--note" role="alert">
               <p>{{ $t('robots.devicesFailed') }}</p>
@@ -208,7 +215,8 @@ import { useI18n } from 'vue-i18n';
 import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
 import { digits } from '@/kit/calendar';
-import { clearRobot, robot, selectRobot } from '@/shell/robot';
+import { clearRobot, loadProducts, products, robot, selectRobot } from '@/shell/robot';
+import { productName, productOf } from '@/shell/products';
 import featureManager from '@/utils/featureManager';
 import {
   cleanCode, isOnline, isValidCode, lastSeen, manualErrors, maskMac, nameMatches, parseStatus, pushHistory,
@@ -234,12 +242,27 @@ const voiceprint = ref(false);
 const hasAgents = computed(() => allAgents.value.length > 0);
 const statusKnown = computed(() => Object.fromEntries(Object.entries(statusByAgent).map(([k, v]) => [k, !!v])));
 
+// More than one product among the account's devices: rows are grouped by product inside each
+// character (with a small product heading); with one product the tag on each row is enough.
+const productKeys = computed(() => new Set(allAgents.value.flatMap((a) => (devicesByAgent[a.id] || [])
+  .map((d) => productOf(d, products.list).productKey))));
+const multiProduct = computed(() => productKeys.value.size > 1);
+const productRank = computed(() => {
+  const order = products.list.map((p) => p.productKey);
+  return (k) => { const i = order.indexOf(k); return i < 0 ? order.length : i; };
+});
 const groups = computed(() => shownAgents.value.map((agent) => {
   const raw = devicesByAgent[agent.id];
-  const robots = (raw || []).map((d) => {
+  let robots = (raw || []).map((d) => {
     const r = toRobot(agent, d);
-    return { ...r, mac: maskMac(r.macAddress), online: isOnline(statusByAgent[agent.id], d) };
+    return { ...r, ...productOf(d, products.list), mac: maskMac(r.macAddress), online: isOnline(statusByAgent[agent.id], d) };
   });
+  if (multiProduct.value) {
+    const rank = productRank.value;
+    robots = robots.map((r, i) => ({ r, i })).sort((a, b) => (rank(a.r.productKey) - rank(b.r.productKey))
+      || a.r.productKey.localeCompare(b.r.productKey) || a.i - b.i)
+      .map(({ r }, i, all) => ({ ...r, productHead: i === 0 || all[i - 1].r.productKey !== r.productKey }));
+  }
   return { agent, robots, count: raw ? robots.length : (Number(agent.deviceCount) || 0), failed: !!failedAgents[agent.id] };
 }));
 const robotCount = computed(() => groups.value.reduce((n, g) => n + g.count, 0));
@@ -302,11 +325,11 @@ async function fillAgents(list) {
 
 /** Mirror the account's robots into the shell's "this robot" (same rule as loadRobots). */
 function syncShell() {
-  const list = allAgents.value.flatMap((a) => (devicesByAgent[a.id] || []).map((d) => toRobot(a, d)));
+  const list = allAgents.value.flatMap((a) => (devicesByAgent[a.id] || []).map((d) => ({ ...toRobot(a, d), ...productOf(d, products.list) })));
   robot.list = list;
   robot.loaded = true;
   const still = list.find((r) => r.deviceId === robot.deviceId);
-  if (still) { if (still.name !== robot.name) selectRobot(still); } else if (list.length) selectRobot(list[0]);
+  if (still) { if (still.name !== robot.name || still.productKey !== robot.productKey) selectRobot(still); } else if (list.length) selectRobot(list[0]);
   if (!list.length) clearRobot();
 }
 
@@ -315,6 +338,7 @@ function load() {
     loading.value = true;
     failed.value = false;
     clock.value = Date.now();
+    loadProducts();
     Api.agent.getAgentList(async ({ data }) => {
       if (!data || data.code !== 0) {
         loading.value = false; failed.value = true; resolve(); return;
@@ -661,11 +685,14 @@ onBeforeUnmount(() => { clearInterval(poll); document.removeEventListener('visib
   @media (min-width: 901px) {
     .robots__list:has(.rb-group) { display: grid; grid-template-columns: var(--rb-cols); column-gap: var(--tb-s4); }
     .rb-group, .rb-rows { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
-    .rb-group__head, .rb-row--note { grid-column: 1 / -1; }
-    .rb-row:not(.rb-row--note) { grid-column: 1 / -1; grid-template-columns: subgrid; }
+    .rb-group__head, .rb-row--note, .rb-row--product { grid-column: 1 / -1; }
+    .rb-row:not(.rb-row--note):not(.rb-row--product) { grid-column: 1 / -1; grid-template-columns: subgrid; }
   }
 }
 .rb-row__face { grid-area: face; }
+.rb-row--product { display: block; padding: var(--tb-s4) 0 var(--tb-s1); font-size: var(--tb-fs-13); font-weight: 700; color: var(--tb-ink-2); }
+.rb-row__product { margin-left: 8px; vertical-align: 2px; font-weight: 600; }
+.rb-row__device { display: grid; place-items: center; width: 76px; aspect-ratio: 4 / 3; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); }
 .rb-row__id { grid-area: id; min-width: 0; display: grid; gap: 2px; }
 .rb-row__name { font-weight: 700; font-size: var(--tb-fs-16); overflow-wrap: anywhere; }
 .rb-row__unnamed { color: var(--tb-ink-2); font-weight: 500; }

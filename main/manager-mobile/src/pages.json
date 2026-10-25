@@ -41,7 +41,8 @@
         "text": "Day",
         "labelKey": "nav.day",
         "icon": "day",
-        "iconType": "tb"
+        "iconType": "tb",
+        "needs": "day"
       },
       {
         "iconPath": "static/tabbar/robot.png",
@@ -50,7 +51,8 @@
         "text": "Look",
         "labelKey": "nav.look",
         "icon": "look",
-        "iconType": "tb"
+        "iconType": "tb",
+        "needs": "look"
       },
       {
         "iconPath": "static/tabbar/system.png",

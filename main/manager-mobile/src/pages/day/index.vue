@@ -11,9 +11,10 @@
 
 <script lang="ts" setup>
 import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, nextTick, provide, ref, watch } from 'vue'
 import { getCurrentLanguage, t } from '@/i18n'
-import { loadRobots, robot } from '@/utils/tbRobot'
+import { robot } from '@/utils/tbRobot'
 import DayAlarms from './components/DayAlarms.vue'
 import DayFocus from './components/DayFocus.vue'
 import DayNight from './components/DayNight.vue'
@@ -108,6 +109,10 @@ function takeFocus() {
 }
 function goRobots() { uni.navigateTo({ url: '/pages/robots/index' }) }
 
+
+// This page is about one product feature; a robot whose product lacks it sees <tb-not-here />.
+const { missing: notHere, allowed: featureAllowed } = useFeatureGate('day')
+
 let ticker: ReturnType<typeof setInterval> | undefined
 let poll: ReturnType<typeof setInterval> | undefined
 onLoad((q: any) => {
@@ -116,7 +121,8 @@ onLoad((q: any) => {
 })
 onShow(async () => {
   tick()
-  await loadRobots()
+  if (!(await featureAllowed()))
+    return
   await day.refresh(Boolean(day.view))
   takeFocus()
   clearInterval(ticker)
@@ -130,6 +136,8 @@ onHide(() => {
 })
 watch(() => robot.deviceId, () => {
   day.view = null
+  if (notHere.value)
+    return
   day.refresh()
 })
 </script>
@@ -144,7 +152,9 @@ watch(() => robot.deviceId, () => {
       </template>
     </tb-page-header>
 
-    <view v-if="!robot.deviceId && robot.loaded" class="dpage__state">
+    <tb-not-here v-if="notHere" />
+
+    <view v-else-if="!robot.deviceId && robot.loaded" class="dpage__state">
       <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
         <tb-button variant="primary" icon="robots" @click="goRobots">
           {{ t('common.goRobots') }}

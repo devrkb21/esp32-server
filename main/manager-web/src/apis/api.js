@@ -14,6 +14,7 @@ import correctWord from './module/correctWord.js'
 import addressBook from './module/addressBook.js'
 import stats from './module/stats.js'
 import companion from './module/companion.js'
+import product from './module/product.js'
 
 
 
@@ -49,5 +50,6 @@ export default {
     correctWord,
     addressBook,
     stats,
+    product,
     companion
   }

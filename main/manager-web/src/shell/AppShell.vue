@@ -7,7 +7,8 @@
         <span class="tb-side__name">{{ $t('nav.brand') }}</span>
       </div>
       <RouterLink v-if="robot.deviceId" to="/robots" class="tb-side__robot">
-        <TbFace :width="96" :mood="'awake'" />
+        <TbFace v-if="robot.features.includes('companion')" :width="96" :mood="'awake'" />
+        <span v-else class="tb-side__device" aria-hidden="true"><TbIcon name="devices" :size="22" /></span>
         <span><b>{{ robot.name || $t('nav.robotFallback') }}</b><small>{{ $t('nav.switchRobot') }}</small></span>
       </RouterLink>
       <nav class="tb-side__nav" :aria-label="$t('nav.label')">
@@ -30,11 +31,11 @@
     </aside>
 
     <main id="tb-main" class="tb-main" tabindex="-1">
-      <slot />
+      <FeatureGate><slot /></FeatureGate>
     </main>
 
     <nav class="tb-tabbar" :aria-label="$t('nav.label')">
-      <RouterLink v-for="t in TABS" :key="t.to" :to="t.to" class="tb-tabbar__tab">
+      <RouterLink v-for="t in tabs" :key="t.to" :to="t.to" class="tb-tabbar__tab">
         <TbIcon :name="t.icon" :size="22" /><span>{{ $t(t.label) }}</span>
       </RouterLink>
     </nav>
@@ -50,8 +51,9 @@
 import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
-import { TABS, visibleNav } from './nav';
-import { robot } from './robot';
+import { visibleNav, visibleTabs } from './nav';
+import { loadRobots, robot, robotFeatures } from './robot';
+import FeatureGate from './FeatureGate.vue';
 import { LANGUAGES, changeLanguage } from '@/i18n';
 import { applyTheme, getTheme } from '@/utils/theme';
 import { goToPage } from '@/utils';
@@ -64,8 +66,11 @@ const collapsed = ref(false);
 const langOpen = ref(false);
 const lang = computed(() => locale.value);
 const isAdmin = computed(() => Boolean(store.getters.getUserInfo?.superAdmin));
-const groups = computed(() => visibleNav(isAdmin.value, store.getters.getPubConfig));
-onMounted(() => { store.dispatch('fetchPubConfig'); });
+// Places the chosen robot's product cannot use (a generic device has no Day or Look) are hidden.
+const features = computed(() => robotFeatures());
+const groups = computed(() => visibleNav(isAdmin.value, store.getters.getPubConfig, features.value));
+const tabs = computed(() => visibleTabs(features.value));
+onMounted(() => { store.dispatch('fetchPubConfig'); loadRobots(); });
 const userName = computed(() => store.getters.getUserInfo?.username || '');
 const accountItems = computed(() => [
   { key: 'language', label: t('nav.language'), icon: 'language' },
@@ -97,7 +102,8 @@ function onAccount(key) {
 .tb-side__mark { display: block; width: auto; height: 32px; flex: none; }
 .tb-side__name small { font: 500 var(--tb-fs-12) var(--tb-font-text); color: var(--tb-ink-2); }
 .tb-side__robot { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--tb-rule); text-decoration: none; }
-.tb-side__robot span { display: grid; min-width: 0; }
+.tb-side__robot > span:not(.tb-side__device) { display: grid; min-width: 0; }
+.tb-side__device { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); }
 .tb-side__robot b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-side__robot small { color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
 .tb-side__robot:hover b { text-decoration: underline; }

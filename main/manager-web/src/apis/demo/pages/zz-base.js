@@ -5,7 +5,9 @@ const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const tomorrow = new Date(now.getTime() + 86400000);
 
 export const DEMO_AGENT = { id: 'demo-agent-1', agentName: 'TinyBot', ttsModelName: 'EdgeTTS', llmModelName: 'Groq', deviceCount: 1, lastConnectedAt: now.toISOString() };
-export const DEMO_DEVICE = { id: 'demo-device-1', alias: 'টাইনিবট', macAddress: '28:84:85:00:00:01', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: now.toISOString(), autoUpdate: 1 };
+export const DEMO_DEVICE = { id: 'demo-device-1', alias: 'টাইনিবট', macAddress: '28:84:85:00:00:01', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: now.toISOString(), autoUpdate: 1,
+  productKey: 'tinybot', productName: 'TinyBot', productNameBn: 'টাইনিবট',
+  features: ['chat', 'character', 'voiceprint', 'chat_history', 'memory', 'companion', 'day', 'prayer', 'look', 'screen', 'messages', 'commands', 'proactive', 'firmware', 'pairing_pattern'] };
 
 export const DEMO_COMPANION = {
   id: '28:84:85:00:00:01', name: 'টাইনিবট', online: true, last_seen: Math.floor(now / 1000) - 20,

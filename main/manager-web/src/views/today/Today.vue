@@ -8,33 +8,46 @@
       </TbEmpty>
     </div>
 
-    <div v-else class="today__grid">
+    <div v-else class="today__grid" :class="{ 'is-device': !companion }">
       <section class="today__hero" :aria-label="$t('today.heroLabel')">
         <div class="today__date">
           <TbDateBlock :date="date" :lang="lang" :extra="sunrise" :heading-level="1"
             :prev-label="$t('today.prevDay')" :next-label="$t('today.nextDay')" @turn="turn" />
           <TbButton v-if="!isToday" class="today__back" variant="quiet" size="s" icon="today" @click="offset = 0">{{ $t('today.backToday') }}</TbButton>
         </div>
-        <div class="today__bot">
-          <TbFace :mood="faceMood" :pulse="pulse" :alt="$t('today.faceAlt', { name: botName })" />
-          <TbNamePlate :name="botName" :doing="doingNow" :detail="together" :state="state" :state-text="$t(`today.state.${state}`)" />
+        <div class="today__bot" :class="{ 'is-device': !companion }">
+          <TbFace v-if="companion" :mood="faceMood" :pulse="pulse" :alt="$t('today.faceAlt', { name: botName })" />
+          <TbNamePlate v-if="companion" :name="botName" :doing="doingNow" :detail="together" :state="state" :state-text="$t(`today.state.${state}`)" />
+          <template v-else>
+            <TbNamePlate :name="botName" :doing="productLabel" :detail="seenText" :state="deviceState" :state-text="$t(`today.state.${deviceState}`)" />
+          </template>
         </div>
       </section>
 
-      <section class="today__act" :aria-label="$t('today.actLabel')">
-        <form class="today__say" @submit.prevent="say">
+      <section v-if="!companion" class="today__device" aria-labelledby="today-device-h">
+        <h2 id="today-device-h">{{ $t('today.device.title') }}</h2>
+        <p>{{ $t('today.device.text', { product: productLabel }) }}</p>
+        <div class="today__links">
+          <TbButton v-if="can('character')" variant="primary" icon="agent" :to="{ path: '/role-config', query: { agentId: robot.agentId } }">{{ $t('today.device.character') }}</TbButton>
+          <TbButton v-if="can('voiceprint')" icon="voiceprint" :to="{ path: '/voice-print', query: { agentId: robot.agentId } }">{{ $t('today.device.voiceprint') }}</TbButton>
+          <TbButton variant="quiet" icon="robots" to="/robots">{{ $t('today.device.robots') }}</TbButton>
+        </div>
+      </section>
+
+      <section v-if="companion && (can('messages') || can('commands'))" class="today__act" :aria-label="$t('today.actLabel')">
+        <form v-if="can('messages')" class="today__say" @submit.prevent="say">
           <label class="tb-visually-hidden" for="today-say">{{ $t('today.sayLabel') }}</label>
           <TbInput id="today-say" v-model="line" :placeholder="$t('today.sayPlaceholder')" :maxlength="200" size="l"
             enterkeyhint="send" autocomplete="off" />
           <TbButton variant="primary" size="l" native-type="submit" :loading="sending" :disabled="!line.trim()">{{ $t('today.sayButton') }}</TbButton>
         </form>
         <p v-if="state === 'offline'" class="today__note">{{ $t('today.offlineNote') }}</p>
-        <div class="today__deck" role="group" :aria-label="$t('today.deckLabel')">
+        <div v-if="can('commands')" class="today__deck" role="group" :aria-label="$t('today.deckLabel')">
           <TbButton v-for="c in commands" :key="c.type" :icon="c.icon" :loading="busy === c.type" @click="run(c)">{{ $t(c.label) }}</TbButton>
         </div>
       </section>
 
-      <section class="today__day" :aria-labelledby="'today-day-h'">
+      <section v-if="companion && can('day')" class="today__day" :aria-labelledby="'today-day-h'">
         <header class="today__dayhead">
           <h2 id="today-day-h">{{ isToday ? $t('today.dayTitle') : $t('today.dayTitleOther') }}</h2>
           <span class="today__dayhint">{{ $t('today.dayHint') }}</span>
@@ -45,12 +58,12 @@
           <TbButton size="s" variant="quiet" icon="refresh" @click="refresh()">{{ $t('common.retry') }}</TbButton></p>
       </section>
 
-      <aside class="today__side">
+      <aside v-if="companion" class="today__side">
         <section v-if="weather" class="today__weather" :aria-label="$t('today.weatherLabel')">
           <TbIcon name="weather" :size="22" />
           <p><b class="tb-num">{{ num(weather.temp) }}°</b> {{ weather.text || '' }}<small v-if="weather.city">{{ weather.city }}</small></p>
         </section>
-        <section v-if="nextUp.length" class="today__next" aria-labelledby="today-next-h">
+        <section v-if="can('day') && nextUp.length" class="today__next" aria-labelledby="today-next-h">
           <h2 id="today-next-h" class="today__nexth">{{ $t('today.nextTitle') }}</h2>
           <ul>
             <li v-for="r in nextUp" :key="r.key">
@@ -75,7 +88,9 @@ import { useStore } from 'vuex';
 import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
 import { digits, minutesOf, timeText } from '@/kit/calendar';
-import { deviceIdFrom, loadRobots, robot } from '@/shell/robot';
+import { deviceIdFrom, loadRobots, robot, robotFeatures } from '@/shell/robot';
+import { allows, productName } from '@/shell/products';
+import { isOnline, lastSeen, parseStatus } from '@/views/robots/robotsModel';
 import { dayRows, daysTogether, isoDate, robotState } from './todayModel';
 
 const { t, locale } = useI18n({ useScope: 'global' });
@@ -100,6 +115,23 @@ const pulse = ref(false);
 const busy = ref('');
 
 const deviceId = computed(() => deviceIdFrom(route));
+// What this robot's product can do: a generic Nobix device has no companion view, so Today shows
+// its name, connection and the way to its character instead of the day, face and commands.
+const features = computed(() => robotFeatures(deviceId.value));
+const can = (f) => allows(features.value, f);
+const companion = computed(() => can('companion'));
+const listed = computed(() => robot.list.find((r) => r.deviceId === deviceId.value) || null);
+const productLabel = computed(() => productName(listed.value || robot, lang.value));
+const deviceOnline = ref(null);
+const deviceState = computed(() => (deviceOnline.value ? 'online' : 'offline'));
+const seenText = computed(() => {
+  const s = lastSeen(listed.value?.lastConnectedAt, clock.value.getTime());
+  if (s.kind === 'never') return t('today.device.never');
+  const when = s.kind === 'date'
+    ? new Intl.DateTimeFormat(lang.value === 'bn' ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short' }).format(new Date(s.at))
+    : timeText(`${String(new Date(s.at).getHours()).padStart(2, '0')}:${String(new Date(s.at).getMinutes()).padStart(2, '0')}`, lang.value, lang.value === 'bn');
+  return t('today.device.seen', { when });
+});
 const botName = computed(() => view.value?.name || robot.name || t('nav.robotFallback'));
 const state = computed(() => robotState(view.value, clock.value));
 const faceMood = computed(() => ({ offline: 'offline', sleeping: 'sleepy' }[state.value] || 'awake'));
@@ -135,8 +167,19 @@ const commands = [
   { type: 'night_light', icon: 'light', label: 'today.cmd.light' },
 ];
 
+// A device without the companion view: online state from the gateway (POST /device/bind/{agentId}).
+function refreshDevice() {
+  const r = listed.value;
+  const agentId = r?.agentId || robot.agentId;
+  if (!agentId || !Api.device.getDeviceStatus) return;
+  Api.device.getDeviceStatus(agentId, ({ data }) => {
+    deviceOnline.value = data && data.code === 0 ? isOnline(parseStatus(data.data), r || {}) : false;
+  }, () => { deviceOnline.value = false; });
+}
+
 function refresh(quiet = false) {
   if (!deviceId.value) return;
+  if (!companion.value) { refreshDevice(); return; }
   if (!quiet) loading.value = true;
   Api.companion.getCompanion(deviceId.value, (res) => {
     view.value = res.data.data; loading.value = false; failed.value = false;
@@ -176,7 +219,8 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', onVisible);
 });
 onBeforeUnmount(() => { clearInterval(tick); clearInterval(poll); document.removeEventListener('visibilitychange', onVisible); });
-watch(deviceId, () => { view.value = null; refresh(); });
+watch(deviceId, () => { view.value = null; deviceOnline.value = null; refresh(); });
+watch(companion, (on, was) => { if (on !== was) { view.value = null; refresh(); } });
 </script>
 
 <style>
@@ -196,6 +240,11 @@ watch(deviceId, () => { view.value = null; refresh(); });
 .today__say .tb-input { flex: 1; }
 .today__note { color: var(--tb-ink-2); font-size: var(--tb-fs-13); }
 .today__deck { display: flex; gap: 10px; flex-wrap: wrap; }
+.today__bot.is-device { grid-template-columns: minmax(0, 1fr); padding-top: 18px; }
+.today__device { grid-area: act; display: grid; gap: 10px; padding: 16px 0 20px; border-bottom: 1px solid var(--tb-rule); }
+.today__device h2 { font-size: var(--tb-fs-20); }
+.today__device p { color: var(--tb-ink-2); max-width: 60ch; }
+.today__links { display: flex; gap: 10px; flex-wrap: wrap; }
 .today__day { grid-area: day; padding-top: 12px; }
 .today__dayhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0 8px; }
 .today__dayhead h2 { font-size: var(--tb-fs-20); }
@@ -230,6 +279,8 @@ watch(deviceId, () => { view.value = null; refresh(); });
     grid-template-areas: "hero side" "act side" "day side";
   }
   .today__hero { grid-template-columns: minmax(0, 1fr) 240px; }
+  .today__grid.is-device { grid-template-columns: minmax(0, 1fr); grid-template-areas: "hero" "act"; }
+  .today__grid.is-device .today__hero { grid-template-columns: minmax(0, 1fr) 300px; }
   .today__side { padding-top: 0; position: sticky; top: 48px; align-self: start; }
   .today__weather { border-top: 0; }
 }

@@ -29,4 +29,9 @@ export interface Device {
   updateDate: string
   creator: string
   createDate: string
+  /** The Nobix product the device belongs to (manager-api UserShowDeviceListVO) */
+  productKey?: string
+  productName?: string
+  productNameBn?: string
+  features?: string[]
 }

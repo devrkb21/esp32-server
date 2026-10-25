@@ -1,6 +1,7 @@
 import type { DemoHandler, DemoRequest } from '../index'
 import { onPage } from '../index'
-import { DEMO_AGENT, DEMO_DEVICE } from './zz-base'
+import { PRODUCT_FIELDS } from './m-products'
+import { DEMO_AGENT, DEMO_DEVICE, DEMO_GENERIC_DEVICE } from './zz-base'
 
 // Robots and the device list of one character (owner: m-robots). Synthetic sample data: the base
 // account's robot plus a second robot on the same character and an empty second character. Every
@@ -16,7 +17,8 @@ const agents: any[] = [
 const devices: Record<string, any[]> = {
   'demo-agent-1': [
     { ...DEMO_DEVICE, agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 60 * 1000), createDate: '' },
-    { id: 'demo-device-2', alias: 'অফিসের টাইনিবট', macAddress: '28:84:85:00:00:02', board: 'tinybot', appVersion: '2.5.3', agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 2 * 86400000 - 3 * 3600000), autoUpdate: 0, createDate: '' },
+    { id: 'demo-device-2', alias: 'অফিসের টাইনিবট', macAddress: '28:84:85:00:00:02', board: 'tinybot', appVersion: '2.5.3', agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 2 * 86400000 - 3 * 3600000), autoUpdate: 0, createDate: '', ...PRODUCT_FIELDS.tinybot },
+    { ...DEMO_GENERIC_DEVICE, agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 26 * 3600000), createDate: '' },
   ],
   'demo-agent-2': [],
 }

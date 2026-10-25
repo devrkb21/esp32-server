@@ -2,22 +2,26 @@
 // "More" page. Labels are i18n keys (nav.*). `admin: true` groups show to super admins only.
 // `feature: <name>` items show only when that feature is on (pub config systemWebMenu.features);
 // `ownerOnly` items show to people who are not admins (admins reach them in the back office).
+// `needs: <feature>` items show only when the chosen robot's product has that feature (a generic
+// Nobix device has no Day or Look); with no robot chosen everything shows.
+import { allows } from './products';
+
 export const NAV = [
   {
     group: 'nav.group.robot',
     items: [
       { to: '/today', label: 'nav.today', icon: 'today', tab: true },
-      { to: '/day', label: 'nav.day', icon: 'day', tab: true, ink: 'alarm' },
-      { to: '/messages', label: 'nav.messages', icon: 'message', tab: true, ink: 'message' },
-      { to: '/look', label: 'nav.look', icon: 'look', tab: true, ink: 'look' },
-      { to: '/robot', label: 'nav.robot', icon: 'settings' },
+      { to: '/day', label: 'nav.day', icon: 'day', tab: true, ink: 'alarm', needs: 'day' },
+      { to: '/messages', label: 'nav.messages', icon: 'message', tab: true, ink: 'message', needs: 'messages' },
+      { to: '/look', label: 'nav.look', icon: 'look', tab: true, ink: 'look', needs: 'look' },
+      { to: '/robot', label: 'nav.robot', icon: 'settings', needs: 'companion' },
     ],
   },
   {
     group: 'nav.group.character',
     items: [
-      { to: '/role-config', label: 'nav.character', icon: 'agent' },
-      { to: '/voice-print', label: 'nav.voiceprint', icon: 'voiceprint' },
+      { to: '/role-config', label: 'nav.character', icon: 'agent', needs: 'character' },
+      { to: '/voice-print', label: 'nav.voiceprint', icon: 'voiceprint', needs: 'voiceprint' },
       { to: '/robots', label: 'nav.robots', icon: 'robots' },
       { to: '/voice-clone-management', label: 'nav.voiceClone', icon: 'voice', feature: 'voiceClone', ownerOnly: true },
     ],
@@ -40,6 +44,7 @@ export const NAV = [
       { to: '/sms-settings', label: 'nav.sms', icon: 'send' },
       { to: '/dict-management', label: 'nav.dict', icon: 'dict' },
       { to: '/feature-management', label: 'nav.features', icon: 'feature' },
+      { to: '/product-management', label: 'nav.products', icon: 'devices' },
       { to: '/server-side-management', label: 'nav.server', icon: 'server' },
       { to: '/theme-generator', label: 'nav.themeGenerator', icon: 'palette' },
     ],
@@ -59,10 +64,18 @@ export function featuresOf(pubConfig) {
   return (name) => (f[name] ? f[name].enabled !== false : true); // unknown: shown
 }
 
-/** The groups one person sees. */
-export function visibleNav(isAdmin, pubConfig) {
+/** The phone's tab bar for the chosen robot's features (`null`: no robot, every tab). */
+export function visibleTabs(features) {
+  return TABS.filter((t) => allows(features, t.needs));
+}
+
+/** The groups one person sees (`features`: the chosen robot's, or null when none is chosen). */
+export function visibleNav(isAdmin, pubConfig, features = null) {
   const on = featuresOf(pubConfig);
   return NAV.filter((g) => !g.admin || isAdmin)
-    .map((g) => ({ ...g, items: g.items.filter((i) => (!i.feature || on(i.feature)) && !(i.ownerOnly && isAdmin)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => (!i.feature || on(i.feature)) && !(i.ownerOnly && isAdmin) && allows(features, i.needs)),
+    }))
     .filter((g) => g.items.length);
 }

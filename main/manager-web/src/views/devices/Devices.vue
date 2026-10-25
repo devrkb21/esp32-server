@@ -15,6 +15,8 @@
 
     <template v-else>
       <div class="dv__bar">
+        <TbChoice v-if="productList.length > 1" v-model="productFilter" class="dv__products" wrap :options="productOptions"
+          :aria-label="$t('devices.product')" />
         <TbInput v-model="query" class="dv__search" icon="search" clearable :placeholder="$t('devices.search')"
           :aria-label="$t('devices.search')" :clear-label="$t('devices.clearSearch')" />
         <Transition name="dv-fade">
@@ -31,7 +33,8 @@
         :select-all-label="$t('devices.selectAll')" :select-row-label="$t('devices.selectRow')" :row-class="rowClass">
         <template #cell-robot="{ row }">
           <div class="dv-bot">
-            <TbFace class="dv-bot__face" :mood="faceMood(row)" :width="72" :alt="$t('devices.faceAlt', { name: nameOf(row) })" />
+            <TbFace v-if="row.features.includes('companion')" class="dv-bot__face" :mood="faceMood(row)" :width="72" :alt="$t('devices.faceAlt', { name: nameOf(row) })" />
+            <span v-else class="dv-bot__face dv-bot__device" aria-hidden="true"><TbIcon name="devices" :size="24" /></span>
             <div class="dv-bot__text">
               <TbInput v-if="editing === row.device_id" :ref="setAliasInput" v-model="draft" size="s" :maxlength="64"
                 :aria-label="$t('devices.alias')" @enter="commitAlias(row)" @blur="commitAlias(row)" @keydown.esc="cancelAlias" />
@@ -39,7 +42,7 @@
                 @click="startAlias(row)">
                 <span>{{ row.alias || $t('devices.unnamed') }}</span><TbIcon name="edit" :size="14" />
               </button>
-              <span class="dv-bot__meta">{{ [boardName(row.model), addedText(row)].filter(Boolean).join(' · ') }}</span>
+              <span class="dv-bot__meta"><TbTag class="dv-bot__product">{{ productName(row, locale) }}</TbTag>{{ [boardName(row.model), addedText(row)].filter(Boolean).join(' · ') }}</span>
             </div>
           </div>
         </template>
@@ -113,7 +116,8 @@ import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
 import { confirm } from '@/kit/confirm';
 import { digits } from '@/kit/calendar';
-import { loadRobots, robot, selectRobot } from '@/shell/robot';
+import { loadProducts, loadRobots, products, robot, selectRobot } from '@/shell/robot';
+import { distinctProducts, productName, productOf } from '@/shell/products';
 import { ageOf } from '@/utils/companion.mjs';
 import { robotState } from '@/views/today/todayModel';
 import {
@@ -160,7 +164,23 @@ const columns = computed(() => [
   { key: 'seen', label: t('devices.col.seen'), width: '136px' },
   { key: 'actions', label: t('devices.col.actions'), width: '1%' },
 ]);
-const filtered = computed(() => filterRows(rows.value, query.value));
+// Each robot's product (TinyBot, a generic Nobix device, ...). With more than one product the
+// list is grouped by product (sorted by product, with a product filter); with one, the tag on
+// each row says enough.
+const productFilter = ref('all');
+const productList = computed(() => distinctProducts(rows.value));
+const productOptions = computed(() => [{ value: 'all', label: t('devices.allProducts') },
+  ...productList.value.map((p) => ({ value: p.productKey, label: productName(p, locale.value) }))]);
+const filtered = computed(() => {
+  let list = filterRows(rows.value, query.value);
+  if (productList.value.length > 1) {
+    if (productFilter.value !== 'all') list = list.filter((r) => r.productKey === productFilter.value);
+    const order = productList.value.map((p) => p.productKey);
+    list = list.map((r, i) => ({ r, i }))
+      .sort((a, b) => (order.indexOf(a.r.productKey) - order.indexOf(b.r.productKey)) || a.i - b.i).map((x) => x.r);
+  }
+  return list;
+});
 const pageRows = computed(() => pageOf(filtered.value, page.value, pageSize.value));
 const onlineCount = computed(() => rows.value.filter((r) => ['online', 'sleeping', 'updating'].includes(r.state)).length);
 const title = computed(() => agentName.value || t('devices.titleFallback'));
@@ -172,7 +192,7 @@ const description = computed(() => {
     : t('devices.descCountNoStatus', { count });
 });
 
-watch(query, () => { page.value = 1; selected.value = []; });
+watch([query, productFilter], () => { page.value = 1; selected.value = []; });
 watch([page, pageSize], () => { selected.value = []; });
 
 const nameOf = (r) => r.alias || r.macAddress || t('devices.unnamed');
@@ -228,6 +248,7 @@ function fetchStatus() {
 function fetchFine() {
   for (const r of rows.value) {
     const deviceId = r.device_id;
+    if (!r.features.includes('companion')) continue; // a device without the companion view
     Api.companion.getCompanion(deviceId, (res) => {
       const view = res && res.data && res.data.data;
       if (view) fine.value = { ...fine.value, [deviceId]: robotState(view, new Date()) };
@@ -236,17 +257,20 @@ function fetchFine() {
   }
 }
 
-function load() {
+async function load() {
   const id = agentId.value;
   if (!id) return;
   loading.value = true;
   failed.value = false;
+  await loadProducts();
   Api.device.getAgentBindDevices(id, ({ data }) => {
     if (id !== agentId.value) return;
     loading.value = false;
     if (data.code === 0) {
       clock.value = Date.now();
-      rows.value = toRows(data.data);
+      const raw = Array.isArray(data.data) ? data.data : [];
+      rows.value = toRows(raw).map((r) => ({ ...r, ...productOf(raw.find((d) => d.id === r.device_id), products.list) }));
+      productFilter.value = 'all';
       selected.value = [];
       query.value = '';
       fine.value = {};
@@ -447,6 +471,8 @@ watch(agentId, () => { rows.value = []; start(); });
 /* the robot cell: its face window, its name (tap to rename), board and day it joined */
 .dv-bot { display: flex; align-items: center; gap: var(--tb-s3); min-width: 0; }
 .dv-bot__face { flex: none; }
+.dv-bot__device { display: grid; place-items: center; width: 72px; aspect-ratio: 4 / 3; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); }
+.dv-bot__product { margin-right: 8px; height: 20px; padding: 0 7px; }
 .dv-bot__text { display: grid; gap: 2px; min-width: 0; }
 .dv-bot__name {
   display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 0;
