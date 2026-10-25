@@ -9,10 +9,10 @@ function goBack() {
     uni.navigateBack()
   else uni.switchTab({ url: '/pages/index/index' })
 }
-// The window/tab title follows the page heading ("Alarms · TinyBot").
+// The window/tab title follows the page heading ("Alarms · Nobix"): Nobix is the app, TinyBot one product in it.
 watch(() => props.title, (title) => {
   if (title)
-    uni.setNavigationBarTitle({ title: `${title} · ${t('nav.brand')}` })
+    uni.setNavigationBarTitle({ title: `${title} · Nobix` })
 }, { immediate: true })
 </script>
 

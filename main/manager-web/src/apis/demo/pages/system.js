@@ -43,7 +43,7 @@ const params = [
   [621, 'reve.sms.api_key', 'demo-reve-api-key-0000', 'string', 'REVE SMS API key'],
   [622, 'reve.sms.secret_key', 'demo-reve-secret-0000', 'string', 'REVE SMS secret key'],
   [623, 'reve.sms.caller_id', 'TINYBOT', 'string', 'REVE SMS sender ID (callerID)'],
-  [624, 'reve.sms.code_message', 'আপনার টাইনিবট যাচাই কোড {code}। কোডটি কাউকে জানাবেন না।', 'string', 'Verification SMS text; {code} is the code'],
+  [624, 'reve.sms.code_message', 'আপনার নোবিক্স যাচাই কোড {code}। কোডটি কাউকে জানাবেন না।', 'string', 'Verification SMS text; {code} is the code'],
   [201, 'plugins.get_weather.api_key', 'demo-weather-key-0000', 'string', 'Weather service key'],
   [202, 'plugins.get_weather.default_location', 'Dhaka', 'string', 'City used when none is said'],
   [203, 'plugins.get_news.default_rss_url', 'https://example.com/rss.xml', 'string', 'News feed'],

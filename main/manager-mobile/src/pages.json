@@ -70,7 +70,7 @@
       "layout": "tabbar",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -143,7 +143,7 @@
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -152,7 +152,7 @@
       "layout": "tabbar",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -161,7 +161,7 @@
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -169,7 +169,7 @@
       "type": "page",
       "layout": "default",
       "style": {
-        "navigationBarTitleText": "TinyBot",
+        "navigationBarTitleText": "Nobix",
         "navigationStyle": "custom"
       }
     },
@@ -215,7 +215,7 @@
       "layout": "tabbar",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -224,7 +224,7 @@
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -242,7 +242,7 @@
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -251,7 +251,7 @@
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     },
     {
@@ -269,7 +269,7 @@
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "TinyBot"
+        "navigationBarTitleText": "Nobix"
       }
     }
   ],

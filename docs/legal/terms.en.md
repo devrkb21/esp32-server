@@ -1,8 +1,8 @@
-# TinyBot Terms of Use
+# Nobix Terms of Use
 
 Effective date: 25 October 2026
 
-These terms are an agreement between Nobix Industries ("Nobix", "we") and you, the person who uses the TinyBot robot, the TinyBot app and the TinyBot web console (together, "the service"). By creating an account or using the service you accept these terms. If you do not accept them, do not use the service.
+These terms are an agreement between Nobix Industries ("Nobix", "we") and you, the person who uses the TinyBot robot, the Nobix app and the Nobix web console (together, "the service"). By creating an account or using the service you accept these terms. If you do not accept them, do not use the service.
 
 ## 1. What the service is
 
@@ -39,7 +39,7 @@ You own what you say, write and send: messages, reminders, character description
 
 ## 7. Nobix property
 
-The TinyBot name, the Nobix logo, the robot's faces, the design of the app and console, and the software belong to Nobix or to those who license them to us. You get a personal, non-exclusive, non-transferable permission to use them for the service. Some parts of the software come under open-source licences, and those licences apply to those parts.
+The Nobix and TinyBot names, the Nobix logo, the robot's faces, the design of the app and console, and the software belong to Nobix or to those who license them to us. You get a personal, non-exclusive, non-transferable permission to use them for the service. Some parts of the software come under open-source licences, and those licences apply to those parts.
 
 ## 8. Updates
 

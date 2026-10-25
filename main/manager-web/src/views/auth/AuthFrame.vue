@@ -5,7 +5,7 @@
 
       <header class="auth__top">
         <p class="auth__brand">
-          <img :src="markSrc" alt="" width="32" height="32" />
+          <img :src="markSrc" alt="" width="56" height="32" />
           <span><b>{{ $t('nav.brand') }}</b></span>
         </p>
         <div class="auth__lang">
@@ -21,7 +21,7 @@
           <figure class="auth__bot">
             <TbFace :mood="mood" :pulse="pulse" :alt="$t('auth.faceAlt')" />
             <figcaption class="auth__mood" aria-live="polite">
-              <b>{{ $t('nav.brand') }}</b>
+              <b>{{ $t('nav.robotFallback') }}</b>
               <span>{{ $t(`auth.mood.${mood}`) }}</span>
             </figcaption>
           </figure>
@@ -37,7 +37,6 @@
       </main>
 
       <footer class="auth__foot">
-        <TbMaker class="auth__maker" :width="120" />
         <p>
           <span v-if="ver.year" class="tb-num">{{ num(ver.year) }}</span>
           <span v-if="ver.name">{{ ver.name }}</span>
@@ -56,9 +55,9 @@ import { LANGUAGES, changeLanguage } from '@/i18n';
 import { digits } from '@/kit/calendar';
 import { versionParts } from './authKit';
 
-// The frame of the bare sign-in pages: the month band, the Nobix mark with the language choice,
-// TinyBot's face window waking up beside (phone) or under the giant date (desktop), the form on
-// the paper column, the maker's (Nobix) lockup and the version at the foot.
+// The frame of the bare sign-in pages: the month band, the app's brand (the Nobix NX mark and the
+// name Nobix) with the language choice, TinyBot's face window waking up beside (phone) or under the
+// giant date (desktop), the form on the paper column, and the version at the foot.
 defineProps({
   title: { type: String, required: true },
   lead: { type: String, default: '' },
@@ -71,7 +70,7 @@ const store = useStore();
 const lang = computed(() => locale.value);
 const today = new Date();
 const titleId = `auth-h-${Math.random().toString(36).slice(2, 7)}`;
-const markSrc = `${import.meta.env.BASE_URL || '/'}nobix-mark.svg`;
+const markSrc = `${import.meta.env.BASE_URL || '/'}brand/nobix-mark.png`;
 const languageOptions = LANGUAGES.map((l) => ({ value: l.code, label: l.label }));
 const ver = computed(() => versionParts(store.state.pubConfig));
 const num = (v) => digits(v, lang.value);
@@ -88,7 +87,7 @@ function pickLanguage(code) { if (code && code !== lang.value) changeLanguage(co
 
 .auth__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--tb-rule-soft); }
 .auth__brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.auth__brand img { width: 32px; height: 32px; flex: none; }
+.auth__brand img { width: auto; height: 32px; flex: none; }
 .auth__brand span { display: grid; line-height: 1.15; }
 .auth__brand b { font-family: var(--tb-font-display); font-weight: 800; font-size: var(--tb-fs-18); }
 .auth__brand small { color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
@@ -115,7 +114,6 @@ function pickLanguage(code) { if (code && code !== lang.value) changeLanguage(co
 
 .auth__foot { display: grid; gap: 4px; padding: 12px 0 4px; border-top: 1px solid var(--tb-rule-soft); color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
 .auth__foot p { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; }
-.auth__foot .auth__maker { padding: 14px 0 8px; }
 
 /* desktop: the giant date heads the left column with TinyBot under it; the form on the right */
 @media (min-width: 960px) {

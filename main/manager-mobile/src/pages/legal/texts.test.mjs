@@ -32,7 +32,7 @@ it('the closing contact sentence never shows the placeholder', () => {
       assert.ok(last.text.includes('{{CONTACT}}'))
       const shown = withContact(last.text)
       assert.ok(!shown.includes('{{CONTACT}}'))
-      assert.ok(shown.endsWith(lang === 'bn' ? 'বাংলাদেশ-এর সঙ্গে যোগাযোগ করুন।' : 'Industries, Bangladesh.'), shown)
+      assert.ok(shown.endsWith(lang === 'bn' ? 'যোগাযোগ করুন: support@nobixindustries.com।' : 'Industries, Bangladesh: support@nobixindustries.com.'), shown)
     }
   }
 })

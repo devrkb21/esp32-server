@@ -44,7 +44,7 @@ public class ReveSmsService implements SmsService {
             throw new RenException(ErrorCode.SMS_CONNECTION_FAILED);
         }
         if (StringUtils.isBlank(template)) {
-            template = "Your TinyBot verification code is {code}. Do not share it with anyone.";
+            template = "Your Nobix verification code is {code}. Do not share it with anyone.";
         }
 
         JSONObject body = JSONUtil.createObj()

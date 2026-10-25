@@ -8,7 +8,7 @@ export const SMS_PARAMS = {
   callerId: { code: 'reve.sms.caller_id', valueType: 'string', remark: 'REVE SMS sender ID (callerID)' },
   codeMessage: {
     code: 'reve.sms.code_message', valueType: 'string', remark: 'Verification SMS text; {code} is the code',
-    fallback: 'আপনার টাইনিবট যাচাই কোড {code}। কোডটি কাউকে জানাবেন না।',
+    fallback: 'আপনার নোবিক্স যাচাই কোড {code}। কোডটি কাউকে জানাবেন না।',
   },
   maxCount: { code: 'server.sms_max_send_count', valueType: 'number', remark: 'Max daily SMS messages per phone number' },
 };

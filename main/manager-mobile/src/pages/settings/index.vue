@@ -477,7 +477,7 @@ onShow(() => {
 
     <tb-sheet v-model:open="showAbout" :title="t('mauth.more.about')">
       <view class="more__about">
-        <image class="more__mark" src="/static/logo.svg" mode="aspectFit" aria-hidden="true" />
+        <image class="more__mark" src="/static/brand/nx-mark.png" mode="aspectFit" aria-hidden="true" />
         <view class="more__abouttext">
           <text class="more__brand">
             {{ t('nav.brand') }}

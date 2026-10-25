@@ -11,7 +11,8 @@
 import { computed } from 'vue';
 
 // The "made by" lockup: Nobix Industries' official logo (the maker), never recoloured, stretched
-// or cropped. TinyBot's orange mark stays the product's own brand; this is only the maker's credit.
+// or cropped. The app's own header carries the NX mark and the name Nobix; this lockup is the
+// maker's credit at the foot of the legal pages and the More page.
 // The light file sits on the light paper, the dark file (white wordmark) under the dark theme.
 const props = defineProps({
   width: { type: Number, default: 120 },

@@ -66,8 +66,9 @@ it('defaultAreaCode prefers Bangladesh, then the first', () => {
   assert.equal(defaultAreaCode(undefined), '+880')
 })
 
-it('legal contact is empty until Nobix fills it in, and the sentence still ends cleanly', () => {
-  assert.equal(LEGAL_CONTACT, '')
+it('legal contact is Nobix support, and without one the sentence still ends cleanly', () => {
+  assert.equal(LEGAL_CONTACT, 'support@nobixindustries.com')
+  assert.equal(withContact('contact Nobix Industries, Bangladesh: {{CONTACT}}.'), 'contact Nobix Industries, Bangladesh: support@nobixindustries.com.')
   assert.equal(withContact('contact Nobix Industries, Bangladesh: {{CONTACT}}.', ''), 'contact Nobix Industries, Bangladesh.')
   assert.equal(withContact('যোগাযোগ করুন: {{CONTACT}}।', ''), 'যোগাযোগ করুন।')
   assert.equal(withContact('Bangladesh: {{CONTACT}}.', 'help@example.com'), 'Bangladesh: help@example.com.')

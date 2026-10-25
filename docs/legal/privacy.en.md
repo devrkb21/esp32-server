@@ -1,8 +1,8 @@
-# TinyBot Privacy Policy
+# Nobix Privacy Policy
 
 Effective date: 25 October 2026
 
-TinyBot lives in your home and listens to you, so we treat your information with care. This policy explains what Nobix Industries ("Nobix", "we") collects through the TinyBot robot, the TinyBot app and the web console ("the service"). It also covers why we collect it, how long we keep it and what rights you have.
+TinyBot lives in your home and listens to you, so we treat your information with care. This policy explains what Nobix Industries ("Nobix", "we") collects through the TinyBot robot, the Nobix app and the Nobix web console ("the service"). It also covers why we collect it, how long we keep it and what rights you have.
 
 ## 1. What we keep
 
@@ -66,7 +66,7 @@ Passwords are stored encrypted, sign-in details are sent encrypted, and access t
 
 ## 7. Children
 
-TinyBot accounts are for adults. If children in the family talk to the robot, the account holder is responsible as their guardian. If you do not want to keep a child's voiceprint or memories, delete them or keep memory off.
+Nobix accounts are for adults. If children in the family talk to the robot, the account holder is responsible as their guardian. If you do not want to keep a child's voiceprint or memories, delete them or keep memory off.
 
 ## 8. Changes to this policy
 
