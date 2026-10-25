@@ -23,17 +23,18 @@
       <TbRobotStatus v-if="showStatus" class="rb__status" :status="status" :loading="loading" @refresh="recheck" />
       <p v-if="status.state === 'offline'" class="rb__offline" role="status">{{ $t('robot.offlineNote') }}</p>
 
-      <nav class="rb__index" :aria-label="$t('robot.indexLabel')">
-        <a v-for="s in sections" :key="s" :href="`#rb-${s}`" class="rb__indexlink" :aria-current="current === s ? 'true' : null" @click.prevent="jump(s)">{{ $t(`robot.sec.${s}`) }}</a>
-      </nav>
+      <TbTabs class="rb__tabs" :model-value="tab" :items="tabItems" :aria-label="$t('robot.indexLabel')" @change="openTab" />
 
-      <RobotStatus id="rb-status" />
-      <RobotSound id="rb-sound" />
-      <RobotTalk id="rb-talk" />
-      <RobotMemory id="rb-memory" />
-      <RobotGestures v-if="gesturesOn" id="rb-gestures" />
-      <RobotJobs id="rb-jobs" />
-      <RobotFirmware id="rb-firmware" />
+      <!-- One section at a time; v-show keeps each section's own state while another tab is open -->
+      <div role="tabpanel" class="rb__panel">
+        <RobotStatus v-show="tab === 'status'" id="rb-status" />
+        <RobotSound v-show="tab === 'sound'" id="rb-sound" />
+        <RobotTalk v-show="tab === 'talk'" id="rb-talk" />
+        <RobotMemory v-show="tab === 'memory'" id="rb-memory" />
+        <RobotGestures v-if="gesturesOn" v-show="tab === 'gestures'" id="rb-gestures" />
+        <RobotJobs v-show="tab === 'jobs'" id="rb-jobs" />
+        <RobotFirmware v-show="tab === 'firmware'" id="rb-firmware" />
+      </div>
     </template>
   </div>
 </template>
@@ -90,8 +91,6 @@ export default {
       fwUpdate: initialUpdateState(),
       savingAuto: false,
       index: ['status', 'sound', 'talk', 'memory', 'gestures', 'jobs', 'firmware'],
-      current: '', // the section the reader is in, marked in the index
-      seen: {},    // section key -> crossing the reading band
       spy: null,
       timer: null,
       later: null,
@@ -114,11 +113,22 @@ export default {
     // Tap shortcuts are a companion setting: only for products with the companion module
     gesturesOn() { return hasFeature('companion', this.deviceId); },
     sections() { return this.index.filter((s) => s !== 'gestures' || this.gesturesOn); },
+    /** The open tab: ?tab= in the address (so a reload or a shared link keeps it), else the first. */
+    tab() {
+      const q = this.$route && this.$route.query ? String(this.$route.query.tab || '') : '';
+      return this.sections.includes(q) ? q : this.sections[0];
+    },
+    /** Tabs of the sections; one with unsaved edits is marked with a dot. */
+    tabItems() {
+      const dirty = { sound: 'sound', talk: 'talk', memory: 'memory', gestures: 'gestures', jobs: 'jobs' };
+      return this.sections.map((key) => ({
+        key,
+        label: this.$t(`robot.sec.${key}`) + (dirty[key] && this.forms && this.forms[key] !== undefined && this.isDirty(key) ? ' ●' : ''),
+      }));
+    },
     botName() { return (this.view && this.view.name) || robot.name || this.$t('nav.robotFallback'); },
   },
   watch: {
-    // the sections exist once the view has loaded: follow them from then on
-    view(now, was) { if (now && !was) this.$nextTick(this.observeIndex); },
     deviceId() {
       this.view = null; this.moreEvents = null; this.fwDevice = null;
       if (this.fwFlow) this.fwFlow.reset();
@@ -152,7 +162,6 @@ export default {
     clearTimeout(this.later);
     document.removeEventListener('visibilitychange', this.onVisible);
     if (this.fwFlow) this.fwFlow.destroy();
-    if (this.spy) this.spy.disconnect();
   },
   methods: {
     num(n) { return digits(n, this.lang); },
@@ -176,32 +185,10 @@ export default {
     errorText(err) { return friendlyError(err, this.$t('robot.requestFailed')); },
     /** "Check again" on the status panel: the view and the gateway both. */
     recheck() { refreshRobotStatus(this.deviceId, { force: true, companion: false }); this.refresh(false); },
-    jump(key) {
-      const el = document.getElementById(`rb-${key}`);
-      if (!el || !el.scrollIntoView) return;
-      // land below the pinned index, however many lines it wraps to
-      const nav = this.$el && this.$el.querySelector ? this.$el.querySelector('.rb__index') : null;
-      if (nav) el.style.scrollMarginTop = `${nav.offsetHeight + 16}px`;
-      const still = typeof window !== 'undefined' && !!window.matchMedia
-        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      el.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
-      this.current = key;
-    },
-    /** Marks in the index the section crossing the reading band near the top of the window. */
-    observeIndex() {
-      if (this.spy) this.spy.disconnect();
-      this.spy = null;
-      if (typeof IntersectionObserver === 'undefined') return;
-      this.seen = {};
-      this.spy = new IntersectionObserver((entries) => {
-        for (const e of entries) this.seen[e.target.id.slice(3)] = e.isIntersecting;
-        const hit = this.sections.find((k) => this.seen[k]);
-        if (hit) this.current = hit;
-      }, { rootMargin: '-20% 0px -70% 0px' });
-      for (const k of this.sections) {
-        const el = document.getElementById(`rb-${k}`);
-        if (el) this.spy.observe(el);
-      }
+    /** Opens a tab, kept in the address as ?tab= (replace: tabs do not fill the back history). */
+    openTab(key) {
+      if (key === this.tab) return;
+      this.$router.replace({ query: { ...this.$route.query, tab: key } });
     },
 
     // ---------------------------------------------------------------- data
@@ -437,19 +424,8 @@ export default {
 .rb__state .rb__status { justify-self: stretch; }
 .rb__status { margin-top: var(--tb-s3); }
 .rb__offline { padding: var(--tb-s3) 0; color: var(--tb-ink-2); font-size: var(--tb-fs-14); border-bottom: 1px solid var(--tb-rule-soft); }
-.rb__index {
-  position: sticky; top: 0; z-index: 4; background: var(--tb-paper);
-  display: flex; gap: 8px var(--tb-s4); flex-wrap: wrap; padding: var(--tb-s3) 0; border-bottom: 1px solid var(--tb-rule);
-}
-.rb__indexlink {
-  display: inline-flex; align-items: center; min-height: var(--tb-target); font-weight: 600; font-size: var(--tb-fs-14);
-  color: var(--tb-ink-2);
-  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; text-decoration-color: currentColor;
-  transition: color var(--tb-t-hover) var(--tb-ease), text-decoration-color var(--tb-t-hover) var(--tb-ease);
-}
-.rb__indexlink[aria-current="true"] { color: var(--tb-ink); text-decoration-thickness: 2px; text-decoration-color: var(--tb-orange); }
-@media (hover: hover) and (pointer: fine) { .rb__indexlink:hover { color: var(--tb-ink); } }
-.rb .tb-section { scroll-margin-top: var(--tb-s4); }
+.rb__tabs { position: sticky; top: 0; z-index: 4; background: var(--tb-paper); margin-top: var(--tb-s3); }
+.rb__panel { padding-top: var(--tb-s2); }
 
 /* shared bits of the sections */
 .rb-note { font-size: var(--tb-fs-13); color: var(--tb-ink-2); max-width: 70ch; }
