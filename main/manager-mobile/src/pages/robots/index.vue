@@ -21,7 +21,7 @@ import { digits } from '@/utils/calendar.mjs'
 import { clearRobot, robot, selectRobot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import AddRobotSheet from './components/AddRobotSheet.vue'
-import { characterNameError, isOnline, keepSelection, NAME_MAX, nameMatches, parseStatus, toRobot } from './robotsModel.mjs'
+import { characterNameError, isOnline, keepSelection, NAME_MAX, nameMatches, parseStatus, toRobot, voiceName } from './robotsModel.mjs'
 import { countText, whenText } from './robotsText'
 
 defineOptions({ name: 'RobotsPage' })
@@ -66,11 +66,10 @@ const summary = computed(() => [
 function talkedText(a: Agent) {
   return a.lastConnectedAt ? t('robots.talked', { when: whenText(a.lastConnectedAt, lang.value, clock.value) }) : t('robots.never')
 }
-function modelsText(a: Agent) {
-  const tts = a.ttsModelName && a.ttsVoiceName ? `${a.ttsModelName} (${a.ttsVoiceName})` : (a.ttsModelName || a.ttsVoiceName || '')
-  if (!a.llmModelName && !tts)
-    return ''
-  return t('robots.models', { llm: a.llmModelName || '–', tts: tts || '–' })
+/** The character's voice by its person name only; engine and model ids are not owner words. */
+function voiceText(a: Agent) {
+  const name = voiceName(a.ttsVoiceName, lang.value)
+  return name ? t('robots.voice', { name }) : ''
 }
 
 function tagsOf(a: Agent) {
@@ -325,8 +324,8 @@ onHide(() => clearInterval(poll))
             </text>
             <text>{{ talkedText(g.agent) }}</text>
           </view>
-          <text v-if="modelsText(g.agent)" class="rb-group__models">
-            {{ modelsText(g.agent) }}
+          <text v-if="voiceText(g.agent)" class="rb-group__models">
+            {{ voiceText(g.agent) }}
           </text>
           <view v-if="tagsOf(g.agent).length" class="rb-group__tags">
             <tb-tag v-for="tag in tagsOf(g.agent)" :key="tag">
@@ -381,7 +380,7 @@ onHide(() => clearInterval(poll))
 
       <tb-section class="robots__add" :title="t('robots.addSection')" :description="t('robots.addSectionDesc')">
         <tb-button variant="primary" size="l" icon="plus" block @click="openAdd()">
-          {{ t('robots.addByCode') }}
+          {{ t('robots.add.submit') }}
         </tb-button>
         <view class="robots__more">
           <tb-button icon="wifi" block @click="goSetup">

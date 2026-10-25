@@ -7,7 +7,7 @@ export const PHONE_RE = /^1[3-9]\d{8}$/
 
 // Only the digits of what was typed; Bangla digits (০-৯) count as digits.
 function phoneDigits(value) {
-  return String(value ?? '').replace(/[০-৯]/g, d => String(d.charCodeAt(0) - 0x09E6)).replace(/\D/g, '')
+  return String(value ?? '').replace(/[\u09E6-\u09EF]/g, d => String(d.charCodeAt(0) - 0x09E6)).replace(/\D/g, '')
 }
 
 // A Bangladeshi number without the local leading 0 or a typed 880 prefix.

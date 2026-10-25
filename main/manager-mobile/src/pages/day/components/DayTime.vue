@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { getCurrentLanguage } from '@/i18n'
-import { timeText } from '@/utils/calendar.mjs'
+import { dayPart, timeText } from '@/utils/calendar.mjs'
 
 // A 24h "HH:MM" time, chosen with uni's own time picker and shown in the reader's numerals.
 const props = withDefaults(defineProps<{ modelValue?: string, disabled?: boolean, big?: boolean, ariaLabel?: string }>(), {
@@ -12,7 +12,9 @@ const props = withDefaults(defineProps<{ modelValue?: string, disabled?: boolean
 })
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void, (e: 'change', v: string): void }>()
 const lang = computed(() => getCurrentLanguage())
-const shown = computed(() => (props.modelValue ? timeText(props.modelValue, lang.value, false) : '--:--'))
+// Bangla: 12-hour figures with the day part set small before them ('রাত ৯:০০'); 24h otherwise
+const part = computed(() => (props.modelValue ? dayPart(props.modelValue, lang.value) : ''))
+const shown = computed(() => (props.modelValue ? timeText(props.modelValue, lang.value, lang.value === 'bn') : '--:--'))
 function onChange(e: any) {
   const v = String(e?.detail?.value || '')
   emit('update:modelValue', v)
@@ -23,9 +25,14 @@ function onChange(e: any) {
 <template>
   <picker mode="time" :value="modelValue || '12:00'" :disabled="disabled" @change="onChange">
     <view class="dtime" :class="{ 'is-big': big, 'is-disabled': disabled }" role="button" :aria-label="ariaLabel || undefined">
-      <text class="tb-num dtime__v">
-        {{ shown }}
-      </text>
+      <view class="dtime__t">
+        <text v-if="part" class="dtime__part">
+          {{ part }}
+        </text>
+        <text class="tb-num dtime__v">
+          {{ shown }}
+        </text>
+      </view>
       <tb-icon name="chevron-down" :size="16" />
     </view>
   </picker>
@@ -57,7 +64,24 @@ function onChange(e: any) {
   font-weight: 800;
   letter-spacing: -0.01em;
 }
+.dtime__t {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.dtime__part {
+  font-family: var(--tb-font-text);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+/* disabled: the frame goes soft and the figures take the third ink (no text dimming) */
 .dtime.is-disabled {
-  opacity: 0.45;
+  border-color: var(--tb-rule-soft);
+  color: var(--tb-ink-3);
+}
+.dtime.is-disabled .dtime__part {
+  color: var(--tb-ink-3);
 }
 </style>

@@ -25,6 +25,7 @@ import {
   applyMemoryChoice,
   firstLine,
   LOCAL_SHORT_MEMORY,
+  localeName,
   NO_MEMORY,
   normalizeAgentFunctions,
   pluginCatalog,
@@ -1461,7 +1462,7 @@ onUnmounted(stopAudio)
             :disabled="ttsOptionsLoading" @click="openPicker('tts')"
           />
           <AgentRow
-            :label="t('mAgent.voice.language')" :hint="t('mAgent.voice.languageHint')" :value="displayNames.language || t('mAgent.choose')"
+            :label="t('mAgent.voice.language')" :hint="t('mAgent.voice.languageHint')" :value="localeName(displayNames.language) || t('mAgent.choose')"
             :placeholder="!displayNames.language" :disabled="ttsOptionsLoading" @click="openPicker('language')"
           />
           <AgentRow
@@ -1512,9 +1513,9 @@ onUnmounted(stopAudio)
             @click="openContextProviderDialog"
           />
         </view>
-        <a class="ag-link" href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/context-provider-integration.md" target="_blank">
-          <tb-icon name="external" :size="16" /><text>{{ t('mAgent.can.contextDoc') }}</text>
-        </a>
+        <text class="ag-help">
+          {{ t('mAgent.sources.help') }}
+        </text>
       </tb-section>
 
       <!-- History -->
@@ -1561,7 +1562,7 @@ onUnmounted(stopAudio)
           @click="onPickerConfirm(activePicker, item.value, item.name)"
         >
           <text class="ag-opt__name">
-            {{ item.name }}
+            {{ activePicker === 'language' ? localeName(item.name) : item.name }}
           </text>
           <tb-icon v-if="pickerCurrentValue === item.value" name="check" :size="20" />
         </view>
@@ -1571,7 +1572,7 @@ onUnmounted(stopAudio)
     <!-- Voice picker with samples -->
     <tb-sheet v-model:open="pickerShow.voiceprint" :title="t('mAgent.voice.voice')">
       <text v-if="displayNames.language" class="ag-sheet-note">
-        {{ t('mAgent.voice.onlyLanguage', { lang: displayNames.language }) }}
+        {{ t('mAgent.voice.onlyLanguage', { lang: localeName(displayNames.language) }) }}
       </text>
       <tb-empty v-if="!voiceOptions.length" :text="t('mAgent.sheet.noOptions')" />
       <view v-else class="ag-opts" role="radiogroup" :aria-label="t('mAgent.voice.voice')">
@@ -1672,13 +1673,13 @@ onUnmounted(stopAudio)
 .ag-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .ag-tag { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; min-height: 34px; padding-left: 12px; border: 1px solid var(--tb-ink-2); border-radius: 999px; font-size: 14px; }
 .ag-tag__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ag-tag__x { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; color: var(--tb-ink-2); }
+.ag-tag__x { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-right: -6px; color: var(--tb-ink-2); }
 .ag-tags__new { display: flex; gap: 8px; align-items: center; }
 .ag-tags__in { flex: 1; min-width: 0; }
 
 .ag-rows { display: flex; flex-direction: column; border-top: 1px solid var(--tb-rule-soft); }
 .ag-play { flex: none; display: flex; }
-.ag-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--tb-message); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+.ag-help { display: block; padding-top: 12px; font-size: 14px; line-height: 1.6; color: var(--tb-ink-2); }
 
 .ag-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 800; display: flex; align-items: center; gap: 12px;

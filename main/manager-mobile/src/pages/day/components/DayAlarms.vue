@@ -103,7 +103,9 @@ defineExpose({ focusKey, add: () => openAlarm() })
       <view v-for="a in sorted" :key="a.id" class="drow" :class="{ 'is-off': !a.enabled, 'is-focus': focused === `a-${a.id}` }">
         <view class="drow__main" role="button" :aria-label="t('day.alarm.edit')" hover-class="is-press" @click="openAlarm(a)">
           <text class="drow__time tb-num">
-            {{ day.fmt(a.time) }}
+            <text v-if="day.part(a.time)" class="drow__part">
+              {{ day.part(a.time) }}
+            </text>{{ day.clock(a.time) }}
           </text>
           <view class="drow__body">
             <text class="drow__title">

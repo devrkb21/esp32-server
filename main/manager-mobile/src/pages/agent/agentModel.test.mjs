@@ -9,6 +9,7 @@ import {
   languagesOf,
   linesToList,
   listToLines,
+  localeName,
   normalizeAgentFunctions,
   normalizeFunctionParams,
   pluginCatalog,
@@ -98,4 +99,14 @@ test('memory choice keeps the summary aside while memory is off', () => {
   assert.equal(on.form.summaryMemory, 'likes tea')
   assert.equal(on.form.chatHistoryConf, 2)
   assert.equal(on.stash, '')
+})
+
+test('localeName turns known voice language codes into plain words', () => {
+  assert.equal(localeName('bn-BD'), 'বাংলা (বাংলাদেশ)')
+  assert.equal(localeName('bn-IN'), 'বাংলা (ভারত)')
+  assert.equal(localeName('en-US'), 'English (US)')
+  assert.equal(localeName('en-GB'), 'English (UK)')
+  assert.equal(localeName('ja-JP'), 'ja-JP')
+  assert.equal(localeName(''), '')
+  assert.equal(localeName(undefined), '')
 })

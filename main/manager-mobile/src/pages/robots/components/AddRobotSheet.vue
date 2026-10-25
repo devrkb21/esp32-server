@@ -234,7 +234,7 @@ async function submit() {
         {{ t('common.cancel') }}
       </tb-button>
       <tb-button variant="primary" :loading="adding" @click="submit">
-        {{ t('robots.add.submit') }}
+        {{ t('robots.add.confirm') }}
       </tb-button>
     </template>
   </tb-sheet>

@@ -31,9 +31,10 @@ onShow(() => { tabbarStore.setCurIdx(current()) })
 </script>
 
 <template>
-  <view v-if="customTabbarEnable" class="tb-tabbar" role="tablist">
+  <view v-if="customTabbarEnable" class="tb-tabbar" role="navigation" :aria-label="t('nav.main')">
     <view v-for="(item, idx) in tabbarList" :key="item.path" class="tb-tabbar__tab" :class="{ 'is-on': idx === tabbarStore.curIdx }"
-      role="tab" :aria-selected="idx === tabbarStore.curIdx ? 'true' : 'false'" @click="select(idx)">
+      role="link" tabindex="0" :aria-current="idx === tabbarStore.curIdx ? 'page' : undefined"
+      @click="select(idx)" @keydown.enter="select(idx)" @keydown.space.prevent="select(idx)">
       <tb-icon :name="item.icon" :size="22" />
       <text class="tb-tabbar__label">{{ item.labelKey ? t(item.labelKey) : item.text }}</text>
     </view>
@@ -47,6 +48,7 @@ onShow(() => { tabbarStore.setCurIdx(current()) })
 }
 .tb-tabbar__tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px; padding-top: 4px; color: var(--tb-ink-2); }
 .tb-tabbar__tab.is-on { color: var(--tb-ink); }
+.tb-tabbar__tab:focus-visible { outline: 2px solid var(--tb-focus); outline-offset: 2px; }
 .tb-tabbar__label { font-size: 12px; font-weight: 600; }
 .tb-tabbar__tab.is-on .tb-tabbar__label { box-shadow: inset 0 -2px 0 var(--tb-orange); }
 </style>

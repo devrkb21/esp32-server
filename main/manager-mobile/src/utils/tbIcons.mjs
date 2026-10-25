@@ -4,7 +4,8 @@ export const ICONS = {
   today: 'M4 6.5h16v13.5H4zM4 10.5h16M8.5 3.5v4M15.5 3.5v4M12 14v3',
   day: 'M4 6h16M4 12h16M4 18h10',
   look: 'M3.5 6.5h17v11h-17zM9 10.5v3M15 10.5v3',
-  more: 'M5.5 12h.01M12 12h.01M18.5 12h.01',
+  // Stroke-only renderer: each dot is a r=.8 ring under the 1.75 stroke, so it reads as a solid ~3.3px dot.
+  more: 'M5.5 11.2a.8 .8 0 1 1 0 1.6a.8 .8 0 1 1 0-1.6zM12 11.2a.8 .8 0 1 1 0 1.6a.8 .8 0 1 1 0-1.6zM18.5 11.2a.8 .8 0 1 1 0 1.6a.8 .8 0 1 1 0-1.6z',
   robot: 'M5 8h14v11H5zM9.5 12.5v2M14.5 12.5v2M12 4.5v3.5M10 17h4',
   robots: 'M3.5 9h10v9h-10zM7 12.5v1.5M10 12.5v1.5M16.5 7h4v8M8.5 5v4',
   alarm: 'M12 21a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15zM12 9.5v4l2.5 1.5M4.5 4.5 7 2.5M19.5 4.5 17 2.5',

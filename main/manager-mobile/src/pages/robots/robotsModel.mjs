@@ -170,3 +170,24 @@ export function aliasChange(current, value) {
     return { ok: false, text, reason: 'same' }
   return { ok: true, text }
 }
+
+const VOICE_BN = { Nabanita: 'নবনীতা', Pradeep: 'প্রদীপ', Tanishaa: 'তানিশা', Bashkar: 'ভাস্কর' }
+
+/**
+ * The person name of a TTS voice, in plain words: an Edge voice id (bn-BD-NabanitaNeural) becomes
+ * its speaker (Nabanita, or নবনীতা in Bangla); any other voice name passes through; '' when none.
+ */
+export function voiceName(voice, lang) {
+  const raw = String(voice ?? '').trim()
+  if (!raw)
+    return ''
+  const parts = raw.split('-')
+  let name = raw
+  if (parts.length >= 3) {
+    const rest = parts.slice(2).join('-')
+    const m = /^(.+?)(?:Multilingual)?Neural$/.exec(rest)
+    if (m)
+      name = m[1]
+  }
+  return lang === 'bn' && VOICE_BN[name] ? VOICE_BN[name] : name
+}

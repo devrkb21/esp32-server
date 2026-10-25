@@ -23,6 +23,7 @@ import { faceMood, filledCount, fullPhone, isPhone } from './authKit.mjs'
 import AuthField from './components/auth-field.vue'
 import AuthFrame from './components/auth-frame.vue'
 import CaptchaImage from './components/captcha-image.vue'
+import { DIGITS_TYPE, PHONE_ATTRS, vFieldAttrs } from './components/field-attrs'
 import LegalNote from './components/legal-note.vue'
 import PickSheet from './components/pick-sheet.vue'
 import { useCaptcha, usePubConfig } from './useAuth'
@@ -209,7 +210,7 @@ onMounted(async () => {
           </text><tb-icon name="chevron-down" :size="14" />
         </view>
         <tb-input
-          v-model="form.mobile" type="number" :maxlength="15" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
+          v-model="form.mobile" v-field-attrs="PHONE_ATTRS" :type="DIGITS_TYPE" :maxlength="15" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
           :invalid="!!errors.mobile" @update:model-value="touch('mobile')"
         />
       </AuthField>

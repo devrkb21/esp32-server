@@ -30,8 +30,8 @@ const rows = computed(() => {
   const w = v.value?.weather
   const p = v.value?.prayer?.enabled ? nextPrayer(v.value?.prayer?.days) : null
   const out = [
-    { key: 'mood', label: t('mrobot.status.mood'), value: mk ? t(mk) : (st.mood || dash), note: st.state ? t('mrobot.status.stateIs', { state: st.state }) : '' },
-    { key: 'wifi', label: t('mrobot.status.wifi'), value: has(st.rssi) && st.rssi ? `${r.num(st.rssi)} dBm` : dash, note: wifi ? t(`mrobot.status.wifi.${wifi}`) : '' },
+    { key: 'mood', label: t('mrobot.status.mood'), value: mk ? t(mk) : (st.mood || dash), note: stateText(st.state) },
+    { key: 'wifi', label: t('mrobot.status.wifi'), value: wifi ? t(`mrobot.status.wifi.${wifi}`) : dash, note: has(st.rssi) && st.rssi ? `${r.num(st.rssi)} dBm` : '' },
     { key: 'fw', label: t('mrobot.status.firmware'), value: st.fw || dash, note: '' },
     { key: 'uptime', label: t('mrobot.status.uptime'), value: up ? (up.d ? t('mrobot.status.uptimeDays', { d: r.num(up.d), h: r.num(up.h) }) : t('mrobot.status.uptimeHours', { h: r.num(up.h), m: r.num(up.m) })) : dash, note: '' },
     { key: 'volume', label: t('mrobot.status.volume'), value: vol === null ? dash : `${r.num(vol)}%`, note: volumeFromPhone(v.value) ? t('mrobot.status.volumeManual') : t('mrobot.status.volumeAuto') },
@@ -48,6 +48,15 @@ const rows = computed(() => {
     out.push({ key: 'prayer', label: t('mrobot.status.nextPrayer'), value: `${t(`today.prayer.${p.key}`)} ${r.time(p.time)}`, note: p.tomorrow ? t('mrobot.status.tomorrow') : '' })
   return out
 })
+
+// the firmware's state word (idle, listening...) in plain words; an unknown one is left out
+function hasKey(key: string) {
+  const v = t(key)
+  return !!v && v !== key
+}
+function stateText(state: unknown) {
+  return state && hasKey(`mrobot.state.${state}`) ? t(`mrobot.state.${state}`) : ''
+}
 
 function gameName(g: string) {
   return r.tOr(`companion.game.${g}`, g)

@@ -65,6 +65,8 @@ const methods = computed(() => [
 ])
 
 const stepIndex = computed(() => STEPS.indexOf(step.value))
+// The rule carries only the count; screen readers hear the full sentence (step name included)
+const progressCount = computed(() => `${num(stepIndex.value + 1)}/${num(STEPS.length)}`)
 const progressText = computed(() => t('msetup.progress', {
   n: num(stepIndex.value + 1),
   total: num(STEPS.length),
@@ -139,13 +141,13 @@ onLoad((q: any) => {
 
     <view
       class="setup__progress" role="progressbar" :aria-valuemin="1" :aria-valuemax="STEPS.length" :aria-valuenow="stepIndex + 1"
-      :aria-valuetext="progressText"
+      :aria-valuetext="progressText" :aria-label="progressText"
     >
       <view class="setup__bars" aria-hidden="true">
         <view v-for="(s, i) in STEPS" :key="s" class="setup__bar" :class="{ 'is-done': i < stepIndex, 'is-now': i === stepIndex }" />
       </view>
-      <text class="setup__steptext">
-        {{ progressText }}
+      <text class="setup__steptext" aria-hidden="true">
+        {{ progressCount }}
       </text>
     </view>
 
@@ -273,11 +275,13 @@ onLoad((q: any) => {
 }
 .setup__progress {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   padding: 12px 0 0;
 }
 .setup__bars {
+  flex: 1;
+  min-width: 0;
   display: flex;
   gap: 4px;
 }
@@ -294,9 +298,12 @@ onLoad((q: any) => {
   background: var(--tb-orange);
 }
 .setup__steptext {
+  flex: none;
   color: var(--tb-ink-2);
   font-size: 13px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* the ways to send */

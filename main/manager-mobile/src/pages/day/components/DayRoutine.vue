@@ -329,8 +329,11 @@ defineExpose({ focusKey })
   text-decoration-color: var(--tb-routine-mark);
   text-underline-offset: 4px;
 }
-.drows.is-dim .drow--routine {
-  opacity: 0.55;
+/* the routine switched off: rows read in the third ink, not faded (contrast floor) */
+.drows.is-dim .drow--routine .drow__span,
+.drows.is-dim .drow--routine .drow__title,
+.drows.is-dim .drow--routine .drow__meta {
+  color: var(--tb-ink-3);
 }
 .dwarn {
   display: flex;

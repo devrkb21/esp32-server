@@ -11,6 +11,23 @@ function day(offset: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** Unix seconds of the local time hhmm today, plus dayOffset days. */
+function at(hhmm: string, dayOffset = 0) {
+  const [h, m] = hhmm.split(':').map(Number)
+  const d = new Date()
+  d.setDate(d.getDate() + dayOffset)
+  d.setHours(h, m, 0, 0)
+  return Math.floor(d.getTime() / 1000)
+}
+/** The latest past occurrence of hhmm: today once it has passed, otherwise yesterday. */
+function lastAt(hhmm: string) {
+  const today = at(hhmm)
+  return today <= nowS() ? today : at(hhmm, -1)
+}
+function ev(e: Record<string, any>) {
+  return { ...e, rx: e.ts }
+}
+
 const view: any = JSON.parse(JSON.stringify(DEMO_COMPANION))
 view.stats = {
   ...view.stats,
@@ -24,21 +41,23 @@ view.stats = {
 view.stats_updated = nowS() - 20
 view.settings.pages = { clock: true, weather: true, prayer: true, focus: true, games: true, breathe: true, story: true, night: true, status: false, bond: true }
 view.memories = [
-  { id: 'n1', text: 'বৃহস্পতিবার অঙ্ক পরীক্ষা আছে', kind: 'event', created: `${day(-2)}T19:40`, updated: `${day(-2)}T19:40`, until: day(3) },
+  { id: 'n1', text: 'বৃহস্পতিবার ডাক্তারের কাছে যাবেন', kind: 'event', created: `${day(-2)}T19:40`, updated: `${day(-2)}T19:40`, until: day(3) },
   { id: 'n2', text: 'সন্ধ্যায় আদা দেওয়া চা পছন্দ করে', kind: 'like', created: `${day(-9)}T18:05`, updated: `${day(-4)}T20:12` },
   { id: 'n3', text: 'বোনের নাম নীলা', kind: 'person', created: `${day(-20)}T21:30`, updated: `${day(-20)}T21:30` },
   { id: 'n4', text: 'জোরে অ্যালার্ম পছন্দ করে না', kind: 'dislike', created: `${day(-31)}T07:02`, updated: `${day(-31)}T07:02` },
   { id: 'n5', text: 'বেশিরভাগ দিন ফজরের পর হাঁটে', kind: 'routine', created: `${day(-40)}T06:15`, updated: `${day(-12)}T06:20` },
 ]
+// Times follow the shared schedules (alarm a1 06:45, reminder r1 Medicine 21:30, dhuhr 11:43),
+// newest first, so no event claims a time its schedule never had
 view.events = [
-  { type: 'reminder_done', id: 'r1', ts: nowS() - 1800, rx: nowS() - 1800 },
-  { type: 'pomodoro_done', value: 4, ts: nowS() - 5400, rx: nowS() - 5400 },
-  { type: 'game_score', id: 'catch', value: 18, ts: nowS() - 9000, rx: nowS() - 9000 },
-  { type: 'prayer_reminded', id: 'dhuhr', ts: nowS() - 14000, rx: nowS() - 14000 },
-  { type: 'alarm_snoozed', id: 'a1', ts: nowS() - 30000, rx: nowS() - 30000 },
-  { type: 'streak', value: 12, ts: nowS() - 32000, rx: nowS() - 32000 },
-  { type: 'alarm_missed', id: 'a1', ts: nowS() - 120000, rx: nowS() - 120000 },
-]
+  ev({ type: 'reminder_done', id: 'r1', ts: at('21:30', -1) }),
+  ev({ type: 'pomodoro_done', value: 4, ts: nowS() - 5400 }),
+  ev({ type: 'game_score', id: 'catch', value: 18, ts: nowS() - 9000 }),
+  ev({ type: 'prayer_reminded', id: 'dhuhr', ts: lastAt('11:43') }),
+  ev({ type: 'alarm_snoozed', id: 'a1', ts: lastAt('06:50') }),
+  ev({ type: 'streak', value: 12, ts: nowS() - 32000 }),
+  ev({ type: 'alarm_missed', id: 'a1', ts: at('06:45', -2) }),
+].sort((a: any, b: any) => b.ts - a.ts)
 view.commands = [
   { id: 'c2', type: 'pomodoro', arg: '25', ts: nowS() - 7000, status: 'done', done_ts: nowS() - 6990 },
   { id: 'c1', type: 'story', arg: 'সাহসী বিড়াল', ts: nowS() - 86000, status: 'done', done_ts: nowS() - 85990 },

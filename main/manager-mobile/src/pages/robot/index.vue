@@ -14,12 +14,12 @@ import type { FirmwareUpdateState, RobotContext, SyncState } from './components/
 import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/companion'
 import type { Device, OtaFirmware } from '@/api/device'
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
-import { computed, provide, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, nextTick, onUnmounted, provide, reactive, ref, watch } from 'vue'
 import { getCompanion, sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
 import { getBindDevices, getOtaFirmwares, updateDeviceAutoUpdate } from '@/api/device'
 import { getCurrentLanguage, t } from '@/i18n'
 import { useUserStore } from '@/store'
-import { digits, timeText } from '@/utils/calendar.mjs'
+import { digits, timeText, timeWithPart } from '@/utils/calendar.mjs'
 import { loadRobots, robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import { agoParts } from '../companion/companionUtils.mjs'
@@ -60,7 +60,8 @@ function ago(ts: number | null | undefined) {
   return t(`companion.${p.key}`, { n: num(p.n) })
 }
 function time(hhmm: string) {
-  return timeText(hhmm, lang.value, lang.value === 'bn')
+  // Bangla times are 12-hour, so they carry the day part: সকাল ৭:৩০, সন্ধ্যা ৭:৩০
+  return lang.value === 'bn' ? timeWithPart(hhmm, 'bn') : timeText(hhmm, lang.value)
 }
 function tOr(key: string, fallback: string) {
   const v = t(key)
@@ -247,9 +248,58 @@ const ctx: RobotContext = {
 }
 provide(robotKey, ctx)
 
+// ------------------------------------------------------------------ section index
+// The index strip stays pinned at the top and marks the section in view. pageScrollTo ignores
+// offsetTop on H5, so a jump measures the section and stops just below the pinned strip.
+const INDEX_H = 56
+const instance = getCurrentInstance()
+const active = ref('')
+let observer: UniApp.IntersectionObserver | null = null
+
 function jump(key: string) {
-  uni.pageScrollTo({ selector: `#rb-${key}`, duration: 200 })
+  const id = `rb-${key}`
+  active.value = id
+  uni.createSelectorQuery()
+    .in(instance?.proxy as any)
+    .select(`#${id}`)
+    .boundingClientRect()
+    .selectViewport()
+    .scrollOffset(() => {})
+    .exec((res: any[]) => {
+      const rect = res?.[0]
+      const top = res?.[1]?.scrollTop ?? 0
+      if (rect)
+        uni.pageScrollTo({ scrollTop: Math.max(0, top + rect.top - INDEX_H), duration: 200 })
+      else
+        uni.pageScrollTo({ selector: `#${id}`, duration: 200 })
+    })
 }
+
+function unobserve() {
+  observer?.disconnect()
+  observer = null
+}
+function observeSections() {
+  unobserve()
+  try {
+    observer = uni.createIntersectionObserver(instance?.proxy as any, { observeAll: true })
+    observer.relativeToViewport({ top: -60, bottom: -500 }).observe('.rb-anchor', (res: any) => {
+      if ((res.intersectionRatio || 0) > 0 && res.id)
+        active.value = res.id
+    })
+  }
+  catch {
+    observer = null
+  }
+}
+// the sections exist only once the view has loaded
+watch(() => !!view.value, (shown) => {
+  if (shown)
+    nextTick(observeSections)
+  else
+    unobserve()
+}, { immediate: true })
+onUnmounted(unobserve)
 function goRobots() {
   uni.navigateTo({ url: '/pages/robots/index' })
 }
@@ -274,6 +324,7 @@ onShow(async () => {
 onHide(() => clearInterval(timer))
 onUnload(() => {
   clearInterval(timer)
+  unobserve()
   fwFlow.destroy()
 })
 watch(deviceId, () => {
@@ -316,20 +367,23 @@ watch(deviceId, () => {
         <text>{{ t('mrobot.offlineNote') }}</text>
       </view>
 
-      <scroll-view scroll-x class="rbm__indexwrap" :show-scrollbar="false">
+      <scroll-view scroll-x class="rbm__indexwrap" :show-scrollbar="false" :scroll-into-view="active ? `rbi-${active.slice(3)}` : ''" scroll-with-animation>
         <view class="rbm__index" role="navigation" :aria-label="t('mrobot.indexLabel')">
-          <view v-for="s in sections" :key="s" class="rbm__indexlink" role="link" hover-class="is-press" @click="jump(s)">
+          <view
+            v-for="s in sections" :id="`rbi-${s}`" :key="s" class="rbm__indexlink" :class="{ 'is-on': active === `rb-${s}` }"
+            role="link" :aria-current="active === `rb-${s}` ? 'true' : undefined" hover-class="is-press" @click="jump(s)"
+          >
             <text>{{ t(`mrobot.sec.${s}`) }}</text>
           </view>
         </view>
       </scroll-view>
 
-      <RobotStatus id="rb-status" />
-      <RobotSound id="rb-sound" />
-      <RobotTalk id="rb-talk" />
-      <RobotMemory id="rb-memory" />
-      <RobotJobs id="rb-jobs" />
-      <RobotFirmware id="rb-firmware" />
+      <RobotStatus id="rb-status" class="rb-anchor" />
+      <RobotSound id="rb-sound" class="rb-anchor" />
+      <RobotTalk id="rb-talk" class="rb-anchor" />
+      <RobotMemory id="rb-memory" class="rb-anchor" />
+      <RobotJobs id="rb-jobs" class="rb-anchor" />
+      <RobotFirmware id="rb-firmware" class="rb-anchor" />
     </block>
   </view>
 </template>
@@ -357,9 +411,15 @@ watch(deviceId, () => {
 .rbm__offline .tb-icon {
   margin-top: 2px;
 }
+/* pinned while the long screen scrolls; no ancestor clips overflow, so sticky holds on H5 */
 .rbm__indexwrap {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   width: 100%;
+  height: auto;
   white-space: nowrap;
+  background: var(--tb-paper);
   border-bottom: 1px solid var(--tb-rule);
 }
 .rbm__index {
@@ -381,5 +441,9 @@ watch(deviceId, () => {
 }
 .rbm__indexlink.is-press {
   color: var(--tb-ink);
+}
+.rbm__indexlink.is-on {
+  color: var(--tb-ink);
+  box-shadow: inset 0 -3px 0 var(--tb-action);
 }
 </style>

@@ -32,7 +32,7 @@ it('focus job sends the saved work minutes, else 25', () => {
 it('command labels', () => {
   assert.equal(commandLabel({ type: 'game', arg: 'dice' }), 'companion.game.dice')
   assert.equal(commandLabel({ type: 'game', arg: 'chess' }), 'companion.cmd.game')
-  assert.equal(commandLabel({ type: 'night_light', arg: 'off' }), 'companion.act.lightOff')
+  assert.equal(commandLabel({ type: 'night_light', arg: 'off' }), 'mrobot.jobs.lightOff')
   assert.equal(commandLabel({ type: 'update' }), 'mrobot.fw.updateCommand')
   assert.equal(commandLabel({ type: 'story' }), 'companion.cmd.story')
   assert.equal(commandLabel({ type: 'dance' }), '')

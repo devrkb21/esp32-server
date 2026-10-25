@@ -23,6 +23,7 @@ import { toast } from '@/utils/toast'
 import {
   agoParts,
   commandSync,
+  convPart,
   dateParts,
   focusMinutes,
   MAX_MESSAGE,
@@ -216,7 +217,12 @@ function sessionTitle(s: ChatSession) {
   if (s.title)
     return s.title
   const w = parts(s.createdAt).word
-  return w === 'today' ? t('mmsg.today') : w === 'yesterday' ? t('mmsg.yesterday') : t('mmsg.conv.untitled')
+  if (w === 'today')
+    return t('mmsg.today')
+  if (w === 'yesterday')
+    return t('mmsg.yesterday')
+  const part = convPart(s.createdAt)
+  return part ? t(`mmsg.conv.${part}`) : t('mmsg.conv.untitled')
 }
 function sessionSub(s: ChatSession) {
   const bits = [parts(s.createdAt).time]

@@ -4,6 +4,7 @@ import { it } from 'node:test'
 import {
   agoParts,
   commandSync,
+  convPart,
   dateParts,
   dayWord,
   firstLine,
@@ -105,4 +106,18 @@ it('sessions merge without duplicates and a refresh replaces the first page', ()
   const loaded = [{ sessionId: '1' }, { sessionId: '2' }, { sessionId: '3' }]
   const fresh = refreshFirstPage(loaded, [{ sessionId: '0' }, { sessionId: '1' }], 2)
   assert.deepEqual(fresh.map(s => s.sessionId), ['0', '1', '3'])
+})
+
+it('convPart names an untitled conversation by the hour it started', () => {
+  assert.equal(convPart('2026-10-25 05:00:00'), 'morning')
+  assert.equal(convPart('2026-10-25 11:59:00'), 'morning')
+  assert.equal(convPart('2026-10-25 12:00:00'), 'noon')
+  assert.equal(convPart('2026-10-25 14:30:00'), 'noon')
+  assert.equal(convPart('2026-10-25 15:00:00'), 'afternoon')
+  assert.equal(convPart('2026-10-25 17:59:00'), 'afternoon')
+  assert.equal(convPart('2026-10-25 18:00:00'), 'evening')
+  assert.equal(convPart('2026-10-25 19:59:00'), 'evening')
+  assert.equal(convPart('2026-10-25 20:00:00'), 'night')
+  assert.equal(convPart('2026-10-25 04:59:00'), 'night')
+  assert.equal(convPart('not a date'), '')
 })

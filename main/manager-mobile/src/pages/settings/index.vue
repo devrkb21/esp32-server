@@ -487,6 +487,10 @@ onShow(() => {
           </text>
         </view>
       </view>
+      <view class="more__maker">
+        <image class="more__nobix more__nobix--light" src="/static/brand/nobix-lockup.png" mode="widthFix" role="img" :aria-label="t('mauth.madeBy')" />
+        <image class="more__nobix more__nobix--dark" src="/static/brand/nobix-lockup-dark.png" mode="widthFix" role="img" :aria-label="t('mauth.madeBy')" />
+      </view>
       <view class="more__facts">
         <view class="more__fact">
           <text>{{ t('mauth.more.appVersion') }}</text><text class="tb-num">
@@ -660,6 +664,26 @@ onShow(() => {
   font-family: var(--tb-font-display);
   font-weight: 800;
   font-size: 20px;
+}
+/* Nobix, the maker: the official lockup above the version lines, with clear space of at least
+   half the mark around it; the dark file (white wordmark) on the dark ground */
+.more__maker {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 18px;
+}
+.more__nobix {
+  width: 140px;
+  height: auto;
+}
+.more__nobix--dark {
+  display: none;
+}
+.is-dark .more__nobix--light {
+  display: none;
+}
+.is-dark .more__nobix--dark {
+  display: block;
 }
 .more__facts {
   display: flex;

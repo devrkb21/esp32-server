@@ -27,10 +27,19 @@ for (const mod of Object.values(pageFiles)) {
 // Current active language
 const currentLang = ref<Language>('bn')
 
+// The document language follows the UI, so screen readers pick a Bangla or English voice.
+function applyDocLang(code: Language) {
+  // #ifdef H5
+  if (typeof document !== 'undefined')
+    document.documentElement.lang = code === 'bn' ? 'bn-BD' : 'en'
+  // #endif
+}
+
 // Initialize language
 export function initI18n() {
   const langStore = useLangStore()
   currentLang.value = normalizeLanguage(langStore.currentLang)
+  applyDocLang(currentLang.value)
 }
 
 // Switch language
@@ -39,6 +48,7 @@ export function changeLanguage(lang: Language) {
   currentLang.value = code
   const langStore = useLangStore()
   langStore.changeLang(code)
+  applyDocLang(code)
 }
 
 // Get translated text

@@ -110,6 +110,14 @@
   line-height: 1.1;
   color: var(--tb-alarm);
 }
+/* the Bangla day part ('রাত', 'সকাল') sits small before the big numeral, never inside it */
+.drow__part {
+  margin-right: 4px;
+  font-family: var(--tb-font-text);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
 .drow__body {
   flex: 1;
   min-width: 0;
@@ -154,8 +162,10 @@
   border-top-style: dashed;
   border-top-color: var(--tb-rule-soft);
 }
+/* greetings switched off: the time reads in the third ink; the frame goes soft, the text stays legible */
 .drows.is-dim .drow--talk .dtime {
-  opacity: 0.55;
+  color: var(--tb-ink-3);
+  border-color: var(--tb-rule-soft);
 }
 
 .dfoot {

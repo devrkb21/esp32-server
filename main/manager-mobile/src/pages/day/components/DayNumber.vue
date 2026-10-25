@@ -99,7 +99,12 @@ function onBlur() {
 .dnum.is-bad {
   border-color: var(--tb-danger);
 }
+/* disabled: the frame goes soft and the figures take the third ink (no text dimming) */
 .dnum.is-disabled {
-  opacity: 0.45;
+  border-color: var(--tb-rule-soft);
+}
+.dnum.is-disabled .dnum__in,
+.dnum.is-disabled .dnum__btn {
+  color: var(--tb-ink-3);
 }
 </style>

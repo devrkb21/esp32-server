@@ -4,8 +4,9 @@ import { getCurrentLanguage, t } from '@/i18n'
 import { useConfigStore } from '@/store'
 import { digits } from '@/utils/calendar.mjs'
 
-// The frame of the account screens: one calm column. The Nobix mark and name on the top rule,
-// TinyBot's face window waking up beside the title as the form fills, the form, the version.
+// The frame of the account screens: one calm column. The TinyBot mark and name on the top rule,
+// TinyBot's face window waking up beside the title as the form fills, the form, the version and,
+// at the foot, the Nobix "made by" lockup.
 const props = withDefaults(defineProps<{ title: string, lead?: string, mood?: string, pulse?: boolean, back?: boolean }>(), {
   lead: '',
   mood: 'sleepy',
@@ -70,6 +71,10 @@ const moodText = computed(() => t(`mauth.mood.${props.mood}`))
         <text v-if="version" class="tb-num auth__version">
           {{ version }}
         </text>
+        <view class="auth__maker">
+          <image class="auth__nobix auth__nobix--light" src="/static/brand/nobix-lockup.png" mode="widthFix" role="img" :aria-label="t('mauth.madeBy')" />
+          <image class="auth__nobix auth__nobix--dark" src="/static/brand/nobix-lockup-dark.png" mode="widthFix" role="img" :aria-label="t('mauth.madeBy')" />
+        </view>
       </view>
     </view>
   </view>
@@ -191,6 +196,26 @@ const moodText = computed(() => t(`mauth.mood.${props.mood}`))
 .auth__version {
   font-size: 12px;
   color: var(--tb-ink-2);
+}
+/* Nobix, the maker: the official lockup, small and centred, with clear space of at least half the
+   mark around it. The dark file (white wordmark) shows on the dark ground. */
+.auth__maker {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 8px;
+}
+.auth__nobix {
+  width: 120px;
+  height: auto;
+}
+.auth__nobix--dark {
+  display: none;
+}
+.is-dark .auth__nobix--light {
+  display: none;
+}
+.is-dark .auth__nobix--dark {
+  display: block;
 }
 
 @media (max-width: 359px) {
