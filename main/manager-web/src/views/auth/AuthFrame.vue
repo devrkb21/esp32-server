@@ -42,10 +42,6 @@
           <span v-if="ver.name">{{ ver.name }}</span>
           <span v-if="ver.version" class="tb-num">{{ $t('auth.version', { v: ver.version }) }}</span>
         </p>
-        <p v-if="ver.ga || ver.icp" class="auth__filing">
-          <a v-if="ver.ga" :href="`http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=${ver.ga}`" target="_blank" rel="noopener">{{ ver.ga }}</a>
-          <a v-if="ver.icp" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">{{ ver.icp }}</a>
-        </p>
       </footer>
     </div>
   </div>
@@ -118,7 +114,6 @@ function pickLanguage(code) { if (code && code !== lang.value) changeLanguage(co
 
 .auth__foot { display: grid; gap: 4px; padding: 12px 0 4px; border-top: 1px solid var(--tb-rule-soft); color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
 .auth__foot p { display: flex; flex-wrap: wrap; gap: 4px 10px; }
-.auth__filing a { color: var(--tb-ink-2); }
 
 /* desktop: the giant date heads the left column with TinyBot under it; the form on the right */
 @media (min-width: 960px) {

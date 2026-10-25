@@ -26,6 +26,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "uvm": "npx @dcloudio/uvm@latest",
+    "legal": "node scripts/legal-gen.mjs",
     "uvm-rm": "node ./scripts/postupgrade.js",
     "postuvm": "echo upgrade uni-app success!",
     "dev:app": "uni -p app",

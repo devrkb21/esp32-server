@@ -19,7 +19,7 @@ import { changeLanguage, getCurrentLanguage, getSupportedLanguages, initI18n, t 
 import { useUserStore } from '@/store'
 import { sm2Encrypt } from '@/utils'
 import { toast } from '@/utils/toast'
-import { faceMood, filledCount, isPhone } from './authKit.mjs'
+import { faceMood, filledCount, fullPhone, isPhone } from './authKit.mjs'
 import AuthField from './components/auth-field.vue'
 import AuthFrame from './components/auth-frame.vue'
 import CaptchaImage from './components/captcha-image.vue'
@@ -119,7 +119,7 @@ async function handleLogin() {
     if (!form.username)
       return fail('username', t('mauth.err.username'))
   }
-  else if (!form.mobile || !isPhone(form.mobile)) {
+  else if (!form.mobile || !isPhone(form.mobile, form.areaCode)) {
     return fail('mobile', t('mauth.err.mobile'))
   }
   if (!form.password)
@@ -140,7 +140,7 @@ async function handleLogin() {
   }
 
   const loginData: LoginData = {
-    username: loginType.value === 'mobile' ? `${form.areaCode}${form.mobile}` : form.username,
+    username: loginType.value === 'mobile' ? fullPhone(form.areaCode, form.mobile) : form.username,
     password: encryptedPassword,
     captchaId: captcha.id.value,
   }
@@ -209,7 +209,7 @@ onMounted(async () => {
           </text><tb-icon name="chevron-down" :size="14" />
         </view>
         <tb-input
-          v-model="form.mobile" type="number" :maxlength="11" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
+          v-model="form.mobile" type="number" :maxlength="15" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
           :invalid="!!errors.mobile" @update:model-value="touch('mobile')"
         />
       </AuthField>

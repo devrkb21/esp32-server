@@ -32,8 +32,6 @@ export default [
       enableMobileRegister: true,
       sm2PublicKey: DEMO_SM2_PUBLIC_KEY,
       systemWebMenu: JSON.stringify({ features: { mcpAccessPoint: { enabled: true }, vad: { enabled: true }, asr: { enabled: true }, knowledgeBase: { enabled: true }, voiceClone: { enabled: true }, addressBook: { enabled: true } } }),
-      beianIcpNum: 'null',
-      beianGaNum: 'null',
       mobileAreaList: [
         { name: 'Bangladesh', key: '+880' },
         { name: 'India', key: '+91' },

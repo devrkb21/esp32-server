@@ -50,7 +50,7 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
-import { validateMobile } from '@/utils';
+import { fullMobile, validateMobile } from '@/utils';
 import AuthFrame from './AuthFrame.vue';
 import RuledField from './RuledField.vue';
 import CaptchaButton from './CaptchaButton.vue';
@@ -124,7 +124,7 @@ function submit() {
     fail(e instanceof NoPublicKeyError ? t('auth.err.noKey') : t('auth.err.encrypt'));
     return;
   }
-  const username = mode.value === 'mobile' ? form.areaCode + form.mobile.replace(/\s/g, '') : form.username.trim();
+  const username = mode.value === 'mobile' ? fullMobile(form.areaCode, form.mobile) : form.username.trim();
   pulse.value = false; requestAnimationFrame(() => { pulse.value = true; });
   busyOn();
   Api.user.login({ username, password, captchaId: captcha.id.value }, ({ data }) => {

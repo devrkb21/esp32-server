@@ -5,6 +5,7 @@
   "scripts": {
     "serve": "vite",
     "check:i18n": "node scripts/check-i18n.js",
+    "legal": "node scripts/legal-gen.mjs",
     "test:snapshot": "node --test src/components/agentSnapshotDisplayUtils.test.mjs src/apis/module/agentSnapshotApi.test.mjs",
     "build": "vite build",
     "test:contract": "node --test tests/*Contract.test.mjs",

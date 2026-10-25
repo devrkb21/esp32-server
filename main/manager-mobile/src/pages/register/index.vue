@@ -14,7 +14,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { register, sendSmsCode } from '@/api/auth'
 import { getCurrentLanguage, initI18n, t } from '@/i18n'
-import { faceMood, filledCount, hasCode, isPhone } from '@/pages/login/authKit.mjs'
+import { faceMood, filledCount, hasCode, fullPhone, isPhone } from '@/pages/login/authKit.mjs'
 import AuthField from '@/pages/login/components/auth-field.vue'
 import AuthFrame from '@/pages/login/components/auth-frame.vue'
 import CaptchaImage from '@/pages/login/components/captcha-image.vue'
@@ -94,12 +94,12 @@ async function sendSmsVerification() {
     return fail('mobile', t('mauth.err.mobile'))
   if (!form.captcha)
     return fail('captcha', t('mauth.err.captchaFirst'))
-  if (!isPhone(form.mobile))
+  if (!isPhone(form.mobile, form.areaCode))
     return fail('mobile', t('mauth.err.mobile'))
 
   smsLoading.value = true
   try {
-    await sendSmsCode({ phone: `${form.areaCode}${form.mobile}`, captcha: form.captcha, captchaId: captcha.id.value })
+    await sendSmsCode({ phone: fullPhone(form.areaCode, form.mobile), captcha: form.captcha, captchaId: captcha.id.value })
     toast.success(t('mauth.smsSent'))
     countdown.start()
   }
@@ -118,7 +118,7 @@ async function handleRegister() {
     return
   clearErrors()
   if (mobileEnabled.value) {
-    if (!form.mobile || !isPhone(form.mobile))
+    if (!form.mobile || !isPhone(form.mobile, form.areaCode))
       return fail('mobile', t('mauth.err.mobile'))
     if (!form.mobileCaptcha)
       return fail('mobileCaptcha', t('mauth.err.smsCode'))
@@ -153,7 +153,7 @@ async function handleRegister() {
   }, 16)
   try {
     await register({
-      username: mobileEnabled.value ? `${form.areaCode}${form.mobile}` : form.username,
+      username: mobileEnabled.value ? fullPhone(form.areaCode, form.mobile) : form.username,
       password: encryptedPassword,
       captchaId: captcha.id.value,
       areaCode: form.areaCode,
@@ -205,7 +205,7 @@ onMounted(async () => {
           </text><tb-icon name="chevron-down" :size="14" />
         </view>
         <tb-input
-          v-model="form.mobile" type="number" :maxlength="11" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
+          v-model="form.mobile" type="number" :maxlength="15" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
           :invalid="!!errors.mobile" @update:model-value="touch('mobile')"
         />
       </AuthField>

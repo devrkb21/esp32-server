@@ -1,16 +1,45 @@
 // Pure helpers shared by the account screens (sign in, new account, new password, More).
 // No Vue, no uni: everything here is covered by authKit.test.mjs.
 
-// The phone rule the old screens used (mainland China mobile format), kept as it was.
-export const PHONE_RE = /^1[3-9]\d{9}$/
+// Bangladesh is the rule. After +880 a mobile number is 1[3-9] and eight more digits; people
+// type it as 1712345678, with the local 0 as 01712345678, or in full as +8801712345678.
+export const PHONE_RE = /^1[3-9]\d{8}$/
 
-export function isPhone(value) {
-  return PHONE_RE.test(String(value ?? ''))
+// Only the digits of what was typed; Bangla digits (০-৯) count as digits.
+function phoneDigits(value) {
+  return String(value ?? '').replace(/[০-৯]/g, d => String(d.charCodeAt(0) - 0x09E6)).replace(/\D/g, '')
 }
 
-// The country codes the server offers; the old screens fell back to one entry.
+// A Bangladeshi number without the local leading 0 or a typed 880 prefix.
+function bdLocal(digits) {
+  if (/^8801[3-9]\d{8}$/.test(digits))
+    return digits.slice(3)
+  if (/^01[3-9]\d{8}$/.test(digits))
+    return digits.slice(1)
+  return digits
+}
+
+// Valid mobile for the area code: the Bangladeshi rule for +880 (the default), a plain length
+// check (5 to 15 digits) for any other code the server offers.
+export function isPhone(value, areaCode = '+880') {
+  const digits = phoneDigits(value)
+  if (areaCode === '+880')
+    return PHONE_RE.test(bdLocal(digits))
+  return /^\d{5,15}$/.test(digits)
+}
+
+// The number the server receives: code + digits, without the Bangladeshi local 0
+// ('+880', '01712345678' gives '+8801712345678').
+export function fullPhone(areaCode, value) {
+  let digits = phoneDigits(value)
+  if (areaCode === '+880')
+    digits = bdLocal(digits)
+  return `${areaCode || ''}${digits}`
+}
+
+// The country codes the server offers, or Bangladesh alone.
 export function areaList(list) {
-  return Array.isArray(list) && list.length ? list : [{ name: 'Mainland China', key: '+86' }]
+  return Array.isArray(list) && list.length ? list : [{ name: 'Bangladesh', key: '+880' }]
 }
 
 // The code a phone field starts on: Bangladesh when the server offers it, else the first one.
@@ -18,7 +47,22 @@ export function defaultAreaCode(list) {
   const items = areaList(list)
   if (items.some(i => i && i.key === '+880'))
     return '+880'
-  return (items[0] && items[0].key) || '+86'
+  return (items[0] && items[0].key) || '+880'
+}
+
+// TODO(Nobix): fill in Nobix Industries' support email and/or phone number here. It replaces
+// "{{CONTACT}}" in the last sentence of the terms and the privacy policy; while it is empty that
+// sentence ends without the ": {{CONTACT}}" part.
+export const LEGAL_CONTACT = ''
+
+// Puts the contact into a sentence, or drops ": {{CONTACT}}" when there is none yet, so the
+// sentence ends on its own full stop ('।' in Bangla, '.' in English).
+export function withContact(text, contact = LEGAL_CONTACT) {
+  const s = String(text ?? '')
+  const c = String(contact || '').trim()
+  if (c)
+    return s.split('{{CONTACT}}').join(c)
+  return s.replace(/\s*:\s*\{\{CONTACT\}\}/g, '').split('{{CONTACT}}').join('')
 }
 
 // A fresh id for each picture code (same format as before).
@@ -44,9 +88,10 @@ export function filledCount(values) {
   return (values || []).filter(v => String(v ?? '').trim() !== '').length
 }
 
-// The agreement and privacy pages: Chinese for zh_CN, English for every other language (as before).
-export function legalPath(page, lang) {
-  return `/pages/login/${page}-${lang === 'zh_CN' ? 'zh' : 'en'}`
+// Nobix's terms of use and privacy policy; each page shows Bangla or English by the language.
+export function legalPath(page) {
+  const p = String(page || '')
+  return p === 'privacy' || p === 'privacy-policy' ? '/pages/legal/privacy' : '/pages/legal/terms'
 }
 
 // "By signing in you accept the {terms} and the {privacy}." split into text and link pieces.

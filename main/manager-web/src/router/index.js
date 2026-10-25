@@ -8,6 +8,7 @@ const v = {
   register: () => import('../views/auth/Register.vue'),
   retrieve: () => import('../views/auth/RetrievePassword.vue'),
   account: () => import('../views/auth/Account.vue'),
+  legal: () => import('../views/legal/LegalPage.vue'),
   today: () => import('../views/today/Today.vue'),
   more: () => import('../views/more/More.vue'),
   robots: () => import('../views/robots/Robots.vue'),
@@ -41,6 +42,9 @@ export const routes = [
   { path: '/login', name: 'login', component: v.login, meta: { bare: true, title: 'nav.signIn' } },
   { path: '/register', name: 'Register', component: v.register, meta: { bare: true, title: 'nav.register' } },
   { path: '/retrieve-password', name: 'RetrievePassword', component: v.retrieve, meta: { bare: true, title: 'nav.retrieve' } },
+  // Nobix's terms of use and privacy policy: bare, readable signed in or not.
+  { path: '/terms', name: 'Terms', component: v.legal, meta: { bare: true, public: true, doc: 'terms', title: 'legal.terms' } },
+  { path: '/privacy', name: 'Privacy', component: v.legal, meta: { bare: true, public: true, doc: 'privacy', title: 'legal.privacy' } },
   { path: '/account', name: 'Account', component: v.account, meta: { title: 'nav.account' } },
 
   { path: '/today', name: 'Today', component: v.today, meta: { title: 'nav.today' } },
@@ -86,6 +90,7 @@ const router = createRouter({
 const anonRouteNames = new Set(['login', 'Register', 'RetrievePassword', 'welcome']);
 
 router.beforeEach((to) => {
+  if (to.meta && to.meta.public) return true;
   let token = null;
   try { token = localStorage.getItem('token'); } catch (e) { /* private mode */ }
   const isAnon = anonRouteNames.has(to.name);

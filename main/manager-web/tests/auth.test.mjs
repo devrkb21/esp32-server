@@ -5,6 +5,7 @@ import smCrypto from 'sm-crypto';
 import {
   areaOptions, defaultAreaCode, encryptPassword, faceMood, filledCount, LEGAL_READY, legalUrl, mentionsCaptcha, NoPublicKeyError, versionParts,
 } from '../src/views/auth/authKit.js';
+import { fullMobile, validateMobile } from '../src/utils/index.js';
 
 const { sm2 } = smCrypto;
 const keys = sm2.generateKeyPairHex();
@@ -19,18 +20,22 @@ describe('authKit', () => {
     expect(() => encryptPassword('', 'a', 'b')).toThrow(NoPublicKeyError);
   });
   it('starts phone fields on Bangladesh when offered, else the first area', () => {
-    expect(defaultAreaCode([{ key: '+86' }, { key: '+880' }])).toBe('+880');
+    expect(defaultAreaCode([{ key: '+91' }, { key: '+880' }])).toBe('+880');
     expect(defaultAreaCode([{ key: '+44' }])).toBe('+44');
     expect(defaultAreaCode(undefined)).toBe('+880');
     expect(areaOptions([{ key: '+91', name: 'India' }])).toEqual([{ value: '+91', label: '+91 India' }]);
   });
-  it('links the future Nobix legal pages: -bn for Bangla, -en for every other language', () => {
-    expect(legalUrl('user-agreement', 'bn', '/app')).toBe('/app/user-agreement-bn.html');
-    expect(legalUrl('privacy-policy', 'en', '/')).toBe('/privacy-policy-en.html');
-    expect(legalUrl('privacy-policy', 'zh_CN', '/')).toBe('/privacy-policy-en.html');
+  it('falls back to Bangladesh alone when the server lists no areas', () => {
+    expect(areaOptions(undefined)).toEqual([{ value: '+880', label: '+880 Bangladesh' }]);
   });
-  it('keeps the legal note hidden until Nobix publishes its own terms', () => {
-    expect(LEGAL_READY).toBe(false);
+  it('links Nobix legal pages by router path', () => {
+    expect(legalUrl('terms')).toBe('#/terms');
+    expect(legalUrl('privacy')).toBe('#/privacy');
+    expect(legalUrl('user-agreement')).toBe('#/terms');
+    expect(legalUrl('privacy-policy')).toBe('#/privacy');
+  });
+  it('shows the legal note now that Nobix publishes its own terms', () => {
+    expect(LEGAL_READY).toBe(true);
   });
   it('spots server messages about the picture code', () => {
     expect(mentionsCaptcha('Invalid captcha')).toBe(true);
@@ -45,9 +50,43 @@ describe('authKit', () => {
     expect(faceMood({ filled: 0, outcome: 'error' })).toBe('confused');
     expect(filledCount(['a', ' ', '', null, 'b'])).toBe(2);
   });
-  it('reads the foot from the public config and drops "null" filings', () => {
-    expect(versionParts({ version: '1.2', name: 'X', year: 2026, beianIcpNum: 'null' }))
-      .toEqual({ year: '2026', name: 'X', version: '1.2', icp: '', ga: '' });
+  it('reads the foot from the public config and never shows filing numbers', () => {
+    expect(versionParts({ version: '1.2', name: 'X', year: 2026, beianIcpNum: 'ICP-1', beianGaNum: 'GA-2' }))
+      .toEqual({ year: '2026', name: 'X', version: '1.2' });
+    expect(versionParts({ version: 'null' })).toEqual({ year: '', name: '', version: '' });
+  });
+});
+
+describe('Bangladeshi mobile numbers', () => {
+  it('accepts a +880 mobile with or without the local 0, or typed in full', () => {
+    expect(validateMobile('1712345678', '+880')).toBe(true);
+    expect(validateMobile('01712345678', '+880')).toBe(true);
+    expect(validateMobile('+8801712345678', '+880')).toBe(true);
+    expect(validateMobile('017 1234 5678', '+880')).toBe(true);
+    expect(validateMobile('০১৭১২৩৪৫৬৭৮', '+880')).toBe(true);
+    expect(validateMobile('01312345678', '+880')).toBe(true);
+    expect(validateMobile('01912345678', '+880')).toBe(true);
+  });
+  it('refuses short, long and non-mobile +880 numbers', () => {
+    expect(validateMobile('017', '+880')).toBe(false);
+    expect(validateMobile('0171234567', '+880')).toBe(false);
+    expect(validateMobile('017123456789', '+880')).toBe(false);
+    expect(validateMobile('01212345678', '+880')).toBe(false);
+    expect(validateMobile('0221234567', '+880')).toBe(false);
+    expect(validateMobile('13812345678', '+880')).toBe(false);
+    expect(validateMobile('', '+880')).toBe(false);
+  });
+  it('only checks the length for other country codes', () => {
+    expect(validateMobile('7911123456', '+44')).toBe(true);
+    expect(validateMobile('1234', '+44')).toBe(false);
+    expect(validateMobile('1234567890123456', '+91')).toBe(false);
+  });
+  it('sends +880 numbers without the local 0', () => {
+    expect(fullMobile('+880', '01712345678')).toBe('+8801712345678');
+    expect(fullMobile('+880', '1712345678')).toBe('+8801712345678');
+    expect(fullMobile('+880', '+8801712345678')).toBe('+8801712345678');
+    expect(fullMobile('+880', '017-1234-5678')).toBe('+8801712345678');
+    expect(fullMobile('+44', '07911 123456')).toBe('+4407911123456');
   });
 });
 
@@ -107,10 +146,12 @@ describe('Login', { timeout: 60000 }, () => {
     expect(api.calls.some(([k]) => k === 'login')).toBe(false);
   });
 
-  it('shows no terms or privacy note until Nobix has its own', async () => {
+  it('shows the terms and privacy note linking Nobix pages', async () => {
     const { w } = await mountLogin();
-    expect(w.find('.auth-form__note').exists()).toBe(false);
-    expect(w.find('a[href$="-en.html"]').exists()).toBe(false);
+    expect(w.find('.auth-form__note').exists()).toBe(true);
+    expect(w.find('a[href="#/terms"]').exists()).toBe(true);
+    expect(w.find('a[href="#/privacy"]').exists()).toBe(true);
+    expect(w.find('a[href$=".html"]').exists()).toBe(false);
   });
 
   it('signs in with the SM2 password, keeps the token and user, and opens Today', async () => {
@@ -156,5 +197,29 @@ describe('Login', { timeout: 60000 }, () => {
     await flushPromises();
     const [, sent] = api.calls.find(([k]) => k === 'login');
     expect(sent.username).toBe('+8801712345678');
+  });
+
+  it('accepts the local 01XXXXXXXXX form and sends it as +880 without the 0', async () => {
+    api.pub.enableMobileRegister = true;
+    const { w } = await mountLogin();
+    await w.find('#login-mobile').setValue('01712345678');
+    await w.find('#login-password').setValue('pass-123');
+    await w.find('#login-captcha').setValue('Q7');
+    await w.find('form').trigger('submit');
+    await flushPromises();
+    const [, sent] = api.calls.find(([k]) => k === 'login');
+    expect(sent.username).toBe('+8801712345678');
+  });
+
+  it('refuses a number that is not a Bangladeshi mobile', async () => {
+    api.pub.enableMobileRegister = true;
+    const { w } = await mountLogin();
+    await w.find('#login-mobile').setValue('13812345678');
+    await w.find('#login-password').setValue('pass-123');
+    await w.find('#login-captcha').setValue('Q7');
+    await w.find('form').trigger('submit');
+    await flushPromises();
+    expect(w.text()).toContain('Enter a valid mobile number');
+    expect(api.calls.some(([k]) => k === 'login')).toBe(false);
   });
 });
