@@ -14,6 +14,8 @@ import {
   routinePayload,
   routineProblem,
   scheduledActivity,
+  FOCUS_PRESETS,
+  parseMinutes,
 } from '@/utils/companion.mjs';
 
 export const TABS = ['alarms', 'reminders', 'prayer', 'routine', 'focus', 'night'];
@@ -28,6 +30,21 @@ export const FOCUS_LIMITS = {
   short_break_min: [1, 60],
   long_break_min: [1, 90],
 };
+// Focus "start now": preset chips plus a custom minutes box (1..120, Bangla digits accepted).
+export { FOCUS_PRESETS, parseMinutes };
+
+/** The picker state for a minutes value: a preset chip, or 'custom' with the value in the box. */
+export function focusPick(minutes) {
+  const n = parseMinutes(minutes);
+  if (n !== null && FOCUS_PRESETS.includes(n)) return { choice: n, custom: '' };
+  return { choice: 'custom', custom: n === null ? '' : String(n) };
+}
+
+/** The minutes the picker stands for (a chip, or the custom box), or null when the box is not 1..120. */
+export function pickedMinutes(choice, custom) {
+  return choice === 'custom' ? parseMinutes(custom) : parseMinutes(choice);
+}
+
 // Care: lonely after 10..1440 minutes, in steps of 10 (legacy input).
 export const LONELY_LIMITS = [10, 1440];
 // Reminders "every N minutes": 5..720, steps of 5 (legacy input).

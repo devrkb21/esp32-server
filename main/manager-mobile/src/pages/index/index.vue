@@ -17,6 +17,7 @@ import { getCurrentLanguage, t } from '@/i18n'
 import { lastSeen } from '@/pages/robots/robotsModel.mjs'
 import { useUserStore } from '@/store'
 import { digits, timeText } from '@/utils/calendar.mjs'
+import { focusMinutes } from '@/utils/companionUtils.mjs'
 import { notifyRequestError } from '@/utils/requestError'
 import { allows, productName } from '@/utils/tbProducts.mjs'
 import { loadRobots, robot, robotFeatures } from '@/utils/tbRobot'
@@ -98,14 +99,19 @@ const rows = computed(() => dayRows(view.value, date.value, (k: string, p?: any)
   return t(k, p || {})
 }, { lang: lang.value, nowMinutes: isToday.value ? nowMinutes.value : -1 }))
 
-const commands = [
+// The focus chip starts the saved default minutes (pomodoro.work_min, set on the Day screen)
+const focusMin = computed(() => focusMinutes(view.value))
+const commands = computed(() => [
   { type: 'story', icon: 'story', label: 'today.cmd.story' },
   { type: 'lullaby', icon: 'lullaby', label: 'today.cmd.lullaby' },
-  { type: 'pomodoro', icon: 'focus', label: 'today.cmd.focus', arg: 25 },
+  { type: 'pomodoro', icon: 'focus', label: 'today.cmd.focus', arg: focusMin.value, params: { n: num(focusMin.value) } },
   { type: 'game', icon: 'game', label: 'today.cmd.game', arg: 'catch' },
   { type: 'breathe', icon: 'breathe', label: 'today.cmd.breathe' },
   { type: 'night_light', icon: 'light', label: 'today.cmd.light' },
-]
+])
+function cmdName(c: any) {
+  return t(c.label, c.params || {})
+}
 
 async function refresh(quiet = false) {
   if (!robot.deviceId)
@@ -153,7 +159,7 @@ async function run(c: any) {
   busy.value = c.type
   try {
     await sendCompanionCommand(robot.deviceId, { type: c.type, arg: c.arg === undefined ? '' : String(c.arg) } as any)
-    toast.success(t('today.cmdSent', { name: t(c.label) }))
+    toast.success(t('today.cmdSent', { name: cmdName(c) }))
   }
   catch (e) {
     notifyRequestError(e, 'today.sendFailed')
@@ -255,7 +261,7 @@ watch(companion, (on, was) => {
         <scroll-view v-if="can('commands')" scroll-x class="today__deckwrap" :show-scrollbar="false">
           <view class="today__deck" role="group" :aria-label="t('today.deckLabel')">
             <tb-button v-for="c in commands" :key="c.type" :icon="c.icon" :loading="busy === c.type" @click="run(c)">
-              {{ t(c.label) }}
+              {{ cmdName(c) }}
             </tb-button>
           </view>
         </scroll-view>

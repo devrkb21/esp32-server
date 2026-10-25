@@ -74,6 +74,18 @@ export interface ProactiveSettings {
   evening: string
 }
 
+/** What a tap on TinyBot's head does (settings.gestures; schema.py GESTURE_ACTIONS) */
+export type GestureAction = 'none' | 'talk' | 'focus' | 'breathe' | 'night_light' | 'lullaby' | 'story'
+  | 'game_catch' | 'game_simon' | 'game_dice' | 'game_reaction' | 'game_random' | 'pages' | 'status'
+
+/** Tap shortcuts: 2 taps then a pause = double, 3 = triple, 4 or more do nothing */
+export interface GestureSettings {
+  /** default 'none' */
+  double_tap: GestureAction
+  /** default 'talk' */
+  triple_tap: GestureAction
+}
+
 /** TinyBot notes lasting things about the family after voice chats (settings.memory) */
 export interface MemorySettings {
   /** default true; off = no new notes and the notes are not used (they stay until deleted) */
@@ -179,6 +191,8 @@ export interface CompanionSettings {
   proactive?: Partial<ProactiveSettings>
   /** missing on older servers: the defaults */
   memory?: Partial<MemorySettings>
+  /** missing on older servers: the defaults */
+  gestures?: Partial<GestureSettings>
   /** missing on older robots: the default day */
   routine?: Partial<RoutineSettings>
 }
@@ -351,6 +365,7 @@ export interface CompanionConfigPatch {
     display?: Partial<DisplaySettings>
     proactive?: Partial<ProactiveSettings>
     memory?: Partial<MemorySettings>
+    gestures?: Partial<GestureSettings>
     /** `items` replaces the whole list */
     routine?: Partial<RoutineSettings>
   }

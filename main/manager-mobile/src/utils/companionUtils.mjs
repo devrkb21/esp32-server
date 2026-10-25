@@ -453,3 +453,85 @@ export function companionVolume(view) {
   const reported = percent(view?.stats?.volume)
   return reported !== null ? reported : percent(view?.settings?.volume)
 }
+
+// ------------------------------------------------------------------ tap shortcuts (settings.gestures)
+// What a double or triple tap on TinyBot's head does (schema.py GESTURE_ACTIONS). The robot counts
+// taps exactly: 2 then a pause = double, 3 = triple, 4 or more does nothing.
+export const GESTURE_KEYS = /** @type {const} */ (['double_tap', 'triple_tap'])
+export const GESTURE_ACTIONS = /** @type {const} */ ([
+  'none',
+  'talk',
+  'focus',
+  'breathe',
+  'night_light',
+  'lullaby',
+  'story',
+  'game_catch',
+  'game_simon',
+  'game_dice',
+  'game_reaction',
+  'game_random',
+  'pages',
+  'status',
+])
+/** @typedef {typeof GESTURE_ACTIONS[number]} GestureAction */
+/** @typedef {{ double_tap: GestureAction, triple_tap: GestureAction }} Gestures */
+
+/** @type {Gestures} */
+export const GESTURE_DEFAULTS = { double_tap: 'none', triple_tap: 'talk' }
+
+/**
+ * @param {unknown} action
+ * @returns {action is GestureAction} whether the robot knows the action
+ */
+export function isGestureAction(action) {
+  return typeof action === 'string' && /** @type {readonly string[]} */ (GESTURE_ACTIONS).includes(action)
+}
+
+/**
+ * Both tap shortcuts, with the defaults for missing or unknown actions.
+ * @param {{ double_tap?: unknown, triple_tap?: unknown } | null | undefined} gestures
+ * @returns {Gestures} complete settings
+ */
+export function gestureSettings(gestures) {
+  const source = gestures && typeof gestures === 'object' ? gestures : {}
+  return {
+    double_tap: isGestureAction(source.double_tap) ? source.double_tap : GESTURE_DEFAULTS.double_tap,
+    triple_tap: isGestureAction(source.triple_tap) ? source.triple_tap : GESTURE_DEFAULTS.triple_tap,
+  }
+}
+
+// ------------------------------------------------------------------ focus timer minutes
+// The `pomodoro` command takes 1..120 minutes; settings.pomodoro.work_min is the robot's default.
+export const FOCUS_MAX = 120
+export const FOCUS_PRESETS = [15, 25, 45, 60]
+export const FOCUS_DEFAULT = 25
+const BN_DIGITS = '০১২৩৪৫৬৭৮৯'
+
+/**
+ * The saved focus minutes of a companion view (pomodoro.work_min), else 25.
+ * @param {{ pomodoro?: { work_min?: unknown } | null } | null | undefined} view
+ * @returns {number} minutes
+ */
+export function focusMinutes(view) {
+  const work = Number(view && view.pomodoro && view.pomodoro.work_min)
+  return Number.isInteger(work) && work >= 1 && work <= FOCUS_MAX ? work : FOCUS_DEFAULT
+}
+
+/**
+ * Minutes typed by the owner (Latin or Bangla digits, spaces allowed) as a whole number in
+ * 1..120, or null when it is not one.
+ * @param {unknown} text
+ * @returns {number | null} minutes
+ */
+export function parseMinutes(text) {
+  if (typeof text === 'number')
+    return Number.isInteger(text) && text >= 1 && text <= FOCUS_MAX ? text : null
+  const latin = String(text === null || text === undefined ? '' : text)
+    .replace(/[০১২৩৪৫৬৭৮৯]/g, d => String(BN_DIGITS.indexOf(d)))
+    .replace(/\s+/g, '')
+  if (!/^\d{1,3}$/.test(latin))
+    return null
+  const n = Number(latin)
+  return n >= 1 && n <= FOCUS_MAX ? n : null
+}

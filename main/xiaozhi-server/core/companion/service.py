@@ -246,6 +246,7 @@ class CompanionService:
                 "look": dict(schema.default_look(), **(s.get("look") or {})),
                 "display": dict(schema.default_display(), **(s.get("display") or {})),
                 "routine": dict(schema.default_routine(), **(s.get("routine") or {})),
+                "gestures": dict(schema.default_gestures(), **(s.get("gestures") or {})),
             },
             # The robot may hold its next sync open this long (seconds): see wait_for_news
             "long_poll": LONG_POLL_MAX_S,
@@ -328,6 +329,7 @@ class CompanionService:
                     dev["settings"],
                     proactive=dict(schema.default_proactive(), **(dev["settings"].get("proactive") or {})),
                     memory=dict(schema.default_memory(), **(dev["settings"].get("memory") or {})),
+                    gestures=dict(schema.default_gestures(), **(dev["settings"].get("gestures") or {})),
                 ),
                 "memories": list(reversed(self.memory.items(dev["id"]))),
                 "pomodoro": dev["pomodoro"],

@@ -9,7 +9,11 @@ import {
   OFF_PRESETS,
   companionVolume,
   displayProblem,
+  GESTURE_ACTIONS,
+  GESTURE_KEYS,
   displaySettings,
+  focusMinutes,
+  gestureSettings,
   memorySettings,
   presetChoice,
   proactiveProblem,
@@ -17,7 +21,22 @@ import {
 } from '@/utils/companion.mjs';
 
 /** The editable sections of the page, each saved on its own. */
-export const FORM_SECTIONS = ['sound', 'display', 'proactive', 'memory', 'robot'];
+export const FORM_SECTIONS = ['sound', 'display', 'proactive', 'memory', 'gestures', 'robot'];
+
+export { GESTURE_KEYS, focusMinutes };
+
+/**
+ * The tap shortcut picker's options: [{ value, label }] and one group for the games, with
+ * `t(key)` translating the labels (robot.gesture.<action>, robot.gesture.games).
+ */
+export function gestureOptions(t) {
+  const plain = GESTURE_ACTIONS.filter((a) => a.indexOf('game_') !== 0);
+  const games = GESTURE_ACTIONS.filter((a) => a.indexOf('game_') === 0);
+  const opt = (a) => ({ value: a, label: t(`robot.gesture.${a}`) });
+  const head = plain.slice(0, plain.indexOf('story') + 1).map(opt);
+  const tail = plain.slice(plain.indexOf('story') + 1).map(opt);
+  return [...head, { group: t('robot.gesture.games'), options: games.map(opt) }, ...tail];
+}
 
 /** Minute pickers with presets (+ Custom): which form field each one edits. */
 export const MINUTE_PICKERS = {
@@ -65,12 +84,6 @@ export const JOB_GROUPS = [
 /** Every job of every group, flat. */
 export const JOBS = JOB_GROUPS.flatMap((g) => g.jobs);
 
-/** Work minutes the focus job starts with: the saved value, else 25. */
-export function focusMinutes(view) {
-  const work = Number(view && view.pomodoro && view.pomodoro.work_min);
-  return work > 0 ? work : 25;
-}
-
 /** The command argument of a job. */
 export function jobArg(job, view) {
   return job.focus ? String(focusMinutes(view)) : job.arg;
@@ -93,6 +106,8 @@ export function serverForm(view, section) {
       return proactiveSettings(settings.proactive);
     case 'memory':
       return memorySettings(settings.memory);
+    case 'gestures':
+      return gestureSettings(settings.gestures);
     case 'robot':
       return { name: v.name || '', owner_name: settings.owner_name || '' };
     default:
@@ -122,6 +137,8 @@ export function sectionPatch(section, form) {
       };
     case 'memory':
       return { settings: { memory: { enabled: !!f.enabled } } };
+    case 'gestures':
+      return { settings: { gestures: gestureSettings(f) } };
     case 'robot':
       return {
         name: String(f.name || '').trim().slice(0, MAX_NAME) || 'TinyBot',

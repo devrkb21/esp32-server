@@ -24,13 +24,14 @@
       <p v-if="status.state === 'offline'" class="rb__offline" role="status">{{ $t('robot.offlineNote') }}</p>
 
       <nav class="rb__index" :aria-label="$t('robot.indexLabel')">
-        <a v-for="s in index" :key="s" :href="`#rb-${s}`" class="rb__indexlink" :aria-current="current === s ? 'true' : null" @click.prevent="jump(s)">{{ $t(`robot.sec.${s}`) }}</a>
+        <a v-for="s in sections" :key="s" :href="`#rb-${s}`" class="rb__indexlink" :aria-current="current === s ? 'true' : null" @click.prevent="jump(s)">{{ $t(`robot.sec.${s}`) }}</a>
       </nav>
 
       <RobotStatus id="rb-status" />
       <RobotSound id="rb-sound" />
       <RobotTalk id="rb-talk" />
       <RobotMemory id="rb-memory" />
+      <RobotGestures v-if="gesturesOn" id="rb-gestures" />
       <RobotJobs id="rb-jobs" />
       <RobotFirmware id="rb-firmware" />
     </template>
@@ -40,7 +41,7 @@
 <script>
 import Api from '@/apis/api';
 import { digits, timeText } from '@/kit/calendar';
-import { deviceIdFrom, loadRobots, robot } from '@/shell/robot';
+import { deviceIdFrom, hasFeature, loadRobots, robot } from '@/shell/robot';
 import {
   ensureMqtt, friendlyError, noteCompanionError, noteCompanionView, refreshRobotStatus, statusOf,
 } from '@/shell/robotStatus';
@@ -53,6 +54,7 @@ import RobotStatus from './RobotStatus.vue';
 import RobotSound from './RobotSound.vue';
 import RobotTalk from './RobotTalk.vue';
 import RobotMemory from './RobotMemory.vue';
+import RobotGestures from './RobotGestures.vue';
 import RobotJobs from './RobotJobs.vue';
 import RobotFirmware from './RobotFirmware.vue';
 
@@ -64,7 +66,7 @@ const REFRESH_MS = 10000;
 // a poll brings new data), saves as partial config patches, commands and the sync states.
 export default {
   name: 'RobotSettings',
-  components: { RobotStatus, RobotSound, RobotTalk, RobotMemory, RobotJobs, RobotFirmware },
+  components: { RobotStatus, RobotSound, RobotTalk, RobotMemory, RobotGestures, RobotJobs, RobotFirmware },
   provide() { return { robot: this }; },
   data() {
     return {
@@ -87,7 +89,7 @@ export default {
       fwLatest: null,
       fwUpdate: initialUpdateState(),
       savingAuto: false,
-      index: ['status', 'sound', 'talk', 'memory', 'jobs', 'firmware'],
+      index: ['status', 'sound', 'talk', 'memory', 'gestures', 'jobs', 'firmware'],
       current: '', // the section the reader is in, marked in the index
       seen: {},    // section key -> crossing the reading band
       spy: null,
@@ -109,6 +111,9 @@ export default {
     memories() { return memoryList(this.view && this.view.memories); },
     commands() { return (this.view && this.view.commands) || []; },
     events() { return this.moreEvents || (this.view && this.view.events) || []; },
+    // Tap shortcuts are a companion setting: only for products with the companion module
+    gesturesOn() { return hasFeature('companion', this.deviceId); },
+    sections() { return this.index.filter((s) => s !== 'gestures' || this.gesturesOn); },
     botName() { return (this.view && this.view.name) || robot.name || this.$t('nav.robotFallback'); },
   },
   watch: {
@@ -190,10 +195,10 @@ export default {
       this.seen = {};
       this.spy = new IntersectionObserver((entries) => {
         for (const e of entries) this.seen[e.target.id.slice(3)] = e.isIntersecting;
-        const hit = this.index.find((k) => this.seen[k]);
+        const hit = this.sections.find((k) => this.seen[k]);
         if (hit) this.current = hit;
       }, { rootMargin: '-20% 0px -70% 0px' });
-      for (const k of this.index) {
+      for (const k of this.sections) {
         const el = document.getElementById(`rb-${k}`);
         if (el) this.spy.observe(el);
       }

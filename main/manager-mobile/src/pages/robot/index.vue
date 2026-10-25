@@ -1,4 +1,4 @@
-<!-- Robot: this robot itself. How it is now, sound and screen, talking first, what it remembers, jobs, firmware (owner: m-robot) -->
+<!-- Robot: this robot itself. How it is now, sound and screen, talking first, what it remembers, tap shortcuts, jobs, firmware (owner: m-robot) -->
 <route lang="jsonc">
 {
   "layout": "default",
@@ -28,6 +28,7 @@ import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import { notifyError, robotKey } from './components/context'
 import RobotFirmware from './components/RobotFirmware.vue'
+import RobotGestures from './components/RobotGestures.vue'
 import RobotJobs from './components/RobotJobs.vue'
 import RobotMemory from './components/RobotMemory.vue'
 import RobotSound from './components/RobotSound.vue'
@@ -54,7 +55,7 @@ const status = computed(() => statusOf(deviceId.value, now.value))
 const online = computed(() => status.value.state === 'online')
 const botName = computed(() => view.value?.name || robot.name || t('nav.robotFallback'))
 
-const sections = ['status', 'sound', 'talk', 'memory', 'jobs', 'firmware']
+const sections = ['status', 'sound', 'talk', 'memory', 'gestures', 'jobs', 'firmware']
 
 function num(n: number | string | null | undefined) {
   return digits(n ?? '–', lang.value)
@@ -403,6 +404,7 @@ watch(deviceId, () => {
       <RobotSound id="rb-sound" class="rb-anchor" />
       <RobotTalk id="rb-talk" class="rb-anchor" />
       <RobotMemory id="rb-memory" class="rb-anchor" />
+      <RobotGestures id="rb-gestures" class="rb-anchor" />
       <RobotJobs id="rb-jobs" class="rb-anchor" />
       <RobotFirmware id="rb-firmware" class="rb-anchor" />
     </block>
