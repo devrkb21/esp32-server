@@ -34,7 +34,7 @@ describe('legal texts', () => {
 
 describe('contact placeholder', () => {
   it('has no contact yet', () => {
-    expect(LEGAL_CONTACT).toBe('');
+    expect(LEGAL_CONTACT).toBe('support@nobixindustries.com');
   });
   it('drops ": {{CONTACT}}" while there is no contact, keeping the full stop', () => {
     expect(withContact('contact Nobix Industries, Bangladesh: {{CONTACT}}.', '')).toBe('contact Nobix Industries, Bangladesh.');
@@ -79,7 +79,7 @@ describe('LegalPage', { timeout: 60000 }, () => {
     expect(back[0].attributes('href')).toBe('/login');
     expect(back[0].text()).toBe('Back to sign in');
     expect(w.text()).not.toContain('{{CONTACT}}');
-    expect(w.text()).toContain('contact Nobix Industries, Bangladesh.');
+    expect(w.text()).toContain('contact Nobix Industries, Bangladesh: support@nobixindustries.com.');
   });
 
   it('closes the document with the Nobix maker lockup, light and dark files, not a text credit', async () => {
@@ -99,7 +99,7 @@ describe('LegalPage', { timeout: 60000 }, () => {
     expect(w.find('h1').text()).toBe('টাইনিবট গোপনীয়তা নীতি');
     expect(w.find('.legal__lead').text()).toBe('অ্যাকাউন্টের তথ্য।');
     expect(w.text()).not.toContain('{{CONTACT}}');
-    expect(w.text()).toContain('যোগাযোগ করুন।');
+    expect(w.text()).toContain('যোগাযোগ করুন: support@nobixindustries.com।');
   });
 });
 

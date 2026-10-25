@@ -37,6 +37,7 @@ export const NAV = [
       { to: '/replacement-word-management', label: 'nav.replacementWords', icon: 'replace' },
       { to: '/address-book-management', label: 'nav.addressBook', icon: 'addressbook', feature: 'addressBook' },
       { to: '/params-management', label: 'nav.params', icon: 'params' },
+      { to: '/sms-settings', label: 'nav.sms', icon: 'send' },
       { to: '/dict-management', label: 'nav.dict', icon: 'dict' },
       { to: '/feature-management', label: 'nav.features', icon: 'feature' },
       { to: '/server-side-management', label: 'nav.server', icon: 'server' },
