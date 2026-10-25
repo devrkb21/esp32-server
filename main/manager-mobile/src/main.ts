@@ -15,7 +15,13 @@ import 'virtual:uno.css'
 
 export function createApp() {
   // Demo build: signed in as a sample owner, every request answered from fixtures (src/api/demo)
-  if (DEMO && !uni.getStorageSync('token'))
+  // The sign-in screens stay reachable: no token is seeded while one of them is open.
+  let authPage = false
+  try {
+    authPage = /^#\/pages\/(login|register|forgot-password)\//.test(window.location.hash)
+  }
+  catch {}
+  if (DEMO && !authPage && !uni.getStorageSync('token'))
     uni.setStorageSync('token', DEMO_TOKEN)
 
   const app = createSSRApp(App)

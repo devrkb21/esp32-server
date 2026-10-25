@@ -7,7 +7,8 @@
 //     { method: 'POST', url: '/user/login', body: req => ({ code: 0, data }) }, // the whole body
 //   ]
 // `url` is a string (the path must end with it) or a RegExp tested on the path. First match wins,
-// in file name order; zz-base.ts holds the shared fixtures. Synthetic sample data only.
+// in file name order; a handler answering undefined passes the call on. zz-base.ts holds the shared
+// fixtures; a screen scopes its own with onPage() below. Synthetic sample data only.
 
 export interface DemoRequest { url: string, path: string, method: string, data: any, query: Record<string, string> }
 export interface DemoHandler {
@@ -36,16 +37,44 @@ function split(url: string) {
 export function demoBody(url: string, method: string, data: any) {
   const { path, query } = split(url)
   const m = (method || 'GET').toUpperCase()
-  const h = handlers.find(x => (x.method || 'GET').toUpperCase() === m
-    && (x.url instanceof RegExp ? x.url.test(path) : path.endsWith(x.url)))
   const req: DemoRequest = { url, path, method: m, data, query }
-  if (!h) {
-    console.info('[demo] no fixture for', m, path)
-    return { code: 0, msg: 'ok', data: null }
+  for (const h of handlers) {
+    if ((h.method || 'GET').toUpperCase() !== m)
+      continue
+    if (!(h.url instanceof RegExp ? h.url.test(path) : path.endsWith(h.url)))
+      continue
+    // A handler that answers undefined passes the call on to the next match.
+    if (h.body) {
+      const b = h.body(req)
+      if (b !== undefined)
+        return b
+      continue
+    }
+    const d = typeof h.reply === 'function' ? h.reply(req) : h.reply
+    if (d !== undefined)
+      return { code: 0, msg: 'ok', data: d }
   }
-  if (h.body)
-    return h.body(req)
-  return { code: 0, msg: 'ok', data: typeof h.reply === 'function' ? h.reply(req) : h.reply }
+  // An unknown call succeeds with no data, so screens show their empty state, never a crash.
+  console.info('[demo] no fixture for', m, path)
+  return { code: 0, msg: 'ok', data: null }
+}
+
+/**
+ * A path pattern that matches only while one screen is open, so a screen's fixtures never answer
+ * another screen's calls: `url: onPage('/pages/day/', /\/device\/companion\/[^/]+$/)`.
+ */
+export function onPage(prefix: string, pattern: RegExp): RegExp {
+  const r = new RegExp(pattern.source, pattern.flags)
+  const test = r.test.bind(r)
+  r.test = (path: string) => {
+    let here = ''
+    try {
+      here = window.location.hash.replace(/^#/, '')
+    }
+    catch {}
+    return here.startsWith(prefix) && test(path)
+  }
+  return r
 }
 
 /** An alova request adapter that answers from the fixtures after a short, realistic delay. */
