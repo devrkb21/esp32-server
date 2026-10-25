@@ -18,7 +18,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: false,
     include: ['tests/**/*.test.{js,mjs}', 'src/**/*.test.{js,mjs}'],
-    exclude: ['tests/*Contract.test.mjs', 'tests/legacy/**', 'node_modules/**', 'src/**/*Api.test.mjs', 'src/components/agentSnapshotDisplayUtils.test.mjs'],
+    exclude: ['tests/*Contract.test.mjs', 'node_modules/**', 'src/**/*Api.test.mjs', 'src/components/agentSnapshotDisplayUtils.test.mjs'],
     passWithNoTests: true,
     coverage: {
       provider: 'v8',
