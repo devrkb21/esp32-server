@@ -138,11 +138,6 @@ export function isNotConfigured(error) {
   return !!(error && typeof error.message === 'string' && error.message.includes('10054'))
 }
 
-/** An error the request layer already showed (the server's own message). */
-export function serverSaid(error) {
-  return !!(error && typeof error.message === 'string' && /^Request error \[/.test(error.message))
-}
-
 const MONTHS = {
   bn: ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'],
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],

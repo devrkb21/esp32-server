@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { t } from '@/i18n'
-import { hasDay, toggleDay } from '../../companion/companionUtils.mjs'
+import { hasDay, toggleDay } from '@/utils/companionUtils.mjs'
 import { DAY_PRESETS, daysText } from '../dayModel.mjs'
 
 // The days a time repeats on: a weekday bitmask (bit 0 = Sunday), with quick picks.

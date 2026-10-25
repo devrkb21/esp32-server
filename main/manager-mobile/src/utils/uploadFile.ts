@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { getEnvBaseUrl } from './index'
 import { toast } from './toast'
 
@@ -114,7 +115,7 @@ export function useUpload<T = string>(url: string, formData: Record<string, any>
   const checkFileSize = (size: number) => {
     const sizeInMB = size / 1024 / 1024
     if (sizeInMB > maxSize) {
-      toast.warning(`File size cannot exceed ${maxSize}MB`)
+      toast.warning(t('request.tooLarge'))
       return false
     }
     return true

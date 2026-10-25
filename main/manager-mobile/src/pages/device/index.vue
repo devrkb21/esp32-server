@@ -13,7 +13,7 @@
 <script lang="ts" setup>
 import type { Device, FirmwareType } from '@/api/device'
 import { onLoad } from '@dcloudio/uni-app'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getAgentList } from '@/api/agent/agent'
 import { getCompanion } from '@/api/companion'
 import * as deviceApi from '@/api/device'
@@ -28,11 +28,14 @@ import {
 } from '@/api/device'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { notifyRequestError } from '@/utils/requestError'
 import { tbConfirm } from '@/utils/tbConfirm'
-import { robot, selectRobot } from '@/utils/tbRobot'
+import { productOf } from '@/utils/tbProducts.mjs'
+import { loadProducts, products, robot, selectRobot } from '@/utils/tbRobot'
+import { checkCompanions, noteMqttMap, refreshCompanion, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import AddRobotSheet from '../robots/components/AddRobotSheet.vue'
-import { ALIAS_MAX, aliasChange, companionVolume, isOnline, parseStatus, versionText } from '../robots/robotsModel.mjs'
+import { ALIAS_MAX, aliasChange, companionVolume, parseStatus, versionText } from '../robots/robotsModel.mjs'
 import { whenText } from '../robots/robotsText'
 import { parseDeviceLastConnectedAtTimestamp } from './deviceTimeUtils.mjs'
 
@@ -60,7 +63,7 @@ const loading = ref(false)
 const loaded = ref(false)
 const loadFailed = ref(false)
 const statusKnown = ref(false)
-const deviceStatusMap = ref<Record<string, boolean>>({})
+const statusAsked = ref(false)
 const deviceVolumes = ref<Record<string, number>>({})
 /** Volume each robot last reported (companion stats); null = unknown */
 const robotVolumeNow = ref<Record<string, number | null>>({})
@@ -70,7 +73,7 @@ const savingOta = ref('')
 const volumeTimers: Record<string, any> = {}
 const clock = ref(Date.now())
 
-const onlineCount = computed(() => deviceList.value.filter(d => deviceStatusMap.value[d.id]).length)
+const onlineCount = computed(() => deviceList.value.filter(d => statusFor(d).state === 'online').length)
 const title = computed(() => agentName.value || t('robots.dev.title'))
 const description = computed(() => {
   if (!deviceList.value.length)
@@ -87,15 +90,27 @@ function typeName(board: string) {
 function deviceName(d: Device) {
   return d.alias || typeName(d.board) || d.macAddress || t('robots.unnamed')
 }
+// Each robot's connection, from the shared status (src/utils/tbRobotStatus.ts), as on Robots:
+// never "online" before the companion server has heard from a TinyBot.
+function featuresOf(d: Device) {
+  return productOf(d, products.list).features as string[]
+}
+function statusFor(d: Device) {
+  return statusOf(d.id, clock.value, { features: featuresOf(d), lastConnectedAt: seenAt(d) || null })
+}
 function stateOf(d: Device) {
-  if (deviceStatusMap.value[d.id])
-    return 'online'
-  return 'offline'
+  return statusFor(d).state
 }
 function stateText(d: Device) {
-  if (deviceStatusMap.value[d.id])
-    return t('common.online')
-  return statusKnown.value ? t('common.offline') : t('robots.stateUnknown')
+  const st = statusFor(d).state
+  return st === 'checking' && !statusAsked.value ? t('robots.stateUnknown') : t(`status.${st}.label`)
+}
+/** The face: awake when online, asleep when offline, puzzled when the server side is not right. */
+function moodOf(d: Device) {
+  const st = stateOf(d)
+  if (st === 'online')
+    return 'awake'
+  return st === 'offline' || st === 'checking' ? 'offline' : 'confused'
 }
 function seenAt(d: Device) {
   const at = parseDeviceLastConnectedAtTimestamp(d.lastConnectedAtTimestamp) || (d as any).lastConnectedAt
@@ -143,21 +158,37 @@ async function loadDeviceList() {
   loaded.value = true
 }
 
+// The gateway's online map, then the companion views of the companion robots it calls online
+// (shared rule and limits: checkCompanions).
 async function fetchOnlineStatus() {
-  if (!currentAgentId.value)
+  const id = currentAgentId.value
+  if (!id)
     return
+  let map: any = null
   try {
-    const map = parseStatus(await getDeviceOnlineStatus(currentAgentId.value))
-    statusKnown.value = Boolean(map)
-    const next: Record<string, boolean> = {}
-    deviceList.value.forEach((d) => {
-      next[d.id] = isOnline(map, d)
-    })
-    deviceStatusMap.value = next
+    map = parseStatus(await getDeviceOnlineStatus(id))
   }
   catch {
-    statusKnown.value = false
+    map = null
   }
+  if (id !== currentAgentId.value)
+    return
+  statusKnown.value = Boolean(map)
+  statusAsked.value = true
+  clock.value = Date.now()
+  const devs = deviceList.value
+  noteMqttMap(id, map, devs)
+  checkCompanions(devs.map(d => ({ id: d.id, features: featuresOf(d) }))).done.then(() => {
+    clock.value = Date.now()
+  })
+}
+
+/** Check one robot again (the detail sheet's status panel). */
+async function recheck(d: Device) {
+  await fetchOnlineStatus()
+  if (featuresOf(d).includes('companion'))
+    await refreshCompanion(d.id)
+  clock.value = Date.now()
 }
 
 async function loadFirmwareTypes() {
@@ -184,6 +215,9 @@ async function loadAgentName() {
 async function refresh() {
   await loadDeviceList()
 }
+
+// The gateway map again every 30 s while the screen is open (companion views stay throttled).
+let poll: ReturnType<typeof setInterval> | null = null
 
 /* ---------- one robot (detail sheet) ---------- */
 const activeId = ref('')
@@ -237,7 +271,7 @@ function onVolumeChange(d: Device, volume: number) {
       setTimeout(() => loadRobotVolume(d), 1500)
     }
     catch (e: any) {
-      toast.error(e?.message || t('robots.dev.volumeFailed'))
+      notifyRequestError(e, 'robots.dev.volumeFailed')
     }
     isUpdatingVolume.value[d.id] = false
   }, 400)
@@ -254,8 +288,8 @@ async function toggleAutoUpdate(d: Device) {
     d.autoUpdate = next
     toast.success(next === 1 ? t('robots.dev.autoUpdateOn') : t('robots.dev.autoUpdateOff'))
   }
-  catch {
-    toast.error(t('robots.dev.actionFailed'))
+  catch (e) {
+    notifyRequestError(e, 'robots.dev.actionFailed')
   }
   savingOta.value = ''
 }
@@ -277,8 +311,8 @@ async function saveAlias(d: Device) {
       selectRobot({ deviceId: d.id, agentId: d.agentId || currentAgentId.value, name: change.text })
     toast.success(t('robots.dev.nameSaved'))
   }
-  catch (e: any) {
-    toast.error(e?.message || t('robots.dev.nameFailed'))
+  catch (e) {
+    notifyRequestError(e, 'robots.dev.nameFailed')
   }
   aliasSaving.value = false
 }
@@ -298,8 +332,8 @@ async function confirmReboot(d: Device) {
     await rebootDevice(d.id)
     toast.success(t('robots.dev.rebootSent'))
   }
-  catch (e: any) {
-    toast.error(e?.message || t('robots.dev.rebootFailed'))
+  catch (e) {
+    notifyRequestError(e, 'robots.dev.rebootFailed')
   }
   isRebooting.value[d.id] = false
 }
@@ -314,8 +348,8 @@ async function confirmUnbind(d: Device) {
     await loadDeviceList()
     toast.success(t('robots.dev.unbound'))
   }
-  catch {
-    toast.error(t('robots.dev.unbindFailed'))
+  catch (e) {
+    notifyRequestError(e, 'robots.dev.unbindFailed')
   }
 }
 
@@ -339,8 +373,16 @@ onMounted(() => {
       pageMode.value = false
   }
   loadFirmwareTypes()
-  loadDeviceList()
+  loadProducts().finally(() => loadDeviceList())
   loadAgentName()
+  poll = setInterval(() => {
+    if (deviceList.value.length)
+      fetchOnlineStatus()
+  }, 30000)
+})
+onBeforeUnmount(() => {
+  if (poll)
+    clearInterval(poll)
 })
 
 defineExpose({ refresh })
@@ -377,7 +419,10 @@ defineExpose({ refresh })
       <view class="dv__list" role="list">
         <view v-for="d in deviceList" :key="d.id" class="dv-row" :class="{ 'is-current': d.id === robot.deviceId }" role="listitem">
           <view class="dv-row__main" role="button" hover-class="is-press" :aria-label="t('robots.dev.openFor', { name: deviceName(d) })" @click="openDetail(d)">
-            <tb-face class="dv-row__face" :mood="stateOf(d) === 'online' ? 'awake' : 'offline'" :width="64" :alt="t('robots.faceAlt', { name: deviceName(d) })" />
+            <tb-face v-if="featuresOf(d).includes('companion')" class="dv-row__face" :mood="moodOf(d)" :width="64" :alt="t('robots.faceAlt', { name: deviceName(d) })" />
+            <view v-else class="dv-row__face dv-row__device" aria-hidden="true">
+              <tb-icon name="devices" :size="24" />
+            </view>
             <tb-name-plate class="dv-row__plate" :name="deviceName(d)" :doing="kindLine(d)" :detail="seenText(d)" :state="stateOf(d)" :state-text="stateText(d)" />
             <tb-icon class="dv-row__chev" name="chevron-right" :size="18" />
           </view>
@@ -404,9 +449,11 @@ defineExpose({ refresh })
     <tb-sheet v-model:open="detailOpen" :title="active ? deviceName(active) : ''">
       <block v-if="active">
         <view class="dv-sheet__head">
-          <tb-face :mood="stateOf(active) === 'online' ? 'awake' : 'offline'" :width="96" :alt="t('robots.faceAlt', { name: deviceName(active) })" />
+          <tb-face v-if="featuresOf(active).includes('companion')" :mood="moodOf(active)" :width="96" :alt="t('robots.faceAlt', { name: deviceName(active) })" />
           <tb-name-plate :name="deviceName(active)" :detail="seenText(active)" :state="stateOf(active)" :state-text="stateText(active)" />
         </view>
+        <!-- what the state means and the next step, the same panel as every screen -->
+        <tb-robot-status class="dv-sheet__status" :status="statusFor(active)" hide-online @refresh="recheck(active)" />
 
         <view v-if="updateDeviceAlias" class="dv-field">
           <text class="dv-field__label">
@@ -543,6 +590,19 @@ defineExpose({ refresh })
 .dv-row__face {
   flex: none;
   padding: 4px;
+}
+.dv-row__device {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 48px;
+  border: 1px solid var(--tb-rule);
+  border-radius: 8px;
+  color: var(--tb-ink-2);
+}
+.dv-sheet__status {
+  margin-top: 12px;
 }
 .dv-row__plate {
   flex: 1;

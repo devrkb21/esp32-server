@@ -30,6 +30,7 @@
 </template>
 
 <script>
+import { peopleText } from '@/utils/errorText.mjs';
 // "Live from TinyBot": the robot's real OLED, fetched with the device tool `self.screen.preview`
 // one request at a time (src/utils/liveScreen.mjs). It asks only while this view is mounted,
 // on screen (IntersectionObserver) and the browser tab is visible (visibilitychange).
@@ -92,7 +93,7 @@ export default {
     },
     errorDetail() {
       const e = this.state.error;
-      return (e && (e.msg || e.message)) || '';
+      return peopleText(e && (e.msg || e.message)); // never raw robot or server text
     },
   },
   watch: {

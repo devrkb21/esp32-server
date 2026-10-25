@@ -1,5 +1,5 @@
 <template>
-  <figure class="tb-face" :class="{ 'is-pulse': pulse, 'is-off': mood === 'offline' }" :style="{ width: width ? width + 'px' : null }">
+  <figure class="tb-face" :class="{ 'is-pulse': pulse, 'is-off': mood === 'offline' }" :style="width ? { width: width + 'px', padding: Math.round(width * 0.06) + 'px' } : null">
     <img v-if="src" class="tb-face__img" :src="src" :alt="alt" width="128" height="64" />
     <svg v-else viewBox="0 0 128 64" shape-rendering="crispEdges" role="img" :aria-label="alt">
       <template v-if="mood === 'sleepy' || mood === 'night'">
@@ -43,6 +43,8 @@ defineProps({
 </script>
 
 <style>
+/* The window's padding: 6% of its own width. A percentage would resolve against the parent's width
+   and blank a small face in a wide table cell, so a face with a `width` gets it in pixels. */
 .tb-face { position: relative; margin: 0; background: var(--tb-face); border-radius: var(--tb-radius-s); padding: 6%; aspect-ratio: 2 / 1;
   display: grid; place-items: stretch; align-content: center; overflow: hidden; }
 .tb-face svg, .tb-face__img { width: 100%; height: auto; aspect-ratio: 2 / 1; display: block; image-rendering: pixelated; }

@@ -63,9 +63,10 @@ watch(() => props.date.toDateString(), () => { turning.value = true; setTimeout(
 .tb-dateblock:focus-visible { outline: 2px solid var(--tb-focus); outline-offset: 4px; }
 .tb-dateblock__num {
   font-family: var(--tb-font-display); font-weight: 800; font-size: var(--tb-fs-date); line-height: .92;
-  color: var(--tb-alarm); letter-spacing: -.02em; font-variant-numeric: lining-nums;
+  color: var(--tb-ink); letter-spacing: -.02em; font-variant-numeric: lining-nums;
 }
-.tb-dateblock.is-friday .tb-dateblock__num { color: var(--tb-prayer); }
+/* the wall calendar's rule: everyday dates in ink, Fridays (the weekly holiday) in red */
+.tb-dateblock.is-friday .tb-dateblock__num { color: var(--tb-alarm); }
 .tb-dateblock__line { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .tb-dateblock__wd { margin: 0; font-family: var(--tb-font-display); font-weight: 700; font-size: var(--tb-fs-20); line-height: 1.2; }
 .tb-dateblock__turn { display: inline-flex; gap: 2px; margin-left: auto; }

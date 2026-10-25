@@ -2,8 +2,8 @@
 import type { ProactiveSettings } from '@/api/companion'
 import { computed, ref, watch } from 'vue'
 import { t } from '@/i18n'
+import { isHHMM, proactiveProblem, proactiveSettings } from '@/utils/companionUtils.mjs'
 import { toast } from '@/utils/toast'
-import { isHHMM, proactiveProblem, proactiveSettings } from '../../companion/companionUtils.mjs'
 import { useRobot } from './context'
 
 // Talking first (proactive talk): a morning greeting and an evening "how was your day?", each

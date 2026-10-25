@@ -1,7 +1,7 @@
 /* eslint-disable test/no-import-node-test -- this zero-dependency gate intentionally uses Node's built-in runner */
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { companionErrorKind, connectionOf, isLive, rawErrorText, shouldPoll, STALE_S, STATES, statusInk, statusKeys, toMs } from './robotConnection.mjs'
+import { COMPANION_EVERY_MS, COMPANION_MAX, companionErrorKind, companionsToAsk, connectionOf, isLive, rawErrorText, shouldPoll, STALE_S, STATES, statusInk, statusKeys, toMs } from './robotConnection.mjs'
 
 const NOW = 1_800_000_000_000
 const fresh = { ok: true, view: { last_seen: NOW / 1000 - 20 } }
@@ -93,4 +93,20 @@ test('keys, inks and helpers', () => {
   assert.equal(isLive('not_syncing'), false)
   assert.equal(toMs(1_700_000_000), 1_700_000_000_000)
   assert.ok(Number.isNaN(toMs(null)))
+})
+
+test('list screens ask companion views only for online companion robots, once per 30 s, capped', () => {
+  const devs = [
+    { id: 'on', hasCompanion: true, mqtt: true, askedAt: 0 },
+    { id: 'nomap', hasCompanion: true, mqtt: null, askedAt: 0 },
+    { id: 'off', hasCompanion: true, mqtt: false, askedAt: 0 },
+    { id: 'unasked', hasCompanion: true, askedAt: 0 },
+    { id: 'generic', hasCompanion: false, mqtt: true, askedAt: 0 },
+    { id: 'recent', hasCompanion: true, mqtt: true, askedAt: NOW - 1000 },
+    { id: 'old', hasCompanion: true, mqtt: true, askedAt: NOW - COMPANION_EVERY_MS },
+  ]
+  assert.deepEqual(companionsToAsk(devs, NOW), ['on', 'nomap', 'old'])
+  const many = Array.from({ length: 20 }, (_, i) => ({ id: `d${i}`, hasCompanion: true, mqtt: true }))
+  assert.equal(companionsToAsk(many, NOW).length, COMPANION_MAX)
+  assert.deepEqual(companionsToAsk(null, NOW), [])
 })

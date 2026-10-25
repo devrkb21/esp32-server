@@ -31,6 +31,7 @@
         <div class="today__links">
           <TbButton v-if="can('character')" variant="primary" icon="agent" :to="{ path: '/role-config', query: { agentId: robot.agentId } }">{{ $t('today.device.character') }}</TbButton>
           <TbButton v-if="can('voiceprint')" icon="voiceprint" :to="{ path: '/voice-print', query: { agentId: robot.agentId } }">{{ $t('today.device.voiceprint') }}</TbButton>
+          <TbButton v-if="can('chat_history')" icon="history" :to="{ path: can('messages') ? '/messages' : '/history', query: { agentId: robot.agentId } }">{{ $t('today.device.history') }}</TbButton>
           <TbButton variant="quiet" icon="robots" to="/robots">{{ $t('today.device.robots') }}</TbButton>
         </div>
       </section>

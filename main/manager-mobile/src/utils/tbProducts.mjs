@@ -4,8 +4,21 @@
 
 /** Every feature key the platform knows today. */
 export const KNOWN_FEATURES = [
-  'chat', 'character', 'voiceprint', 'chat_history', 'memory', 'companion', 'day', 'prayer', 'look',
-  'screen', 'messages', 'commands', 'proactive', 'firmware', 'pairing_pattern',
+  'chat',
+  'character',
+  'voiceprint',
+  'chat_history',
+  'memory',
+  'companion',
+  'day',
+  'prayer',
+  'look',
+  'screen',
+  'messages',
+  'commands',
+  'proactive',
+  'firmware',
+  'pairing_pattern',
 ]
 
 /** TinyBot's features as seeded on the server: the fallback when nothing else is known. */
@@ -18,6 +31,9 @@ export const PAGE_NEEDS = {
   '/pages/day/index': 'day',
   '/pages/look/index': 'look',
   '/pages/messages/index': 'messages',
+  // the chat history: every product that keeps it, also those without Messages
+  '/pages/chat-history/index': 'chat_history',
+  '/pages/chat-history/detail': 'chat_history',
   '/pages/robot/index': 'companion',
   '/pages/agent/index': 'character',
   '/pages/voiceprint/index': 'voiceprint',
@@ -73,10 +89,21 @@ export function visibleTabs(list, features) {
   return (list || []).filter(item => allows(features, item.needs || needsOf(item.pagePath || item.path || item.url)))
 }
 
+/**
+ * Does a place show for a robot's features? It needs its feature (`needs` or PAGE_NEEDS), and an
+ * `unless: <feature>` place hides when the robot has that feature or no robot is chosen (Chat
+ * history has its own place only for products without Messages, which hold it otherwise).
+ */
+export function placeShows(item, features) {
+  if (!allows(features, item.needs || needsOf(item.url)))
+    return false
+  return !item.unless || (Array.isArray(features) && !features.includes(item.unless))
+}
+
 /** The More page groups, without the places the chosen robot cannot use; empty groups drop out. */
 export function visiblePlaces(groups, features) {
   return (groups || [])
-    .map(g => ({ ...g, items: (g.items || []).filter(i => allows(features, i.needs || needsOf(i.url))) }))
+    .map(g => ({ ...g, items: (g.items || []).filter(i => placeShows(i, features)) }))
     .filter(g => g.items.length)
 }
 

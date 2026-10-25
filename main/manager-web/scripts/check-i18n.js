@@ -2,13 +2,12 @@ const fs = require('fs');
 const path = require('path');
 
 const rootDir = path.resolve(__dirname, '..');
+// The app speaks Bangla and English only (src/i18n/index.js). English is the base: every key of
+// en.js must be in bn.js and the other way round. Page files (src/i18n/pages/*.js) carry both
+// languages themselves and are checked by their own tests.
 const locales = [
-  { name: 'zh_CN', file: 'src/i18n/zh_CN.js' },
-  { name: 'zh_TW', file: 'src/i18n/zh_TW.js' },
   { name: 'en', file: 'src/i18n/en.js' },
-  { name: 'de', file: 'src/i18n/de.js' },
-  { name: 'vi', file: 'src/i18n/vi.js' },
-  { name: 'pt_BR', file: 'src/i18n/pt_BR.js' },
+  { name: 'bn', file: 'src/i18n/bn.js' },
 ];
 
 // A locale file may just re-export another one (`import en from './en'; export default en;`);
@@ -69,7 +68,7 @@ function formatKeyList(keys) {
 
 function main() {
   const results = locales.map(readLocale);
-  const base = results.find((locale) => locale.name === 'zh_CN');
+  const base = results.find((locale) => locale.name === 'en');
   const errors = [];
 
   results.forEach((locale) => {
@@ -95,6 +94,32 @@ function main() {
       }
     });
 
+  // Each page file: the same keys in its bn and en tables, no key twice in one table.
+  const pagesDir = path.join(rootDir, 'src/i18n/pages');
+  let pageCount = 0;
+  fs.readdirSync(pagesDir).filter((f) => f.endsWith('.js')).sort().forEach((f) => {
+    pageCount += 1;
+    const rel = `src/i18n/pages/${f}`;
+    const tables = {};
+    let current = null;
+    fs.readFileSync(path.join(pagesDir, f), 'utf8').split(/\r?\n/).forEach((line, index) => {
+      const open = line.match(/^\s{2}(\w+):\s*\{/);
+      if (open) { current = open[1]; tables[current] = tables[current] || new Map(); return; }
+      if (/^\s{2}\},?\s*$/.test(line)) { current = null; return; }
+      const key = current && line.match(/^\s*['"]([^'"]+)['"]\s*:/);
+      if (!key) return;
+      if (tables[current].has(key[1])) errors.push(`${rel} has duplicate ${current} key "${key[1]}" on line ${index + 1}`);
+      tables[current].set(key[1], index + 1);
+    });
+    if (!tables.bn || !tables.en) { errors.push(`${rel} needs both a bn and an en table`); return; }
+    const bnKeys = new Set(tables.bn.keys());
+    const enKeys = new Set(tables.en.keys());
+    const missingBn = diffKeys(enKeys, bnKeys);
+    const missingEn = diffKeys(bnKeys, enKeys);
+    if (missingBn.length) errors.push(`${rel} bn is missing keys of en:\n${formatKeyList(missingBn)}`);
+    if (missingEn.length) errors.push(`${rel} en is missing keys of bn:\n${formatKeyList(missingEn)}`);
+  });
+
   if (errors.length) {
     console.error(`i18n check failed with ${errors.length} issue(s):`);
     console.error(errors.join('\n\n'));
@@ -102,7 +127,7 @@ function main() {
   }
 
   const keyCount = base.keySet.size;
-  console.log(`i18n check passed: ${results.length} locale files, ${keyCount} keys each.`);
+  console.log(`i18n check passed: ${results.length} locale files, ${keyCount} keys each; ${pageCount} page files in bn and en.`);
 }
 
 main();

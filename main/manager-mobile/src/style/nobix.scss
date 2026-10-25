@@ -69,7 +69,6 @@ page {
   --nx-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.wot-theme-dark,
 .dark,
 html.dark page {
   --nx-bg: #121110;
@@ -344,7 +343,7 @@ page {
   }
 }
 
-// Buttons for custom markup (wd-button is themed through themeVars)
+// Buttons for custom markup
 .nx-btn {
   display: flex;
   align-items: center;
@@ -455,7 +454,7 @@ page {
   }
 }
 
-// Bottom sheet content inside <wd-popup position="bottom" custom-class="nx-sheet-popup">
+// Bottom sheet content (custom-class="nx-sheet-popup")
 .nx-sheet-popup {
   border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0 !important;
   background: var(--nx-bg) !important;
@@ -503,7 +502,7 @@ page {
   }
 }
 
-// Rows wrapped in another element (e.g. wd-swipe-action): separators between the wrappers
+// Rows wrapped in another element: separators between the wrappers
 .nx-group__body--divided > *:not(:last-child) {
   box-shadow: inset 0 -1rpx 0 var(--nx-border);
 }

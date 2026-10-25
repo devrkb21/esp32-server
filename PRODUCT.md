@@ -59,14 +59,19 @@ come by, and remembers things about you between chats. Made in Bangladesh by Nob
 - Back office: users, params, dictionaries, providers, model config, agent templates, knowledge
   base, replacement words, voice clone, voice resources, features, server-side, OTA, address book.
 - All API contracts stay as they are; this is a UI rebuild.
-- Languages: Bangla is the default UI language (new locale), English second; de, pt_BR, vi,
-  zh_CN, zh_TW stay available.
+- Languages: Bangla is the default UI language, English second; no other languages (owner's
+  decision, 2026-10-25: nothing China-specific, everything Bangladeshi).
 
 ## Brand Commitments
 
-- The Nobix mark (orange #F2794F to #D9532E rounded square with a cream #FFF8F3 robot face,
-  #2A1B14 eyes and smile, antenna) and its orange stay (user's answer, 2026-10-25).
-- Name: TinyBot (Bangla: টাইনিবট), by Nobix Industries (নোবিক্স).
+- The app is **Nobix** (Bangla: নোবিক্স). Its icon, favicon and header mark are the NX mark of
+  the official Nobix Industries logo (blue and grey NX, navy NOBIX INDUSTRIES wordmark); the
+  full lockup closes the legal pages and the More/About section (owner's decision, 2026-10-25).
+- TinyBot (Bangla: টাইনিবট) is one product inside the Nobix app; more products will follow. Its
+  mark is the orange robot (orange #F2794F to #D9532E rounded square with a cream #FFF8F3 robot
+  face, #2A1B14 eyes and smile, antenna).
+- The orange stays the single action and "now" colour (owner's answer, 2026-10-25); the Nobix
+  blue lives only inside the logo images.
 - Nothing of the upstream xiaozhi look (Element UI, xiaozhi logos) is kept.
 
 ## Evidence on Hand

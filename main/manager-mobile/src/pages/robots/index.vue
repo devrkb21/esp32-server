@@ -19,9 +19,10 @@ import { getBindDevices, getDeviceOnlineStatus } from '@/api/device'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
 import { codeFromScan, linkPagePath } from '@/utils/linkCode.mjs'
+import { notifyRequestError } from '@/utils/requestError'
 import { productName, productOf } from '@/utils/tbProducts.mjs'
 import { clearRobot, loadProducts, products, robot, selectRobot } from '@/utils/tbRobot'
-import { companionAskedAt, hasCompanion, noteMqttMap, refreshCompanion, robotStatuses, statusOf } from '@/utils/tbRobotStatus'
+import { checkCompanions, noteMqttMap, robotStatuses, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import AddRobotSheet from './components/AddRobotSheet.vue'
 import { characterNameError, keepSelection, NAME_MAX, nameMatches, parseStatus, toRobot, voiceName } from './robotsModel.mjs'
@@ -116,25 +117,12 @@ async function fetchStatus(id: string) {
   }
   const devs = devicesByAgent[id] || []
   noteMqttMap(id, statusByAgent[id], devs)
-  checkCompanions(devs)
+  // the companion server's word for the robots the gateway calls online (shared rule and limits)
+  checkCompanions(devs.map(d => ({ id: d.id, features: productOf(d, products.list).features }))).done.then(() => {
+    clock.value = Date.now()
+  })
 }
 
-// "Online" on the gateway is not enough: ask the companion server about the robots it calls
-// online (or cannot say), lazily and at most once per 30 s each. Offline robots need no call.
-const COMPANION_EVERY_MS = 30000
-function checkCompanions(devs: Device[]) {
-  const now = Date.now()
-  for (const d of devs) {
-    const e = robotStatuses[d.id]
-    if (!hasCompanion(d.id) || !e || e.mqtt === false)
-      continue
-    if (now - companionAskedAt(d.id) < COMPANION_EVERY_MS)
-      continue
-    refreshCompanion(d.id).then(() => {
-      clock.value = Date.now()
-    })
-  }
-}
 async function loadDevices(id: string) {
   await fetchDevices(id)
   if (!failedAgents[id])
@@ -280,7 +268,7 @@ async function submitCharacter() {
     }
   }
   catch (e: any) {
-    toast.error(e?.message || t('robots.addChar.failed'))
+    notifyRequestError(e, 'robots.addChar.failed')
   }
   thenAddRobot = false
   charSaving.value = false
@@ -326,7 +314,7 @@ async function confirmDelete() {
     await load(true)
   }
   catch (e: any) {
-    toast.error(e?.message || t('robots.del.failed'))
+    notifyRequestError(e, 'robots.del.failed')
   }
   deleting.value = false
 }

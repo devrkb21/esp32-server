@@ -4,7 +4,7 @@ import { computed, ref } from 'vue'
 import { geocodeCity } from '@/api/companion'
 import { t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
-import { nextPrayer, PRAYER_KEYS } from '../../companion/companionUtils.mjs'
+import { nextPrayer, PRAYER_KEYS } from '@/utils/companionUtils.mjs'
 import { useDay } from '../dayContext'
 
 // Prayer times: on/off and remind save at once ({ prayer: {...} }); a city from the search sets

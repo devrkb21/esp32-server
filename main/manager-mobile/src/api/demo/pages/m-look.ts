@@ -1,5 +1,5 @@
 import type { DemoHandler } from '../index'
-import { createCanvas, createLiveliness, paintToContext, renderActivityFrame } from '../../../pages/companion/faceLook.mjs'
+import { createCanvas, createLiveliness, paintToContext, renderActivityFrame } from '@/utils/faceLook.mjs'
 import { onPage } from '../index'
 import { DEMO_COMPANION } from './zz-base'
 

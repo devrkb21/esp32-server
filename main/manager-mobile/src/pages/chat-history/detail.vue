@@ -18,6 +18,7 @@ import { getAudioId, getChatHistory } from '@/api/chat-history/chat-history'
 import { http } from '@/http/request/alova'
 import { getCurrentLanguage, t } from '@/i18n'
 import { debounce, getEnvBaseUrl } from '@/utils'
+import { notifyRequestError } from '@/utils/requestError'
 import { robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import { firstLine, lineContent, speakerOf, stampText, TOOL_FOLD, withTimeMarks } from '../messages/messagesModel.mjs'
@@ -59,9 +60,9 @@ async function loadChatHistory() {
     // the legacy screen opens at the newest line
     nextTick(() => uni.pageScrollTo({ scrollTop: 999999, duration: 0 }))
   }
-  catch {
+  catch (e) {
     failed.value = true
-    toast.error(t('chatHistory.loadFailed'))
+    notifyRequestError(e, 'chatHistory.loadFailed')
   }
   finally {
     loading.value = false

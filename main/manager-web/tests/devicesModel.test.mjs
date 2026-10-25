@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   aliasChange, canGenerateLook, cleanCode, filterRows, macParts, manualProblems, mqttClientId, onlineFrom, pageOf,
-  parseStatusMap, rowState, toRows,
+  parseStatusMap, toRows,
 } from '../src/views/devices/devicesModel.js';
 
 const list = [
@@ -27,13 +27,6 @@ describe('devices model', () => {
     expect(onlineFrom({}, a)).toBe('offline');
     expect(parseStatusMap({ code: 0, data: 'not json' })).toBeNull();
     expect(parseStatusMap({ code: 500 })).toBeNull();
-  });
-
-  it('refines an online robot with its own state', () => {
-    expect(rowState('online', 'sleeping')).toBe('sleeping');
-    expect(rowState('online', 'updating')).toBe('updating');
-    expect(rowState('online', 'offline')).toBe('online');
-    expect(rowState('offline', 'updating')).toBe('offline');
   });
 
   it('filters by name, board or MAC and pages', () => {

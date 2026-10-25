@@ -3,7 +3,7 @@ import type { CompanionEvent } from '@/api/companion'
 import { computed, ref, watch } from 'vue'
 import { getCompanionEvents } from '@/api/companion'
 import { t } from '@/i18n'
-import { nextPrayer } from '../../companion/companionUtils.mjs'
+import { nextPrayer } from '@/utils/companionUtils.mjs'
 import { daysTogether, eventInk, faceMood, highScores, MAX_NAME, moodKey, reportedVolume, uptimeParts, volumeFromPhone, wifiQuality } from '../robotModel.mjs'
 import { notifyError, useRobot } from './context'
 

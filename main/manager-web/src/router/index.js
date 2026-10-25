@@ -18,6 +18,7 @@ const v = {
   devices: () => import('../views/devices/Devices.vue'),
   day: () => import('../views/day/Day.vue'),
   messages: () => import('../views/messages/Messages.vue'),
+  history: () => import('../views/messages/History.vue'),
   look: () => import('../views/look/Look.vue'),
   robot: () => import('../views/robot/RobotSettings.vue'),
   roleConfig: () => import('../views/character/RoleConfig.vue'),
@@ -61,6 +62,8 @@ export const routes = [
   { path: '/device-management', name: 'DeviceManagement', component: v.devices, meta: { title: 'nav.devices' } },
   { path: '/day', name: 'Day', component: v.day, meta: { title: 'nav.day', needs: 'day' } },
   { path: '/messages', name: 'Messages', component: v.messages, meta: { title: 'nav.messages', needs: 'messages' } },
+  // the chat history alone, for products without messages (TinyBot shows it inside Messages)
+  { path: '/history', name: 'History', component: v.history, meta: { title: 'nav.history', needs: 'chat_history' } },
   { path: '/look', name: 'Look', component: v.look, meta: { title: 'nav.look', needs: 'look' } },
   { path: '/robot', name: 'RobotSettings', component: v.robot, meta: { title: 'nav.robot', needs: 'companion' } },
   { path: '/role-config', name: 'RoleConfig', component: v.roleConfig, meta: { title: 'nav.character', needs: 'character' } },

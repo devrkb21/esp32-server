@@ -11,7 +11,6 @@ import {
   sameSecurity,
   securityOf,
   securityPayload,
-  serverSaid,
   transcriptOf,
   validate,
   withCurrent,
@@ -73,11 +72,9 @@ test('security policy: defaults, snapping, payload, comparison', () => {
   assert.ok(!sameSecurity(s, { ...s, percent: 80 }))
 })
 
-test('errors: not configured and already shown by the server', () => {
+test('errors: not configured', () => {
   assert.ok(isNotConfigured(new Error('Request error [10054]: not configured')))
   assert.ok(!isNotConfigured(new Error('timeout')))
-  assert.ok(serverSaid(new Error('Request error [500]: x')))
-  assert.ok(!serverSaid(new Error('Network')))
 })
 
 test('dateText in both languages', () => {

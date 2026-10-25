@@ -22,10 +22,11 @@ import {
   getVoiceprintSecurity,
   updateVoiceprintSecurity,
 } from '@/api/voiceprint'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { notifyRequestError } from '@/utils/requestError'
 import { tbConfirm } from '@/utils/tbConfirm'
-import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { loadRobots, robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import VoicePrintSheet from './components/VoicePrintSheet.vue'
@@ -39,7 +40,6 @@ import {
   sameSecurity,
   securityOf,
   securityPayload,
-  serverSaid,
 } from './voiceprintModel.mjs'
 
 defineOptions({ name: 'VoicePrintManage' })
@@ -180,8 +180,7 @@ async function saveSecuritySettings() {
   }
   catch (error) {
     console.error('Failed to update voiceprint security settings:', error)
-    if (!serverSaid(error))
-      toast.error(t('mVp.sec.saveFailed'))
+    notifyRequestError(error, 'mVp.sec.saveFailed')
   }
   finally {
     isSavingSecurity.value = false
@@ -253,8 +252,7 @@ async function remove(row: VoicePrint) {
   }
   catch (error) {
     console.error('Failed to delete speaker:', error)
-    if (!serverSaid(error))
-      toast.error(t('mVp.deleteFailed'))
+    notifyRequestError(error, 'mVp.deleteFailed')
   }
 }
 
@@ -320,7 +318,7 @@ defineExpose({ refresh, sheetOpen })
     <block v-else>
       <tb-section :title="t('mVp.list.title')">
         <template v-if="voicePrintList.length" #actions>
-          <text class="vp__count tb-num">
+          <text class="tb-num vp__count">
             {{ t('mVp.list.count', { n: num(voicePrintList.length) }) }}
           </text>
         </template>

@@ -41,7 +41,7 @@ import {
   W,
 } from './faceLook.mjs'
 
-const SCHEMA = fileURLToPath(new URL('../../../../xiaozhi-server/core/companion/schema.py', import.meta.url))
+const SCHEMA = fileURLToPath(new URL('../../../xiaozhi-server/core/companion/schema.py', import.meta.url))
 
 function face(look = {}, mood = 'neutral', t = 0) {
   return renderFace(evaluateMood(mood, t), { ...defaultLook(), ...look })

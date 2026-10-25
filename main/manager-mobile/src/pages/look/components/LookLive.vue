@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 // "Live from TinyBot": the robot's real OLED, fetched with the device tool `self.screen.preview`
-// (POST /device/tools/call/{deviceId}) one request at a time (../../companion/liveScreen.mjs).
+// (POST /device/tools/call/{deviceId}) one request at a time (src/utils/liveScreen.mjs).
 // It asks only while mounted, on screen (IntersectionObserver), the page shown and the app visible.
 import { onHide, onShow } from '@dcloudio/uni-app'
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getScreenPreview } from '@/api/device/device'
+import { peopleText } from '@/http/request/errorText.mjs'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
 import {
@@ -14,7 +15,7 @@ import {
   parseScreenFrame,
   screenToolArgs,
   toolErrorText,
-} from '../../companion/liveScreen.mjs'
+} from '@/utils/liveScreen.mjs'
 
 defineOptions({ name: 'LookLive' })
 
@@ -93,9 +94,10 @@ const ageText = computed(() => {
   return t('lookPage.live.updatedHours', { n })
 })
 
+// The robot's or server's own words only when they are meant for people; raw text stays in the console.
 const errorDetail = computed(() => {
   const e = state.value.error
-  return (e && (e.msg || e.message)) || ''
+  return peopleText(e && (e.serverMsg || e.msg || e.message))
 })
 
 async function fetchFrame() {
@@ -216,7 +218,7 @@ onBeforeUnmount(() => {
       <view class="look-live__state" :class="`is-${tone}`" role="status" aria-live="polite">
         <view class="look-live__mark" /><text>{{ statusText }}</text>
       </view>
-      <text class="look-live__age tb-num">
+      <text class="tb-num look-live__age">
         {{ ageText }}
       </text>
       <view class="look-live__btns">

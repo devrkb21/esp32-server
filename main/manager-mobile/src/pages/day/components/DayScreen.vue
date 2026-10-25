@@ -10,7 +10,7 @@ import {
   renderActivityFrame,
   renderActivityStill,
   toSvgDataUri,
-} from '../../companion/faceLook.mjs'
+} from '@/utils/faceLook.mjs'
 
 // TinyBot's OLED doing one daily-life activity, drawn by the same renderer as the robot's face,
 // in the face window. It plays the activity once when asked (`animate` on change, or replay())

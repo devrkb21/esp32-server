@@ -17,6 +17,7 @@ import { getCurrentLanguage, t } from '@/i18n'
 import { lastSeen } from '@/pages/robots/robotsModel.mjs'
 import { useUserStore } from '@/store'
 import { digits, timeText } from '@/utils/calendar.mjs'
+import { notifyRequestError } from '@/utils/requestError'
 import { allows, productName } from '@/utils/tbProducts.mjs'
 import { loadRobots, robot, robotFeatures } from '@/utils/tbRobot'
 import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
@@ -140,8 +141,8 @@ async function say() {
     setTimeout(() => { pulse.value = true }, 16)
     toast.success(live.value ? t('today.sent') : t('today.sentLater'))
   }
-  catch {
-    toast.error(t('today.sendFailed'))
+  catch (e) {
+    notifyRequestError(e, 'today.sendFailed')
   }
   sending.value = false
 }
@@ -154,8 +155,8 @@ async function run(c: any) {
     await sendCompanionCommand(robot.deviceId, { type: c.type, arg: c.arg === undefined ? '' : String(c.arg) } as any)
     toast.success(t('today.cmdSent', { name: t(c.label) }))
   }
-  catch {
-    toast.error(t('today.sendFailed'))
+  catch (e) {
+    notifyRequestError(e, 'today.sendFailed')
   }
   busy.value = ''
 }
@@ -189,7 +190,7 @@ watch(companion, (on, was) => {
 </script>
 
 <template>
-  <view class="today tb-wrap">
+  <view class="tb-wrap today">
     <view class="today__top" />
     <tb-month-band :date="date" :lang="lang" sticky />
 
@@ -231,6 +232,9 @@ watch(companion, (on, was) => {
           </tb-button>
           <tb-button v-if="can('voiceprint')" icon="voiceprint" @click="go('/pages/voiceprint/index')">
             {{ t('today.device.voiceprint') }}
+          </tb-button>
+          <tb-button v-if="can('chat_history')" icon="history" @click="go(`/pages/chat-history/index?agentId=${encodeURIComponent(robot.agentId)}`)">
+            {{ t('today.device.history') }}
           </tb-button>
         </view>
       </view>
@@ -274,7 +278,7 @@ watch(companion, (on, was) => {
 
       <view v-if="companion && weather" class="today__weather">
         <tb-icon name="weather" :size="22" />
-        <text class="today__temp tb-num">
+        <text class="tb-num today__temp">
           {{ num(weather.temp) }}°
         </text>
         <view class="today__wtext">

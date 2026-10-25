@@ -5,6 +5,7 @@ import { getServiceUrl } from '../apis/api';
 import { goToPage, isNotNull, loginWithReturn, showDanger, showWarning } from '../utils/index';
 import i18n from '../i18n/index';
 import { DEMO, demoReply } from '@/apis/demo/index';
+import { businessKey, httpStatusKey, networkErrorKey, peopleText } from '@/utils/errorText.mjs';
 
 const fly = new Fly()
 // Set timeout
@@ -101,7 +102,14 @@ export default {
     sendRequest,
     reAjaxFun,
     clearRequestTime,
-    triggerSilentRefresh
+    triggerSilentRefresh,
+    showFailure
+}
+
+/** Toast a call that got no proper answer, in plain words (the raw error goes to the console). */
+function showFailure(info) {
+    const text = failureText(info)
+    if (text) showDanger(text)
 }
 
 function sendRequest() {
@@ -218,6 +226,38 @@ function sendRequest() {
     }
 }
 
+const tr = (key, params) => i18n.global.t(key, params)
+
+/**
+ * A failed answer, cleaned before any page sees it: `data.msg` keeps the server's words only when
+ * they are meant for people (src/utils/errorText.mjs), else a plain line for the status or code,
+ * or '' so the page says what failed in its own words. The raw text stays in `data.rawMsg` (for
+ * rules such as companionErrorKind) and goes to the console, never the screen.
+ */
+export function cleanFailure(info) {
+    const data = info && info.data && typeof info.data === 'object' ? info.data : null
+    if (!data || data.rawMsg !== undefined) return info
+    const raw = data.msg === undefined || data.msg === null ? '' : String(data.msg)
+    data.rawMsg = raw
+    if (raw) console.warn('[Request failed]', info.status, data.code, raw)
+    const own = peopleText(raw)
+    if (info.status === 200) {
+        const code = Number(data.code)
+        data.msg = own || ([401, 403, 404, 429].includes(code) ? tr(businessKey(code)) : '')
+    } else {
+        data.msg = tr(httpStatusKey(info.status))
+    }
+    return info
+}
+
+/** The plain line for an answer that is not a 200 (or no answer at all); '' for an abort. */
+export function failureText(info) {
+    const status = Number(info && info.status)
+    if (status && status !== 200) return tr(httpStatusKey(status))
+    const key = networkErrorKey(info)
+    return key ? tr(key) : ''
+}
+
 /**
  * Info: returned info after request completes
  * failCallback: callback function
@@ -228,29 +268,31 @@ function httpHandlerError(info, failCallback, networkFailCallback) {
 
     /** Request successful, exit function when status is 200 */
     let networkError = false
-    if (info.status === 200) {
+    if (info && info.status === 200) {
         if (info.data.code === 'success' || info.data.code === 0 || info.data.code === undefined) {
             return networkError
         } else if (info.data.code === 401) {
+            console.warn('[Request] session ended', info.data.msg)
             store.commit('clearAuth');
+            showWarning(tr('request.sessionEnded'))
             goToPage(loginWithReturn(), true);
             return true
         } else {
-            // Directly use i18n message returned by backend
-            let errorMessage = info.data.msg;
-            
+            cleanFailure(info)
             if (failCallback) {
                 failCallback(info)
             } else {
-                showDanger(errorMessage)
+                showDanger(info.data.msg || tr('request.failed'))
             }
             return true
         }
     }
+    console.error('[Request failed]', info)
+    cleanFailure(info)
     if (networkFailCallback) {
         networkFailCallback(info)
     } else {
-        showDanger(`Network request error [${info.status}]`)
+        showDanger(failureText(info))
     }
     return true
 }
@@ -265,9 +307,9 @@ function reAjaxFun(fn) {
     }
     let ajaxIndex = parseInt((nowTimeSec - requestTime) / reAjaxSec)
     if (ajaxIndex > 10) {
-        showWarning('Unable to connect to server')
+        showWarning(tr('network.unreachable'))
     } else {
-        showWarning('Connecting to server (' + ajaxIndex + ')')
+        showWarning(tr('request.connecting', { n: ajaxIndex }))
     }
     if (ajaxIndex < 10 && fn) {
         setTimeout(() => {

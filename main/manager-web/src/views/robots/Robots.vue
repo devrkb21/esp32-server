@@ -212,6 +212,7 @@
 </template>
 
 <script setup>
+import { peopleText } from '@/utils/errorText.mjs';
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -219,11 +220,11 @@ import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
 import { digits } from '@/kit/calendar';
 import { clearRobot, loadProducts, products, robot, selectRobot } from '@/shell/robot';
-import { hasCompanion, links, noteMqttMap, refreshCompanion, statusOf } from '@/shell/robotStatus';
+import { checkCompanions, noteMqttMap, statusOf } from '@/shell/robotStatus';
 import { productName, productOf } from '@/shell/products';
 import featureManager from '@/utils/featureManager';
 import {
-  cleanCode, isOnline, isValidCode, lastSeen, manualErrors, maskMac, nameMatches, parseStatus, pushHistory,
+  cleanCode, isValidCode, lastSeen, manualErrors, maskMac, nameMatches, parseStatus, pushHistory,
   searchTypeOf, toRobot,
 } from './robotsModel';
 
@@ -315,25 +316,11 @@ function fetchStatus(agentId) {
       statusByAgent[agentId] = map;
       const devs = devicesByAgent[agentId] || [];
       noteMqttMap(map, devs);
-      checkCompanions(devs, map);
+      checkCompanions(devs);
       resolve();
     };
     Api.device.getDeviceStatus(agentId, ({ data }) => done(data && data.code === 0 ? parseStatus(data.data) : null), () => done(null));
   });
-}
-
-// The gateway alone cannot say "online": a robot can be on MQTT and still unknown to the companion
-// server. Ask the companion view of the account's own companion robots the gateway calls online
-// (or all of them when there is no gateway map), each at most every 30 s, a few at a time.
-const COMPANION_EVERY = 30000;
-const COMPANION_MAX = 8;
-function checkCompanions(devs, map) {
-  const now = Date.now();
-  devs.filter((d) => hasCompanion(d.id, productOf(d, products.list)))
-    .filter((d) => !map || isOnline(map, d))
-    .filter((d) => now - ((links[d.id] && links[d.id].companionAt) || 0) > COMPANION_EVERY)
-    .slice(0, COMPANION_MAX)
-    .forEach((d) => refreshCompanion(d.id));
 }
 
 /** The row's face: awake when online, asleep when offline, puzzled when the server side is not right. */
@@ -566,7 +553,7 @@ async function onMode(mode) {
     boards.value = (res && res.data) || [];
     boardsLoaded = true;
   } catch (e) {
-    toast.error((e && e.message) || t('robots.add.boardsFailed'));
+    toast.error(peopleText(e && e.message) || t('robots.add.boardsFailed'));
   }
 }
 

@@ -1,9 +1,10 @@
 import { reactive } from 'vue';
 import Api from '@/apis/api';
-import { robot } from './robot';
-import { allows } from './products';
-import { companionErrorKind, connectionOf, rawErrorText } from './connection.mjs';
+import { products, robot } from './robot';
+import { allows, productOf } from './products';
+import { companionErrorKind, companionsToAsk, connectionOf, rawErrorText } from './connection.mjs';
 import { isOnline, parseStatus } from '@/views/robots/robotsModel';
+import { peopleText } from '@/utils/errorText.mjs';
 
 // The robot's connection status, in one place for every page (rules in ./connection.mjs).
 // Pages that load the companion view report what they got (noteCompanionView / noteCompanionError);
@@ -107,6 +108,26 @@ export function refreshCompanion(id) {
 }
 
 /**
+ * Ask the companion views a list page needs for its statuses (rule: companionsToAsk in
+ * connection.mjs; call after noting the gateway map). `devices` are raw device entries
+ * ({ id | deviceId, macAddress, board }, with `features` when known). Returns the ids asked.
+ */
+export function checkCompanions(devices, { now = Date.now() } = {}) {
+  const ids = companionsToAsk((devices || []).map((d) => {
+    const id = d.deviceId || d.id;
+    const e = (id && links[id]) || {};
+    return {
+      id,
+      hasCompanion: hasCompanion(id, Array.isArray(d.features) ? d : productOf(d, products.list)),
+      mqtt: e.mqtt,
+      askedAt: e.companionAt || 0,
+    };
+  }), now);
+  ids.forEach((id) => refreshCompanion(id));
+  return ids;
+}
+
+/**
  * Bring a device's status up to date, skipping what is fresh enough (a page that polls the view
  * keeps it fresh). `force` asks both again.
  */
@@ -135,8 +156,7 @@ export function friendlyError(err, fallback) {
   if (!msg) return fallback;
   const kind = companionErrorKind(err);
   if (kind === 'not_registered' || kind === 'no_companion') return fallback;
-  if (/not found|not exist|not reachable|not configured|internal error|companion server|exception|timeout|unauthorized|request error/i.test(msg)) return fallback;
-  return msg;
+  return peopleText(msg) || fallback; // src/utils/errorText.mjs: never infrastructure or stack text
 }
 
 /** Forget every status (sign-out, tests). */

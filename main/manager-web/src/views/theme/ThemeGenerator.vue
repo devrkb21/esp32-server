@@ -183,6 +183,7 @@
 </template>
 
 <script>
+import { peopleText } from '@/utils/errorText.mjs';
 import Api from '@/apis/api';
 import { digits } from '@/kit/calendar';
 import { deviceIdFrom, loadRobots, robot } from '@/shell/robot';
@@ -356,8 +357,10 @@ export default {
       return this.$t(`themeGen.steps.${key}`);
     },
     errorText(err, fallbackKey) {
-      const msg = err && (err.msg || err.message);
-      return msg || this.$t(fallbackKey);
+      if (err && err.own) return err.msg; // a line this page already wrote
+      // the server's words only when they are meant for people (src/utils/errorText.mjs)
+      const msg = err && ((err.data && err.data.msg) || err.msg || err.message);
+      return peopleText(msg) || this.$t(fallbackKey);
     },
 
     // ------------------------------------------------------------------ robot
@@ -477,7 +480,7 @@ export default {
           await this.callTool('self.get_device_status');
         } catch (e) {
           this.robotState = 'offline';
-          throw { msg: this.$t('themeGen.errors.offline') };
+          throw { msg: this.$t('themeGen.errors.offline'), own: true };
         }
         this.robotState = 'online';
         this.setStep('check', 'done');
@@ -485,14 +488,14 @@ export default {
         current = 'upload';
         this.setStep('upload', 'active');
         const url = await Api.ota.uploadAssetsBin(blob).catch((e) => {
-          throw { msg: this.errorText(e, 'themeGen.errors.upload') };
+          throw { msg: this.errorText(e, 'themeGen.errors.upload'), own: true };
         });
         this.setStep('upload', 'done');
 
         current = 'link';
         this.setStep('link', 'active');
         await this.callTool('self.assets.set_download_url', { url }).catch((e) => {
-          throw { msg: this.errorText(e, 'themeGen.errors.link') };
+          throw { msg: this.errorText(e, 'themeGen.errors.link'), own: true };
         });
         this.setStep('link', 'done');
 
@@ -528,7 +531,7 @@ export default {
         const poll = () => {
           if (this.destroyed) return reject(new Error('left page'));
           if (Date.now() - started > WAIT_LIMIT_MS) {
-            return reject({ msg: this.$t('themeGen.errors.timeout') });
+            return reject({ msg: this.$t('themeGen.errors.timeout'), own: true });
           }
           this.callTool('self.get_device_status')
             .then(resolve)

@@ -17,6 +17,7 @@ import { computed, onMounted, ref } from 'vue'
 import { getChatSessions } from '@/api/chat-history/chat-history'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { robot } from '@/utils/tbRobot'
 import { convPart, dateParts, mergeSessions, refreshFirstPage, SESSIONS_PAGE } from '../messages/messagesModel.mjs'
 
 defineOptions({ name: 'ChatHistory' })
@@ -29,7 +30,8 @@ const num = (n: any) => digits(n ?? '', lang.value)
 // As a page the agent comes from the link; embedded, from the prop.
 const isPage = ref(false)
 const queryAgent = ref('')
-const currentAgentId = computed(() => queryAgent.value || props.agentId || '')
+// Opened from More with no link, it shows this robot's character.
+const currentAgentId = computed(() => queryAgent.value || props.agentId || (isPage.value ? robot.agentId : '') || '')
 
 const sessionList = ref<ChatSession[]>([])
 const loading = ref(false)

@@ -3,8 +3,8 @@
 // go to the server as whole lists, settings sections as partial patches. Same model as
 // manager-web/src/views/day/dayModel.js, plus the proactive talk rows.
 // days bitmask: bit 0 = Sunday ... bit 6 = Saturday (docs/companion-api.md).
-import { EVERY_DAY, FRI_SAT, isHHMM, PRAYER_KEYS, proactiveSettings, SUN_TO_THU } from '../companion/companionUtils.mjs'
-import { ACTIVITIES, minuteOfDay, normalizeRoutine, scheduledActivity } from '../companion/faceLook.mjs'
+import { EVERY_DAY, FRI_SAT, isHHMM, PRAYER_KEYS, proactiveSettings, SUN_TO_THU } from '../../utils/companionUtils.mjs'
+import { ACTIVITIES, minuteOfDay, normalizeRoutine, scheduledActivity } from '../../utils/faceLook.mjs'
 
 /** The parts of the day, in the order of the area tabs. */
 export const TABS = ['alarms', 'reminders', 'prayer', 'routine', 'focus', 'night', 'talk']

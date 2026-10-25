@@ -5,6 +5,7 @@ import type { FirmwareType } from '@/api/device'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { bindDevice, bindDeviceManual, getFirmwareTypes } from '@/api/device'
 import { t } from '@/i18n'
+import { notifyRequestError } from '@/utils/requestError'
 import { toast } from '@/utils/toast'
 import { cleanCode, hasErrors, isValidCode, manualErrors } from '../robotsModel.mjs'
 
@@ -65,7 +66,7 @@ async function loadBoards() {
     boardsLoaded = true
   }
   catch (e: any) {
-    toast.error(e?.message || t('robots.add.boardsFailed'))
+    notifyRequestError(e, 'robots.add.boardsFailed')
   }
 }
 
@@ -117,7 +118,7 @@ async function submit() {
       close()
     }
     catch (e: any) {
-      toast.error(e?.message || t('robots.add.bindFailed'))
+      notifyRequestError(e, 'robots.add.bindFailed')
     }
     adding.value = false
     return
@@ -133,7 +134,7 @@ async function submit() {
     close()
   }
   catch (e: any) {
-    toast.error(e?.message || t('robots.add.addFailed'))
+    notifyRequestError(e, 'robots.add.addFailed')
   }
   adding.value = false
 }

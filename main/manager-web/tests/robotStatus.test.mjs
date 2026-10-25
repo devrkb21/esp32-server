@@ -6,7 +6,7 @@ import { mount } from '@vue/test-utils';
 vi.mock('@/apis/api', () => ({ default: {} }));
 
 import {
-  STALE_S, STATES, companionErrorKind, connectionOf, isLive, rawErrorText, shouldPoll, statusInk, statusKeys, toMs,
+  COMPANION_EVERY_MS, COMPANION_MAX, STALE_S, STATES, companionErrorKind, companionsToAsk, connectionOf, isLive, rawErrorText, shouldPoll, statusInk, statusKeys, toMs,
 } from '@/shell/connection.mjs';
 import {
   friendlyError, noteCompanionError, noteCompanionView, noteMqtt, noteMqttMap, resetRobotStatus, statusOf,
@@ -222,5 +222,22 @@ describe('TbRobotStatus', () => {
     expect(w.emitted('refresh')).toBeUndefined();
     hidden.mockRestore();
     w.unmount();
+  });
+});
+
+describe('companionsToAsk', () => {
+  it('asks only online companion robots, once per 30 s, capped', () => {
+    const devs = [
+      { id: 'on', hasCompanion: true, mqtt: true, askedAt: 0 },
+      { id: 'nomap', hasCompanion: true, mqtt: null, askedAt: 0 },
+      { id: 'off', hasCompanion: true, mqtt: false, askedAt: 0 },
+      { id: 'unasked', hasCompanion: true, askedAt: 0 },
+      { id: 'generic', hasCompanion: false, mqtt: true, askedAt: 0 },
+      { id: 'recent', hasCompanion: true, mqtt: true, askedAt: NOW - 1000 },
+      { id: 'old', hasCompanion: true, mqtt: true, askedAt: NOW - COMPANION_EVERY_MS },
+    ];
+    expect(companionsToAsk(devs, NOW)).toEqual(['on', 'nomap', 'old']);
+    const many = Array.from({ length: 20 }, (_, i) => ({ id: `d${i}`, hasCompanion: true, mqtt: true }));
+    expect(companionsToAsk(many, NOW)).toHaveLength(COMPANION_MAX);
   });
 });

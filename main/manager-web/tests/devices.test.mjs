@@ -22,6 +22,8 @@ import { toastState } from '@/kit/toast';
 import { robot } from '@/shell/robot';
 import pages from '@/i18n/pages/devices.js';
 import shell from '@/i18n/pages/shell.js';
+import statusPages from '@/i18n/pages/status.js';
+import { resetRobotStatus } from '@/shell/robotStatus';
 import Devices from '@/views/devices/Devices.vue';
 
 const ok = (data, msg = 'success') => ({ data: { code: 0, msg, data } });
@@ -44,7 +46,7 @@ async function setup(query = '?agentId=agent1') {
   });
   router.push(`/device-management${query}`);
   await router.isReady();
-  const i18n = createI18n({ legacy: true, allowComposition: true, locale: 'en', fallbackLocale: 'en', messages: { en: { ...shell.en, ...pages.en } } });
+  const i18n = createI18n({ legacy: true, allowComposition: true, locale: 'en', fallbackLocale: 'en', messages: { en: { ...shell.en, ...statusPages.en, ...pages.en } } });
   const w = mount(Devices, { global: { plugins: [router, i18n, kit], stubs: { teleport: true } } });
   await flushPromises();
   return { w, router };
@@ -65,11 +67,12 @@ describe('Devices', () => {
     vi.clearAllMocks();
     toastState.items.splice(0);
     robot.deviceId = ''; robot.agentId = ''; robot.loaded = true; robot.list = [];
+    resetRobotStatus();
     Api.agent.getDeviceConfig.mockImplementation((id, cb) => cb(ok({ agentName: 'Kitchen buddy' })));
     Api.device.getAgentBindDevices.mockImplementation((id, cb) => cb(ok(devices.map((d) => ({ ...d })))));
     Api.device.getDeviceStatus.mockImplementation((id, cb) => cb(ok(JSON.stringify(status))));
     Api.companion.getCompanion.mockImplementation((id, cb) => cb(ok(id === 'dev1'
-      ? { online: true, stats: { volume: 45, state: 'idle' }, settings: { volume: 60 } }
+      ? { online: true, last_seen: Math.floor(Date.now() / 1000) - 10, stats: { volume: 45, state: 'idle' }, settings: { volume: 60 } }
       : { online: false, settings: { volume: 30 } })));
     Api.dict.getDictDataByType.mockResolvedValue({ code: 0, data: [{ key: 'tinybot', name: 'TinyBot board' }] });
     Api.device.updateDeviceInfo.mockImplementation((id, payload, cb) => cb(ok(null)));
@@ -88,9 +91,37 @@ describe('Devices', () => {
     expect(w.text()).toContain('Desk');
     expect(w.text()).toContain('Unnamed robot');
     expect(w.text()).toContain('TinyBot board');
-    const states = w.findAll('.dv-state').map((s) => s.text());
+    // the shared status: the gateway calls dev1 online and its companion view is fresh; dev2 is
+    // not on the gateway, so its companion view is not asked
+    expect(Api.companion.getCompanion).toHaveBeenCalledTimes(1);
+    expect(Api.companion.getCompanion.mock.calls[0][0]).toBe('dev1');
+    const states = w.findAll('.dv-state .tb-rstat').map((s) => s.text());
     expect(states).toEqual(['Online', 'Offline']);
     expect(w.text()).toContain('online: 1');
+  });
+
+  it('never says online when the robot is on the gateway but the companion server does not know it', async () => {
+    Api.companion.getCompanion.mockImplementation((id, cb, fail) => fail({ status: 200, data: { code: 500, msg: 'device not found' } }));
+    const { w } = await setup();
+    const states = w.findAll('.dv-state .tb-rstat').map((s) => s.text());
+    expect(states).toEqual(['Joining the server', 'Offline']);
+    expect(w.text()).toContain('online: 0');
+    expect(w.text()).not.toContain('device not found');
+  });
+
+  it('asks each companion view at most once per 30 s while polling', async () => {
+    const { w } = await setup();
+    expect(Api.companion.getCompanion).toHaveBeenCalledTimes(1);
+    w.vm.$.setupState.fetchStatus();
+    await flushPromises();
+    expect(Api.device.getDeviceStatus).toHaveBeenCalledTimes(2);
+    expect(Api.companion.getCompanion).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks every companion robot when the gateway map is not available', async () => {
+    Api.device.getDeviceStatus.mockImplementation((id, cb, fail) => fail(new Error('down')));
+    await setup();
+    expect(Api.companion.getCompanion.mock.calls.map((c) => c[0]).sort()).toEqual(['dev1', 'dev2']);
   });
 
   it('shows the no-character state without an agent id', async () => {

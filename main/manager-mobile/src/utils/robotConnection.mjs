@@ -152,6 +152,28 @@ export function connectionOf({ hasCompanion = true, mqtt, companion, lastConnect
   return out('offline', 'stale-sync')
 }
 
+/** List screens ask a robot's companion view at most this often (ms) ... */
+export const COMPANION_EVERY_MS = 30000
+/** ... and at most this many at a time. */
+export const COMPANION_MAX = 8
+
+/**
+ * Which companion views a list screen (Robots, a character's robots) asks for its statuses: the
+ * gateway alone cannot say "online", so it asks the companion robots the gateway calls online or
+ * cannot say (mqtt true or null; offline robots need no call), each at most every
+ * COMPANION_EVERY_MS and at most COMPANION_MAX at a time.
+ * @param {Array<{ id: string, hasCompanion: boolean, mqtt?: boolean | null, askedAt?: number }>} devices
+ * @param {number} [now]
+ * @returns {string[]} the ids to ask
+ */
+export function companionsToAsk(devices, now = Date.now()) {
+  return (devices || [])
+    .filter(d => d && d.id && d.hasCompanion && (d.mqtt === true || d.mqtt === null))
+    .filter(d => now - (Number(d.askedAt) || 0) >= COMPANION_EVERY_MS)
+    .slice(0, COMPANION_MAX)
+    .map(d => d.id)
+}
+
 /** Is the robot reachable enough that what you send is done right away? */
 export function isLive(state) {
   return state === 'online'

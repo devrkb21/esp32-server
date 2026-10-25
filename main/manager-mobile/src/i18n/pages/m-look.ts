@@ -1,9 +1,9 @@
 // Look (owner: m-look): TinyBot's face editor and its live screen, phone app.
 // Wording shared with manager-web src/i18n/pages/look.js (same lookPage.* keys, kept in step), so
 // the page reads whole in Bangla before the shared locale files carry the older companion.look.* keys.
-// Owner note: the chat-font sizes and strip heights come from src/pages/companion/faceLook.mjs
+// Owner note: the chat-font sizes and strip heights come from src/utils/faceLook.mjs
 // (firmware); nothing here states a figure that file does not. The "every 5 seconds" retry comes
-// from BACKOFF_DELAY_MS in src/pages/companion/liveScreen.mjs.
+// from BACKOFF_DELAY_MS in src/utils/liveScreen.mjs.
 const messages: Record<string, Record<string, string>> = {
   bn: {
     'lookPage.desc': 'টাইনিবটের চোখ, মুখ আর হাবভাব বদলান। প্রতিটি বদল সঙ্গে সঙ্গে নমুনায় দেখা যায়; সংরক্ষণ করলে টাইনিবটে যায়।',

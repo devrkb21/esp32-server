@@ -266,7 +266,7 @@ describe('update flow (fake timers)', () => {
 describe('shared copy', () => {
   it('keeps the shared copy in manager-mobile identical', () => {
     const web = readFileSync(resolve(process.cwd(), 'src/utils/firmwareUpdate.mjs'), 'utf8');
-    const mobile = readFileSync(resolve(process.cwd(), '../manager-mobile/src/pages/companion/firmwareUpdate.mjs'), 'utf8');
+    const mobile = readFileSync(resolve(process.cwd(), '../manager-mobile/src/utils/firmwareUpdate.mjs'), 'utf8');
     expect(mobile).toBe(web);
   });
 });

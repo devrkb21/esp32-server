@@ -90,7 +90,7 @@ describe('live screen: tool result parsing', () => {
 
   it('keeps the shared copy in manager-mobile identical', () => {
     const web = readFileSync(resolve(process.cwd(), 'src/utils/liveScreen.mjs'), 'utf8');
-    const mobile = readFileSync(resolve(process.cwd(), '../manager-mobile/src/pages/companion/liveScreen.mjs'), 'utf8');
+    const mobile = readFileSync(resolve(process.cwd(), '../manager-mobile/src/utils/liveScreen.mjs'), 'utf8');
     expect(mobile).toBe(web);
   });
 });

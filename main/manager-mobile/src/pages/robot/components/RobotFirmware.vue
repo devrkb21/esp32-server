@@ -1,13 +1,13 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { t } from '@/i18n'
+import { currentFirmware, isUpdateBusy, updateAvailable } from '@/utils/firmwareUpdate.mjs'
 import { tbConfirm } from '@/utils/tbConfirm'
-import { currentFirmware, isUpdateBusy, updateAvailable } from '../../companion/firmwareUpdate.mjs'
 import { useRobot } from './context'
 
 // Firmware: the installed and newest version, the Auto update switch (device list API) and
 // "Update now" (companion command {type: 'update'}); the screen runs the flow and waits until
-// TinyBot is back (../../companion/firmwareUpdate.mjs).
+// TinyBot is back (src/utils/firmwareUpdate.mjs).
 defineOptions({ name: 'RobotFirmware' })
 
 const r = useRobot()
@@ -80,7 +80,7 @@ function goRobots() {
           {{ t('companion.firmware.installed') }}
         </text>
         <view class="rbf__line">
-          <text class="rbf__big tb-num">
+          <text class="tb-num rbf__big">
             {{ installed || t('companion.firmware.unknown') }}
           </text>
           <tb-tag v-if="badge" :ink="badge.ink" mark>

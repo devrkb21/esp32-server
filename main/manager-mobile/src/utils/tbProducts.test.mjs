@@ -21,8 +21,7 @@ const PLACES = [
 ]
 
 test('a device product: its own fields, then the product list, then TinyBot', () => {
-  assert.deepEqual(productOf({ productKey: 'generic', productName: 'Nobix device', productNameBn: 'নোবিক্স ডিভাইস', features: GENERIC }, []),
-    { productKey: 'generic', productName: 'Nobix device', productNameBn: 'নোবিক্স ডিভাইস', features: GENERIC })
+  assert.deepEqual(productOf({ productKey: 'generic', productName: 'Nobix device', productNameBn: 'নোবিক্স ডিভাইস', features: GENERIC }, []), { productKey: 'generic', productName: 'Nobix device', productNameBn: 'নোবিক্স ডিভাইস', features: GENERIC })
   assert.deepEqual(productOf({ productKey: 'generic' }, PRODUCTS).features, GENERIC)
   const old = productOf({ id: 'd1' }, [])
   assert.equal(old.productKey, 'tinybot')
@@ -50,8 +49,7 @@ test('the tab bar hides Day and Look for a generic device', () => {
 
 test('More hides Messages and Robot settings for a generic device and drops empty groups', () => {
   assert.deepEqual(visiblePlaces(PLACES, GENERIC).map(g => g.group), ['character'])
-  assert.deepEqual(visiblePlaces(PLACES, GENERIC)[0].items.map(i => i.url),
-    ['/pages/agent/index', '/pages/voiceprint/index', '/pages/robots/index', '/pages/device-config/index'])
+  assert.deepEqual(visiblePlaces(PLACES, GENERIC)[0].items.map(i => i.url), ['/pages/agent/index', '/pages/voiceprint/index', '/pages/robots/index', '/pages/device-config/index'])
   assert.equal(visiblePlaces(PLACES, null)[0].items.length, 2)
   assert.deepEqual(visiblePlaces(PLACES, ['chat']).map(g => g.items.map(i => i.url)), [['/pages/robots/index', '/pages/device-config/index']])
 })
@@ -69,4 +67,18 @@ test('the tab bar list and the feature pages are wired to the guard', () => {
     assert.match(src, new RegExp(`useFeatureGate\\('${feature}'\\)`), page)
     assert.match(src, /<tb-not-here v-if="notHere" \/>/, page)
   }
+})
+
+test('chat history has its own place only for products without Messages', () => {
+  assert.equal(needsOf('/pages/chat-history/index'), 'chat_history')
+  assert.equal(needsOf('pages/chat-history/detail?sessionId=s1'), 'chat_history')
+  const places = [{ group: 'robot', items: [
+    { url: '/pages/messages/index' },
+    { url: '/pages/chat-history/index', unless: 'messages' },
+  ] }]
+  const urls = f => visiblePlaces(places, f).flatMap(g => g.items.map(i => i.url))
+  assert.deepEqual(urls(['chat', 'chat_history']), ['/pages/chat-history/index'])
+  assert.deepEqual(urls(TINYBOT_FEATURES), ['/pages/messages/index'])
+  assert.deepEqual(urls(null), ['/pages/messages/index'])
+  assert.deepEqual(urls(['chat']), [])
 })

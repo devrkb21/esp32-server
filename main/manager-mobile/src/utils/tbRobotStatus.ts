@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 import { getCompanion } from '@/api/companion/companion'
 import { getDeviceOnlineStatus } from '@/api/device/device'
 import { isOnline, parseStatus } from '@/pages/robots/robotsModel.mjs'
-import { companionErrorKind, connectionOf, rawErrorText } from '@/utils/robotConnection.mjs'
+import { companionErrorKind, companionsToAsk, connectionOf, rawErrorText } from '@/utils/robotConnection.mjs'
 import { allows } from '@/utils/tbProducts.mjs'
 import { robot } from '@/utils/tbRobot'
 
@@ -28,8 +28,13 @@ function listed(deviceId: string) {
   return robot.list.find(r => r.deviceId === deviceId) || null
 }
 
-/** Does this robot's product have the companion module? (unknown robots: yes, like TinyBot) */
-export function hasCompanion(deviceId: string) {
+/**
+ * Does this robot's product have the companion module? (unknown robots: yes, like TinyBot)
+ * `features` (from productOf) answers for a robot the list may not hold yet.
+ */
+export function hasCompanion(deviceId: string, features?: string[] | null) {
+  if (Array.isArray(features))
+    return allows(features, 'companion')
   const r = listed(deviceId)
   if (r && Array.isArray(r.features))
     return allows(r.features, 'companion')
@@ -114,12 +119,30 @@ export function companionAskedAt(deviceId: string) {
   return (robotStatuses[deviceId] && robotStatuses[deviceId].companionAt) || 0
 }
 
-/** The combined status of one robot (see robotConnection.mjs for the rules). */
-export function statusOf(deviceId: string, now = Date.now()): RobotStatus {
+/**
+ * Ask the companion views a list screen needs for its statuses (rule: companionsToAsk in
+ * robotConnection.mjs; call after noting the gateway map). `features` (from productOf) tells a
+ * robot without the companion module. Returns the ids asked and a promise of their answers.
+ */
+export function checkCompanions(devs: Array<{ id: string, features?: string[] | null }>, now = Date.now()) {
+  const ids: string[] = companionsToAsk((devs || []).map(d => ({
+    id: d.id,
+    hasCompanion: hasCompanion(d.id, d.features),
+    mqtt: robotStatuses[d.id] ? robotStatuses[d.id].mqtt : undefined,
+    askedAt: companionAskedAt(d.id),
+  })), now)
+  return { ids, done: Promise.all(ids.map(id => refreshCompanion(id))) }
+}
+
+/**
+ * The combined status of one robot (see robotConnection.mjs for the rules). `item` gives the
+ * product features and last connection of a robot the list may not hold yet.
+ */
+export function statusOf(deviceId: string, now = Date.now(), item?: { features?: string[] | null, lastConnectedAt?: any } | null): RobotStatus {
   const e = robotStatuses[deviceId] || ({} as Entry)
-  const r = listed(deviceId)
+  const r = item || listed(deviceId)
   return connectionOf({
-    hasCompanion: hasCompanion(deviceId),
+    hasCompanion: hasCompanion(deviceId, item ? item.features : undefined),
     mqtt: e.mqtt,
     companion: e.companion,
     lastConnectedAt: r ? r.lastConnectedAt : null,

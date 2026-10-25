@@ -27,11 +27,9 @@ const icon = (k) => ({ success: 'check', error: 'warning', warning: 'warning', i
   background: var(--tb-ink); color: var(--tb-paper); border-radius: var(--tb-radius-m); box-shadow: var(--tb-shadow-sheet);
   border-left: 0; font-size: var(--tb-fs-14);
 }
-.tb-toast.is-success .tb-icon:first-child { color: #7FD8A8; }
-.tb-toast.is-error .tb-icon:first-child { color: #FF8A80; }
-.tb-toast.is-warning .tb-icon:first-child { color: #F2C46B; }
-:root[data-theme="dark"] .tb-toast.is-success .tb-icon:first-child { color: var(--tb-ok); }
-:root[data-theme="dark"] .tb-toast.is-error .tb-icon:first-child { color: var(--tb-danger); }
+.tb-toast.is-success .tb-icon:first-child { color: var(--tb-toast-ok); }
+.tb-toast.is-error .tb-icon:first-child { color: var(--tb-toast-danger); }
+.tb-toast.is-warning .tb-icon:first-child { color: var(--tb-toast-warn); }
 .tb-toast__msg { flex: 1; }
 .tb-toast__x { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: inherit; opacity: .7; }
 .tb-toast__x:hover { opacity: 1; }
