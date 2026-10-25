@@ -28,16 +28,15 @@ export function areaOptions(list) {
   return items.map((i) => ({ value: i.key, label: i.name ? `${i.key} ${i.name}` : i.key }));
 }
 
-// The terms and privacy note stays hidden until Nobix publishes its own Bangla and English
-// terms and privacy pages: the upstream pages (another service, another country) must never be
-// shown to TinyBot owners. Flip to true once public/<page>-bn.html and <page>-en.html exist.
-export const LEGAL_READY = false;
+// Nobix's own terms of use and privacy policy are published at /terms and /privacy (src/views/legal,
+// texts from docs/legal), so the sign-in pages show the "you accept the terms" note.
+export const LEGAL_READY = true;
 
-// Where the agreement and privacy pages will live in public/: "-bn" for Bangla, "-en" otherwise.
-export function legalUrl(page, lang, base = '/') {
-  const root = base.endsWith('/') ? base : `${base}/`;
-  const bn = String(lang || '') === 'bn';
-  return `${root}${page}-${bn ? 'bn' : 'en'}.html`;
+// The router path of a legal page: '#/privacy' for the privacy policy, '#/terms' otherwise. The
+// page itself shows Bangla or English by the current language.
+export function legalUrl(page) {
+  const p = String(page || '');
+  return p === 'privacy' || p === 'privacy-policy' ? '#/privacy' : '#/terms';
 }
 
 // A server message about the picture code means the picture must be fetched again.
@@ -68,7 +67,5 @@ export function versionParts(cfg) {
     year: real(c.year) ? String(c.year) : '',
     name: real(c.name) ? String(c.name) : '',
     version: real(c.version) ? String(c.version) : '',
-    icp: real(c.beianIcpNum) ? String(c.beianIcpNum) : '',
-    ga: real(c.beianGaNum) ? String(c.beianGaNum) : '',
   };
 }

@@ -183,48 +183,30 @@
       }
     },
     {
+      "path": "pages/legal/privacy",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Privacy policy"
+      }
+    },
+    {
+      "path": "pages/legal/terms",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Terms of use"
+      }
+    },
+    {
       "path": "pages/login/index",
       "type": "page",
       "layout": "default",
       "style": {
         "navigationStyle": "custom",
         "navigationBarTitleText": "Login"
-      }
-    },
-    {
-      "path": "pages/login/privacy-policy-en",
-      "type": "page",
-      "layout": "default",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "Privacy Policy"
-      }
-    },
-    {
-      "path": "pages/login/privacy-policy-zh",
-      "type": "page",
-      "layout": "default",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "Privacy Policy"
-      }
-    },
-    {
-      "path": "pages/login/user-agreement-en",
-      "type": "page",
-      "layout": "default",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "User Agreement"
-      }
-    },
-    {
-      "path": "pages/login/user-agreement-zh",
-      "type": "page",
-      "layout": "default",
-      "style": {
-        "navigationStyle": "custom",
-        "navigationBarTitleText": "User Agreement"
       }
     },
     {

@@ -1,35 +1,27 @@
 import type { Language } from '@/store/lang'
 import { ref } from 'vue'
-import { useLangStore } from '@/store/lang'
+import { normalizeLanguage, useLangStore } from '@/store/lang'
 
 import bn from './bn'
-import de from './de'
 import en from './en'
-import pt_BR from './pt_BR'
-import vi from './vi'
-// Import translation files for each language
-import zh_CN from './zh_CN'
-import zh_TW from './zh_TW'
 
-// Language pack mapping
+// The app speaks Bangla and English only (like manager-web).
 const base: Record<string, Record<string, string>> = {
   bn,
-  zh_CN,
   en,
-  zh_TW,
-  de,
-  vi,
-  pt_BR,
 }
 
 // Each page keeps its new strings in src/i18n/pages/<page>.ts, exporting
-// { bn: {...}, en: {...}, ... }, so page work never edits the shared locale files.
+// { bn: {...}, en: {...} }, so page work never edits the shared locale files. Tables of other
+// languages a page file may still carry are ignored.
 const pageFiles = import.meta.glob('./pages/*.ts', { eager: true }) as Record<string, { default: Record<string, Record<string, string>> }>
 const messages: Record<string, Record<string, string>> = {}
 for (const [code, table] of Object.entries(base)) messages[code] = { ...table }
 for (const mod of Object.values(pageFiles)) {
-  for (const [code, table] of Object.entries(mod.default || {}))
-    messages[code] = { ...(messages[code] || {}), ...table }
+  for (const [code, table] of Object.entries(mod.default || {})) {
+    if (base[code])
+      messages[code] = { ...(messages[code] || {}), ...table }
+  }
 }
 
 // Current active language
@@ -38,14 +30,15 @@ const currentLang = ref<Language>('bn')
 // Initialize language
 export function initI18n() {
   const langStore = useLangStore()
-  currentLang.value = langStore.currentLang
+  currentLang.value = normalizeLanguage(langStore.currentLang)
 }
 
 // Switch language
 export function changeLanguage(lang: Language) {
-  currentLang.value = lang
+  const code = normalizeLanguage(lang)
+  currentLang.value = code
   const langStore = useLangStore()
-  langStore.changeLang(lang)
+  langStore.changeLang(code)
 }
 
 // Get translated text
@@ -82,11 +75,6 @@ export function getCurrentLanguage(): Language {
 export function getSupportedLanguages(): { code: Language, name: string }[] {
   return [
     { code: 'bn', name: 'বাংলা' },
-    { code: 'zh_CN', name: 'Chinese (Simplified)' },
     { code: 'en', name: 'English' },
-    { code: 'zh_TW', name: 'Chinese (Traditional)' },
-    { code: 'de', name: 'German' },
-    { code: 'vi', name: 'Vietnamese' },
-    { code: 'pt_BR', name: 'Portuguese (Brazil)' },
   ]
 }

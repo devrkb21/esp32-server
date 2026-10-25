@@ -7,34 +7,70 @@ import {
   defaultAreaCode,
   faceMood,
   filledCount,
+  fullPhone,
   hasCode,
   isPhone,
   isValidServerUrl,
   legalParts,
+  LEGAL_CONTACT,
   legalPath,
   normalizeServerUrl,
   storageMb,
   uuid,
+  withContact,
 } from './authKit.mjs'
 
-it('isPhone keeps the old rule', () => {
-  assert.equal(isPhone('13812345678'), true)
-  assert.equal(isPhone('12812345678'), false)
-  assert.equal(isPhone('1381234567'), false)
+it('isPhone takes a Bangladeshi mobile with or without the local 0, or in full', () => {
+  assert.equal(isPhone('1712345678'), true)
+  assert.equal(isPhone('01712345678'), true)
+  assert.equal(isPhone('+8801712345678'), true)
+  assert.equal(isPhone('017 1234 5678', '+880'), true)
+  assert.equal(isPhone('০১৭১২৩৪৫৬৭৮', '+880'), true)
+  assert.equal(isPhone('01312345678', '+880'), true)
+  assert.equal(isPhone('01912345678', '+880'), true)
+})
+
+it('isPhone refuses short, long, landline and foreign shapes for +880', () => {
+  assert.equal(isPhone('017'), false)
+  assert.equal(isPhone('0171234567'), false)
+  assert.equal(isPhone('017123456789'), false)
+  assert.equal(isPhone('01212345678'), false)
+  assert.equal(isPhone('0221234567'), false)
+  assert.equal(isPhone('13812345678'), false)
   assert.equal(isPhone(''), false)
   assert.equal(isPhone(undefined), false)
 })
 
-it('areaList falls back to one entry', () => {
-  assert.deepEqual(areaList([]), [{ name: 'Mainland China', key: '+86' }])
-  assert.deepEqual(areaList(null), [{ name: 'Mainland China', key: '+86' }])
+it('isPhone only checks the length for other area codes', () => {
+  assert.equal(isPhone('7911123456', '+44'), true)
+  assert.equal(isPhone('1234', '+44'), false)
+  assert.equal(isPhone('1234567890123456', '+91'), false)
+})
+
+it('fullPhone sends +880 numbers without the local 0', () => {
+  assert.equal(fullPhone('+880', '01712345678'), '+8801712345678')
+  assert.equal(fullPhone('+880', '1712345678'), '+8801712345678')
+  assert.equal(fullPhone('+880', '+8801712345678'), '+8801712345678')
+  assert.equal(fullPhone('+44', '07911 123456'), '+4407911123456')
+})
+
+it('areaList falls back to Bangladesh alone', () => {
+  assert.deepEqual(areaList([]), [{ name: 'Bangladesh', key: '+880' }])
+  assert.deepEqual(areaList(null), [{ name: 'Bangladesh', key: '+880' }])
   assert.equal(areaList([{ name: 'A', key: '+1' }]).length, 1)
 })
 
 it('defaultAreaCode prefers Bangladesh, then the first', () => {
-  assert.equal(defaultAreaCode([{ key: '+86' }, { key: '+880' }]), '+880')
-  assert.equal(defaultAreaCode([{ key: '+49' }, { key: '+86' }]), '+49')
-  assert.equal(defaultAreaCode(undefined), '+86')
+  assert.equal(defaultAreaCode([{ key: '+91' }, { key: '+880' }]), '+880')
+  assert.equal(defaultAreaCode([{ key: '+49' }, { key: '+44' }]), '+49')
+  assert.equal(defaultAreaCode(undefined), '+880')
+})
+
+it('legal contact is empty until Nobix fills it in, and the sentence still ends cleanly', () => {
+  assert.equal(LEGAL_CONTACT, '')
+  assert.equal(withContact('contact Nobix Industries, Bangladesh: {{CONTACT}}.', ''), 'contact Nobix Industries, Bangladesh.')
+  assert.equal(withContact('যোগাযোগ করুন: {{CONTACT}}।', ''), 'যোগাযোগ করুন।')
+  assert.equal(withContact('Bangladesh: {{CONTACT}}.', 'help@example.com'), 'Bangladesh: help@example.com.')
 })
 
 it('uuid has the v4 shape and differs', () => {
@@ -56,10 +92,11 @@ it('filledCount ignores blanks', () => {
   assert.equal(filledCount(undefined), 0)
 })
 
-it('legalPath picks zh only for zh_CN', () => {
-  assert.equal(legalPath('user-agreement', 'zh_CN'), '/pages/login/user-agreement-zh')
-  assert.equal(legalPath('privacy-policy', 'bn'), '/pages/login/privacy-policy-en')
-  assert.equal(legalPath('privacy-policy', 'zh_TW'), '/pages/login/privacy-policy-en')
+it('legalPath opens the Nobix legal pages', () => {
+  assert.equal(legalPath('terms'), '/pages/legal/terms')
+  assert.equal(legalPath('privacy'), '/pages/legal/privacy')
+  assert.equal(legalPath('user-agreement'), '/pages/legal/terms')
+  assert.equal(legalPath('privacy-policy'), '/pages/legal/privacy')
 })
 
 it('legalParts splits the sentence around the two links', () => {

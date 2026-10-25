@@ -10,6 +10,8 @@
     <section class="more__group">
       <h2 class="more__title">{{ $t('nav.account') }}</h2>
       <RouterLink to="/account" class="more__link"><TbIcon name="user" /><span>{{ $t('nav.account') }}</span><TbIcon name="chevron-right" :size="16" /></RouterLink>
+      <RouterLink to="/terms" class="more__link"><TbIcon name="book" /><span>{{ $t('legal.terms') }}</span><TbIcon name="chevron-right" :size="16" /></RouterLink>
+      <RouterLink to="/privacy" class="more__link"><TbIcon name="lock" /><span>{{ $t('legal.privacy') }}</span><TbIcon name="chevron-right" :size="16" /></RouterLink>
       <button type="button" class="more__link" @click="toggleTheme"><TbIcon :name="dark ? 'sun' : 'moon'" /><span>{{ dark ? $t('nav.lightMode') : $t('nav.darkMode') }}</span></button>
       <div class="more__lang">
         <TbIcon name="language" /><span>{{ $t('nav.language') }}</span>

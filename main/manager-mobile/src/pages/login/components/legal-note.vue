@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { getCurrentLanguage, t } from '@/i18n'
+import { t } from '@/i18n'
 import { legalParts, legalPath } from '../authKit.mjs'
 
-// "By signing in you accept the user agreement and the privacy policy", both opening their page.
+// "By signing in you accept the terms of use and the privacy policy", both opening Nobix's page.
 const props = defineProps<{ sentence: string }>()
 const parts = computed(() => legalParts(t(props.sentence)) as { text?: string, link?: string }[])
-const PAGES: Record<string, string> = { terms: 'user-agreement', privacy: 'privacy-policy' }
 function open(link: string) {
-  uni.navigateTo({ url: legalPath(PAGES[link], getCurrentLanguage()) })
+  uni.navigateTo({ url: legalPath(link) })
 }
 </script>
 

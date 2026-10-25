@@ -70,7 +70,7 @@ import { useI18n } from 'vue-i18n';
 import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
 import { digits } from '@/kit/calendar';
-import { validateMobile } from '@/utils';
+import { fullMobile, validateMobile } from '@/utils';
 import AuthFrame from './AuthFrame.vue';
 import RuledField from './RuledField.vue';
 import CaptchaButton from './CaptchaButton.vue';
@@ -104,7 +104,7 @@ const mood = computed(() => (closed.value ? 'sleepy' : faceMood({
 function touch(key) { errors[key] = ''; failure.value = ''; if (outcome.value === 'error') outcome.value = ''; }
 function clearErrors() { Object.keys(errors).forEach((k) => { errors[k] = ''; }); failure.value = ''; }
 function fail(message) { failure.value = message; outcome.value = 'error'; }
-const phone = () => form.areaCode + form.mobile.replace(/\s/g, '');
+const phone = () => fullMobile(form.areaCode, form.mobile);
 
 function sendSms() {
   clearErrors();

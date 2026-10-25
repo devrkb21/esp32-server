@@ -297,8 +297,8 @@ const serverVersion = computed(() => {
   const v = configStore.config?.version
   return v && v !== 'null' ? String(v) : ''
 })
-function openLegal(page: 'user-agreement' | 'privacy-policy') {
-  uni.navigateTo({ url: legalPath(page, lang.value) })
+function openLegal(page: 'terms' | 'privacy') {
+  uni.navigateTo({ url: legalPath(page) })
 }
 
 onShow(() => {
@@ -424,15 +424,15 @@ onShow(() => {
         </text>
         <tb-icon name="chevron-right" :size="16" />
       </view>
-      <view class="more__row" role="link" hover-class="is-press" @click="openLegal('user-agreement')">
+      <view class="more__row" role="link" hover-class="is-press" @click="openLegal('terms')">
         <tb-icon name="book" />
         <text class="more__label">
           {{ t('mauth.termsTitle') }}
         </text>
         <tb-icon name="chevron-right" :size="16" />
       </view>
-      <view class="more__row" role="link" hover-class="is-press" @click="openLegal('privacy-policy')">
-        <tb-icon name="book" />
+      <view class="more__row" role="link" hover-class="is-press" @click="openLegal('privacy')">
+        <tb-icon name="lock" />
         <text class="more__label">
           {{ t('mauth.privacyTitle') }}
         </text>

@@ -117,7 +117,7 @@ function sendRequest() {
         'send'() {
             // Set language request header
             const currentLang = i18n.global.locale || 'en';
-            // Convert language code format, e.g. zh_CN to zh-CN
+            // Convert the language code to header form (underscore to hyphen)
             let acceptLanguage = currentLang.replace('_', '-');
             // Add default locale code for English
             if (acceptLanguage === 'en') {

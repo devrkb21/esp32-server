@@ -2,8 +2,13 @@ import type { Ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-// Supported language types
-export type Language = 'bn' | 'zh_CN' | 'en' | 'zh_TW' | 'de' | 'vi' | 'pt_BR'
+// The app speaks Bangla and English only
+export type Language = 'bn' | 'en'
+
+// A saved choice of any other (older) language falls back to Bangla.
+export function normalizeLanguage(value: unknown): Language {
+  return value === 'en' ? 'en' : 'bn'
+}
 
 export interface LangStore {
   currentLang: Ref<Language>
@@ -14,14 +19,14 @@ export const useLangStore = defineStore(
   'lang',
   (): LangStore => {
     // Get language setting from local storage, or use default
-    const savedLang = uni.getStorageSync('app_language') as Language | null
-    const currentLang = ref<Language>(savedLang || 'bn')
+    const currentLang = ref<Language>(normalizeLanguage(uni.getStorageSync('app_language')))
 
     // Switch language
     const changeLang = (lang: Language) => {
-      currentLang.value = lang
+      const code = normalizeLanguage(lang)
+      currentLang.value = code
       // Save language setting to local storage
-      uni.setStorageSync('app_language', lang)
+      uni.setStorageSync('app_language', code)
     }
 
     return {
@@ -34,7 +39,14 @@ export const useLangStore = defineStore(
       key: 'lang',
       serializer: {
         serialize: state => JSON.stringify(state.currentLang),
-        deserialize: value => ({ currentLang: JSON.parse(value) }),
+        deserialize: (value) => {
+          let saved: unknown = null
+          try {
+            saved = JSON.parse(value)
+          }
+          catch {}
+          return { currentLang: normalizeLanguage(saved) }
+        },
       },
     },
   },

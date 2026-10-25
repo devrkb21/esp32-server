@@ -126,68 +126,48 @@ export function getUUID() {
 }
 
 
+// A Bangladeshi mobile number as the server stores it after +880: 1[3-9] and eight more digits.
+const BD_MOBILE = /^1[3-9]\d{8}$/;
+
+// Only the digits of what was typed; Bangla digits (০-৯) count as digits.
+function mobileDigits(mobile) {
+    return String(mobile || '').replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09E6)).replace(/\D/g, '');
+}
+
+// The digits of a Bangladeshi mobile without the local leading 0 or a typed 880 prefix
+// ('01712345678', '+8801712345678' and '1712345678' all give '1712345678').
+function bdLocal(digits) {
+    if (/^8801[3-9]\d{8}$/.test(digits)) return digits.slice(3);
+    if (/^01[3-9]\d{8}$/.test(digits)) return digits.slice(1);
+    return digits;
+}
+
 /**
- * Validate phone number format
- * @param {string} mobile Phone number
- * @param {string} areaCode Country code
+ * Validate a mobile number for the chosen country code.
+ * Bangladesh (+880) is the rule: a mobile number is 1[3-9] and eight more digits, typed as
+ * 1712345678, with the local leading zero as 01712345678, or in full as +8801712345678.
+ * Any other country code only gets a plain length check (5 to 15 digits).
+ * @param {string} mobile Phone number as typed
+ * @param {string} areaCode Country code, e.g. '+880'
  * @returns {boolean}
  */
 export function validateMobile(mobile, areaCode) {
-    // Remove all non-digit characters
-    const cleanMobile = mobile.replace(/\D/g, '');
+    const cleanMobile = mobileDigits(mobile);
+    if (areaCode === '+880') return BD_MOBILE.test(bdLocal(cleanMobile));
+    return /^\d{5,15}$/.test(cleanMobile);
+}
 
-    // Use validation rules based on country code
-    switch (areaCode) {
-        case '+86': // Mainland China
-            return /^1[3-9]\d{9}$/.test(cleanMobile);
-        case '+852': // Hong Kong
-            return /^[569]\d{7}$/.test(cleanMobile);
-        case '+853': // Macau
-            return /^6\d{7}$/.test(cleanMobile);
-        case '+886': // Taiwan
-            return /^9\d{8}$/.test(cleanMobile);
-        case '+1': // US/Canada
-            return /^[2-9]\d{9}$/.test(cleanMobile);
-        case '+44': // UK
-            return /^7[1-9]\d{8}$/.test(cleanMobile);
-        case '+81': // Japan
-            return /^[7890]\d{8}$/.test(cleanMobile);
-        case '+82': // South Korea
-            return /^1[0-9]\d{7}$/.test(cleanMobile);
-        case '+65': // Singapore
-            return /^[89]\d{7}$/.test(cleanMobile);
-        case '+61': // Australia
-            return /^[4578]\d{8}$/.test(cleanMobile);
-        case '+49': // Germany
-            return /^1[5-7]\d{8}$/.test(cleanMobile);
-        case '+33': // France
-            return /^[67]\d{8}$/.test(cleanMobile);
-        case '+39': // Italy
-            return /^3[0-9]\d{8}$/.test(cleanMobile);
-        case '+34': // Spain
-            return /^[6-9]\d{8}$/.test(cleanMobile);
-        case '+55': // Brazil
-            return /^[1-9]\d{10}$/.test(cleanMobile);
-        case '+91': // India
-            return /^[6-9]\d{9}$/.test(cleanMobile);
-        case '+971': // UAE
-            return /^[5]\d{8}$/.test(cleanMobile);
-        case '+966': // Saudi Arabia
-            return /^[5]\d{8}$/.test(cleanMobile);
-        case '+880': // Bangladesh
-            return /^1[3-9]\d{8}$/.test(cleanMobile);
-        case '+234': // Nigeria
-            return /^[789]\d{9}$/.test(cleanMobile);
-        case '+254': // Kenya
-            return /^[17]\d{8}$/.test(cleanMobile);
-        case '+255': // Tanzania
-            return /^[67]\d{8}$/.test(cleanMobile);
-        case '+7': // Kazakhstan
-            return /^[67]\d{9}$/.test(cleanMobile);
-        default:
-            // Other international numbers: 5 to 15 digits
-            return /^\d{5,15}$/.test(cleanMobile);
-    }
+/**
+ * The number the server receives: country code + digits, without the Bangladeshi local 0
+ * ('+880', '01712345678' -> '+8801712345678').
+ * @param {string} areaCode Country code, e.g. '+880'
+ * @param {string} mobile Phone number as typed
+ * @returns {string}
+ */
+export function fullMobile(areaCode, mobile) {
+    let digits = mobileDigits(mobile);
+    if (areaCode === '+880') digits = bdLocal(digits);
+    return `${areaCode || ''}${digits}`;
 }
 
 

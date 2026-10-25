@@ -9,8 +9,6 @@ export default createStore({
     userInfo: {}, // User info store
     pubConfig: { // Public config store
       version: '',
-      beianIcpNum: 'null',
-      beianGaNum: 'null',
       allowUserRegister: false,
       sm2PublicKey: ''
     }

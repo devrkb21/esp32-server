@@ -7,6 +7,7 @@ import { createServerTokenAuthentication } from 'alova/client'
 import VueHook from 'alova/vue'
 import { DEMO, demoRequestAdapter } from '@/api/demo'
 import { t } from '@/i18n'
+import { normalizeLanguage } from '@/store/lang'
 import { getEnvBaseUrl } from '@/utils'
 import { toast } from '@/utils/toast'
 import { ContentTypeEnum, ResultEnum, ShowMessage } from './enum'
@@ -14,12 +15,7 @@ import { ContentTypeEnum, ResultEnum, ShowMessage } from './enum'
 // Language mapping for Accept-Language header
 const langMap: Record<Language, string> = {
   bn: 'bn-BD',
-  zh_CN: 'zh-CN',
   en: 'en-US',
-  zh_TW: 'zh-TW',
-  de: 'de',
-  vi: 'vi',
-  pt_BR: 'pt-BR',
 }
 
 /**
@@ -83,7 +79,7 @@ const alovaInstance = createAlova({
     // Check mixed content error (HTTPS page requesting HTTP API)
     const currentProtocol = typeof window !== 'undefined' && window.location.protocol
     const requestProtocol = method.baseURL?.split(':')[0]
-    const currentLang = langMap[uni.getStorageSync('app_language') as Language] || 'en-US'
+    const currentLang = langMap[normalizeLanguage(uni.getStorageSync('app_language'))]
     if (currentProtocol === 'https:' && requestProtocol === 'http') {
       const errorMessage = t('network.mixedContent')
       toast.error(errorMessage)

@@ -14,7 +14,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { retrievePassword, sendSmsCode } from '@/api/auth'
 import { getCurrentLanguage, initI18n, t } from '@/i18n'
-import { faceMood, filledCount, hasCode, isPhone } from '@/pages/login/authKit.mjs'
+import { faceMood, filledCount, hasCode, fullPhone, isPhone } from '@/pages/login/authKit.mjs'
 import AuthField from '@/pages/login/components/auth-field.vue'
 import AuthFrame from '@/pages/login/components/auth-frame.vue'
 import CaptchaImage from '@/pages/login/components/captcha-image.vue'
@@ -84,13 +84,13 @@ function pickArea(key: string) {
 }
 
 // The phone number in international form: country code + number
-const internationalPhone = () => form.areaCode + form.mobile
+const internationalPhone = () => fullPhone(form.areaCode, form.mobile)
 
 async function handleSendSmsCode() {
   if (countdown.left.value > 0 || smsLoading.value)
     return
   clearErrors()
-  if (!isPhone(form.mobile))
+  if (!isPhone(form.mobile, form.areaCode))
     return fail('mobile', t('mauth.err.mobile'))
   if (!form.captcha)
     return fail('captcha', t('mauth.err.captchaFirst'))
@@ -115,7 +115,7 @@ async function handleResetPassword() {
   if (loading.value)
     return
   clearErrors()
-  if (!form.mobile || !isPhone(form.mobile))
+  if (!form.mobile || !isPhone(form.mobile, form.areaCode))
     return fail('mobile', t('mauth.err.mobile'))
   if (!form.captcha)
     return fail('captcha', t('mauth.err.captcha'))
@@ -194,7 +194,7 @@ onMounted(async () => {
           </text><tb-icon name="chevron-down" :size="14" />
         </view>
         <tb-input
-          v-model="form.mobile" type="number" :maxlength="11" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
+          v-model="form.mobile" type="number" :maxlength="15" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
           :invalid="!!errors.mobile" @update:model-value="touch('mobile')"
         />
       </AuthField>
