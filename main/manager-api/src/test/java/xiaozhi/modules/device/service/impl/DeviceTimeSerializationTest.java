@@ -96,7 +96,8 @@ class DeviceTimeSerializationTest {
     }
 
     private DeviceServiceImpl serviceReturning(DeviceEntity entity) {
-        return new DeviceServiceImpl(null, null, null, null, null, null) {
+        return new DeviceServiceImpl(null, null, null, null, null, null,
+                new xiaozhi.modules.product.service.impl.ProductServiceImpl(null)) {
             @Override
             public List<DeviceEntity> getUserDevices(Long userId, String agentId) {
                 return List.of(entity);

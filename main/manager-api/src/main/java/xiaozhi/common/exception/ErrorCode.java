@@ -260,4 +260,13 @@ public interface ErrorCode {
     // Word replacement error codes
     int CORRECT_WORD_FILE_NAME_EXISTS = 10203; // File name already exists
     int FILE_SIZE_OVER_LIMIT = 10204; // File size exceeds limit
+
+    // Product catalog error codes
+    int PRODUCT_NOT_EXIST = 10205; // Product does not exist
+    int PRODUCT_KEY_INVALID = 10206; // Product key format is invalid
+    int PRODUCT_KEY_DUPLICATE = 10207; // Product key already exists
+    int PRODUCT_FEATURES_INVALID = 10208; // Features must be a JSON array of [a-z_]+ keys
+    int PRODUCT_BOARD_TYPES_INVALID = 10209; // Board type patterns are invalid
+    int PRODUCT_GENERIC_PROTECTED = 10210; // The generic product cannot be deleted or renamed
+    int DEVICE_FEATURE_NOT_SUPPORTED = 10211; // The device's product lacks this feature ({0} = feature key)
 }
