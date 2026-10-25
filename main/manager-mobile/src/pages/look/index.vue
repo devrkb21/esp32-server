@@ -15,11 +15,12 @@
 // screen through the device tool self.screen.preview (components/LookLive.vue).
 import type { CompanionDevice, FaceLook } from '@/api/companion'
 import { onHide, onShow } from '@dcloudio/uni-app'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { getCompanion, updateCompanionConfig } from '@/api/companion/companion'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
-import { loadRobots, robot } from '@/utils/tbRobot'
+import { robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import {
   CHAT_FONT_SAMPLE,
@@ -246,10 +247,16 @@ watch(deviceId, (id) => {
     view.value = 'preview'
   online.value = null
   loadError.value = false
+  if (notHere.value)
+    return
   load(true)
 })
 
 // ------------------------------------------------------------------ lifecycle
+
+// This page is about one product feature; a robot whose product lacks it sees <tb-not-here />.
+const { missing: notHere, allowed: featureAllowed } = useFeatureGate('look')
+
 let poll: ReturnType<typeof setInterval> | undefined
 let firstShow = true
 const onResize = () => fit()
@@ -260,7 +267,8 @@ onShow(async () => {
   startLoop()
   fit()
   uni.onWindowResize?.(onResize)
-  await loadRobots()
+  if (!(await featureAllowed()))
+    return
   // first visit: the saved look; later visits refresh quietly and keep any unsaved edits
   load(firstShow, !firstShow)
   firstShow = false
@@ -292,7 +300,9 @@ function goRobots() {
   <view class="look tb-wrap">
     <tb-page-header :title="t('nav.look')" :description="t('lookPage.desc')" />
 
-    <view v-if="!deviceId && robot.loaded" class="look__none">
+    <tb-not-here v-if="notHere" />
+
+    <view v-else-if="!deviceId && robot.loaded" class="look__none">
       <tb-empty face="confused" :title="t('common.noRobot')" :text="t('lookPage.noRobot')">
         <tb-button icon="robots" @click="goRobots">
           {{ t('common.goRobots') }}

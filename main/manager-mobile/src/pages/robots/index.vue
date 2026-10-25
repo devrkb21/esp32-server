@@ -18,7 +18,8 @@ import { createAgent, deleteAgent, getAgentList } from '@/api/agent/agent'
 import { getBindDevices, getDeviceOnlineStatus } from '@/api/device'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
-import { clearRobot, robot, selectRobot } from '@/utils/tbRobot'
+import { productName, productOf } from '@/utils/tbProducts.mjs'
+import { clearRobot, loadProducts, products, robot, selectRobot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import AddRobotSheet from './components/AddRobotSheet.vue'
 import { characterNameError, isOnline, keepSelection, NAME_MAX, nameMatches, parseStatus, toRobot, voiceName } from './robotsModel.mjs'
@@ -39,21 +40,37 @@ const loaded = ref(false)
 const failed = ref(false)
 const clock = ref(Date.now())
 
+// More than one product among the account's devices: rows are grouped by product inside each
+// character (with a small product heading); with one product the tag on each row is enough.
+const productKeys = computed(() => new Set(agents.value.flatMap(a => (devicesByAgent[a.id] || [])
+  .map(d => productOf(d, products.list).productKey))))
+const multiProduct = computed(() => productKeys.value.size > 1)
+function productRank(k: string) {
+  const i = products.list.findIndex((p: any) => p.productKey === k)
+  return i < 0 ? products.list.length : i
+}
 const groups = computed(() => agents.value.map((agent) => {
   const raw = devicesByAgent[agent.id]
   const status = statusByAgent[agent.id]
-  const robots = (raw || []).map((d) => {
+  let robots = (raw || []).map((d) => {
     const r = toRobot(agent, d)
     const online = isOnline(status, d)
     const known = Boolean(status)
     return {
       ...r,
+      ...productOf(d, products.list),
+      productHead: false,
       online,
       state: online ? 'online' : 'offline',
       stateText: online ? t('common.online') : (known ? t('common.offline') : t('robots.stateUnknown')),
       seen: r.lastConnectedAt ? t('robots.seen', { when: whenText(r.lastConnectedAt, lang.value, clock.value) }) : t('robots.never'),
     }
   })
+  if (multiProduct.value) {
+    robots = robots.map((r, i) => ({ r, i }))
+      .sort((a, b) => (productRank(a.r.productKey) - productRank(b.r.productKey)) || a.r.productKey.localeCompare(b.r.productKey) || a.i - b.i)
+      .map(({ r }, i, all) => ({ ...r, productHead: i === 0 || all[i - 1].r.productKey !== r.productKey }))
+  }
   return { agent, robots, count: raw ? robots.length : (Number(agent.deviceCount) || 0), failed: Boolean(failedAgents[agent.id]) }
 }))
 const robotCount = computed(() => groups.value.reduce((n, g) => n + g.count, 0))
@@ -102,13 +119,13 @@ async function loadDevices(id: string) {
 
 /** Keep the app's "this robot" in step with the list (same rule as loadRobots). */
 function syncShell() {
-  const list = agents.value.flatMap(a => (devicesByAgent[a.id] || []).map(d => toRobot(a, d)))
+  const list = agents.value.flatMap(a => (devicesByAgent[a.id] || []).map(d => ({ ...toRobot(a, d), board: d.board || '', ...productOf(d, products.list) })))
   robot.list = list as any
   robot.loaded = true
   const keep = keepSelection(list, robot.deviceId)
   if (!keep)
     clearRobot()
-  else if (keep.deviceId !== robot.deviceId || keep.name !== robot.name)
+  else if (keep.deviceId !== robot.deviceId || keep.name !== robot.name || (keep as any).productKey !== robot.productKey)
     selectRobot(keep)
 }
 
@@ -118,7 +135,8 @@ async function load(quiet = false) {
   failed.value = false
   clock.value = Date.now()
   try {
-    const list = ((await getAgentList()) || []) as Agent[]
+    const [agentList] = await Promise.all([getAgentList(), loadProducts()])
+    const list = (agentList || []) as Agent[]
     await Promise.all(list.map(a => fetchDevices(a.id)))
     agents.value = list
     list.forEach((a) => {
@@ -345,13 +363,23 @@ onHide(() => clearInterval(poll))
           </view>
         </view>
 
-        <view v-for="r in g.robots" :key="r.deviceId" class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
+        <block v-for="r in g.robots" :key="r.deviceId">
+        <view v-if="r.productHead" class="rb-prodhead">
+          <text>{{ productName(r, lang) }}</text>
+        </view>
+        <view class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
           <view
             class="rb-row__main" role="button" :aria-label="t('robots.pickFor', { name: r.name || g.agent.agentName })"
             hover-class="is-press" @click="choose(r)"
           >
-            <tb-face class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="72" :alt="t('robots.faceAlt', { name: r.name || g.agent.agentName })" />
-            <tb-name-plate class="rb-row__plate" :name="r.name || t('robots.unnamed')" :detail="r.seen" :state="r.state" :state-text="r.stateText" />
+            <tb-face v-if="r.features.includes('companion')" class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="72" :alt="t('robots.faceAlt', { name: r.name || g.agent.agentName })" />
+            <view v-else class="rb-row__face rb-row__device" aria-hidden="true">
+              <tb-icon name="devices" :size="24" />
+            </view>
+            <view class="rb-row__plate">
+              <tb-name-plate :name="r.name || t('robots.unnamed')" :detail="r.seen" :state="r.state" :state-text="r.stateText" />
+              <tb-tag class="rb-row__product">{{ productName(r, lang) }}</tb-tag>
+            </view>
           </view>
           <view class="rb-row__act">
             <view v-if="r.deviceId === robot.deviceId" class="rb-now" role="status">
@@ -362,6 +390,7 @@ onHide(() => clearInterval(poll))
             </tb-button>
           </view>
         </view>
+        </block>
 
         <view v-if="g.failed" class="rb-note is-fail" role="alert">
           <text>{{ t('robots.devicesFailed') }}</text>
@@ -577,6 +606,9 @@ onHide(() => clearInterval(poll))
   flex: 1;
   overflow-wrap: anywhere;
 }
+.rb-row__plate { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.rb-row__device { display: flex; align-items: center; justify-content: center; width: 72px; height: 54px; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); flex: none; }
+.rb-prodhead { padding: 14px 0 4px; font-size: 13px; font-weight: 700; color: var(--tb-ink-2); border-bottom: 1px solid var(--tb-rule-soft); }
 .rb-row__act {
   display: flex;
   justify-content: flex-end;

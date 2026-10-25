@@ -26,6 +26,7 @@
 
 <script>
 import { visibleNav } from '@/shell/nav';
+import { robotFeatures } from '@/shell/robot';
 import { LANGUAGES, changeLanguage } from '@/i18n';
 import { applyTheme, getTheme } from '@/utils/theme';
 
@@ -40,7 +41,7 @@ export default {
     groups() {
       const admin = Boolean(this.$store.getters.getUserInfo?.superAdmin);
       const tabs = new Set(['/today', '/day', '/messages', '/look']);
-      return visibleNav(admin, this.$store.getters.getPubConfig)
+      return visibleNav(admin, this.$store.getters.getPubConfig, robotFeatures())
         .map((g) => ({ ...g, items: g.items.filter((i) => !tabs.has(i.to)) }))
         .filter((g) => g.items.length);
     },

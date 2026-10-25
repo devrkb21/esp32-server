@@ -1,6 +1,8 @@
 // Demo fixtures for My robots (owner: web-robots). Synthetic sample data: a demo account with two
 // characters and three robots (one online). Changes made in the demo (add, bind, delete) live
 // until the page is reloaded.
+import { PRODUCT_FIELDS } from './products.js';
+
 const now = Date.now();
 const ago = (min) => new Date(now - min * 60000).toISOString();
 
@@ -16,13 +18,14 @@ const agents = [
 const devices = {
   'demo-agent-1': [
     { id: 'demo-device-1', alias: 'টাইনিবট', macAddress: '28:84:85:00:00:01', board: 'tinybot', appVersion: '2.5.5',
-      lastConnectedAt: ago(0), autoUpdate: 1 },
+      lastConnectedAt: ago(0), autoUpdate: 1, ...PRODUCT_FIELDS.tinybot },
     { id: 'demo-device-2', alias: 'শোবার ঘর', macAddress: '28:84:85:00:00:02', board: 'tinybot', appVersion: '2.5.5',
-      lastConnectedAt: ago(47), autoUpdate: 1 },
+      lastConnectedAt: ago(47), autoUpdate: 1, ...PRODUCT_FIELDS.tinybot },
   ],
   'demo-agent-2': [
-    { id: 'demo-device-3', alias: '', macAddress: '28:84:85:00:00:03', board: 'tinybot', appVersion: '2.4.0',
-      lastConnectedAt: ago(60 * 26), autoUpdate: 0 },
+    // A generic Nobix device (not a TinyBot): the product tag and the feature filtering show.
+    { id: 'demo-device-3', alias: 'পড়ার টেবিল', macAddress: '28:84:85:00:00:03', board: 'nobix-voice-box', appVersion: '2.4.0',
+      lastConnectedAt: ago(60 * 26), autoUpdate: 0, ...PRODUCT_FIELDS.generic },
   ],
   'demo-agent-3': [],
 };

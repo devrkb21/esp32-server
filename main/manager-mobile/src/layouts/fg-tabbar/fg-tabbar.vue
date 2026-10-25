@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { t } from '@/i18n'
+import { visibleTabs } from '@/utils/tbProducts.mjs'
+import { robotFeatures } from '@/utils/tbRobot'
 import { tabbarStore } from './tabbar'
 import { tabbarList as _tabBarList, cacheTabbarEnable, selectedTabbarStrategy, TABBAR_MAP } from './tabbarList'
 
@@ -8,7 +11,10 @@ const customTabbarEnable
   = selectedTabbarStrategy === TABBAR_MAP.CUSTOM_TABBAR_WITH_CACHE
     || selectedTabbarStrategy === TABBAR_MAP.CUSTOM_TABBAR_WITHOUT_CACHE
 
-const tabbarList = _tabBarList.map(item => ({ ...item, path: `/${item.pagePath}` }))
+const tabbarList = _tabBarList.map((item, idx) => ({ ...item, idx, path: `/${item.pagePath}` }))
+// Tabs the chosen robot's product cannot use (a generic device has no Day or Look) are hidden;
+// `idx` stays the tab's place in the full list, so the remembered selection still matches.
+const shownTabs = computed(() => visibleTabs(tabbarList, robotFeatures()) as typeof tabbarList)
 
 function current() {
   const pages = getCurrentPages()
@@ -32,9 +38,9 @@ onShow(() => { tabbarStore.setCurIdx(current()) })
 
 <template>
   <view v-if="customTabbarEnable" class="tb-tabbar" role="navigation" :aria-label="t('nav.main')">
-    <view v-for="(item, idx) in tabbarList" :key="item.path" class="tb-tabbar__tab" :class="{ 'is-on': idx === tabbarStore.curIdx }"
-      role="link" tabindex="0" :aria-current="idx === tabbarStore.curIdx ? 'page' : undefined"
-      @click="select(idx)" @keydown.enter="select(idx)" @keydown.space.prevent="select(idx)">
+    <view v-for="item in shownTabs" :key="item.path" class="tb-tabbar__tab" :class="{ 'is-on': item.idx === tabbarStore.curIdx }"
+      role="link" tabindex="0" :aria-current="item.idx === tabbarStore.curIdx ? 'page' : undefined"
+      @click="select(item.idx)" @keydown.enter="select(item.idx)" @keydown.space.prevent="select(item.idx)">
       <tb-icon :name="item.icon" :size="22" />
       <text class="tb-tabbar__label">{{ item.labelKey ? t(item.labelKey) : item.text }}</text>
     </view>

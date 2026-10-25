@@ -1,6 +1,7 @@
 // Demo fixtures of the Devices page (owner: web-devices). Synthetic sample robots of the demo
 // character: one online (the base robot), one updating its firmware, one offline.
 import { DEMO_AGENT, DEMO_COMPANION, DEMO_DEVICE } from './zz-base.js';
+import { PRODUCT_FIELDS } from './products.js';
 
 const now = Date.now();
 const DAY = 86400000;
@@ -8,9 +9,10 @@ const DAY = 86400000;
 const devices = [
   { ...DEMO_DEVICE, createDateTimestamp: now - 211 * DAY, lastConnectedAtTimestamp: now - 2 * 3600000 },
   { id: 'demo-device-2', alias: 'Desk robot', macAddress: '28:84:85:00:00:02', board: 'tinybot', appVersion: '2.5.1',
-    autoUpdate: 1, createDateTimestamp: now - 64 * DAY, lastConnectedAtTimestamp: now - 25 * 60000 },
-  { id: 'demo-device-3', alias: '', macAddress: '28:84:85:00:00:03', board: 'tinybot', appVersion: '1.9.0',
-    autoUpdate: 0, createDateTimestamp: now - 9 * DAY, lastConnectedAtTimestamp: now - 3 * DAY },
+    autoUpdate: 1, createDateTimestamp: now - 64 * DAY, lastConnectedAtTimestamp: now - 25 * 60000, ...PRODUCT_FIELDS.tinybot },
+  // A generic Nobix device (not a TinyBot): no companion view, so no Day, Look or Messages.
+  { id: 'demo-device-3', alias: 'পড়ার টেবিল', macAddress: '28:84:85:00:00:03', board: 'nobix-voice-box', appVersion: '1.9.0',
+    autoUpdate: 0, createDateTimestamp: now - 9 * DAY, lastConnectedAtTimestamp: now - 3 * DAY, ...PRODUCT_FIELDS.generic },
 ];
 
 const clientId = (d) => `${d.board}@@@${d.macAddress.replace(/:/g, '_')}@@@${d.macAddress.replace(/:/g, '_')}`;

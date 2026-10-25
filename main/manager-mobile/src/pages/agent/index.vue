@@ -12,7 +12,8 @@
 </route>
 
 <script lang="ts" setup>
-import { onLoad, onPullDownRefresh, onReachBottom } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, onMounted, ref } from 'vue'
 import { t } from '@/i18n'
 import ChatHistory from '@/pages/chat-history/index.vue'
@@ -82,16 +83,22 @@ onLoad((options: any) => {
 
 function goRobots() { uni.navigateTo({ url: '/pages/robots/index' }) }
 
+// This page is about one product feature; a robot whose product lacks it sees <tb-not-here />.
+const { missing: notHere, allowed: featureAllowed } = useFeatureGate('character')
+
 onMounted(() => {
   loadRobots()
 })
+onShow(() => { featureAllowed() })
 </script>
 
 <template>
   <view class="agx tb-wrap">
     <tb-page-header :title="t('nav.character')" :description="description" back />
 
-    <view v-if="!currentAgentId && robot.loaded" class="agx__state">
+    <tb-not-here v-if="notHere" />
+
+    <view v-else-if="!currentAgentId && robot.loaded" class="agx__state">
       <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
         <tb-button variant="primary" icon="robots" @click="goRobots">
           {{ t('common.goRobots') }}

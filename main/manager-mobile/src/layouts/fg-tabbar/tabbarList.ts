@@ -5,6 +5,8 @@ type FgTabBarItem = TabBar['list'][0] & {
   iconType: 'uiLib' | 'unocss' | 'iconfont' | 'tb'
   /** i18n key of the label (nav.*) */
   labelKey?: string
+  /** The product feature the tab needs (hidden when the chosen robot lacks it) */
+  needs?: string
 }
 
 /**
@@ -30,8 +32,8 @@ export const selectedTabbarStrategy = TABBAR_MAP.CUSTOM_TABBAR_WITH_CACHE
 // When NO_TABBAR(0), tabbarList is not effective
 export const tabbarList: FgTabBarItem[] = [
   { iconPath: 'static/tabbar/home.png', selectedIconPath: 'static/tabbar/homeHL.png', pagePath: 'pages/index/index', text: 'Today', labelKey: 'nav.today', icon: 'today', iconType: 'tb' },
-  { iconPath: 'static/tabbar/example.png', selectedIconPath: 'static/tabbar/exampleHL.png', pagePath: 'pages/day/index', text: 'Day', labelKey: 'nav.day', icon: 'day', iconType: 'tb' },
-  { iconPath: 'static/tabbar/robot.png', selectedIconPath: 'static/tabbar/robot_activate.png', pagePath: 'pages/look/index', text: 'Look', labelKey: 'nav.look', icon: 'look', iconType: 'tb' },
+  { iconPath: 'static/tabbar/example.png', selectedIconPath: 'static/tabbar/exampleHL.png', pagePath: 'pages/day/index', text: 'Day', labelKey: 'nav.day', icon: 'day', iconType: 'tb', needs: 'day' },
+  { iconPath: 'static/tabbar/robot.png', selectedIconPath: 'static/tabbar/robot_activate.png', pagePath: 'pages/look/index', text: 'Look', labelKey: 'nav.look', icon: 'look', iconType: 'tb', needs: 'look' },
   { iconPath: 'static/tabbar/system.png', selectedIconPath: 'static/tabbar/system_activate.png', pagePath: 'pages/settings/index', text: 'More', labelKey: 'nav.more', icon: 'more', iconType: 'tb' },
 ]
 

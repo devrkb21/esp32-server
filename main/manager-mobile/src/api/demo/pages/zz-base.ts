@@ -1,4 +1,5 @@
 import type { DemoHandler } from '../index'
+import { PRODUCT_FIELDS } from './m-products'
 
 // Base fixtures every screen leans on (owner: foundation). Same data as manager-web zz-base.js. Sorted last, so a page's own fixture
 // for the same call wins. Synthetic sample data: a demo account with one robot.
@@ -7,7 +8,9 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 const tomorrow = new Date(now.getTime() + 86400000);
 
 export const DEMO_AGENT = { id: 'demo-agent-1', agentName: 'TinyBot', ttsModelName: 'EdgeTTS', llmModelName: 'Groq', deviceCount: 1, lastConnectedAt: now.toISOString() };
-export const DEMO_DEVICE = { id: 'demo-device-1', alias: 'টাইনিবট', macAddress: '28:84:85:00:00:01', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: now.toISOString(), autoUpdate: 1 };
+export const DEMO_DEVICE = { id: 'demo-device-1', alias: 'টাইনিবট', macAddress: '28:84:85:00:00:01', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: now.toISOString(), autoUpdate: 1, ...PRODUCT_FIELDS.tinybot };
+// A generic Nobix device (not a TinyBot): no companion view, so no Day, Look or Messages.
+export const DEMO_GENERIC_DEVICE = { id: 'demo-device-3', alias: 'পড়ার টেবিল', macAddress: '28:84:85:00:00:03', board: 'nobix-voice-box', appVersion: '1.9.0', lastConnectedAt: new Date(now.getTime() - 26 * 3600000).toISOString(), autoUpdate: 0, ...PRODUCT_FIELDS.generic };
 
 // The routine comes first: the name plate's doing-now activity is read from it, so the plate and
 // the day table always agree (empty when no slot covers this minute).
@@ -58,7 +61,7 @@ const handlers: DemoHandler[] = [
   { method: 'GET', url: '/user/info', reply: { id: 1, username: 'demo', realName: 'Demo owner', superAdmin: 1 } },
   { method: 'GET', url: '/user/pub-config', reply: { version: '0.9.7', allowUserRegister: true, enableMobileRegister: false, sm2PublicKey: '' } },
   { method: 'GET', url: '/agent/list', reply: [DEMO_AGENT] },
-  { method: 'GET', url: /\/device\/bind\/[^/]+$/, reply: [DEMO_DEVICE] },
+  { method: 'GET', url: /\/device\/bind\/[^/]+$/, reply: [DEMO_DEVICE, DEMO_GENERIC_DEVICE] },
   { method: 'GET', url: /\/device\/companion\/[^/]+$/, reply: DEMO_COMPANION },
   { method: 'GET', url: /\/device\/companion\/[^/]+\/messages$/, reply: DEMO_COMPANION.messages },
   { method: 'POST', url: /\/device\/companion\/[^/]+\/messages$/, reply: (req: any) => ({ id: 'm-new', ...req.data, status: 'pending' }) },

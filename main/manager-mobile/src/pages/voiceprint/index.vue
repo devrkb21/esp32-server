@@ -25,6 +25,7 @@ import {
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
 import { tbConfirm } from '@/utils/tbConfirm'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { loadRobots, robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import VoicePrintSheet from './components/VoicePrintSheet.vue'
@@ -284,6 +285,11 @@ watch(currentAgentId, (id, old) => {
 
 onHide(() => player.stop())
 
+// As its own page this is about the voiceprint feature: a robot whose product lacks it sees
+// <tb-not-here /> (embedded in the character page, the character page decides).
+const gate = useFeatureGate('voiceprint')
+const notHere = computed(() => pageMode.value && gate.missing.value)
+
 onMounted(async () => {
   loadSecuritySettings()
   if (currentAgentId.value) {
@@ -301,7 +307,9 @@ defineExpose({ refresh, sheetOpen })
   <view class="vp" :class="{ 'tb-wrap': pageMode, 'is-page': pageMode }">
     <tb-page-header v-if="pageMode" :title="t('nav.voiceprint')" :description="t('mVp.desc')" back />
 
-    <view v-if="!currentAgentId && robot.loaded" class="vp__state">
+    <tb-not-here v-if="notHere" />
+
+    <view v-else-if="!currentAgentId && robot.loaded" class="vp__state">
       <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
         <tb-button variant="primary" icon="robots" @click="goRobots">
           {{ t('common.goRobots') }}

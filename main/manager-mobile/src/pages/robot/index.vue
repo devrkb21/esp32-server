@@ -14,13 +14,14 @@ import type { FirmwareUpdateState, RobotContext, SyncState } from './components/
 import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/companion'
 import type { Device, OtaFirmware } from '@/api/device'
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, getCurrentInstance, nextTick, onUnmounted, provide, reactive, ref, watch } from 'vue'
 import { getCompanion, sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
 import { getBindDevices, getOtaFirmwares, updateDeviceAutoUpdate } from '@/api/device'
 import { getCurrentLanguage, t } from '@/i18n'
 import { useUserStore } from '@/store'
 import { digits, timeText, timeWithPart } from '@/utils/calendar.mjs'
-import { loadRobots, robot } from '@/utils/tbRobot'
+import { robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import { agoParts } from '../companion/companionUtils.mjs'
 import { createUpdateFlow, initialUpdateState, latestFirmware } from '../companion/firmwareUpdate.mjs'
@@ -304,12 +305,17 @@ function goRobots() {
   uni.navigateTo({ url: '/pages/robots/index' })
 }
 
+
+// This page is about one product feature; a robot whose product lacks it sees <tb-not-here />.
+const { missing: notHere, allowed: featureAllowed } = useFeatureGate('companion')
+
 let timer: ReturnType<typeof setInterval> | undefined
 function pageHidden() {
   return typeof document !== 'undefined' && document.hidden
 }
 onShow(async () => {
-  await loadRobots()
+  if (!(await featureAllowed()))
+    return
   reload(Boolean(view.value))
   if (!fwDevice.value)
     loadDevice()
@@ -331,6 +337,8 @@ watch(deviceId, () => {
   view.value = null
   fwDevice.value = null
   fwFlow.reset()
+  if (notHere.value)
+    return
   reload(false)
   loadDevice()
 })
@@ -344,7 +352,9 @@ watch(deviceId, () => {
       </template>
     </tb-page-header>
 
-    <view v-if="!robot.deviceId && robot.loaded" class="rbm__state">
+    <tb-not-here v-if="notHere" />
+
+    <view v-else-if="!robot.deviceId && robot.loaded" class="rbm__state">
       <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
         <tb-button variant="primary" icon="robots" @click="goRobots">
           {{ t('common.goRobots') }}

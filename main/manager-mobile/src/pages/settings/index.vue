@@ -22,6 +22,8 @@ import { useConfigStore, useThemeStore, useUserStore } from '@/store'
 import { clearServerBaseUrlOverride, getEnvBaseUrl, getServerBaseUrlOverride, setServerBaseUrlOverride } from '@/utils'
 import { digits } from '@/utils/calendar.mjs'
 import { tbConfirm } from '@/utils/tbConfirm'
+import { visiblePlaces } from '@/utils/tbProducts.mjs'
+import { loadRobots, robotFeatures } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 
 defineOptions({ name: 'SettingsPage' })
@@ -35,8 +37,9 @@ const themeStore = useThemeStore()
 const lang = computed(() => getCurrentLanguage())
 const num = (v: any) => digits(v, lang.value)
 
-// ---- Places: everything that is not Today, Day or Look
-const places = computed(() => [
+// ---- Places: everything that is not Today, Day or Look (without the ones the chosen robot's
+// product cannot use: a generic device has no Messages or Robot settings)
+const places = computed(() => visiblePlaces([
   {
     group: t('nav.group.robot'),
     items: [
@@ -53,7 +56,7 @@ const places = computed(() => [
       { url: '/pages/device-config/index', icon: 'plus', label: t('mauth.more.addRobot') },
     ],
   },
-])
+], robotFeatures()))
 function go(url: string) {
   uni.navigateTo({ url })
 }
@@ -304,6 +307,8 @@ function openLegal(page: 'terms' | 'privacy') {
 onShow(() => {
   getCacheInfo()
   loadAccount()
+  if (uni.getStorageSync('token'))
+    loadRobots() // keeps the places in step with the chosen robot's product
   currentServerUrl.value = getEnvBaseUrl()
   isCustomServer.value = Boolean(getServerBaseUrlOverride())
 })
