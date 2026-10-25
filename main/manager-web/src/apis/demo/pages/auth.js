@@ -26,7 +26,7 @@ export default [
     url: '/user/pub-config',
     reply: {
       version: '0.9.7',
-      name: 'TinyBot',
+      name: 'Nobix',
       year: String(new Date().getFullYear()),
       allowUserRegister: true,
       enableMobileRegister: true,

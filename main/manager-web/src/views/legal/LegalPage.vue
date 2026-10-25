@@ -3,7 +3,7 @@
     <div class="legal__wrap">
       <header class="legal__top">
         <p class="legal__brand">
-          <img :src="markSrc" alt="" width="32" height="32" />
+          <img :src="markSrc" alt="" width="56" height="32" />
           <span><b>{{ $t('nav.brand') }}</b></span>
         </p>
         <div class="legal__lang">
@@ -57,7 +57,7 @@ const other = computed(() => (name.value === 'privacy' ? 'terms' : 'privacy'));
 const titleKey = computed(() => `legal.${name.value}`);
 const doc = computed(() => legalDoc(name.value, lang.value));
 const docLang = computed(() => (lang.value === 'bn' ? 'bn' : 'en'));
-const markSrc = `${import.meta.env.BASE_URL || '/'}nobix-mark.svg`;
+const markSrc = `${import.meta.env.BASE_URL || '/'}brand/nobix-mark.png`;
 const languageOptions = LANGUAGES.map((l) => ({ value: l.code, label: l.label }));
 
 function signedIn() {
@@ -85,7 +85,7 @@ LegalBlock.props = ['block'];
 }
 .legal__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--tb-rule-soft); }
 .legal__brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.legal__brand img { width: 32px; height: 32px; flex: none; }
+.legal__brand img { width: auto; height: 32px; flex: none; }
 .legal__brand span { display: grid; line-height: 1.15; }
 .legal__brand b { font-family: var(--tb-font-display); font-weight: 800; font-size: var(--tb-fs-18); }
 .legal__brand small { color: var(--tb-ink-2); font-size: var(--tb-fs-12); }

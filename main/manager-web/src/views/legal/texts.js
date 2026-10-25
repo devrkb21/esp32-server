@@ -4,12 +4,12 @@
 export const LEGAL_TEXTS = {
   "terms": {
     "bn": {
-      "title": "টাইনিবট ব্যবহারের শর্তাবলি",
+      "title": "নোবিক্স ব্যবহারের শর্তাবলি",
       "effective": "কার্যকর তারিখ: ২৫ অক্টোবর ২০২৬",
       "intro": [
         {
           "type": "p",
-          "text": "এই শর্তাবলি Nobix Industries (এরপর \"Nobix\", \"আমরা\") এবং টাইনিবট রোবট, টাইনিবট অ্যাপ ও টাইনিবট ওয়েব কনসোল (একসাথে \"সেবা\") যিনি ব্যবহার করেন (এরপর \"আপনি\") তাঁর মধ্যে চুক্তি। অ্যাকাউন্ট খুললে বা সেবা ব্যবহার করলে আপনি এই শর্তাবলি মেনে নিচ্ছেন। না মানলে সেবা ব্যবহার করবেন না।"
+          "text": "এই শর্তাবলি Nobix Industries (এরপর \"Nobix\", \"আমরা\") এবং টাইনিবট রোবট, নোবিক্স অ্যাপ ও নোবিক্স ওয়েব কনসোল (একসাথে \"সেবা\") যিনি ব্যবহার করেন (এরপর \"আপনি\") তাঁর মধ্যে চুক্তি। অ্যাকাউন্ট খুললে বা সেবা ব্যবহার করলে আপনি এই শর্তাবলি মেনে নিচ্ছেন। না মানলে সেবা ব্যবহার করবেন না।"
         }
       ],
       "sections": [
@@ -105,7 +105,7 @@ export const LEGAL_TEXTS = {
           "blocks": [
             {
               "type": "p",
-              "text": "টাইনিবট নাম, Nobix লোগো, রোবটের মুখ, অ্যাপ ও কনসোলের নকশা এবং সফটওয়্যার Nobix-এর বা যাদের কাছ থেকে আমরা লাইসেন্স নিয়েছি তাদের সম্পদ। সেবা ব্যবহারের জন্য আপনাকে একটি ব্যক্তিগত, অ-একচেটিয়া, হস্তান্তর-অযোগ্য অনুমতি দেওয়া হলো। সফটওয়্যারের কিছু অংশ ওপেন-সোর্স লাইসেন্সে আসে; সেসব অংশে সেই লাইসেন্সের শর্ত প্রযোজ্য।"
+              "text": "নোবিক্স ও টাইনিবট নাম, Nobix লোগো, রোবটের মুখ, অ্যাপ ও কনসোলের নকশা এবং সফটওয়্যার Nobix-এর বা যাদের কাছ থেকে আমরা লাইসেন্স নিয়েছি তাদের সম্পদ। সেবা ব্যবহারের জন্য আপনাকে একটি ব্যক্তিগত, অ-একচেটিয়া, হস্তান্তর-অযোগ্য অনুমতি দেওয়া হলো। সফটওয়্যারের কিছু অংশ ওপেন-সোর্স লাইসেন্সে আসে; সেসব অংশে সেই লাইসেন্সের শর্ত প্রযোজ্য।"
             }
           ]
         },
@@ -175,12 +175,12 @@ export const LEGAL_TEXTS = {
       ]
     },
     "en": {
-      "title": "TinyBot Terms of Use",
+      "title": "Nobix Terms of Use",
       "effective": "Effective date: 25 October 2026",
       "intro": [
         {
           "type": "p",
-          "text": "These terms are an agreement between Nobix Industries (\"Nobix\", \"we\") and you, the person who uses the TinyBot robot, the TinyBot app and the TinyBot web console (together, \"the service\"). By creating an account or using the service you accept these terms. If you do not accept them, do not use the service."
+          "text": "These terms are an agreement between Nobix Industries (\"Nobix\", \"we\") and you, the person who uses the TinyBot robot, the Nobix app and the Nobix web console (together, \"the service\"). By creating an account or using the service you accept these terms. If you do not accept them, do not use the service."
         }
       ],
       "sections": [
@@ -276,7 +276,7 @@ export const LEGAL_TEXTS = {
           "blocks": [
             {
               "type": "p",
-              "text": "The TinyBot name, the Nobix logo, the robot's faces, the design of the app and console, and the software belong to Nobix or to those who license them to us. You get a personal, non-exclusive, non-transferable permission to use them for the service. Some parts of the software come under open-source licences, and those licences apply to those parts."
+              "text": "The Nobix and TinyBot names, the Nobix logo, the robot's faces, the design of the app and console, and the software belong to Nobix or to those who license them to us. You get a personal, non-exclusive, non-transferable permission to use them for the service. Some parts of the software come under open-source licences, and those licences apply to those parts."
             }
           ]
         },
@@ -348,12 +348,12 @@ export const LEGAL_TEXTS = {
   },
   "privacy": {
     "bn": {
-      "title": "টাইনিবট গোপনীয়তা নীতি",
+      "title": "নোবিক্স গোপনীয়তা নীতি",
       "effective": "কার্যকর তারিখ: ২৫ অক্টোবর ২০২৬",
       "intro": [
         {
           "type": "p",
-          "text": "টাইনিবট আপনার ঘরে থাকে এবং আপনার কথা শোনে, তাই আপনার তথ্য আমরা যত্ন নিয়ে রাখি। এই নীতিতে বলা আছে Nobix Industries (\"Nobix\", \"আমরা\") টাইনিবট রোবট, টাইনিবট অ্যাপ ও ওয়েব কনসোলে (\"সেবা\") কোন তথ্য সংগ্রহ করে, কেন করে, কতদিন রাখে এবং আপনার কী অধিকার আছে।"
+          "text": "টাইনিবট আপনার ঘরে থাকে এবং আপনার কথা শোনে, তাই আপনার তথ্য আমরা যত্ন নিয়ে রাখি। এই নীতিতে বলা আছে Nobix Industries (\"Nobix\", \"আমরা\") টাইনিবট রোবট, নোবিক্স অ্যাপ ও নোবিক্স ওয়েব কনসোলে (\"সেবা\") কোন তথ্য সংগ্রহ করে, কেন করে, কতদিন রাখে এবং আপনার কী অধিকার আছে।"
         }
       ],
       "sections": [
@@ -531,7 +531,7 @@ export const LEGAL_TEXTS = {
           "blocks": [
             {
               "type": "p",
-              "text": "টাইনিবটের অ্যাকাউন্ট প্রাপ্তবয়স্কদের জন্য। পরিবারের শিশু রোবটের সঙ্গে কথা বললে তার দায়িত্ব অ্যাকাউন্টধারী অভিভাবকের। শিশুর কণ্ঠ-ছাপ বা স্মৃতি রাখতে না চাইলে সেগুলো মুছে দিন বা স্মৃতি বন্ধ রাখুন।"
+              "text": "নোবিক্স অ্যাকাউন্ট প্রাপ্তবয়স্কদের জন্য। পরিবারের শিশু রোবটের সঙ্গে কথা বললে তার দায়িত্ব অ্যাকাউন্টধারী অভিভাবকের। শিশুর কণ্ঠ-ছাপ বা স্মৃতি রাখতে না চাইলে সেগুলো মুছে দিন বা স্মৃতি বন্ধ রাখুন।"
             }
           ]
         },
@@ -556,12 +556,12 @@ export const LEGAL_TEXTS = {
       ]
     },
     "en": {
-      "title": "TinyBot Privacy Policy",
+      "title": "Nobix Privacy Policy",
       "effective": "Effective date: 25 October 2026",
       "intro": [
         {
           "type": "p",
-          "text": "TinyBot lives in your home and listens to you, so we treat your information with care. This policy explains what Nobix Industries (\"Nobix\", \"we\") collects through the TinyBot robot, the TinyBot app and the web console (\"the service\"). It also covers why we collect it, how long we keep it and what rights you have."
+          "text": "TinyBot lives in your home and listens to you, so we treat your information with care. This policy explains what Nobix Industries (\"Nobix\", \"we\") collects through the TinyBot robot, the Nobix app and the Nobix web console (\"the service\"). It also covers why we collect it, how long we keep it and what rights you have."
         }
       ],
       "sections": [
@@ -743,7 +743,7 @@ export const LEGAL_TEXTS = {
           "blocks": [
             {
               "type": "p",
-              "text": "TinyBot accounts are for adults. If children in the family talk to the robot, the account holder is responsible as their guardian. If you do not want to keep a child's voiceprint or memories, delete them or keep memory off."
+              "text": "Nobix accounts are for adults. If children in the family talk to the robot, the account holder is responsible as their guardian. If you do not want to keep a child's voiceprint or memories, delete them or keep memory off."
             }
           ]
         },

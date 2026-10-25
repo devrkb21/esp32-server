@@ -50,10 +50,9 @@ export function defaultAreaCode(list) {
   return (items[0] && items[0].key) || '+880'
 }
 
-// TODO(Nobix): fill in Nobix Industries' support email and/or phone number here. It replaces
-// "{{CONTACT}}" in the last sentence of the terms and the privacy policy; while it is empty that
-// sentence ends without the ": {{CONTACT}}" part.
-export const LEGAL_CONTACT = ''
+// Nobix Industries' support contact. It replaces "{{CONTACT}}" in the last sentence of the terms
+// and the privacy policy; when empty, that sentence ends without the ": {{CONTACT}}" part.
+export const LEGAL_CONTACT = 'support@nobixindustries.com'
 
 // Puts the contact into a sentence, or drops ": {{CONTACT}}" when there is none yet, so the
 // sentence ends on its own full stop ('।' in Bangla, '.' in English).

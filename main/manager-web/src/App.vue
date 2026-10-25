@@ -25,9 +25,9 @@ try {
   store.commit('setPubConfig', JSON.parse(localStorage.getItem('pubConfig') || '{}'));
 } catch (e) { /* private mode or bad data */ }
 
-// Tab title: "<page> · TinyBot"
+// Tab title: "<page> · Nobix" (the app's name; TinyBot is one product inside it)
 watch([() => route.meta.title, locale], () => {
-  const brand = t('nav.brand');
+  const brand = 'Nobix';
   document.title = route.meta.title ? `${t(route.meta.title)} · ${brand}` : brand;
 }, { immediate: true });
 </script>

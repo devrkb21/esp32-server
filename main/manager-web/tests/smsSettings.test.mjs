@@ -17,7 +17,7 @@ import { changedFields, previewText, readState, smsParts } from '@/views/system/
 
 const API_KEY = 'real-api-key-XYZ-123';
 const SECRET = 'real-secret-ABC-987';
-const BN_TEXT = 'আপনার টাইনিবট যাচাই কোড {code}। কোডটি কাউকে জানাবেন না।';
+const BN_TEXT = 'আপনার নোবিক্স যাচাই কোড {code}। কোডটি কাউকে জানাবেন না।';
 
 const ok = (data) => ({ data: { code: 0, msg: 'ok', data } });
 const err = (msg) => ({ data: { code: 10000, msg, data: null } });

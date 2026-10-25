@@ -2216,7 +2216,7 @@ export default {
   'paramManagement.emptySearchText': 'Try another code or remark, or clear the search.',
   'paramManagement.emptyTitle': 'No parameters yet',
   'paramManagement.emptyText': 'Add a parameter to configure the server.',
-  'user.pageDesc': 'Everyone who can sign in to Nobix Console, and the robots they own.',
+  'user.pageDesc': 'Everyone who can sign in to Nobix, and the robots they own.',
   'user.selectedCount': '{count} selected',
   'user.superAdmin': 'Super admin',
   'user.clearSearch': 'Clear search',

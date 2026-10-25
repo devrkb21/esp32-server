@@ -6,7 +6,7 @@
   "layout": "default",
   "style": {
     "navigationStyle": "custom",
-    "navigationBarTitleText": "TinyBot"
+    "navigationBarTitleText": "Nobix"
   }
 }
 </route>

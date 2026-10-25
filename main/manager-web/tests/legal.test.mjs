@@ -72,7 +72,7 @@ describe('LegalPage', { timeout: 60000 }, () => {
 
   it('shows the English terms with ruled section headings and a way back to sign in', async () => {
     const w = await mountAt('/terms', 'en');
-    expect(w.find('h1').text()).toBe('TinyBot Terms of Use');
+    expect(w.find('h1').text()).toBe('Nobix Terms of Use');
     expect(w.findAll('h2').length).toBe(LEGAL_TEXTS.terms.en.sections.length);
     const back = w.findAll('a.legal__back');
     expect(back.length).toBe(2);
@@ -91,12 +91,12 @@ describe('LegalPage', { timeout: 60000 }, () => {
       expect(i.attributes('width')).toBe('120');
       expect(i.attributes('height')).toBe('27');
     }
-    expect(w.find('.legal__brand').text()).toBe('TinyBot');
+    expect(w.find('.legal__brand').text()).toBe('Nobix');
   });
 
   it('shows the Bangla privacy policy in Bangla mode with its bold lead-ins', async () => {
     const w = await mountAt('/privacy', 'bn');
-    expect(w.find('h1').text()).toBe('টাইনিবট গোপনীয়তা নীতি');
+    expect(w.find('h1').text()).toBe('নোবিক্স গোপনীয়তা নীতি');
     expect(w.find('.legal__lead').text()).toBe('অ্যাকাউন্টের তথ্য।');
     expect(w.text()).not.toContain('{{CONTACT}}');
     expect(w.text()).toContain('যোগাযোগ করুন: support@nobixindustries.com।');

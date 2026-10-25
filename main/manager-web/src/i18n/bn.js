@@ -2071,7 +2071,7 @@ export default {
   'paramManagement.emptySearchText': 'অন্য কোড বা মন্তব্য দিয়ে চেষ্টা করুন, বা সার্চ মুছে দিন।',
   'paramManagement.emptyTitle': 'এখনও কোনো প্যারামিটার নেই',
   'paramManagement.emptyText': 'সার্ভার কনফিগার করতে একটি প্যারামিটার যোগ করুন।',
-  'user.pageDesc': 'যাঁরা Nobix Console-এ সাইন ইন করতে পারেন এবং তাঁদের রোবটগুলো।',
+  'user.pageDesc': 'যাঁরা নোবিক্সে প্রবেশ করতে পারেন এবং তাঁদের রোবটগুলো।',
   'user.selectedCount': '{count} জন বাছাই করা',
   'user.superAdmin': 'সুপার অ্যাডমিন',
   'user.clearSearch': 'সার্চ মুছুন',

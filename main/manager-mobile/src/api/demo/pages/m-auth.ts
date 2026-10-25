@@ -34,7 +34,7 @@ const handlers: DemoHandler[] = [
     method: 'GET',
     url: onAuthScreens(/\/user\/pub-config$/),
     reply: {
-      name: 'TinyBot',
+      name: 'Nobix',
       version: '0.9.7',
       year: '',
       allowUserRegister: true,

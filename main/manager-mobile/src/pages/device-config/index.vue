@@ -3,7 +3,7 @@
 {
   "layout": "default",
   "style": {
-    "navigationBarTitleText": "TinyBot",
+    "navigationBarTitleText": "Nobix",
     "navigationStyle": "custom"
   }
 }

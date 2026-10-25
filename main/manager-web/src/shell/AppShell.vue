@@ -3,7 +3,7 @@
     <a class="tb-skip" href="#tb-main">{{ $t('nav.skip') }}</a>
     <aside class="tb-side">
       <div class="tb-side__brand">
-        <img src="/nobix-mark.svg" width="34" height="34" alt="" />
+        <img class="tb-side__mark" :src="markSrc" width="56" height="32" alt="" />
         <span class="tb-side__name">{{ $t('nav.brand') }}</span>
       </div>
       <RouterLink v-if="robot.deviceId" to="/robots" class="tb-side__robot">
@@ -19,7 +19,6 @@
         </template>
       </nav>
       <div class="tb-side__foot">
-        <TbMaker class="tb-side__maker" :width="96" align="start" />
         <TbMenu :items="accountItems" align="start" @select="onAccount">
           <template #trigger>
             <button type="button" class="tb-side__account" :aria-label="userName ? `${userName}, ${$t('nav.account')}` : $t('nav.account')">
@@ -57,6 +56,8 @@ import { LANGUAGES, changeLanguage } from '@/i18n';
 import { applyTheme, getTheme } from '@/utils/theme';
 import { goToPage } from '@/utils';
 
+// The app's own brand: the Nobix NX mark (official file, never recoloured) and the name Nobix.
+const markSrc = `${import.meta.env.BASE_URL || '/'}brand/nobix-mark.png`;
 const store = useStore();
 const { t, locale } = useI18n({ useScope: 'global' });
 const collapsed = ref(false);
@@ -93,6 +94,7 @@ function onAccount(key) {
 }
 .tb-side__brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 12px; border-bottom: var(--tb-rule-band) solid var(--tb-rule); }
 .tb-side__name { display: grid; font-family: var(--tb-font-display); font-weight: 800; font-size: var(--tb-fs-18); line-height: 1.1; }
+.tb-side__mark { display: block; width: auto; height: 32px; flex: none; }
 .tb-side__name small { font: 500 var(--tb-fs-12) var(--tb-font-text); color: var(--tb-ink-2); }
 .tb-side__robot { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--tb-rule); text-decoration: none; }
 .tb-side__robot span { display: grid; min-width: 0; }
@@ -113,7 +115,6 @@ function onAccount(key) {
 .tb-side__link.router-link-active::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--tb-orange); border-radius: 2px; }
 .tb-side__link.router-link-active .tb-icon { color: var(--ink); }
 .tb-side__foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--tb-rule); }
-.tb-side__maker { padding: 6px 8px 12px; }
 .tb-side__account { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; }
 .tb-side__account:hover { background: var(--tb-paper-2); }
 .tb-side__user { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }

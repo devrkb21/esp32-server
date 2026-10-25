@@ -4,7 +4,7 @@
   "layout": "tabbar",
   "style": {
     "navigationStyle": "custom",
-    "navigationBarTitleText": "TinyBot"
+    "navigationBarTitleText": "Nobix"
   }
 }
 </route>
