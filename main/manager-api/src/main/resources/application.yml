@@ -19,6 +19,8 @@ spring:
   messages:
     encoding: UTF-8
     basename: i18n/messages
+    # Fall back to the English base bundle, not the server's system locale
+    fallback-to-system-locale: false
   jackson:
     time-zone: Asia/Dhaka
     date-format: yyyy-MM-dd HH:mm:ss

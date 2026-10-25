@@ -30,7 +30,6 @@
         <captcha.version>1.6.2</captcha.version>
         <guava.version>33.6.0-jre</guava.version>
         <liquibase-core.version>4.20.0</liquibase-core.version>
-        <aliyun-sms-version>4.1.0</aliyun-sms-version>
         <okio-version>3.4.0</okio-version>
         <skipTests>true</skipTests>
         <argLine></argLine>
@@ -228,12 +227,6 @@
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
-        <!-- Aliyun SMS SDK -->
-        <dependency>
-            <groupId>com.aliyun</groupId>
-            <artifactId>dysmsapi20170525</artifactId>
-            <version>${aliyun-sms-version}</version>
-        </dependency>
         <!-- Upgraded okio to 3.4.0 to resolve GHSA-w33c-445m-f8w7 -->
         <dependency>
             <groupId>com.squareup.okio</groupId>
@@ -242,30 +235,6 @@
         </dependency>
     </dependencies>
 
-    <!-- Aliyun Maven repository -->
-    <repositories>
-        <repository>
-            <id>public</id>
-            <name>aliyun nexus</name>
-            <url>https://maven.aliyun.com/repository/public/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-        </repository>
-    </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>public</id>
-            <name>aliyun nexus</name>
-            <url>https://maven.aliyun.com/repository/public/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </pluginRepository>
-    </pluginRepositories>
     <build>
         <finalName>${project.artifactId}</finalName>
         <plugins>

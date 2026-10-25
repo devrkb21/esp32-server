@@ -72,7 +72,7 @@ public class HttpContextUtils {
 
     public static String getLanguage() {
         // Default language
-        String defaultLanguage = "zh-CN";
+        String defaultLanguage = "en-US";
         // request
         HttpServletRequest request = getHttpServletRequest();
         if (request == null) {
@@ -80,9 +80,12 @@ public class HttpContextUtils {
         }
 
         // Request language
-        defaultLanguage = request.getHeader(HttpHeaders.ACCEPT_LANGUAGE);
+        String requestLanguage = request.getHeader(HttpHeaders.ACCEPT_LANGUAGE);
+        if (requestLanguage == null || requestLanguage.isBlank()) {
+            return defaultLanguage;
+        }
 
-        return defaultLanguage;
+        return requestLanguage;
     }
 
     /**

@@ -808,3 +808,11 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202610240100.sql
+
+  - changeSet:
+      id: 202610250100
+      author: tinybot
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202610250100.sql

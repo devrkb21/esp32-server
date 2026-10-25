@@ -118,7 +118,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
             public Locale resolveLocale(HttpServletRequest request) {
                 String acceptLanguage = request.getHeader("Accept-Language");
                 if (acceptLanguage == null || acceptLanguage.isEmpty()) {
-                    return Locale.getDefault();
+                    // Default language is English
+                    return Locale.US;
                 }
 
                 // ParseAccept-LanguagePreferred language in request headers
@@ -154,8 +155,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                     }
                 }
 
-                // If there is no matching language，UseDefault language
-                return Locale.getDefault();
+                // If there is no matching language, use the default language (English)
+                return Locale.US;
             }
         };
     }

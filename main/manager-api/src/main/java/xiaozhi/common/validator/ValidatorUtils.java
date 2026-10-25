@@ -24,6 +24,8 @@ public class ValidatorUtils {
         ResourceBundleMessageSource bundleMessageSource = new ResourceBundleMessageSource();
         bundleMessageSource.setDefaultEncoding("UTF-8");
         bundleMessageSource.setBasenames("i18n/validation");
+        // Unknown locales fall back to the English base bundle
+        bundleMessageSource.setFallbackToSystemLocale(false);
         return bundleMessageSource;
     }
 
@@ -48,20 +50,34 @@ public class ValidatorUtils {
     }
 
     /**
-     * International mobile phone regex
-     * International country code required, format: +[country_code][phone_number]
-     * For example: 
-     * - +8613800138000
-     * - +12345678900
-     * - +447123456789
+     * Default country calling code (Bangladesh).
      */
-    private static final String INTERNATIONAL_PHONE_REGEX = "^\\+[1-9]\\d{0,3}[1-9]\\d{4,14}$";
+    public static final String DEFAULT_AREA_CODE = "+880";
 
     /**
-     * Check if mobile phone number is valid
-     * International country code required, format: +[country_code][phone_number]
-     * For example: +8613800138000
-     * 
+     * Bangladesh mobile number: +880 1[3-9] followed by 8 digits.
+     * Also tolerates the same number without the plus (8801...) and the local
+     * form without the area code (01...).
+     * For example:
+     * - +8801712345678
+     * - 8801712345678
+     * - 01712345678
+     */
+    private static final Pattern BANGLADESH_PHONE_PATTERN = Pattern.compile("^(?:\\+?880|0)1[3-9]\\d{8}$");
+
+    /**
+     * Generic international mobile number for other area codes from the
+     * MOBILE_AREA dictionary: +[country_code][phone_number], e.g. +447123456789.
+     */
+    private static final Pattern INTERNATIONAL_PHONE_PATTERN = Pattern.compile("^\\+[1-9]\\d{0,3}[1-9]\\d{4,14}$");
+
+    /**
+     * Check if mobile phone number is valid.
+     * Bangladesh (+880) is the default: +8801712345678, 8801712345678 and
+     * 01712345678 are accepted. A number that starts with +880 must be a valid
+     * Bangladeshi mobile number. Other countries are accepted in the generic
+     * international format +[country_code][phone_number].
+     *
      * @param phone Phone number
      * @return boolean
      */
@@ -70,8 +86,13 @@ public class ValidatorUtils {
             return false;
         }
 
-        // Validate phone number format with required international country code
-        Pattern pattern = Pattern.compile(INTERNATIONAL_PHONE_REGEX);
-        return pattern.matcher(phone).matches();
+        if (BANGLADESH_PHONE_PATTERN.matcher(phone).matches()) {
+            return true;
+        }
+        // A Bangladeshi number that failed the strict check above is invalid
+        if (phone.startsWith(DEFAULT_AREA_CODE)) {
+            return false;
+        }
+        return INTERNATIONAL_PHONE_PATTERN.matcher(phone).matches();
     }
 }
