@@ -243,21 +243,25 @@ public interface Constant {
      */
     enum SysMSMParam {
         /**
-         * Alibaba Cloud authorized Key ID
+         * REVE SMS gateway address, e.g. https://smpp.revesms.com:7790
          */
-        ALIYUN_SMS_ACCESS_KEY_ID("aliyun.sms.access_key_id"),
+        REVE_SMS_BASE_URL("reve.sms.base_url"),
         /**
-         * Alibaba Cloud authorized Secret
+         * REVE SMS API key
          */
-        ALIYUN_SMS_ACCESS_KEY_SECRET("aliyun.sms.access_key_secret"),
+        REVE_SMS_API_KEY("reve.sms.api_key"),
         /**
-         * Alibaba Cloud SMS signature
+         * REVE SMS secret key
          */
-        ALIYUN_SMS_SIGN_NAME("aliyun.sms.sign_name"),
+        REVE_SMS_SECRET_KEY("reve.sms.secret_key"),
         /**
-         * Alibaba Cloud SMS template
+         * Sender ID (callerID) approved by REVE
          */
-        ALIYUN_SMS_SMS_CODE_TEMPLATE_CODE("aliyun.sms.sms_code_template_code"),
+        REVE_SMS_CALLER_ID("reve.sms.caller_id"),
+        /**
+         * Verification SMS text; {code} is replaced by the code
+         */
+        REVE_SMS_CODE_MESSAGE("reve.sms.code_message"),
         /**
          * Maximum SMS messages per single number
          */

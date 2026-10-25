@@ -5,21 +5,19 @@ FROM python:3.10-slim
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libopus0 ffmpeg locales && \
-    sed -i '/zh_CN.UTF-8/s/^# //g' /etc/locale.gen && \
+    sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure pip mirror, timeout and retries
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
-    pip config set global.trusted-host mirrors.aliyun.com && \
-    pip config set global.timeout 120 && \
+# Configure pip timeout and retries (default PyPI index)
+RUN pip config set global.timeout 120 && \
     pip config set install.retries 5
 
 # Set environment variables to ensure proper character encoding
-ENV LANG=zh_CN.UTF-8 \
-    LC_ALL=zh_CN.UTF-8 \
-    LANGUAGE=zh_CN:zh \
+ENV LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
     PYTHONIOENCODING=utf-8
 
 WORKDIR /opt/xiaozhi-esp32-server
