@@ -7,7 +7,8 @@
 //     { method: 'POST', url: '/user/login', body: (req) => ({ code: 0, data }) }, // the whole body
 //   ]
 // `url` is a string (the path must end with it) or a RegExp tested on the path. The first match
-// wins, in file name order. Fixtures carry synthetic sample data, never real people or numbers.
+// wins, in file name order; a handler whose body() or reply() returns undefined passes the call on
+// to the next match. Fixtures carry synthetic sample data, never real people or numbers.
 
 const files = import.meta.glob('./pages/*.js', { eager: true });
 const handlers = Object.keys(files).sort().flatMap((k) => files[k].default || []);
@@ -21,16 +22,21 @@ function pathOf(url) {
 export function demoReply({ url, method, data }) {
   const path = pathOf(url);
   const m = (method || 'GET').toUpperCase();
-  const h = handlers.find((x) => (x.method || 'GET').toUpperCase() === m
-    && (x.url instanceof RegExp ? x.url.test(path) : path.endsWith(x.url)));
   const req = { url, path, method: m, data, query: Object.fromEntries(new URL(url, 'http://demo.local').searchParams) };
-  if (!h) {
-    // An unknown call succeeds with no data, so screens show their empty state, never a crash.
-    console.info('[demo] no fixture for', m, path);
-    return { status: 200, data: { code: 0, msg: 'ok', data: null } };
+  for (const h of handlers) {
+    if ((h.method || 'GET').toUpperCase() !== m) continue;
+    if (!(h.url instanceof RegExp ? h.url.test(path) : path.endsWith(h.url))) continue;
+    let body;
+    if (h.body) body = h.body(req);
+    else {
+      const d = typeof h.reply === 'function' ? h.reply(req) : h.reply;
+      if (d !== undefined) body = { code: 0, msg: 'ok', data: d };
+    }
+    if (body !== undefined) return { status: 200, data: body };
   }
-  const body = h.body ? h.body(req) : { code: 0, msg: 'ok', data: typeof h.reply === 'function' ? h.reply(req) : h.reply };
-  return { status: 200, data: body };
+  // An unknown call succeeds with no data, so screens show their empty state, never a crash.
+  console.info('[demo] no fixture for', m, path);
+  return { status: 200, data: { code: 0, msg: 'ok', data: null } };
 }
 
 export const DEMO_USER = { id: 1, username: 'demo', realName: 'Demo owner', superAdmin: 1, status: 1 };

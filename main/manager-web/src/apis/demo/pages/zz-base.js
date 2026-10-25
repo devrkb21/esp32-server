@@ -48,7 +48,7 @@ export default [
   { method: 'GET', url: '/user/pub-config', reply: { version: '0.9.7', allowUserRegister: true, enableMobileRegister: false, sm2PublicKey: '' } },
   { method: 'GET', url: '/agent/list', reply: [DEMO_AGENT] },
   { method: 'GET', url: /\/device\/bind\/[^/]+$/, reply: [DEMO_DEVICE] },
-  { method: 'GET', url: /\/device\/companion\/[^/]+$/, reply: DEMO_COMPANION },
+  { method: 'GET', url: /\/device\/companion\/(?!geocode$)[^/]+$/, reply: DEMO_COMPANION },
   { method: 'GET', url: /\/device\/companion\/[^/]+\/messages$/, reply: DEMO_COMPANION.messages },
   { method: 'POST', url: /\/device\/companion\/[^/]+\/messages$/, reply: (req) => ({ id: 'm-new', ...req.data, status: 'pending' }) },
   { method: 'POST', url: /\/device\/companion\/[^/]+\/commands$/, reply: (req) => ({ id: 'c-new', ...req.data, status: 'pending' }) },

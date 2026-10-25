@@ -15,8 +15,10 @@ initTheme();
 // Demo build: signed in as a sample owner, every API call answered from fixtures.
 if (DEMO) {
   try {
-    if (!localStorage.getItem('token')) localStorage.setItem('token', DEMO_TOKEN);
-    localStorage.setItem('userInfo', JSON.stringify(DEMO_USER));
+    // The sign-in pages stay reachable: no token is seeded while one of them is open.
+    const authPage = /^#\/(login|register|retrieve-password)(\?|$)/.test(location.hash);
+    if (!authPage && !localStorage.getItem('token')) localStorage.setItem('token', DEMO_TOKEN);
+    if (!authPage) localStorage.setItem('userInfo', JSON.stringify(DEMO_USER));
   } catch (e) { /* private mode */ }
 }
 

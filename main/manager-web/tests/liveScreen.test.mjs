@@ -312,23 +312,24 @@ describe('live screen: polling', () => {
 describe('live screen: placement', () => {
   const read = (p) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
-  it('sits at the top of the companion Status tab', () => {
-    const src = read('src/views/CompanionManagement.vue');
-    const start = src.indexOf("activeTab === 'status'\" key=\"status\"");
-    const status = src.slice(start, src.indexOf('class="cm-tiles"', start));
-    expect(start).toBeGreaterThan(0);
-    expect(status).toContain('<TinyBotLiveScreen :device-id="deviceId" />');
+  // The old companion Status tab and the TinyBotLook dialog are gone: the robot's real screen now
+  // lives on the Look page, as the "Live from TinyBot" side of the face window.
+  it('is the "Live from TinyBot" view of the Look page face window', () => {
+    const src = read('src/views/look/Look.vue');
+    expect(src).toContain("$t('lookPage.viewPreview')");
+    expect(src).toContain("$t('lookPage.viewLive')");
+    expect(src).toContain(`<LookLive v-if="view === 'live'" :device-id="deviceId" :scale="scale" />`);
+    expect(src).toContain('ref="oled"'); // the simulated preview stays
+    expect(src).toMatch(/disabled: !this\.deviceId \|\| this\.online === false/); // only for an online robot
   });
 
-  it('shows "Live from TinyBot" next to the simulated "Preview" on the look page', () => {
-    const src = read('src/components/TinyBotLook.vue');
-    expect(src).toContain("$t('look.previewLabel')");
-    expect(src).toContain('<TinyBotLiveScreen v-if="deviceId" compact :device-id="deviceId" />');
-    expect(src).toContain('ref="oled"'); // the simulated preview stays
-    const live = read('src/components/TinyBotLiveScreen.vue');
-    expect(live).toContain("$t('companion.live.compactTitle')");
-    expect(live).toContain('image-rendering: pixelated');
+  it('polls only while shown, on screen and in a visible tab, with square pixels', () => {
+    const live = read('src/views/look/LookLive.vue');
+    expect(live).toContain("from '@/utils/liveScreen.mjs'");
+    expect(live).toContain('SCREEN_TOOL');
     expect(live).toContain("addEventListener('visibilitychange'");
     expect(live).toContain('IntersectionObserver');
+    expect(live).toContain('beforeUnmount');
+    expect(read('src/views/look/Look.vue')).toContain('image-rendering: pixelated');
   });
 });

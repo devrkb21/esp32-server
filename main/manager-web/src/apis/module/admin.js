@@ -4,7 +4,7 @@ import RequestService from '../httpRequest';
 
 export default {
     // User list
-    getUserList(params, callback) {
+    getUserList(params, callback, failCallback) {
         const queryParams = new URLSearchParams({
             page: params.page,
             limit: params.limit,
@@ -18,15 +18,19 @@ export default {
                 RequestService.clearRequestTime()
                 callback(res)
             })
-            .networkFail((err) => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail((err) => {
                 console.error('Request failed:', err)
                 RequestService.reAjaxFun(() => {
-                    this.getUserList(callback)
+                    this.getUserList(params, callback, failCallback)
                 })
             }).send()
     },
     // Delete user
-    deleteUser(id, callback) {
+    deleteUser(id, callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/admin/users/${id}`)
             .method('DELETE')
@@ -34,15 +38,19 @@ export default {
                 RequestService.clearRequestTime()
                 callback(res)
             })
-            .networkFail((err) => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail((err) => {
                 console.error('Delete failed:', err)
                 RequestService.reAjaxFun(() => {
-                    this.deleteUser(id, callback)
+                    this.deleteUser(id, callback, failCallback)
                 })
             }).send()
     },
     // Reset user password
-    resetUserPassword(id, callback) {
+    resetUserPassword(id, callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/admin/users/${id}`)
             .method('PUT')
@@ -50,10 +58,14 @@ export default {
                 RequestService.clearRequestTime()
                 callback(res)
             })
-            .networkFail((err) => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail((err) => {
                 console.error('Reset password failed:', err)
                 RequestService.reAjaxFun(() => {
-                    this.resetUserPassword(id, callback)
+                    this.resetUserPassword(id, callback, failCallback)
                 })
             }).send()
     },

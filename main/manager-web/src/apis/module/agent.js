@@ -39,7 +39,7 @@ function terminateCallbackRequest(onTerminalFailure, error) {
 
 export default {
     // Get agent list
-    getAgentList(callback) {
+    getAgentList(callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/agent/list`)
             .method('GET')
@@ -47,9 +47,13 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
-            .networkFail(() => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail(() => {
                 RequestService.reAjaxFun(() => {
-                    this.getAgentList(callback);
+                    this.getAgentList(callback, failCallback);
                 });
             }).send();
     },

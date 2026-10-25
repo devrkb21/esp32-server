@@ -85,6 +85,7 @@
 
   /* layout */
   --tb-sidebar: 248px;
+  --tb-tabbar-h: 69px; /* phone tab bar: 6 + 52 + 8 padding + 3 rule, before the safe-area inset */
   --tb-content-max: 1120px;
   --tb-shadow-sheet: 0 12px 32px rgba(27, 23, 20, .18), 0 2px 6px rgba(27, 23, 20, .08);
 }

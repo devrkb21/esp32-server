@@ -1,0 +1,24 @@
+/* Shared by the four system pages: filter row, batch bar, states, row actions. */
+.sys-filter { display: grid; gap: var(--tb-s3); padding: var(--tb-s4) 0 var(--tb-s3); }
+.sys-filter__search { display: flex; gap: var(--tb-s2); max-width: 460px; }
+.sys-filter__search .tb-input { flex: 1; min-width: 0; }
+.sys-bar {
+  display: flex; align-items: center; gap: var(--tb-s3); flex-wrap: wrap;
+  min-height: 52px; padding: var(--tb-s2) 0; border-top: 1px solid var(--tb-rule-soft);
+}
+.sys-bar__meta { color: var(--tb-ink-2); font-size: var(--tb-fs-13); }
+.sys-bar__end { margin-left: auto; }
+.sys-state { display: grid; place-items: center; padding: var(--tb-s12) var(--tb-s4); border-top: var(--tb-rule-band) solid var(--tb-rule); }
+.sys-fail { display: flex; align-items: center; gap: var(--tb-s2); padding: var(--tb-s2) 0; color: var(--tb-danger); font-size: var(--tb-fs-14); flex-wrap: wrap; }
+.sys-acts { display: inline-flex; gap: 2px; justify-content: flex-end; white-space: nowrap; }
+.sys-del { color: var(--tb-danger); }
+.sys-del:disabled { color: var(--tb-ink-3); }
+.sys-table tbody tr.is-picked { background: color-mix(in srgb, var(--tb-orange) 8%, var(--tb-paper)); }
+
+@media (max-width: 640px) {
+  .sys-filter__search { max-width: none; }
+  .sys-bar .tb-check { min-height: var(--tb-target); }
+  .sys-bar__end { min-height: var(--tb-target); }
+  .sys-acts { justify-content: flex-start; gap: var(--tb-s2); }
+  .sys-acts .tb-btn { min-height: var(--tb-target); }
+}

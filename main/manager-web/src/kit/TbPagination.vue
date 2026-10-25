@@ -3,7 +3,7 @@
     <span class="tb-pager__total tb-num">{{ totalText }}</span>
     <div class="tb-pager__nav">
       <TbButton size="s" variant="quiet" icon="chevron-left" :disabled="page <= 1" :aria-label="prevLabel" @click="go(page - 1)" />
-      <span class="tb-pager__pos tb-num">{{ page }} / {{ pages }}</span>
+      <span class="tb-pager__pos tb-num">{{ n(page) }} / {{ n(pages) }}</span>
       <TbButton size="s" variant="quiet" icon="chevron-right" :disabled="page >= pages" :aria-label="nextLabel" @click="go(page + 1)" />
     </div>
     <TbSelect v-if="sizes.length > 1" size="s" class="tb-pager__size" :model-value="pageSize" :options="sizeOptions"
@@ -13,8 +13,10 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useLocale } from './locale';
 import TbButton from './TbButton.vue';
 import TbSelect from './TbSelect.vue';
+import { digits } from './calendar';
 
 const props = defineProps({
   page: { type: Number, default: 1 },
@@ -27,10 +29,13 @@ const props = defineProps({
   prevLabel: { type: String, default: 'Previous page' },
   nextLabel: { type: String, default: 'Next page' },
   sizeLabel: { type: String, default: 'Rows per page' },
+  lang: { type: String, default: '' }, // 'bn' shows Bangla digits; defaults to the app language
 });
 const emit = defineEmits(['update:page', 'update:pageSize', 'change']);
+const locale = useLocale();
+const n = (v) => digits(v, props.lang || locale.value);
 const pages = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)));
-const sizeOptions = computed(() => props.sizes.map((s) => ({ value: s, label: `${s} ${props.sizeSuffix}` })));
+const sizeOptions = computed(() => props.sizes.map((s) => ({ value: s, label: `${n(s)} ${props.sizeSuffix}` })));
 function go(p) {
   const v = Math.min(pages.value, Math.max(1, p));
   emit('update:page', v);

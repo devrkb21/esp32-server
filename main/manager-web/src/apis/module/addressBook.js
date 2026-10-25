@@ -5,7 +5,7 @@ export default {
   /**
    * Get device contact list
    */
-  getAddressBookList(macAddress, callback) {
+  getAddressBookList(macAddress, callback, failCallback) {
     RequestService.sendRequest()
       .url(`${getServiceUrl()}/device/address-book/${macAddress}`)
       .method('GET')
@@ -13,9 +13,13 @@ export default {
         RequestService.clearRequestTime();
         callback(res);
       })
-      .networkFail(() => {
+      .fail(failCallback ? (err) => {
+                  RequestService.clearRequestTime()
+                  failCallback(err)
+              } : undefined)
+              .networkFail(() => {
         RequestService.reAjaxFun(() => {
-          this.getAddressBookList(macAddress, callback);
+          this.getAddressBookList(macAddress, callback, failCallback);
         });
       }).send();
   },
