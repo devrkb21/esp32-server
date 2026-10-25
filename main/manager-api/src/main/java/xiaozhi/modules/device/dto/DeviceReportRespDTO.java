@@ -26,6 +26,16 @@ public class DeviceReportRespDTO {
     @Schema(description = "MQTT GatewayConfiguration")
     private MQTT mqtt;
 
+    @Schema(description = "Companion API (xiaozhi-server's HTTP port) the robot calls for its day, alarms and messages")
+    private Companion companion;
+
+    @Getter
+    @Setter
+    public static class Companion {
+        @Schema(description = "Base URL without trailing slash, e.g. http://192.168.0.123:8003")
+        private String url;
+    }
+
     @Getter
     @Setter
     public static class Firmware {
@@ -52,6 +62,9 @@ public class DeviceReportRespDTO {
 
         @Schema(description = "ChallengeCode")
         private String challenge;
+
+        @Schema(description = "Link URL for the robot's QR: <server.fronted_url>/#/link?code=<code> (null when the control panel URL is not configured)")
+        private String url;
     }
 
     @Getter

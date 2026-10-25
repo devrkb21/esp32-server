@@ -2,6 +2,7 @@ import { toast } from '@/kit/toast'
 import smCrypto from 'sm-crypto'
 import router from '../router'
 import Constant from '../utils/constant'
+import { safeRedirect } from './linkCode'
 
 /**
  * Check if user is logged in
@@ -84,6 +85,16 @@ export function showSuccess(msg) {
  * @param path
  * @param isRepalce
  */
+/**
+ * The sign-in page, remembering the page the owner was on (e.g. the robot link page) so signing
+ * in again leads back there. Only paths inside this app are kept (see safeRedirect).
+ */
+export function loginWithReturn() {
+    const current = router.currentRoute && router.currentRoute.value
+    const back = current ? safeRedirect(current.fullPath) : ''
+    return back && back !== '/' ? { path: Constant.PAGE.LOGIN, query: { redirect: back } } : Constant.PAGE.LOGIN
+}
+
 export function goToPage(path, isRepalce) {
     if (isRepalce) {
         router.replace(path)

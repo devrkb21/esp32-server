@@ -60,6 +60,7 @@ import xiaozhi.modules.device.dto.DeviceReportRespDTO;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.entity.OtaEntity;
 import xiaozhi.modules.device.service.DeviceAddressBookService;
+import xiaozhi.modules.device.service.DeviceLinkService;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.device.service.OtaService;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
@@ -273,6 +274,16 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
         response.setWebsocket(websocket);
 
+        // Companion API base (activated or not): a factory-erased robot cannot guess it from the
+        // OTA host, which is manager-api, not xiaozhi-server's HTTP port.
+        String companionUrl = companionBaseUrl(sysParamsService.getValue(Constant.SERVER_COMPANION_URL, true),
+                sysParamsService.getValue(Constant.SERVER_VISION_EXPLAIN, true));
+        if (companionUrl != null) {
+            DeviceReportRespDTO.Companion companion = new DeviceReportRespDTO.Companion();
+            companion.setUrl(companionUrl);
+            response.setCompanion(companion);
+        }
+
         // AddMQTT UDPConfiguration
         // fromSystem parametersGetMQTT GatewayAddress，Only use when configuration is valid
         String mqttUdpConfig = sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, true);
@@ -476,6 +487,35 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         return RedisKeys.getOtaDeviceActivationInfo(safeDeviceId);
     }
 
+    /**
+     * Base URL of the companion API for the robot (no trailing slash): `server.companion_url` when
+     * set (and not 'null'), else the scheme, host and port of `server.vision_explain`
+     * (http://192.168.0.123:8003/mcp/vision/explain -> http://192.168.0.123:8003). Null when neither
+     * gives an http(s) URL with a host.
+     */
+    static String companionBaseUrl(String companionUrl, String visionExplainUrl) {
+        if (StringUtils.isNotBlank(companionUrl) && !"null".equalsIgnoreCase(companionUrl.trim())) {
+            String explicit = companionUrl.trim().replaceAll("/+$", "");
+            if (explicit.matches("(?i)https?://[^/\\s]+(/\\S*)?")) {
+                return explicit;
+            }
+        }
+        if (StringUtils.isBlank(visionExplainUrl) || "null".equalsIgnoreCase(visionExplainUrl.trim())) {
+            return null;
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(visionExplainUrl.trim());
+            String scheme = uri.getScheme();
+            if (uri.getHost() == null || scheme == null
+                    || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+                return null;
+            }
+            return scheme.toLowerCase() + "://" + uri.getHost() + (uri.getPort() > 0 ? ":" + uri.getPort() : "");
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     public DeviceReportRespDTO.Activation buildActivation(String deviceId, DeviceReportReqDTO deviceReport) {
         DeviceReportRespDTO.Activation code = new DeviceReportRespDTO.Activation();
 
@@ -486,12 +526,20 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             String frontedUrl = sysParamsService.getValue(Constant.SERVER_FRONTED_URL, true);
             code.setMessage(frontedUrl + "\n" + cachedCode);
             code.setChallenge(deviceId);
+            code.setUrl(DeviceLinkService.buildLinkUrl(frontedUrl, cachedCode));
         } else {
+            // Avoid handing out a code that another robot is still waiting on: the reverse
+            // lookup (code -> device) would be overwritten and the wrong robot linked.
             String newCode = RandomUtil.randomNumbers(6);
+            for (int attempt = 0; attempt < 5
+                    && redisUtils.get(RedisKeys.getOtaActivationCode(newCode)) != null; attempt++) {
+                newCode = RandomUtil.randomNumbers(6);
+            }
             code.setCode(newCode);
             String frontedUrl = sysParamsService.getValue(Constant.SERVER_FRONTED_URL, true);
             code.setMessage(frontedUrl + "\n" + newCode);
             code.setChallenge(deviceId);
+            code.setUrl(DeviceLinkService.buildLinkUrl(frontedUrl, newCode));
 
             Map<String, Object> dataMap = new HashMap<>();
             dataMap.put("id", deviceId);

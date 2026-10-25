@@ -24,9 +24,13 @@ import PickSheet from '@/pages/login/components/pick-sheet.vue'
 import { useCaptcha, useCountdown, usePubConfig } from '@/pages/login/useAuth'
 import { sm2Encrypt } from '@/utils'
 import { digits } from '@/utils/calendar.mjs'
+import { safePagePath } from '@/utils/linkCode.mjs'
 import { toast } from '@/utils/toast'
 
 defineOptions({ name: 'RegisterPage' })
+
+// A sign-in redirect (e.g. back to the robot link page) travels on to the sign-in page.
+const loginUrl = ref('/pages/login/index')
 
 initI18n()
 
@@ -164,7 +168,7 @@ async function handleRegister() {
     outcome.value = 'ok'
     toast.success(t('mauth.ok.register'))
     setTimeout(() => {
-      uni.redirectTo({ url: '/pages/login/index' })
+      uni.redirectTo({ url: loginUrl.value })
     }, 1000)
   }
   catch (error: any) {
@@ -182,10 +186,13 @@ async function handleRegister() {
 }
 
 function goBack() {
-  uni.redirectTo({ url: '/pages/login/index' })
+  uni.redirectTo({ url: loginUrl.value })
 }
 
-onLoad(() => {
+onLoad((options?: Record<string, string>) => {
+  const back = safePagePath(options?.redirect)
+  if (back)
+    loginUrl.value = `/pages/login/index?redirect=${encodeURIComponent(back)}`
   captcha.refresh()
 })
 

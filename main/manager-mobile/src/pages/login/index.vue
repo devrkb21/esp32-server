@@ -18,6 +18,7 @@ import { login } from '@/api/auth'
 import { changeLanguage, getCurrentLanguage, getSupportedLanguages, initI18n, t } from '@/i18n'
 import { useUserStore } from '@/store'
 import { sm2Encrypt } from '@/utils'
+import { safePagePath } from '@/utils/linkCode.mjs'
 import { toast } from '@/utils/toast'
 import { faceMood, filledCount, fullPhone, isPhone } from './authKit.mjs'
 import AuthField from './components/auth-field.vue'
@@ -45,6 +46,10 @@ const failure = ref('')
 const outcome = ref('')
 const loading = ref(false)
 const pulse = ref(false)
+// Where to go after signing in: the page that sent the owner here (`?redirect=`, a page of this app
+// only, e.g. the robot link page), else Today.
+const redirect = ref('')
+const linking = computed(() => redirect.value.startsWith('/pages/link/'))
 const showArea = ref(false)
 const showLanguage = ref(false)
 
@@ -103,7 +108,7 @@ function pickLanguage(code: string) {
 }
 
 function goToRegister() {
-  uni.navigateTo({ url: '/pages/register/index' })
+  uni.navigateTo({ url: redirect.value ? `/pages/register/index?redirect=${encodeURIComponent(redirect.value)}` : '/pages/register/index' })
 }
 function goToForgotPassword() {
   uni.navigateTo({ url: '/pages/forgot-password/index' })
@@ -158,7 +163,7 @@ async function handleLogin() {
     outcome.value = 'ok'
     toast.success(t('mauth.ok.signIn'))
     setTimeout(() => {
-      uni.reLaunch({ url: '/pages/index/index' })
+      uni.reLaunch({ url: redirect.value || '/pages/index/index' })
     }, 1000)
   }
   catch {
@@ -172,7 +177,8 @@ async function handleLogin() {
   }
 }
 
-onLoad(() => {
+onLoad((options?: Record<string, string>) => {
+  redirect.value = safePagePath(options?.redirect)
   captcha.refresh()
 })
 
@@ -184,7 +190,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AuthFrame :title="t('mauth.signInTitle')" :lead="t('mauth.signInLead')" :mood="mood" :pulse="pulse">
+  <AuthFrame :title="t('mauth.signInTitle')" :lead="linking ? t('link.signInLead') : t('mauth.signInLead')" :mood="mood" :pulse="pulse">
     <template #tools>
       <view class="auth-tool" role="button" :aria-label="t('mauth.language')" hover-class="is-press" @click="showLanguage = true">
         <tb-icon name="language" :size="18" />

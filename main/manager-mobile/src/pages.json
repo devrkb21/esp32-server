@@ -203,6 +203,15 @@
       }
     },
     {
+      "path": "pages/link/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Link your robot"
+      }
+    },
+    {
       "path": "pages/login/index",
       "type": "page",
       "layout": "default",

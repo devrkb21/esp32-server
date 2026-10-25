@@ -220,4 +220,40 @@ export default {
                 });
             }).send();
     },
+    // Link a robot by the code (or QR) it shows: look the code up (GET /device/link/{code}).
+    // A non-zero code or a network failure both go to failCallback (never a silent retry loop).
+    getLinkInfo(code, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/link/${encodeURIComponent(code)}`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                if (failCallback) failCallback(err);
+            }).send();
+    },
+    // Link the robot to the signed-in account (POST /device/link {code, agentId?}).
+    linkDevice(payload, callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/device/link`)
+            .method('POST')
+            .data(payload)
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) failCallback(err);
+            })
+            .networkFail((err) => {
+                if (failCallback) failCallback(err);
+            }).send();
+    },
 }

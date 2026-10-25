@@ -1,5 +1,5 @@
 <template>
-  <AuthFrame :title="$t('auth.signInTitle')" :mood="mood" :pulse="pulse">
+  <AuthFrame :title="$t('auth.signInTitle')" :lead="linking ? $t('link.signInLead') : ''" :mood="mood" :pulse="pulse">
     <TbChoice v-if="mobileEnabled" class="auth-form__method" :model-value="mode" :options="modeOptions"
       :aria-label="$t('auth.method')" @change="switchMode" />
 
@@ -35,8 +35,8 @@
       </TbButton>
 
       <div v-if="allowRegister || mobileEnabled" class="auth-form__links">
-        <RouterLink v-if="allowRegister" class="auth-form__link" to="/register">{{ $t('auth.toRegister') }}</RouterLink>
-        <RouterLink v-if="mobileEnabled" class="auth-form__link" to="/retrieve-password">{{ $t('auth.toReset') }}</RouterLink>
+        <RouterLink v-if="allowRegister" class="auth-form__link" :to="{ path: '/register', query: carry }">{{ $t('auth.toRegister') }}</RouterLink>
+        <RouterLink v-if="mobileEnabled" class="auth-form__link" :to="{ path: '/retrieve-password', query: carry }">{{ $t('auth.toReset') }}</RouterLink>
       </div>
     </form>
 
@@ -46,7 +46,8 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { redirectQuery, safeRedirect } from '@/utils/linkCode';
 import { useI18n } from 'vue-i18n';
 import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
@@ -60,6 +61,11 @@ import { useBusy, useCaptcha, usePubConfig } from './useAuth';
 
 const { t } = useI18n({ useScope: 'global' });
 const router = useRouter();
+const route = useRoute();
+// After sign-in: the page that sent the owner here (`?redirect=`, only a path inside this app), else Today.
+const next = computed(() => safeRedirect(route.query.redirect, '/today'));
+const carry = computed(() => redirectQuery(route.query.redirect));
+const linking = computed(() => next.value.startsWith('/link'));
 const { store, mobileEnabled, allowRegister, publicKey, areas, firstArea, load } = usePubConfig();
 const captcha = useCaptcha();
 const { busy, on: busyOn, off: busyOff } = useBusy();
@@ -135,7 +141,7 @@ function submit() {
         store.commit('setUserInfo', info.data);
         outcome.value = 'ok';
         toast.success(t('auth.ok.signIn'));
-        router.push('/today');
+        router.push(next.value);
       } else {
         fail(info.msg || t('auth.err.userInfo'));
       }
@@ -149,7 +155,7 @@ function submit() {
 }
 
 onMounted(() => {
-  if (hasToken()) { router.push('/today'); return; }
+  if (hasToken()) { router.push(next.value); return; }
   captcha.refresh();
   load().then(() => {
     mode.value = mobileEnabled.value ? 'mobile' : 'username';

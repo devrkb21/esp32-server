@@ -9,6 +9,7 @@ import { DEMO, demoRequestAdapter } from '@/api/demo'
 import { t } from '@/i18n'
 import { normalizeLanguage } from '@/store/lang'
 import { getEnvBaseUrl } from '@/utils'
+import { safePagePath } from '@/utils/linkCode.mjs'
 import { toast } from '@/utils/toast'
 import { ContentTypeEnum, ResultEnum, ShowMessage } from './enum'
 
@@ -32,6 +33,25 @@ function networkErrorMessage(error: any): string {
 }
 
 let lastNetworkToastAt = 0
+
+/**
+ * The sign-in page, remembering the page the owner was on (e.g. the robot link page with its
+ * code) so signing in leads back there. Only pages of this app are kept.
+ */
+function loginWithReturn(): string {
+  try {
+    const pages = getCurrentPages()
+    const page: any = pages[pages.length - 1]
+    if (page && page.route) {
+      const query = Object.entries(page.options || {}).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join('&')
+      const back = safePagePath(`/${page.route}${query ? `?${query}` : ''}`)
+      if (back)
+        return `/pages/login/index?redirect=${encodeURIComponent(back)}`
+    }
+  }
+  catch {}
+  return '/pages/login/index'
+}
 
 /**
  * Create request instance
@@ -102,7 +122,7 @@ const alovaInstance = createAlova({
       const authInfo = JSON.parse(uni.getStorageSync('token') || '{}')
       if (!authInfo.token) {
         // Navigate to login page
-        uni.reLaunch({ url: '/pages/login/index' })
+        uni.reLaunch({ url: loginWithReturn() })
         throw new Error('[Request error]: Not logged in')
       }
       // Add Authorization header
@@ -146,7 +166,7 @@ const alovaInstance = createAlova({
         if (code === ResultEnum.Unauthorized) {
         // Clear token and navigate to login page
           uni.removeStorageSync('token')
-          uni.reLaunch({ url: '/pages/login/index' })
+          uni.reLaunch({ url: loginWithReturn() })
           throw new Error(`Request error [${code}]: ${msg}`)
         }
 

@@ -96,7 +96,7 @@ describe('My robots page', () => {
     wire();
     api.device.bindDevice.mockImplementation((agentId, code, cb) => cb({ data: { code: 0 } }));
     const { w } = await mountPage();
-    const add = w.findAll('button').find((b) => b.text() === 'Add a robot');
+    const add = w.findAll('button').find((b) => b.text() === 'Add robot');
     await add.trigger('click');
     await flushPromises();
     const input = document.querySelector('#rb-add-code');

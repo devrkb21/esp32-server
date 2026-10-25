@@ -2,7 +2,7 @@ import Fly from 'flyio/dist/npm/fly';
 import store from '../store/index';
 import Constant from '../utils/constant';
 import { getServiceUrl } from '../apis/api';
-import { goToPage, isNotNull, showDanger, showWarning } from '../utils/index';
+import { goToPage, isNotNull, loginWithReturn, showDanger, showWarning } from '../utils/index';
 import i18n from '../i18n/index';
 import { DEMO, demoReply } from '@/apis/demo/index';
 
@@ -233,7 +233,7 @@ function httpHandlerError(info, failCallback, networkFailCallback) {
             return networkError
         } else if (info.data.code === 401) {
             store.commit('clearAuth');
-            goToPage(Constant.PAGE.LOGIN, true);
+            goToPage(loginWithReturn(), true);
             return true
         } else {
             // Directly use i18n message returned by backend

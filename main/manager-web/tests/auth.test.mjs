@@ -103,7 +103,7 @@ vi.mock('@/apis/api', () => ({
   },
 }));
 
-async function mountLogin() {
+async function mountLogin(start = '/login') {
   const { createRouter, createMemoryHistory } = await import('vue-router');
   const Login = (await import('../src/views/auth/Login.vue')).default;
   const store = (await import('../src/store/index.js')).default;
@@ -113,9 +113,9 @@ async function mountLogin() {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/login', component: Login }, { path: '/today', component: Blank }, { path: '/register', component: Blank },
-      { path: '/retrieve-password', component: Blank }],
+      { path: '/retrieve-password', component: Blank }, { path: '/link', component: Blank }],
   });
-  router.push('/login');
+  router.push(start);
   await router.isReady();
   i18n.global.locale = 'en';
   const w = mount(Login, { global: { plugins: [router, store, i18n, kit] }, attachTo: document.body });
@@ -168,6 +168,27 @@ describe('Login', { timeout: 60000 }, () => {
     expect(sm2.doDecrypt(sent.password.slice(2), keys.privateKey, 1)).toBe('Q7pass-123');
     expect(JSON.parse(localStorage.getItem('token')).token).toBe('t-1');
     expect(store.getters.getUserInfo.username).toBe('sample-owner');
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe('/today');
+  });
+
+  it('goes back to the robot link page after signing in from it, never to another site', async () => {
+    const { w, router } = await mountLogin('/login?redirect=' + encodeURIComponent('/link?code=123456'));
+    expect(w.text()).toContain('Sign in and the robot is linked');
+    await w.find('#login-username').setValue('sample-owner');
+    await w.find('#login-password').setValue('pass-123');
+    await w.find('#login-captcha').setValue('Q7');
+    await w.find('form').trigger('submit');
+    await flushPromises();
+    expect(router.currentRoute.value.fullPath).toBe('/link?code=123456');
+  });
+
+  it('ignores a redirect that leaves the app', async () => {
+    const { w, router } = await mountLogin('/login?redirect=' + encodeURIComponent('//evil.example/x'));
+    await w.find('#login-username').setValue('sample-owner');
+    await w.find('#login-password').setValue('pass-123');
+    await w.find('#login-captcha').setValue('Q7');
+    await w.find('form').trigger('submit');
     await flushPromises();
     expect(router.currentRoute.value.path).toBe('/today');
   });

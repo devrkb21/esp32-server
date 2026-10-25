@@ -3,6 +3,7 @@
 import {
   compareTimestamps, formatCreateDate, hasTimestampValue, parseLegacyDate, parseTimestamp,
 } from '@/utils/deviceTime.mjs';
+import { codeFromText } from '@/utils/linkCode';
 
 export const ALIAS_MAX = 64;
 export const PAGE_SIZES = [10, 20, 50, 100];
@@ -106,11 +107,12 @@ export function macParts(mac) {
   return { ok: true, head: seg.slice(0, 2).join(sep), middle: sep + seg.slice(2, 4).join(sep) + sep, tail: seg.slice(4).join(sep) };
 }
 
-/** Keep digits only, at most six (the code TinyBot says out loud); Bangla digits become 0-9. */
+/**
+ * Keep digits only, at most six (the code TinyBot shows); Bangla digits become 0-9, and the
+ * robot's whole link (its QR URL, `.../#/link?code=123456`) gives its code.
+ */
 export function cleanCode(value) {
-  return String(value || '')
-    .replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))
-    .replace(/\D/g, '').slice(0, 6);
+  return codeFromText(value);
 }
 
 /** The alias to save, or why not: {ok, text, reason: 'tooLong' | 'same'}. */
