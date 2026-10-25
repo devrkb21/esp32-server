@@ -30,13 +30,14 @@ import TbNamePlate from './TbNamePlate.vue';
 import TbDayTable from './TbDayTable.vue';
 import TbToastHost from './TbToastHost.vue';
 import TbConfirmHost from './TbConfirmHost.vue';
+import TbMaker from './TbMaker.vue';
 import { message, toast } from './toast';
 import { alert, confirm, prompt } from './confirm';
 
 export const components = {
   TbIcon, TbButton, TbField, TbInput, TbTextarea, TbSelect, TbSwitch, TbCheckbox, TbChoice, TbSlider, TbTime,
   TbTable, TbPagination, TbSheet, TbTabs, TbTag, TbSync, TbEmpty, TbLoading, TbMenu, TbUpload, TbPageHeader,
-  TbSection, TbFace, TbDateBlock, TbMonthBand, TbNamePlate, TbDayTable, TbToastHost, TbConfirmHost,
+  TbSection, TbFace, TbDateBlock, TbMonthBand, TbNamePlate, TbDayTable, TbToastHost, TbConfirmHost, TbMaker,
 };
 
 export { toast, confirm, prompt, alert };

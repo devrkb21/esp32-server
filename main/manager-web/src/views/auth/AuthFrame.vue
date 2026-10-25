@@ -6,7 +6,7 @@
       <header class="auth__top">
         <p class="auth__brand">
           <img :src="markSrc" alt="" width="32" height="32" />
-          <span><b>{{ $t('nav.brand') }}</b><small>{{ $t('nav.by') }}</small></span>
+          <span><b>{{ $t('nav.brand') }}</b></span>
         </p>
         <div class="auth__lang">
           <TbIcon name="language" :size="18" aria-hidden="true" />
@@ -37,6 +37,7 @@
       </main>
 
       <footer class="auth__foot">
+        <TbMaker class="auth__maker" :width="120" />
         <p>
           <span v-if="ver.year" class="tb-num">{{ num(ver.year) }}</span>
           <span v-if="ver.name">{{ ver.name }}</span>
@@ -57,7 +58,7 @@ import { versionParts } from './authKit';
 
 // The frame of the bare sign-in pages: the month band, the Nobix mark with the language choice,
 // TinyBot's face window waking up beside (phone) or under the giant date (desktop), the form on
-// the paper column, the version at the foot.
+// the paper column, the maker's (Nobix) lockup and the version at the foot.
 defineProps({
   title: { type: String, required: true },
   lead: { type: String, default: '' },
@@ -113,7 +114,8 @@ function pickLanguage(code) { if (code && code !== lang.value) changeLanguage(co
 .auth__form { grid-area: form; margin-top: 16px; min-width: 0; }
 
 .auth__foot { display: grid; gap: 4px; padding: 12px 0 4px; border-top: 1px solid var(--tb-rule-soft); color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
-.auth__foot p { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.auth__foot p { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; }
+.auth__foot .auth__maker { padding: 14px 0 8px; }
 
 /* desktop: the giant date heads the left column with TinyBot under it; the form on the right */
 @media (min-width: 960px) {

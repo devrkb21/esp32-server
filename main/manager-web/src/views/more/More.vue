@@ -20,6 +20,7 @@
       </div>
       <button type="button" class="more__link is-danger" @click="$store.dispatch('logout')"><TbIcon name="logout" /><span>{{ $t('nav.logout') }}</span></button>
     </section>
+    <TbMaker class="more__maker" :width="140" />
   </div>
 </template>
 
@@ -64,6 +65,7 @@ export default {
 .more__link span, .more__lang span { flex: 1; }
 .more__lang .tb-select { width: 180px; }
 .more__link.is-danger { color: var(--tb-danger); }
+.more__maker { padding: 32px 0 24px; }
 @media (hover: hover) and (pointer: fine) { .more__link:hover { background: var(--tb-paper-2); } }
 @media (min-width: 900px) { .more__group--nav { display: none; } }
 </style>

@@ -4,7 +4,7 @@
     <aside class="tb-side">
       <div class="tb-side__brand">
         <img src="/nobix-mark.svg" width="34" height="34" alt="" />
-        <span class="tb-side__name">{{ $t('nav.brand') }}<small>{{ $t('nav.by') }}</small></span>
+        <span class="tb-side__name">{{ $t('nav.brand') }}</span>
       </div>
       <RouterLink v-if="robot.deviceId" to="/robots" class="tb-side__robot">
         <TbFace :width="96" :mood="'awake'" />
@@ -19,6 +19,7 @@
         </template>
       </nav>
       <div class="tb-side__foot">
+        <TbMaker class="tb-side__maker" :width="96" align="start" />
         <TbMenu :items="accountItems" align="start" @select="onAccount">
           <template #trigger>
             <button type="button" class="tb-side__account" :aria-label="userName ? `${userName}, ${$t('nav.account')}` : $t('nav.account')">
@@ -112,6 +113,7 @@ function onAccount(key) {
 .tb-side__link.router-link-active::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--tb-orange); border-radius: 2px; }
 .tb-side__link.router-link-active .tb-icon { color: var(--ink); }
 .tb-side__foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--tb-rule); }
+.tb-side__maker { padding: 6px 8px 12px; }
 .tb-side__account { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; }
 .tb-side__account:hover { background: var(--tb-paper-2); }
 .tb-side__user { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
