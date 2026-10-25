@@ -6,7 +6,8 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
 import { toast } from '@/utils/toast'
-import { ssidError, wifiPasswordError } from '../utils/hotspotClient'
+import { appOtaUrl, ssidError, wifiPasswordError } from '../utils/hotspotClient'
+import { differsFromProduction } from '../utils/otaUrl.mjs'
 
 interface WiFiNetwork {
   ssid: string
@@ -34,6 +35,9 @@ const autoLoop = ref(true)
 const audioFilePath = ref('')
 const audioContext = ref<any>(null)
 const lang = computed(() => getCurrentLanguage())
+// The tone carries only the Wi-Fi: the robot keeps its built-in server, so on another server the
+// hotspot is the better way
+const otherServer = differsFromProduction(appOtaUrl())
 
 // AFSK modulation parameters
 const MARK = 1800 // Binary 1 frequency (Hz)
@@ -381,6 +385,12 @@ onBeforeUnmount(() => {
           {{ t('msetup.sound.after') }}
         </text>
         <text class="setup-line">
+          {{ t('msetup.method.soundServer') }}
+        </text>
+        <text v-if="otherServer" class="setup-line snd__prefer">
+          {{ t('msetup.method.soundPreferHotspot') }}
+        </text>
+        <text class="setup-line">
           {{ t('msetup.sound.how') }}
         </text>
       </view>
@@ -406,6 +416,10 @@ onBeforeUnmount(() => {
 <style lang="scss">
 @import './setup-shared.scss';
 
+.snd__prefer {
+  color: var(--tb-ink);
+  font-weight: 600;
+}
 .snd {
   display: flex;
   align-items: center;
