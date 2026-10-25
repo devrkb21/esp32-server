@@ -2,10 +2,9 @@
 // tests/legal.test.mjs. The texts themselves are generated into ./texts.js from docs/legal/*.md.
 import { LEGAL_TEXTS } from './texts.js';
 
-// TODO(Nobix): fill in Nobix Industries' support email and/or phone number here, e.g.
-// 'support@example.com, 01XXXXXXXXX'. While it is empty, the closing "contact us" sentence of each
-// document ends without the ": {{CONTACT}}" part instead of showing a placeholder.
-export const LEGAL_CONTACT = '';
+// Nobix Industries' support contact, put in place of {{CONTACT}} in the last sentence of each
+// document. When empty, that sentence ends without the ": {{CONTACT}}" part.
+export const LEGAL_CONTACT = 'support@nobixindustries.com';
 
 export const LEGAL_DOCS = ['terms', 'privacy'];
 

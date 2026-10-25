@@ -36,6 +36,14 @@ const params = [
   [114, 'server.resilience.retry_count', '3', 'number', 'Retries for a failed provider call'],
   [115, 'server.metrics.enabled', 'true', 'boolean', 'Expose server metrics'],
   [116, 'server.tracing.sample_rate', '0.1', 'number', 'Share of requests traced'],
+  [117, 'server.sms_max_send_count', '10', 'number', 'Max daily SMS messages per phone number'],
+  [118, 'server.enable_mobile_register', 'true', 'boolean', 'Whether to enable mobile phone registration'],
+  // SMS gateway (REVE SMS): synthetic placeholders, never real keys.
+  [620, 'reve.sms.base_url', 'https://smpp.revesms.com:7790', 'string', 'REVE SMS gateway address'],
+  [621, 'reve.sms.api_key', 'demo-reve-api-key-0000', 'string', 'REVE SMS API key'],
+  [622, 'reve.sms.secret_key', 'demo-reve-secret-0000', 'string', 'REVE SMS secret key'],
+  [623, 'reve.sms.caller_id', 'TINYBOT', 'string', 'REVE SMS sender ID (callerID)'],
+  [624, 'reve.sms.code_message', 'আপনার টাইনিবট যাচাই কোড {code}। কোডটি কাউকে জানাবেন না।', 'string', 'Verification SMS text; {code} is the code'],
   [201, 'plugins.get_weather.api_key', 'demo-weather-key-0000', 'string', 'Weather service key'],
   [202, 'plugins.get_weather.default_location', 'Dhaka', 'string', 'City used when none is said'],
   [203, 'plugins.get_news.default_rss_url', 'https://example.com/rss.xml', 'string', 'News feed'],
@@ -103,11 +111,17 @@ export default [
   {
     method: 'PUT',
     url: /\/admin\/params$/,
-    reply: (req) => {
+    body: (req) => {
       const d = req.data || {};
+      // The server's guard: mobile sign-up stays off while the SMS gateway is incomplete.
+      if (d.paramCode === 'server.enable_mobile_register' && String(d.paramValue).toLowerCase() !== 'false') {
+        const need = ['server.sms_max_send_count', 'reve.sms.base_url', 'reve.sms.api_key', 'reve.sms.secret_key', 'reve.sms.caller_id'];
+        const empty = need.filter((c) => !String((params.find((x) => x.paramCode === c) || {}).paramValue || '').trim());
+        if (empty.length) return { code: 10000, msg: `${empty.join(',')}These parameters cannot be empty`, data: null };
+      }
       const p = params.find((x) => Number(x.id) === Number(d.id));
       if (p) Object.assign(p, d);
-      return null;
+      return { code: 0, msg: 'ok', data: null };
     },
   },
   { method: 'POST', url: /\/admin\/params\/delete$/, reply: (req) => { remove(params, ids(req)); return null; } },
