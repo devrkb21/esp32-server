@@ -131,8 +131,8 @@
       "type": "page",
       "layout": "default",
       "style": {
-        "navigationBarTitleText": "Companion",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
       }
     },
     {
