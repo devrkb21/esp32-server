@@ -25,7 +25,7 @@
 
     <TbTable v-model:selected="selected" class="users__table" :columns="columns" :rows="userList" row-key="userid" dense selectable
       :loading="loading" :row-class="rowClass" :caption="$t('users.tableCaption')" :loading-text="$t('users.loading')"
-      :select-all-label="$t('users.selectAll')" :select-row-label="$t('users.selectRow')">
+      :select-all-label="$t('users.selectAll')" :select-row-label="$t('users.selectRow')" :phone-select-all="false">
       <template #cell-mobile="{ row }">
         <div class="users__who">
           <span class="users__name">
@@ -41,9 +41,9 @@
       <template #cell-status="{ row }">
         <span class="users__status">
           <TbSwitch :model-value="isActive(row)" :disabled="!!busy"
+            :label="$t(isActive(row) ? 'users.status.active' : 'users.status.disabled')"
             :aria-label="$t(isActive(row) ? 'users.switchOff' : 'users.switchOn', { name: row.mobile })"
             @update:model-value="(v) => changeStatus([row], v ? 1 : 0)" />
-          <TbTag :ink="isActive(row) ? 'ok' : 'danger'">{{ $t(isActive(row) ? 'users.status.active' : 'users.status.disabled') }}</TbTag>
         </span>
       </template>
       <template #cell-createDate="{ row }">
@@ -377,7 +377,8 @@ export default {
 .users__devices { font-weight: 600; }
 .users__devices.is-zero { color: var(--tb-ink-3); font-weight: 400; }
 .users__status { display: inline-flex; align-items: center; gap: var(--tb-s2); }
-.users__status .tb-switch { min-height: 32px; }
+.users__status .tb-switch { min-height: 32px; gap: var(--tb-s2); }
+.users__status .tb-switch__label { font-size: var(--tb-fs-14); color: var(--tb-ink-2); }
 .users__date { display: grid; line-height: 1.3; }
 .users__date small { color: var(--tb-ink-3); font-size: var(--tb-fs-12); }
 .users__acts { display: inline-flex; gap: 2px; justify-content: flex-end; flex-wrap: nowrap; white-space: nowrap; }
@@ -392,6 +393,7 @@ export default {
   display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px var(--tb-s4);
   border: 1.5px solid var(--tb-ink); border-radius: var(--tb-radius-m); background: var(--tb-paper-2);
 }
+.users__pwfield:focus-within { border-color: var(--tb-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tb-focus) 25%, transparent); }
 .users__pw {
   flex: 1; min-width: 0; height: 48px; border: 0; outline: none; background: transparent; color: var(--tb-ink);
   font: 700 var(--tb-fs-24)/1 var(--tb-font-display); letter-spacing: .04em; font-variant-numeric: tabular-nums;
@@ -418,6 +420,6 @@ export default {
   .users__table tbody td:last-child { display: block; padding-top: var(--tb-s2); }
   .users__table tbody td:last-child::before { content: none; }
   .users__acts { display: flex; gap: var(--tb-s2); }
-  .users__acts .tb-btn { flex: 1; border-color: var(--tb-rule-soft); }
+  .users__acts .tb-btn { flex: 1; border-color: var(--tb-ink-3); }
 }
 </style>

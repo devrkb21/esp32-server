@@ -3,7 +3,7 @@ export default {
   bn: {
     'voices.searchPlaceholder': 'কণ্ঠের নাম বা ভয়েস আইডি',
     'voices.clear': 'মুছে দিন',
-    'voices.refresh': 'তালিকা আবার আনুন',
+    'voices.refresh': 'আবার দেখুন',
     'voices.selection': 'বাছাই করা কণ্ঠ',
     'voices.selected': '{n}টি বাছাই করা',
     'voices.clearSelection': 'বাছাই বাদ দিন',
@@ -45,6 +45,9 @@ export default {
     'voices.state.ready': 'তৈরি',
     'voices.state.failed': 'হয়নি',
     'voices.state.unknown': 'অজানা',
+
+    'voices.lang.bangla': 'বাংলা',
+    'voices.lang.english': 'ইংরেজি',
 
     'voices.res.desc': 'প্রতিটি TTS প্ল্যাটফর্মের কণ্ঠের জায়গা, আর সেগুলো কোন অ্যাকাউন্টের।',
     'voices.res.add': 'কণ্ঠ যোগ করুন',
@@ -128,7 +131,7 @@ export default {
   en: {
     'voices.searchPlaceholder': 'Voice name or voice ID',
     'voices.clear': 'Clear',
-    'voices.refresh': 'Refresh the list',
+    'voices.refresh': 'Refresh',
     'voices.selection': 'Selected voices',
     'voices.selected': '{n} selected',
     'voices.clearSelection': 'Clear selection',
@@ -170,6 +173,9 @@ export default {
     'voices.state.ready': 'Ready',
     'voices.state.failed': 'Failed',
     'voices.state.unknown': 'Unknown',
+
+    'voices.lang.bangla': 'Bangla',
+    'voices.lang.english': 'English',
 
     'voices.res.desc': 'Voice slots on each TTS platform and the accounts they belong to.',
     'voices.res.add': 'Add voice',

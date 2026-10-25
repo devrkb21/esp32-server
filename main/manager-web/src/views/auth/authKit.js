@@ -28,11 +28,16 @@ export function areaOptions(list) {
   return items.map((i) => ({ value: i.key, label: i.name ? `${i.key} ${i.name}` : i.key }));
 }
 
-// The agreement and privacy pages ship in public/: Chinese versions bare, everything else "-en".
+// The terms and privacy note stays hidden until Nobix publishes its own Bangla and English
+// terms and privacy pages: the upstream pages (another service, another country) must never be
+// shown to TinyBot owners. Flip to true once public/<page>-bn.html and <page>-en.html exist.
+export const LEGAL_READY = false;
+
+// Where the agreement and privacy pages will live in public/: "-bn" for Bangla, "-en" otherwise.
 export function legalUrl(page, lang, base = '/') {
   const root = base.endsWith('/') ? base : `${base}/`;
-  const zh = String(lang || '').startsWith('zh');
-  return `${root}${page}${zh ? '' : '-en'}.html`;
+  const bn = String(lang || '') === 'bn';
+  return `${root}${page}-${bn ? 'bn' : 'en'}.html`;
 }
 
 // A server message about the picture code means the picture must be fetched again.

@@ -34,10 +34,7 @@
         </span>
       </template>
       <template #cell-type="{ row }">
-        <span class="ota__type">
-          <span>{{ typeLabel(row.type) || '–' }}</span>
-          <small v-if="row.type && typeLabel(row.type) !== row.type">{{ row.type }}</small>
-        </span>
+        <span class="ota__type" :title="row.type || null">{{ typeLabel(row.type) || '–' }}</span>
       </template>
       <template #cell-version="{ row }">
         <span class="ota__ver">
@@ -54,9 +51,12 @@
       </template>
       <template #cell-actions="{ row }">
         <span class="ota__acts">
-          <TbButton size="s" variant="quiet" icon="download" @click.stop="download(row)">{{ $t('ota.download') }}</TbButton>
-          <TbButton size="s" variant="quiet" icon="edit" @click.stop="openEdit(row)">{{ $t('ota.edit') }}</TbButton>
-          <TbButton size="s" variant="quiet" icon="trash" class="ota__del" @click.stop="remove(row)">{{ $t('ota.delete') }}</TbButton>
+          <TbButton size="s" variant="quiet" icon="download" :aria-label="$t('ota.download')" :title="$t('ota.download')"
+            @click.stop="download(row)" />
+          <TbButton size="s" variant="quiet" icon="edit" :aria-label="$t('ota.edit')" :title="$t('ota.edit')"
+            @click.stop="openEdit(row)" />
+          <TbButton size="s" variant="quiet" icon="trash" class="ota__del" :aria-label="$t('ota.delete')" :title="$t('ota.delete')"
+            @click.stop="remove(row)" />
         </span>
       </template>
       <template #empty>
@@ -300,11 +300,11 @@ export default {
 
 .ota__table td { vertical-align: top; }
 .ota__namecell { display: grid; gap: 2px; min-width: 0; }
-.ota__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 28ch; }
+.ota__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 36ch; }
 .ota__size { white-space: nowrap; }
-.ota__type { max-width: 24ch; }
-.ota__type, .ota__date { display: grid; gap: 2px; min-width: 0; }
-.ota__type small, .ota__date small { font-size: var(--tb-fs-12); color: var(--tb-ink-3); overflow-wrap: anywhere; }
+.ota__type { display: block; max-width: 24ch; }
+.ota__date { display: grid; gap: 2px; min-width: 0; }
+.ota__date small { font-size: var(--tb-fs-12); color: var(--tb-ink-3); overflow-wrap: anywhere; }
 .ota__ver { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .ota__ver b { font-family: var(--tb-font-display); font-weight: 700; }
 .ota__remark {
@@ -323,5 +323,6 @@ export default {
   .ota__name { white-space: normal; overflow-wrap: anywhere; }
   .ota__acts { flex-wrap: wrap; justify-content: flex-start; margin-left: -10px; }
   .ota__acts .tb-btn, .ota__batch .tb-btn { min-height: var(--tb-target); }
+  .ota__acts .tb-btn { min-width: var(--tb-target); }
 }
 </style>

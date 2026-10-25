@@ -3,7 +3,7 @@
 export default {
   bn: {
     'messages.desc': 'টাইনিবটকে কিছু বলতে দিন, আর পড়ুন আপনাদের মধ্যে কী কথা হলো।',
-    'messages.refresh': 'হালনাগাদ',
+    'messages.refresh': 'আবার দেখুন',
 
     'messages.compose.title': 'টাইনিবটকে বলতে দিন',
     'messages.compose.desc': 'টাইনিবট বার্তাটি বাংলায় জোরে পড়ে শোনাবে।',

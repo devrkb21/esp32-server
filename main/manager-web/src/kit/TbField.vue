@@ -4,13 +4,15 @@
       {{ label }}<span v-if="required" class="tb-field__req" aria-hidden="true">*</span>
     </label>
     <div class="tb-field__control"><slot /></div>
-    <p v-if="error" class="tb-field__error" role="alert">{{ error }}</p>
-    <p v-else-if="hint" class="tb-field__hint">{{ hint }}</p>
+    <p v-if="error" :id="errId" class="tb-field__error" role="alert">{{ error }}</p>
+    <p v-else-if="hint" :id="hintId" class="tb-field__hint">{{ hint }}</p>
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed, getCurrentInstance, provide } from 'vue';
+
+const props = defineProps({
   label: { type: String, default: '' },
   hint: { type: String, default: '' },
   error: { type: String, default: '' },
@@ -18,6 +20,13 @@ defineProps({
   inline: Boolean,
   forId: { type: String, default: '' },
 });
+// The control inside (TbInput, TbSelect, TbTextarea, TbTime) points aria-describedby at the error,
+// or else the hint, so both are announced with it.
+const base = `tb-field-${getCurrentInstance()?.uid ?? 0}`;
+const errId = computed(() => `${props.forId || base}-err`);
+const hintId = computed(() => `${props.forId || base}-hint`);
+const describedBy = computed(() => (props.error ? errId.value : props.hint ? hintId.value : null));
+provide('tbFieldDescribedBy', describedBy);
 </script>
 
 <style>

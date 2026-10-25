@@ -26,7 +26,7 @@
       <p v-if="!view.online" class="rb__offline" role="status">{{ $t('robot.offlineNote') }}</p>
 
       <nav class="rb__index" :aria-label="$t('robot.indexLabel')">
-        <a v-for="s in index" :key="s" :href="`#rb-${s}`" class="rb__indexlink" @click.prevent="jump(s)">{{ $t(`robot.sec.${s}`) }}</a>
+        <a v-for="s in index" :key="s" :href="`#rb-${s}`" class="rb__indexlink" :aria-current="current === s ? 'true' : null" @click.prevent="jump(s)">{{ $t(`robot.sec.${s}`) }}</a>
       </nav>
 
       <RobotStatus id="rb-status" />
@@ -87,6 +87,9 @@ export default {
       fwUpdate: initialUpdateState(),
       savingAuto: false,
       index: ['status', 'sound', 'talk', 'memory', 'jobs', 'firmware'],
+      current: '', // the section the reader is in, marked in the index
+      seen: {},    // section key -> crossing the reading band
+      spy: null,
       timer: null,
       later: null,
     };
@@ -104,6 +107,8 @@ export default {
     botName() { return (this.view && this.view.name) || robot.name || this.$t('nav.robotFallback'); },
   },
   watch: {
+    // the sections exist once the view has loaded: follow them from then on
+    view(now, was) { if (now && !was) this.$nextTick(this.observeIndex); },
     deviceId() {
       this.view = null; this.moreEvents = null; this.fwDevice = null;
       if (this.fwFlow) this.fwFlow.reset();
@@ -136,6 +141,7 @@ export default {
     clearTimeout(this.later);
     document.removeEventListener('visibilitychange', this.onVisible);
     if (this.fwFlow) this.fwFlow.destroy();
+    if (this.spy) this.spy.disconnect();
   },
   methods: {
     num(n) { return digits(n, this.lang); },
@@ -159,7 +165,30 @@ export default {
     errorText(err) { return (err && err.data && err.data.msg) || this.$t('robot.requestFailed'); },
     jump(key) {
       const el = document.getElementById(`rb-${key}`);
-      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (!el || !el.scrollIntoView) return;
+      // land below the pinned index, however many lines it wraps to
+      const nav = this.$el && this.$el.querySelector ? this.$el.querySelector('.rb__index') : null;
+      if (nav) el.style.scrollMarginTop = `${nav.offsetHeight + 16}px`;
+      const still = typeof window !== 'undefined' && !!window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+      this.current = key;
+    },
+    /** Marks in the index the section crossing the reading band near the top of the window. */
+    observeIndex() {
+      if (this.spy) this.spy.disconnect();
+      this.spy = null;
+      if (typeof IntersectionObserver === 'undefined') return;
+      this.seen = {};
+      this.spy = new IntersectionObserver((entries) => {
+        for (const e of entries) this.seen[e.target.id.slice(3)] = e.isIntersecting;
+        const hit = this.index.find((k) => this.seen[k]);
+        if (hit) this.current = hit;
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      for (const k of this.index) {
+        const el = document.getElementById(`rb-${k}`);
+        if (el) this.spy.observe(el);
+      }
     },
 
     // ---------------------------------------------------------------- data
@@ -388,13 +417,18 @@ export default {
 .rb__state { padding: var(--tb-s10) 0; display: grid; justify-items: center; }
 .rb__fail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--tb-danger); font-size: var(--tb-fs-14); padding-top: var(--tb-s3); }
 .rb__offline { padding: var(--tb-s3) 0; color: var(--tb-ink-2); font-size: var(--tb-fs-14); border-bottom: 1px solid var(--tb-rule-soft); }
-.rb__index { display: flex; gap: 2px var(--tb-s4); flex-wrap: wrap; padding: var(--tb-s3) 0; border-bottom: 1px solid var(--tb-rule); }
-.rb__indexlink {
-  display: inline-flex; align-items: center; min-height: 36px; text-decoration: none; font-weight: 600; font-size: var(--tb-fs-14);
-  color: var(--tb-ink-2); border-bottom: 2px solid transparent;
-  transition: color var(--tb-t-hover) var(--tb-ease), border-color var(--tb-t-hover) var(--tb-ease);
+.rb__index {
+  position: sticky; top: 0; z-index: 4; background: var(--tb-paper);
+  display: flex; gap: 8px var(--tb-s4); flex-wrap: wrap; padding: var(--tb-s3) 0; border-bottom: 1px solid var(--tb-rule);
 }
-@media (hover: hover) and (pointer: fine) { .rb__indexlink:hover { color: var(--tb-ink); border-color: var(--tb-ink); } }
+.rb__indexlink {
+  display: inline-flex; align-items: center; min-height: var(--tb-target); font-weight: 600; font-size: var(--tb-fs-14);
+  color: var(--tb-ink-2);
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; text-decoration-color: currentColor;
+  transition: color var(--tb-t-hover) var(--tb-ease), text-decoration-color var(--tb-t-hover) var(--tb-ease);
+}
+.rb__indexlink[aria-current="true"] { color: var(--tb-ink); text-decoration-thickness: 2px; text-decoration-color: var(--tb-orange); }
+@media (hover: hover) and (pointer: fine) { .rb__indexlink:hover { color: var(--tb-ink); } }
 .rb .tb-section { scroll-margin-top: var(--tb-s4); }
 
 /* shared bits of the sections */

@@ -1,7 +1,7 @@
 <template>
   <div class="more">
     <TbPageHeader :title="$t('nav.more')" />
-    <nav v-for="g in groups" :key="g.group" class="more__group" :aria-label="$t(g.group)">
+    <nav v-for="g in groups" :key="g.group" class="more__group more__group--nav" :aria-label="$t(g.group)">
       <h2 class="more__title">{{ $t(g.group) }}</h2>
       <RouterLink v-for="it in g.items" :key="it.to" :to="it.to" class="more__link" :style="it.ink ? { '--ink': `var(--tb-${it.ink})` } : null">
         <TbIcon :name="it.icon" /><span>{{ $t(it.label) }}</span><TbIcon name="chevron-right" :size="16" />
@@ -26,7 +26,8 @@ import { visibleNav } from '@/shell/nav';
 import { LANGUAGES, changeLanguage } from '@/i18n';
 import { applyTheme, getTheme } from '@/utils/theme';
 
-// The phone's fourth tab: every place that is not one of the first three tabs, plus account.
+// The phone's last tab: every place that is not one of the other tabs, plus account. On desktop
+// the sidebar already lists the places, so only the account rows show.
 export default {
   name: 'More',
   data() {
@@ -35,7 +36,7 @@ export default {
   computed: {
     groups() {
       const admin = Boolean(this.$store.getters.getUserInfo?.superAdmin);
-      const tabs = new Set(['/today', '/day', '/look']);
+      const tabs = new Set(['/today', '/day', '/messages', '/look']);
       return visibleNav(admin, this.$store.getters.getPubConfig)
         .map((g) => ({ ...g, items: g.items.filter((i) => !tabs.has(i.to)) }))
         .filter((g) => g.items.length);
@@ -62,4 +63,5 @@ export default {
 .more__lang .tb-select { width: 180px; }
 .more__link.is-danger { color: var(--tb-danger); }
 @media (hover: hover) and (pointer: fine) { .more__link:hover { background: var(--tb-paper-2); } }
+@media (min-width: 900px) { .more__group--nav { display: none; } }
 </style>

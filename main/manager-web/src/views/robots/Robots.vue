@@ -87,7 +87,7 @@
                   <span v-else class="rb-row__unnamed">{{ $t('robots.unnamed') }}</span>
                 </p>
                 <p class="rb-row__mac">
-                  <span v-if="r.mac.valid" class="rb-mac" tabindex="0" :aria-label="$t('robots.macLabel', { mac: r.mac.text })">{{ r.mac.prefix }}<span class="rb-mac__mask" aria-hidden="true">{{ r.mac.middle }}</span>{{ r.mac.suffix }}</span>
+                  <span v-if="r.mac.valid" class="rb-mac" tabindex="0" :aria-label="$t('robots.macLabel', { mac: r.mac.text })">{{ r.mac.prefix }}<span class="rb-mac__dots" aria-hidden="true">{{ maskDots(r.mac.middle) }}</span><span class="rb-mac__mask" aria-hidden="true">{{ r.mac.middle }}</span>{{ r.mac.suffix }}</span>
                   <span v-else class="rb-mac">{{ r.mac.text }}</span>
                 </p>
               </div>
@@ -98,7 +98,7 @@
                   <small>{{ r.lastConnectedAt ? $t('robots.seen', { when: whenText(r.lastConnectedAt) }) : $t('robots.never') }}</small>
                 </template>
               </p>
-              <div class="rb-row__act">
+              <div class="rb-row__act rb-row__acts">
                 <span v-if="r.deviceId === robot.deviceId" class="rb-now" role="status"><i aria-hidden="true"></i>{{ $t('robots.current') }}</span>
                 <TbButton v-else size="s" icon="check" @click="makeMine(r)">{{ $t('robots.makeMine') }}</TbButton>
                 <TbButton size="s" variant="quiet" icon="today" @click="goToday(r)">{{ $t('robots.today') }}</TbButton>
@@ -258,10 +258,16 @@ function whenText(value) {
   return new Intl.DateTimeFormat(lang.value === 'bn' ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(s.at));
 }
 
+// The voice by its display name only (the agent list's ttsVoiceName); provider and model IDs stay
+// on the Character page.
 function modelsText(a) {
-  const tts = a.ttsModelName && a.ttsVoiceName ? `${a.ttsModelName} (${a.ttsVoiceName})` : (a.ttsModelName || a.ttsVoiceName || '');
-  if (!a.llmModelName && !tts) return '';
-  return t('robots.models', { llm: a.llmModelName || '–', tts: tts || '–' });
+  const tts = (a.ttsVoiceName || '').trim();
+  return tts ? t('robots.models', { tts }) : '';
+}
+
+// The hidden middle bytes of a MAC drawn as dots, keeping the separators: ':85:00:' -> ':••:••:'.
+function maskDots(middle) {
+  return String(middle || '').replace(/[^:\-]/g, '•');
 }
 
 /* ---------- loading (GET /agent/list, GET /device/bind/{id}, POST /device/bind/{id}) ---------- */
@@ -684,8 +690,10 @@ onBeforeUnmount(() => { clearInterval(poll); document.removeEventListener('visib
 
 /* MAC with its middle bytes hidden (hover or focus shows it) */
 .rb-mac { font-variant-numeric: tabular-nums; white-space: nowrap; border-radius: 4px; }
-.rb-mac__mask { filter: blur(4px); transition: filter var(--tb-t-fast) var(--tb-ease); }
-.rb-mac:hover .rb-mac__mask, .rb-mac:focus .rb-mac__mask { filter: none; }
+.rb-mac__dots { color: var(--tb-ink-3); }
+.rb-mac__mask { display: none; }
+.rb-row__mac:hover .rb-mac__dots, .rb-row__mac:focus-within .rb-mac__dots { display: none; }
+.rb-row__mac:hover .rb-mac__mask, .rb-row__mac:focus-within .rb-mac__mask { display: inline; }
 
 /* sheets */
 .rb-add { display: grid; gap: var(--tb-s4); }
@@ -711,5 +719,15 @@ onBeforeUnmount(() => { clearInterval(poll); document.removeEventListener('visib
   .rb-row__act .tb-btn, .rb-group__act .tb-btn { --h: 44px; }
   .rb-now { min-height: 44px; }
   .rb-add__pair { grid-template-columns: 1fr; }
+}
+/* phone: the row's actions become one ruled strip of equal cells, each a full touch target */
+@media (max-width: 719px) {
+  .rb-row__acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0;
+    border-top: 1px solid var(--tb-rule-soft); }
+  .rb-row__acts > * { min-width: 0; }
+  .rb-row__acts .tb-btn { min-height: var(--tb-target); border-top: 0; border-right: 0; border-bottom: 0; border-left-width: 0;
+    border-radius: 0; padding: 0 6px; white-space: normal; text-align: center; line-height: 1.2; }
+  .rb-row__acts > .tb-btn + .tb-btn, .rb-row__acts > .rb-now + .tb-btn { border-left: 1px solid var(--tb-rule-soft); }
+  .rb-row__acts .rb-now { min-height: var(--tb-target); justify-content: center; padding: 0 6px; white-space: normal; }
 }
 </style>

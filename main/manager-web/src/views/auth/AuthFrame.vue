@@ -96,7 +96,7 @@ function pickLanguage(code) { if (code && code !== lang.value) changeLanguage(co
 .auth__brand b { font-family: var(--tb-font-display); font-weight: 800; font-size: var(--tb-fs-18); }
 .auth__brand small { color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
 .auth__lang { display: flex; align-items: center; gap: 6px; color: var(--tb-ink-2); }
-.auth__lang .tb-select select { min-height: 40px; border-color: var(--tb-rule-soft); font-size: 16px; padding-right: 34px; max-width: 46vw; }
+.auth__lang .tb-select select { min-height: 40px; border-color: var(--tb-ink-3); font-size: 16px; padding-right: 34px; max-width: 46vw; }
 .auth__lang .tb-select__chev { right: 9px; }
 
 /* phone: the face beside the title, the form under them; the date lives in the band */

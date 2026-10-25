@@ -54,6 +54,19 @@ const iconOnly = computed(() => !slots.default && (props.icon || props.loading))
 .tb-btn--primary { background: var(--tb-action); border-color: var(--tb-action); color: var(--tb-on-action); }
 .tb-btn--quiet { border-color: transparent; padding: 0 10px; }
 .tb-btn--danger { border-color: var(--tb-danger); color: var(--tb-danger); }
+/* A disabled primary is drawn as an empty outline: orange at 45% turns brown on the dark ground.
+   A primary that is sending (aria-busy) keeps its orange. */
+.tb-btn--primary:disabled:not([aria-busy="true"]),
+.tb-btn--primary[aria-disabled="true"]:not([aria-busy="true"]) {
+  opacity: 1; background: transparent; border-color: var(--tb-rule); color: var(--tb-ink-3);
+}
+.tb-btn--primary[aria-busy="true"] { opacity: 1; }
+
+/* Touch: every button reaches the 44px target, small ones 40px. */
+@media (pointer: coarse) {
+  .tb-btn { --h: var(--tb-target); }
+  .tb-btn--s { --h: 40px; }
+}
 
 @media (hover: hover) and (pointer: fine) {
   .tb-btn--secondary:hover:not(:disabled) { background: var(--tb-ink); color: var(--tb-paper); }

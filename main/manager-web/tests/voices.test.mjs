@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   durationOk, encodeWav, parseServerDate, peaks, sampleUrl, selectionSeconds, trainState, clockText,
+  dateText, languageKey, languagesText,
 } from '../src/views/voices/voiceModel.js';
 
 describe('voiceModel', () => {
@@ -69,5 +70,25 @@ describe('voiceModel', () => {
   it('formats a clock', () => {
     expect(clockText(0)).toBe('0:00');
     expect(clockText(65.4)).toBe('1:05');
+  });
+});
+
+describe('voiceModel display text', () => {
+  it('uses a 24-hour clock in Bangla, with no Latin AM/PM', () => {
+    const bn = dateText('2025-03-02 14:05:00', 'bn');
+    expect(bn).not.toMatch(/AM|PM|am|pm/);
+    expect(bn).toMatch(/১৪/);
+    expect(dateText('2025-03-02 14:05:00', 'en')).toMatch(/pm/i);
+    expect(dateText('', 'bn')).toBe('');
+  });
+
+  it('translates known language names and keeps the rest', () => {
+    const t = (k) => ({ 'voices.lang.bangla': 'বাংলা', 'voices.lang.english': 'ইংরেজি' }[k]);
+    expect(languageKey(' Bangla ')).toBe('voices.lang.bangla');
+    expect(languageKey('english')).toBe('voices.lang.english');
+    expect(languageKey('Hindi')).toBe(null);
+    expect(languagesText('Bangla, English', t)).toBe('বাংলা, ইংরেজি');
+    expect(languagesText('Bangla,Hindi', t)).toBe('বাংলা, Hindi');
+    expect(languagesText('', t)).toBe('');
   });
 });

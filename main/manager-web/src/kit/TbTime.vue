@@ -1,13 +1,14 @@
 <template>
   <div class="tb-time" :class="{ 'is-invalid': invalid, 'is-disabled': disabled }">
     <TbIcon :name="type === 'date' ? 'today' : 'alarm'" :size="18" class="tb-time__icon" />
-    <input :type="type" :id="id || null" :value="modelValue" :disabled="disabled" :min="min || null" :max="max || null"
+    <input :type="type" :aria-describedby="describedBy || null" :id="id || null" :value="modelValue" :disabled="disabled" :min="min || null" :max="max || null"
       :step="type === 'time' ? 60 : null" :aria-label="ariaLabel || null" :aria-invalid="invalid ? 'true' : null"
       @input="emit('update:modelValue', $event.target.value)" @change="emit('change', $event.target.value)" />
   </div>
 </template>
 
 <script setup>
+import { inject as injectField } from 'vue';
 import TbIcon from './TbIcon.vue';
 
 // Native time (24h "HH:MM") or date ("YYYY-MM-DD") picker, styled.
@@ -22,6 +23,8 @@ defineProps({
   ariaLabel: { type: String, default: '' },
 });
 const emit = defineEmits(['update:modelValue', 'change']);
+// Set by an enclosing TbField: the id of its error or hint.
+const describedBy = injectField('tbFieldDescribedBy', null);
 </script>
 
 <style>

@@ -2,7 +2,7 @@
 // Two sources: the companion API's messages (what the owner tells TinyBot, spoken by the robot)
 // and the agent's chat history (what was said aloud, per session).
 import { messageStatus } from '@/utils/companion.mjs';
-import { digits } from '@/kit/calendar';
+import { digits, timeText } from '@/kit/calendar';
 
 export const SESSIONS_PAGE = 20;      // the legacy dialog's page size
 export const TIME_GAP_MS = 60 * 1000; // a time mark between lines more than a minute apart
@@ -94,8 +94,9 @@ export function withTimeMarks(lines, gap = TIME_GAP_MS) {
 
 function locale(lang) { return lang === 'bn' ? 'bn-BD' : String(lang || 'en').replace('_', '-'); }
 
+// The same clock as Today: timeText, twelve-hour without a leading zero in Bangla ("৭:৪৯").
 function hhmm(d, lang) {
-  return digits(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, lang);
+  return timeText(`${d.getHours()}:${d.getMinutes()}`, lang, lang === 'bn');
 }
 
 /** 'today' | 'yesterday' | 'older' for a date, against `now`. */

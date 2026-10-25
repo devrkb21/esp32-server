@@ -1,16 +1,16 @@
 <template>
   <div class="tb-shell" :class="{ 'is-collapsed': collapsed }">
     <a class="tb-skip" href="#tb-main">{{ $t('nav.skip') }}</a>
-    <aside class="tb-side" :aria-label="$t('nav.label')">
+    <aside class="tb-side">
       <div class="tb-side__brand">
         <img src="/nobix-mark.svg" width="34" height="34" alt="" />
         <span class="tb-side__name">{{ $t('nav.brand') }}<small>{{ $t('nav.by') }}</small></span>
       </div>
       <RouterLink v-if="robot.deviceId" to="/robots" class="tb-side__robot">
-        <TbFace :width="64" :mood="'awake'" />
+        <TbFace :width="96" :mood="'awake'" />
         <span><b>{{ robot.name || $t('nav.robotFallback') }}</b><small>{{ $t('nav.switchRobot') }}</small></span>
       </RouterLink>
-      <nav class="tb-side__nav">
+      <nav class="tb-side__nav" :aria-label="$t('nav.label')">
         <template v-for="g in groups" :key="g.group">
           <p class="tb-side__group">{{ $t(g.group) }}</p>
           <RouterLink v-for="it in g.items" :key="it.to" :to="it.to" class="tb-side__link" :style="it.ink ? { '--ink': `var(--tb-${it.ink})` } : null">
@@ -21,7 +21,7 @@
       <div class="tb-side__foot">
         <TbMenu :items="accountItems" align="start" @select="onAccount">
           <template #trigger>
-            <button type="button" class="tb-side__account" :aria-label="$t('nav.account')">
+            <button type="button" class="tb-side__account" :aria-label="userName ? `${userName}, ${$t('nav.account')}` : $t('nav.account')">
               <TbIcon name="user" :size="18" /><span class="tb-side__user">{{ userName }}</span><TbIcon name="chevron-up" :size="16" />
             </button>
           </template>
@@ -88,7 +88,7 @@ function onAccount(key) {
 
 .tb-side {
   position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 10px;
-  padding: 16px 12px 12px; border-right: 1px solid var(--tb-rule); background: var(--tb-paper); overflow-y: auto;
+  padding: 16px 12px 12px; border-right: 1px solid var(--tb-rule); background: var(--tb-paper); overflow: hidden;
 }
 .tb-side__brand { display: flex; align-items: center; gap: 10px; padding: 0 6px 12px; border-bottom: var(--tb-rule-band) solid var(--tb-rule); }
 .tb-side__name { display: grid; font-family: var(--tb-font-display); font-weight: 800; font-size: var(--tb-fs-18); line-height: 1.1; }
@@ -98,8 +98,9 @@ function onAccount(key) {
 .tb-side__robot b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-side__robot small { color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
 .tb-side__robot:hover b { text-decoration: underline; }
-.tb-side__nav { display: grid; gap: 1px; }
-.tb-side__group { margin: 12px 8px 4px; font-size: var(--tb-fs-12); font-weight: 700; color: var(--tb-ink-2); }
+/* only the nav scrolls: the account, language, theme and logout foot stays in view */
+.tb-side__nav { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 1px; align-content: start; }
+.tb-side__group { margin: 12px 0 4px; padding: 8px 8px 0; border-top: 1px solid var(--tb-rule); font-size: var(--tb-fs-12); font-weight: 700; color: var(--tb-ink-2); }
 .tb-side__link {
   --ink: var(--tb-ink);
   position: relative; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px;
@@ -107,7 +108,7 @@ function onAccount(key) {
   transition: background-color var(--tb-t-hover) var(--tb-ease), color var(--tb-t-hover) var(--tb-ease);
 }
 .tb-side__link:hover { background: var(--tb-paper-2); color: var(--tb-ink); }
-.tb-side__link.router-link-active { color: var(--tb-ink); background: var(--tb-paper-2); }
+.tb-side__link.router-link-active { color: var(--tb-ink); background: none; }
 .tb-side__link.router-link-active::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--tb-orange); border-radius: 2px; }
 .tb-side__link.router-link-active .tb-icon { color: var(--ink); }
 .tb-side__foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--tb-rule); }
@@ -125,7 +126,7 @@ function onAccount(key) {
   .tb-side { display: none; }
   .tb-main { padding: 0 var(--tb-gutter) calc(96px + env(safe-area-inset-bottom)); }
   .tb-tabbar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-template-columns: repeat(4, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
     padding: 6px 4px calc(8px + env(safe-area-inset-bottom)); background: var(--tb-paper); border-top: var(--tb-rule-band) solid var(--tb-rule);
   }
   .tb-tabbar__tab {

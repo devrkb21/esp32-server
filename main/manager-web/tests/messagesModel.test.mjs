@@ -39,7 +39,7 @@ describe('sent messages', () => {
   it('gives the clock in the reader\'s digits and a date only for older days', () => {
     const now = new Date(2026, 9, 25, 12, 0);
     const today = messageWhen(new Date(2026, 9, 25, 9, 5).getTime() / 1000, 'bn', now);
-    expect(today).toMatchObject({ time: '০৯:০৫', date: '', word: 'today' });
+    expect(today).toMatchObject({ time: '৯:০৫', date: '', word: 'today' });
     const old = messageWhen(new Date(2026, 9, 20, 18, 30).getTime() / 1000, 'en', now);
     expect(old.time).toBe('18:30');
     expect(old.date).not.toBe('');
@@ -89,7 +89,7 @@ describe('conversations', () => {
     expect(dayWord(new Date(2026, 9, 24, 23, 0), now)).toBe('yesterday');
     expect(dayWord(new Date(2026, 9, 20), now)).toBe('older');
     const p = dateParts(new Date(2026, 9, 23, 7, 4), 'bn', now);
-    expect(p).toMatchObject({ day: '২৩', time: '০৭:০৪', word: 'older' });
+    expect(p).toMatchObject({ day: '২৩', time: '৭:০৪', word: 'older' });
     const words = { today: 'Today', yesterday: 'Yesterday' };
     expect(stampText(new Date(2026, 9, 25, 9, 30), 'en', words, now)).toBe('Today 09:30');
     expect(stampText(new Date(2026, 9, 24, 21, 5), 'en', words, now)).toBe('Yesterday 21:05');

@@ -60,7 +60,8 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', outside); wi
   display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 10px;
   border: 0; border-radius: 6px; background: none; text-align: left; font-size: var(--tb-fs-14);
 }
-.tb-menu__item:hover, .tb-menu__item:focus-visible { background: var(--tb-paper-2); outline: none; }
+.tb-menu__item:hover { background: var(--tb-paper-2); }
+.tb-menu__item:focus-visible { background: var(--tb-paper-2); outline: 2px solid var(--tb-focus); outline-offset: -2px; }
 .tb-menu__item.is-danger { color: var(--tb-danger); }
 .tb-menu__item:disabled { opacity: .45; }
 .tb-pop-enter-active { transition: opacity var(--tb-t-fast) var(--tb-ease), transform var(--tb-t-fast) var(--tb-ease); }

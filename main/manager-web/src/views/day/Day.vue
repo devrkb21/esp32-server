@@ -251,9 +251,15 @@ export default {
       });
     },
 
+    /** 'auto' when the viewer asks for reduced motion: an explicit 'smooth' would override base.css. */
+    scrollBehavior() {
+      const reduce = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      return reduce ? 'auto' : 'smooth';
+    },
     goTab(key) {
       this.tab = key;
-      this.$nextTick(() => { const el = this.$refs.tabs; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
+      this.$nextTick(() => { const el = this.$refs.tabs; if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: this.scrollBehavior() }); });
     },
     /** Opens a row of the day (?focus=<key> or a tap on the table): its tab, scrolled and opened. */
     openKey(key) {
@@ -263,13 +269,13 @@ export default {
       this.$nextTick(() => {
         const panel = this.$refs.current;
         const found = panel && panel.focusKey ? panel.focusKey(key) : false;
-        if (!found && this.$refs.tabs && this.$refs.tabs.scrollIntoView) this.$refs.tabs.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        if (!found && this.$refs.tabs && this.$refs.tabs.scrollIntoView) this.$refs.tabs.scrollIntoView({ block: 'start', behavior: this.scrollBehavior() });
       });
     },
     /** Scrolls a panel row into view and marks it for a moment. */
     reveal(el) {
       if (!el) return;
-      if (el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: this.scrollBehavior() });
       el.classList.add('is-focus');
       setTimeout(() => el.classList.remove('is-focus'), 1600);
     },

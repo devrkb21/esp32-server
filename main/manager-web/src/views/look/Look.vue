@@ -1,5 +1,5 @@
 <template>
-  <div class="look">
+  <div class="look" :class="{ 'is-dirty': dirty || saving }">
     <TbPageHeader :title="$t('nav.look')" :description="$t('lookPage.desc')" />
 
     <p v-if="!deviceId && robotReady" class="look__note">
@@ -34,7 +34,7 @@
           <p v-else-if="deviceId && view === 'preview'" class="look__hint">{{ $t('lookPage.liveAfterSave') }}</p>
         </section>
 
-        <div class="look__savebar">
+        <div class="look__savebar" :class="{ 'is-idle': !dirty && !saving }">
           <TbSync :state="sync.state" :text="sync.text" />
           <TbButton variant="primary" icon="check" :disabled="!canSave" :loading="saving" @click="save">
             {{ $t('lookPage.save') }}
@@ -385,6 +385,8 @@ export default {
 .look__savebar .tb-sync { flex: 1 1 auto; min-width: 0; white-space: normal; font-weight: 600; color: var(--tb-ink); line-height: 1.35; }
 .look__savebar .tb-sync__rule { flex: none; }
 .look__savebar .tb-btn { flex: none; }
+/* at rest there is nothing to save: the bar sits in flow under the editor instead of riding over it */
+.look__savebar.is-idle { position: static; }
 
 .look__rows { display: grid; }
 .look__field { display: grid; gap: 8px; min-width: 0; padding: 14px 0; border-top: 1px solid var(--tb-rule-soft); }
@@ -425,6 +427,12 @@ export default {
   .look__savebar { bottom: calc(var(--tb-tabbar-h) + env(safe-area-inset-bottom)); }
   .look__savebar .tb-btn { min-height: var(--tb-target); }
   .look__font { min-height: var(--tb-target); }
+  .look.is-dirty { padding-bottom: calc(var(--tb-tabbar-h) + 72px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 479px) {
+  .look__savebar { flex-wrap: wrap; }
+  .look__savebar .tb-sync { flex-basis: 100%; }
+  .look__savebar .tb-btn { flex: 1 1 100%; }
 }
 
 /* desktop: two columns, the face window and its save bar stay in view beside the controls */

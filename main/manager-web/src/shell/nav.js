@@ -8,7 +8,7 @@ export const NAV = [
     items: [
       { to: '/today', label: 'nav.today', icon: 'today', tab: true },
       { to: '/day', label: 'nav.day', icon: 'day', tab: true, ink: 'alarm' },
-      { to: '/messages', label: 'nav.messages', icon: 'message', ink: 'message' },
+      { to: '/messages', label: 'nav.messages', icon: 'message', tab: true, ink: 'message' },
       { to: '/look', label: 'nav.look', icon: 'look', tab: true, ink: 'look' },
       { to: '/robot', label: 'nav.robot', icon: 'settings' },
     ],

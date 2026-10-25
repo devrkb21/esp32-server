@@ -28,7 +28,7 @@
       </div>
     </Transition>
 
-    <TbTable v-model:selected="selected" :columns="columns" :rows="modelList" row-key="id" dense selectable :loading="loading"
+    <TbTable v-model:selected="selected" :columns="columns" :rows="modelList" row-key="id" dense selectable :loading="loading" :phone-select-all="false"
       :row-class="(r) => (r.isDefault === 1 ? 'is-default' : null)" :caption="$t(`models.type.${activeTab}`)"
       :loading-text="$t('common.loading')" :select-all-label="$t('models.selectAll')" :select-row-label="$t('models.select')"
       class="models__table">
