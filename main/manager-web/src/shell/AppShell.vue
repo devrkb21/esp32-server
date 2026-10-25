@@ -7,9 +7,9 @@
         <span class="tb-side__name">{{ $t('nav.brand') }}</span>
       </div>
       <RouterLink v-if="robot.deviceId" to="/robots" class="tb-side__robot">
-        <TbFace v-if="robot.features.includes('companion')" :width="96" :mood="'awake'" />
+        <TbFace v-if="robot.features.includes('companion')" :width="96" :mood="sideMood" />
         <span v-else class="tb-side__device" aria-hidden="true"><TbIcon name="devices" :size="22" /></span>
-        <span><b>{{ robot.name || $t('nav.robotFallback') }}</b><small>{{ $t('nav.switchRobot') }}</small></span>
+        <span><b>{{ robot.name || $t('nav.robotFallback') }}</b><TbRobotStatus compact :status="sideStatus" /><small>{{ $t('nav.switchRobot') }}</small></span>
       </RouterLink>
       <nav class="tb-side__nav" :aria-label="$t('nav.label')">
         <template v-for="g in groups" :key="g.group">
@@ -48,11 +48,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import { visibleNav, visibleTabs } from './nav';
 import { loadRobots, robot, robotFeatures } from './robot';
+import { refreshRobotStatus, statusOf } from './robotStatus';
 import FeatureGate from './FeatureGate.vue';
 import { LANGUAGES, changeLanguage } from '@/i18n';
 import { applyTheme, getTheme } from '@/utils/theme';
@@ -70,7 +71,21 @@ const isAdmin = computed(() => Boolean(store.getters.getUserInfo?.superAdmin));
 const features = computed(() => robotFeatures());
 const groups = computed(() => visibleNav(isAdmin.value, store.getters.getPubConfig, features.value));
 const tabs = computed(() => visibleTabs(features.value));
-onMounted(() => { store.dispatch('fetchPubConfig'); loadRobots(); });
+// The chosen robot's connection, the same word every page shows (src/shell/robotStatus.js). Pages
+// that poll the companion view keep it fresh; on its own the sidebar asks every 30 s.
+const sideStatus = computed(() => statusOf(robot.deviceId));
+const sideMood = computed(() => ({ online: 'awake', offline: 'offline', checking: 'awake' }[sideStatus.value.state] || 'confused'));
+let statusTimer = null;
+function checkStatus() { if (robot.deviceId && !document.hidden) refreshRobotStatus(robot.deviceId); }
+onMounted(async () => {
+  store.dispatch('fetchPubConfig');
+  await loadRobots();
+  checkStatus();
+  statusTimer = setInterval(checkStatus, 30000);
+  document.addEventListener('visibilitychange', checkStatus);
+});
+onBeforeUnmount(() => { clearInterval(statusTimer); document.removeEventListener('visibilitychange', checkStatus); });
+watch(() => robot.deviceId, checkStatus);
 const userName = computed(() => store.getters.getUserInfo?.username || '');
 const accountItems = computed(() => [
   { key: 'language', label: t('nav.language'), icon: 'language' },
@@ -106,6 +121,7 @@ function onAccount(key) {
 .tb-side__device { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); }
 .tb-side__robot b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tb-side__robot small { color: var(--tb-ink-2); font-size: var(--tb-fs-12); }
+.tb-side__robot .tb-rstat.is-compact { display: flex; min-width: 0; margin: 2px 0; font-size: var(--tb-fs-12); white-space: normal; }
 .tb-side__robot:hover b { text-decoration: underline; }
 /* only the nav scrolls: the account, language, theme and logout foot stays in view */
 .tb-side__nav { flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 1px; align-content: start; }

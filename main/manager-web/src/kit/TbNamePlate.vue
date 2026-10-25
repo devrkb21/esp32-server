@@ -9,7 +9,8 @@
 
 <script setup>
 // TinyBot's name plate: its name, what it is doing now, days together, and its connection state
-// (online, offline, sleeping, updating), always as a word next to the mark.
+// (online, offline, sleeping, updating, and the connection states of src/shell/connection.mjs:
+// checking, waiting_companion, not_syncing, server_error), always as a word next to the mark.
 defineProps({
   name: { type: String, default: 'TinyBot' },
   doing: { type: String, default: '' },
@@ -30,4 +31,8 @@ defineProps({
 .tb-plate__state.is-offline { color: var(--tb-ink-2); }
 .tb-plate__state.is-sleeping i { background: var(--tb-message); }
 .tb-plate__state.is-updating i { background: var(--tb-routine-mark); }
+.tb-plate__state.is-waiting_companion i, .tb-plate__state.is-not_syncing i { background: var(--tb-warn); }
+.tb-plate__state.is-server_error i { background: var(--tb-danger); }
+.tb-plate__state.is-checking i { background: transparent; border: 1.5px solid var(--tb-ink-3); }
+.tb-plate__state.is-checking { color: var(--tb-ink-2); }
 </style>

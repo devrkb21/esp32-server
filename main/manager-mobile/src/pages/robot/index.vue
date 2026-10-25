@@ -14,14 +14,15 @@ import type { FirmwareUpdateState, RobotContext, SyncState } from './components/
 import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/companion'
 import type { Device, OtaFirmware } from '@/api/device'
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
-import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, getCurrentInstance, nextTick, onUnmounted, provide, reactive, ref, watch } from 'vue'
 import { getCompanion, sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
 import { getBindDevices, getOtaFirmwares, updateDeviceAutoUpdate } from '@/api/device'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
 import { useUserStore } from '@/store'
 import { digits, timeText, timeWithPart } from '@/utils/calendar.mjs'
 import { robot } from '@/utils/tbRobot'
+import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import { agoParts } from '../companion/companionUtils.mjs'
 import { createUpdateFlow, initialUpdateState, latestFirmware } from '../companion/firmwareUpdate.mjs'
@@ -48,7 +49,9 @@ const now = ref(Date.now())
 const busy = ref('')
 const saving = reactive<Record<string, boolean>>({})
 const failed = reactive<Record<string, boolean>>({})
-const online = computed(() => !!view.value && view.value.online !== false)
+// The connection, said the same way on every screen (src/utils/robotConnection.mjs)
+const status = computed(() => statusOf(deviceId.value, now.value))
+const online = computed(() => status.value.state === 'online')
 const botName = computed(() => view.value?.name || robot.name || t('nav.robotFallback'))
 
 const sections = ['status', 'sound', 'talk', 'memory', 'jobs', 'firmware']
@@ -148,20 +151,25 @@ async function reload(silent = true) {
   const seq = mutationSeq
   if (!view.value)
     loading.value = true
-  try {
-    const data = await getCompanion(deviceId.value, silent)
-    if (seq === mutationSeq && data) {
-      view.value = data
-      now.value = Date.now()
-      fwFlow.observe(data)
+  const id = deviceId.value
+  // silent always: a failed view is said by the status panel, never as raw server text
+  const [res] = await Promise.all([refreshCompanion(id), agentId.value ? refreshMqtt(agentId.value) : Promise.resolve()])
+  if (id === deviceId.value) {
+    if (res.view) {
+      if (seq === mutationSeq) {
+        view.value = res.view
+        fwFlow.observe(res.view)
+      }
+      loadFailed.value = false
     }
-    loadFailed.value = false
-  }
-  catch (error) {
-    if (!view.value)
-      loadFailed.value = true
-    if (!silent)
-      notifyError(error)
+    else {
+      // the companion server has no record of the robot: what it showed before is gone
+      if (res.kind === 'not_registered')
+        view.value = null
+      if (!view.value)
+        loadFailed.value = true
+    }
+    now.value = Date.now()
   }
   inflight = false
   loading.value = false
@@ -193,7 +201,7 @@ async function save(patch: CompanionConfigPatch, area: string, okMsg?: string): 
 }
 
 function syncOf(area: string) {
-  const state = syncState(!!saving[area], !!failed[area], view.value ? view.value.online : undefined) as SyncState
+  const state = syncState(!!saving[area], !!failed[area], view.value ? online.value : undefined) as SyncState
   const offline = state === 'pending' && !saving[area]
   const text = offline ? t('mrobot.sync.offline') : t(`common.sync.${state}`)
   return { state, text }
@@ -224,6 +232,7 @@ const ctx: RobotContext = {
   agentId,
   view,
   online,
+  status,
   lang,
   now,
   botName,
@@ -305,7 +314,6 @@ function goRobots() {
   uni.navigateTo({ url: '/pages/robots/index' })
 }
 
-
 // This page is about one product feature; a robot whose product lacks it sees <tb-not-here />.
 const { missing: notHere, allowed: featureAllowed } = useFeatureGate('companion')
 
@@ -345,7 +353,7 @@ watch(deviceId, () => {
 </script>
 
 <template>
-  <view class="rbm tb-wrap">
+  <view class="tb-wrap rbm">
     <tb-page-header :title="t('nav.robot')" :description="t('mrobot.lede')" back>
       <template v-if="view" #actions>
         <tb-button size="s" variant="quiet" icon="refresh" :loading="loading" :aria-label="t('mrobot.refresh')" @click="reload(false)" />
@@ -362,20 +370,23 @@ watch(deviceId, () => {
       </tb-empty>
     </view>
 
-    <view v-else-if="!view" class="rbm__state">
-      <tb-empty v-if="loadFailed" face="confused" :title="t('common.loadFailed')">
-        <tb-button icon="refresh" @click="reload(false)">
-          {{ t('common.retry') }}
-        </tb-button>
-      </tb-empty>
-      <tb-loading v-else :label="t('common.loading')" />
+    <view v-else-if="!view" class="rbm__wait">
+      <block v-if="loadFailed && status.state !== 'checking'">
+        <tb-robot-status :status="status" :loading="loading" @refresh="reload(false)" />
+        <text class="rbm__waits">
+          {{ t('status.pageWaits') }}
+        </text>
+      </block>
+      <view v-else class="rbm__state">
+        <tb-loading :label="t('common.loading')" />
+      </view>
     </view>
 
     <block v-else>
-      <view v-if="!online" class="rbm__offline" role="status">
-        <tb-icon name="info" :size="18" />
-        <text>{{ t('mrobot.offlineNote') }}</text>
-      </view>
+      <tb-robot-status v-if="!online && status.state !== 'checking'" class="rbm__status" :status="status" :loading="loading" @refresh="reload(false)" />
+      <text v-if="status.state === 'offline'" class="rbm__offline">
+        {{ t('mrobot.offlineNote') }}
+      </text>
 
       <scroll-view scroll-x class="rbm__indexwrap" :show-scrollbar="false" :scroll-into-view="active ? `rbi-${active.slice(3)}` : ''" scroll-with-animation>
         <view class="rbm__index" role="navigation" :aria-label="t('mrobot.indexLabel')">
@@ -409,17 +420,23 @@ watch(deviceId, () => {
   display: flex;
   justify-content: center;
 }
+.rbm__wait {
+  padding-top: 16px;
+}
+.rbm__waits {
+  display: block;
+  padding-top: 12px;
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.rbm__status {
+  margin-top: 12px;
+}
 .rbm__offline {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--tb-rule-soft);
+  display: block;
+  padding: 10px 0 12px;
   color: var(--tb-ink-2);
   font-size: 14px;
-}
-.rbm__offline .tb-icon {
-  margin-top: 2px;
 }
 /* pinned while the long screen scrolls; no ancestor clips overflow, so sticky holds on H5 */
 .rbm__indexwrap {

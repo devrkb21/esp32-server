@@ -17,14 +17,15 @@
         </div>
         <div class="today__bot" :class="{ 'is-device': !companion }">
           <TbFace v-if="companion" :mood="faceMood" :pulse="pulse" :alt="$t('today.faceAlt', { name: botName })" />
-          <TbNamePlate v-if="companion" :name="botName" :doing="doingNow" :detail="together" :state="state" :state-text="$t(`today.state.${state}`)" />
+          <TbNamePlate v-if="companion" :name="botName" :doing="doingNow" :detail="together" :state="state" :state-text="stateText(state)" />
           <template v-else>
-            <TbNamePlate :name="botName" :doing="productLabel" :detail="seenText" :state="deviceState" :state-text="$t(`today.state.${deviceState}`)" />
+            <TbNamePlate :name="botName" :doing="productLabel" :detail="seenText" :state="deviceState" :state-text="stateText(deviceState)" />
           </template>
         </div>
       </section>
 
       <section v-if="!companion" class="today__device" aria-labelledby="today-device-h">
+        <TbRobotStatus v-if="showStatus" :status="conn" @refresh="recheck" />
         <h2 id="today-device-h">{{ $t('today.device.title') }}</h2>
         <p>{{ $t('today.device.text', { product: productLabel }) }}</p>
         <div class="today__links">
@@ -34,7 +35,11 @@
         </div>
       </section>
 
+      <section v-if="companion && showStatus && !(can('messages') || can('commands'))" class="today__act">
+        <TbRobotStatus :status="conn" :loading="loading" @refresh="recheck" />
+      </section>
       <section v-if="companion && (can('messages') || can('commands'))" class="today__act" :aria-label="$t('today.actLabel')">
+        <TbRobotStatus v-if="showStatus" :status="conn" :loading="loading" @refresh="recheck" />
         <form v-if="can('messages')" class="today__say" @submit.prevent="say">
           <label class="tb-visually-hidden" for="today-say">{{ $t('today.sayLabel') }}</label>
           <TbInput id="today-say" v-model="line" :placeholder="$t('today.sayPlaceholder')" :maxlength="200" size="l"
@@ -53,9 +58,7 @@
           <span class="today__dayhint">{{ $t('today.dayHint') }}</span>
         </header>
         <TbDayTable :rows="rows" :lang="lang" :now-minutes="isToday ? nowMinutes : -1" :now-label="$t('common.now')"
-          :caption="$t('today.dayTitle')" :empty-text="loading ? $t('common.loading') : $t('today.dayEmpty')" clickable @select="openRow" />
-        <p v-if="failed" class="today__fail" role="alert">{{ $t('common.loadFailed') }}
-          <TbButton size="s" variant="quiet" icon="refresh" @click="refresh()">{{ $t('common.retry') }}</TbButton></p>
+          :caption="$t('today.dayTitle')" :empty-text="loading ? $t('common.loading') : (failed && !view ? $t('status.pageWaits') : $t('today.dayEmpty'))" clickable @select="openRow" />
       </section>
 
       <aside v-if="companion" class="today__side">
@@ -90,7 +93,11 @@ import { toast } from '@/kit/toast';
 import { digits, minutesOf, timeText } from '@/kit/calendar';
 import { deviceIdFrom, loadRobots, robot, robotFeatures } from '@/shell/robot';
 import { allows, productName } from '@/shell/products';
-import { isOnline, lastSeen, parseStatus } from '@/views/robots/robotsModel';
+import { lastSeen } from '@/views/robots/robotsModel';
+import {
+  ensureMqtt, noteCompanionError, noteCompanionView, refreshMqtt, refreshRobotStatus, statusOf,
+} from '@/shell/robotStatus';
+import { statusKeys } from '@/shell/connection.mjs';
 import { dayRows, daysTogether, isoDate, robotState } from './todayModel';
 
 const { t, locale } = useI18n({ useScope: 'global' });
@@ -122,8 +129,12 @@ const can = (f) => allows(features.value, f);
 const companion = computed(() => can('companion'));
 const listed = computed(() => robot.list.find((r) => r.deviceId === deviceId.value) || null);
 const productLabel = computed(() => productName(listed.value || robot, lang.value));
-const deviceOnline = ref(null);
-const deviceState = computed(() => (deviceOnline.value ? 'online' : 'offline'));
+// The robot's connection, the same on every page (src/shell/robotStatus.js)
+const conn = computed(() => statusOf(deviceId.value, { now: clock.value.getTime() }));
+const showStatus = computed(() => !!deviceId.value && !['online', 'checking'].includes(conn.value.state));
+const deviceState = computed(() => conn.value.state);
+/** The name plate's word: sleeping and updating refine an online robot, the rest is the connection. */
+const stateText = (s) => (['sleeping', 'updating'].includes(s) ? t(`today.state.${s}`) : t(statusKeys(s).label));
 const seenText = computed(() => {
   const s = lastSeen(listed.value?.lastConnectedAt, clock.value.getTime());
   if (s.kind === 'never') return t('today.device.never');
@@ -133,8 +144,8 @@ const seenText = computed(() => {
   return t('today.device.seen', { when });
 });
 const botName = computed(() => view.value?.name || robot.name || t('nav.robotFallback'));
-const state = computed(() => robotState(view.value, clock.value));
-const faceMood = computed(() => ({ offline: 'offline', sleeping: 'sleepy' }[state.value] || 'awake'));
+const state = computed(() => (conn.value.state === 'online' ? robotState(view.value, clock.value) : conn.value.state));
+const faceMood = computed(() => ({ offline: 'offline', sleeping: 'sleepy', online: 'awake', updating: 'awake', checking: 'awake' }[state.value] || 'confused'));
 const doingNow = computed(() => {
   const a = view.value?.stats?.activity;
   return a ? t(`today.activity.${a}`) : (state.value === 'online' ? t('today.free') : '');
@@ -171,20 +182,25 @@ const commands = [
 function refreshDevice() {
   const r = listed.value;
   const agentId = r?.agentId || robot.agentId;
-  if (!agentId || !Api.device.getDeviceStatus) return;
-  Api.device.getDeviceStatus(agentId, ({ data }) => {
-    deviceOnline.value = data && data.code === 0 ? isOnline(parseStatus(data.data), r || {}) : false;
-  }, () => { deviceOnline.value = false; });
+  if (agentId) refreshMqtt(agentId, r ? [r] : undefined);
 }
 
 function refresh(quiet = false) {
   if (!deviceId.value) return;
   if (!companion.value) { refreshDevice(); return; }
   if (!quiet) loading.value = true;
-  Api.companion.getCompanion(deviceId.value, (res) => {
+  const id = deviceId.value;
+  ensureMqtt(id);
+  Api.companion.getCompanion(id, (res) => {
+    noteCompanionView(id, res.data.data);
     view.value = res.data.data; loading.value = false; failed.value = false;
-  }, () => { loading.value = false; failed.value = true; });
+  }, (err) => {
+    // the status panel says what is wrong; the raw server text goes to the console only
+    if (noteCompanionError(id, err) === 'not_registered') view.value = null;
+    loading.value = false; failed.value = true;
+  });
 }
+function recheck() { refreshRobotStatus(deviceId.value, { force: true, companion: false }); clock.value = new Date(); refresh(); }
 
 function say() {
   const text = line.value.trim();
@@ -194,7 +210,7 @@ function say() {
   Api.companion.sendCompanionMessage(deviceId.value, { from, text, ask: false }, () => {
     sending.value = false; line.value = '';
     pulse.value = false; requestAnimationFrame(() => { pulse.value = true; });
-    toast.success(state.value === 'offline' ? t('today.sentLater') : t('today.sent'));
+    toast.success(['online', 'sleeping', 'updating'].includes(state.value) ? t('today.sent') : t('today.sentLater'));
   }, () => { sending.value = false; toast.error(t('today.sendFailed')); });
 }
 
@@ -219,7 +235,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', onVisible);
 });
 onBeforeUnmount(() => { clearInterval(tick); clearInterval(poll); document.removeEventListener('visibilitychange', onVisible); });
-watch(deviceId, () => { view.value = null; deviceOnline.value = null; refresh(); });
+watch(deviceId, () => { view.value = null; refresh(); });
 watch(companion, (on, was) => { if (on !== was) { view.value = null; refresh(); } });
 </script>
 

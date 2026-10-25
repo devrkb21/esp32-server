@@ -42,7 +42,7 @@ function withCounts(list) {
   return list.map((a) => ({ ...a, deviceCount: (devices[a.id] || []).length }));
 }
 
-let next = 4;
+let next = 6;
 
 export default [
   {

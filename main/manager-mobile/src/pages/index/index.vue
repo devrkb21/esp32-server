@@ -12,16 +12,16 @@
 <script lang="ts" setup>
 import { onHide, onShow } from '@dcloudio/uni-app'
 import { computed, ref, watch } from 'vue'
-import { getCompanion, sendCompanionCommand, sendCompanionMessage } from '@/api/companion/companion'
+import { sendCompanionCommand, sendCompanionMessage } from '@/api/companion/companion'
 import { getCurrentLanguage, t } from '@/i18n'
+import { lastSeen } from '@/pages/robots/robotsModel.mjs'
 import { useUserStore } from '@/store'
 import { digits, timeText } from '@/utils/calendar.mjs'
-import { getDeviceOnlineStatus } from '@/api/device/device'
-import { isOnline, lastSeen, parseStatus } from '@/pages/robots/robotsModel.mjs'
 import { allows, productName } from '@/utils/tbProducts.mjs'
 import { loadRobots, robot, robotFeatures } from '@/utils/tbRobot'
-import { dayRows, daysTogether, isoDate, robotState } from '@/utils/todayModel.mjs'
+import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
+import { dayRows, daysTogether, isoDate, robotState } from '@/utils/todayModel.mjs'
 
 defineOptions({ name: 'Today' })
 
@@ -41,7 +41,6 @@ const nowMinutes = computed(() => clock.value.getHours() * 60 + clock.value.getM
 
 const view = ref<any>(null)
 const loading = ref(false)
-const failed = ref(false)
 const line = ref('')
 const sending = ref(false)
 const pulse = ref(false)
@@ -56,8 +55,9 @@ const can = (f: string) => allows(features.value, f)
 const companion = computed(() => can('companion'))
 const listed = computed(() => robot.list.find(r => r.deviceId === robot.deviceId) || null)
 const productLabel = computed(() => productName(listed.value || robot, lang.value))
-const deviceOnline = ref<boolean | null>(null)
-const deviceState = computed(() => (deviceOnline.value ? 'online' : 'offline'))
+// The connection, one status for every screen (src/utils/robotConnection.mjs)
+const status = computed(() => statusOf(robot.deviceId, clock.value.getTime()))
+const deviceState = computed(() => status.value.state)
 const seenText = computed(() => {
   const s: any = lastSeen(listed.value?.lastConnectedAt, clock.value.getTime())
   if (s.kind === 'never')
@@ -69,20 +69,15 @@ const seenText = computed(() => {
       : t(`robots.${s.kind}Ago`, { n: num(s.n) })
   return t('today.device.seen', { when })
 })
-async function refreshDevice() {
-  const r = listed.value
-  const agentId = r?.agentId || robot.agentId
-  if (!agentId)
-    return
-  try {
-    deviceOnline.value = isOnline(parseStatus(await getDeviceOnlineStatus(agentId)), r || {})
-  }
-  catch {
-    deviceOnline.value = false
-  }
+function refreshDevice() {
+  const agentId = listed.value?.agentId || robot.agentId
+  return agentId ? refreshMqtt(agentId) : Promise.resolve()
 }
-const state = computed(() => robotState(view.value, clock.value))
-const faceMood = computed(() => (({ offline: 'offline', sleeping: 'sleepy' } as Record<string, string>)[state.value] || 'awake'))
+// The plate's word: the connection status; an online robot is refined to sleeping or updating.
+const state = computed(() => (status.value.state === 'online' ? robotState({ ...(view.value || {}), online: true }, clock.value) : status.value.state))
+const live = computed(() => status.value.state === 'online')
+const statusLabel = computed(() => (state.value === 'sleeping' || state.value === 'updating' ? t(`today.state.${state.value}`) : t(`status.${state.value}.label`)))
+const faceMood = computed(() => (({ online: 'awake', sleeping: 'sleepy', updating: 'awake', checking: 'awake', waiting_companion: 'confused', server_error: 'confused' } as Record<string, string>)[state.value] || 'offline'))
 const doingNow = computed(() => {
   const a = view.value?.stats?.activity
   return a ? t(`today.activity.${a}`) : (state.value === 'online' ? t('today.free') : '')
@@ -121,12 +116,13 @@ async function refresh(quiet = false) {
   }
   if (!quiet)
     loading.value = true
-  try {
-    view.value = await getCompanion(robot.deviceId, true)
-    failed.value = false
-  }
-  catch {
-    failed.value = true
+  const id = robot.deviceId
+  const [res] = await Promise.all([refreshCompanion(id), refreshDevice()])
+  if (id === robot.deviceId) {
+    if (res.view)
+      view.value = res.view
+    else if (res.kind === 'not_registered' || !view.value)
+      view.value = null
   }
   loading.value = false
 }
@@ -142,7 +138,7 @@ async function say() {
     line.value = ''
     pulse.value = false
     setTimeout(() => { pulse.value = true }, 16)
-    toast.success(state.value === 'offline' ? t('today.sentLater') : t('today.sent'))
+    toast.success(live.value ? t('today.sent') : t('today.sentLater'))
   }
   catch {
     toast.error(t('today.sendFailed'))
@@ -184,7 +180,6 @@ onHide(() => {
 })
 watch(() => robot.deviceId, () => {
   view.value = null
-  deviceOnline.value = null
   refresh()
 })
 watch(companion, (on, was) => {
@@ -200,7 +195,9 @@ watch(companion, (on, was) => {
 
     <view v-if="!robot.deviceId && robot.loaded" class="today__none">
       <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
-        <tb-button variant="primary" icon="robots" @click="goRobots">{{ t('common.goRobots') }}</tb-button>
+        <tb-button variant="primary" icon="robots" @click="goRobots">
+          {{ t('common.goRobots') }}
+        </tb-button>
       </tb-empty>
     </view>
 
@@ -209,53 +206,82 @@ watch(companion, (on, was) => {
         <tb-date-block class="today__date" :date="date" :lang="lang" :extra="sunrise" @turn="turn" />
         <view v-if="companion" class="today__bot" @click="goRobots">
           <tb-face :mood="faceMood" :pulse="pulse" :alt="t('today.faceAlt', { name: botName })" />
-          <tb-name-plate :name="botName" :doing="doingNow" :detail="together" :state="state" :state-text="t(`today.state.${state}`)" />
+          <tb-name-plate :name="botName" :doing="doingNow" :detail="together" :state="state" :state-text="statusLabel" />
         </view>
         <view v-else class="today__bot is-device" @click="goRobots">
-          <tb-name-plate :name="botName" :doing="productLabel" :detail="seenText" :state="deviceState" :state-text="t(`today.state.${deviceState}`)" />
+          <tb-name-plate :name="botName" :doing="productLabel" :detail="seenText" :state="deviceState" :state-text="t(`status.${deviceState}.label`)" />
         </view>
       </view>
 
+      <tb-robot-status
+        v-if="companion && state !== 'online' && state !== 'sleeping' && state !== 'updating' && state !== 'checking'"
+        class="today__status" :status="status" :loading="loading" @refresh="refresh()"
+      />
+
       <view v-if="!companion" class="today__device">
-        <text class="tb-h2">{{ t('today.device.title') }}</text>
-        <text class="today__devtext">{{ t('today.device.text', { product: productLabel }) }}</text>
+        <text class="tb-h2">
+          {{ t('today.device.title') }}
+        </text>
+        <text class="today__devtext">
+          {{ t('today.device.text', { product: productLabel }) }}
+        </text>
         <view class="today__devlinks">
-          <tb-button v-if="can('character')" variant="primary" icon="agent" @click="go('/pages/agent/index')">{{ t('today.device.character') }}</tb-button>
-          <tb-button v-if="can('voiceprint')" icon="voiceprint" @click="go('/pages/voiceprint/index')">{{ t('today.device.voiceprint') }}</tb-button>
+          <tb-button v-if="can('character')" variant="primary" icon="agent" @click="go('/pages/agent/index')">
+            {{ t('today.device.character') }}
+          </tb-button>
+          <tb-button v-if="can('voiceprint')" icon="voiceprint" @click="go('/pages/voiceprint/index')">
+            {{ t('today.device.voiceprint') }}
+          </tb-button>
         </view>
       </view>
 
       <view v-if="companion && (can('messages') || can('commands'))" class="today__act">
         <view v-if="can('messages')" class="today__say">
-          <tb-input v-model="line" class="today__sayin" size="l" :maxlength="300" confirm-type="send"
-            :placeholder="t('today.sayPlaceholder')" :aria-label="t('today.sayLabel')" @confirm="say" />
-          <tb-button variant="primary" size="l" :loading="sending" :disabled="!line.trim()" @click="say">{{ t('today.sayButton') }}</tb-button>
+          <tb-input
+            v-model="line" class="today__sayin" size="l" :maxlength="300" confirm-type="send"
+            :placeholder="t('today.sayPlaceholder')" :aria-label="t('today.sayLabel')" @confirm="say"
+          />
+          <tb-button variant="primary" size="l" :loading="sending" :disabled="!line.trim()" @click="say">
+            {{ t('today.sayButton') }}
+          </tb-button>
         </view>
-        <text v-if="state === 'offline'" class="today__note">{{ t('today.offlineNote') }}</text>
+        <text v-if="state === 'offline'" class="today__note">
+          {{ t('today.offlineNote') }}
+        </text>
         <scroll-view v-if="can('commands')" scroll-x class="today__deckwrap" :show-scrollbar="false">
           <view class="today__deck" role="group" :aria-label="t('today.deckLabel')">
-            <tb-button v-for="c in commands" :key="c.type" :icon="c.icon" :loading="busy === c.type" @click="run(c)">{{ t(c.label) }}</tb-button>
+            <tb-button v-for="c in commands" :key="c.type" :icon="c.icon" :loading="busy === c.type" @click="run(c)">
+              {{ t(c.label) }}
+            </tb-button>
           </view>
         </scroll-view>
       </view>
 
       <view v-if="companion && can('day')" class="today__day">
         <view class="today__dayhead">
-          <text class="tb-h2">{{ isToday ? t('today.dayTitle') : t('today.dayTitleOther') }}</text>
-          <text class="today__dayhint">{{ t('today.dayHint') }}</text>
+          <text class="tb-h2">
+            {{ isToday ? t('today.dayTitle') : t('today.dayTitleOther') }}
+          </text>
+          <text class="today__dayhint">
+            {{ t('today.dayHint') }}
+          </text>
         </view>
-        <tb-day-table :rows="rows" :lang="lang" :now-minutes="isToday ? nowMinutes : -1" :now-label="t('common.now')"
-          :empty-text="loading ? t('common.loading') : t('today.dayEmpty')" clickable @select="openRow" />
-        <view v-if="failed" class="today__fail" role="alert">
-          <text>{{ t('common.loadFailed') }}</text>
-          <tb-button size="s" variant="quiet" icon="refresh" @click="refresh()">{{ t('common.retry') }}</tb-button>
-        </view>
+        <tb-day-table
+          :rows="rows" :lang="lang" :now-minutes="isToday ? nowMinutes : -1" :now-label="t('common.now')"
+          :empty-text="loading ? t('common.loading') : t('today.dayEmpty')" clickable @select="openRow"
+        />
       </view>
 
       <view v-if="companion && weather" class="today__weather">
         <tb-icon name="weather" :size="22" />
-        <text class="today__temp tb-num">{{ num(weather.temp) }}°</text>
-        <view class="today__wtext"><text>{{ weather.text || '' }}</text><text v-if="weather.city" class="tb-small tb-muted">{{ weather.city }}</text></view>
+        <text class="today__temp tb-num">
+          {{ num(weather.temp) }}°
+        </text>
+        <view class="today__wtext">
+          <text>{{ weather.text || '' }}</text><text v-if="weather.city" class="tb-small tb-muted">
+            {{ weather.city }}
+          </text>
+        </view>
       </view>
       <view v-if="companion" class="today__more">
         <view v-if="can('messages')" class="today__link" style="--ink: var(--tb-message)" @click="go('/pages/messages/index')">
@@ -270,30 +296,132 @@ watch(companion, (on, was) => {
 </template>
 
 <style lang="scss">
-.today__top { height: env(safe-area-inset-top); }
-.today__none { padding: 40px 0; }
-.today__hero { display: flex; border-bottom: 1px solid var(--tb-rule); }
-.today__date { flex: 1; min-width: 0; padding: 6px 14px 14px 0; border-right: 1px solid var(--tb-rule); }
-.today__bot { width: 44%; max-width: 190px; display: flex; flex-direction: column; gap: 10px; padding: 14px 0 14px 14px; }
-.today__bot.is-device { padding-top: 18px; cursor: pointer; }
-.today__device { display: flex; flex-direction: column; gap: 10px; padding: 16px 0 20px; border-bottom: 1px solid var(--tb-rule); }
-.today__devtext { color: var(--tb-ink-2); font-size: 15px; line-height: 1.55; }
-.today__devlinks { display: flex; gap: 10px; flex-wrap: wrap; }
-.today__act { display: flex; flex-direction: column; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--tb-rule); }
-.today__say { display: flex; gap: 8px; }
-.today__sayin { flex: 1; }
-.today__note { color: var(--tb-ink-2); font-size: 13px; }
-.today__deckwrap { white-space: nowrap; margin: 0 -20px; width: calc(100% + 40px); }
-.today__deck { display: inline-flex; gap: 8px; padding: 0 20px; scroll-padding: 0 20px; }
-.today__day { padding-top: 12px; }
-.today__dayhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0 8px; }
-.today__dayhint { font-size: 12px; color: var(--tb-ink-2); }
-.today__fail { display: flex; align-items: center; gap: 8px; color: var(--tb-danger); font-size: 14px; padding-top: 8px; }
-.today__weather { display: flex; align-items: center; gap: 10px; margin-top: 24px; padding: 12px 0; border-top: 3px solid var(--tb-rule); border-bottom: 1px solid var(--tb-rule); }
-.today__temp { font-family: var(--tb-font-display); font-weight: 700; font-size: 24px; }
-.today__wtext { display: flex; flex-direction: column; }
-.today__more { display: flex; flex-direction: column; }
-.today__link { --ink: var(--tb-ink); display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid var(--tb-rule-soft); font-weight: 600; }
-.today__link text { flex: 1; }
-.today__link .tb-icon:first-child { color: var(--ink); }
+.today__top {
+  height: env(safe-area-inset-top);
+}
+.today__none {
+  padding: 40px 0;
+}
+.today__hero {
+  display: flex;
+  border-bottom: 1px solid var(--tb-rule);
+}
+.today__date {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 14px 14px 0;
+  border-right: 1px solid var(--tb-rule);
+}
+.today__bot {
+  width: 44%;
+  max-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0 14px 14px;
+}
+.today__bot.is-device {
+  padding-top: 18px;
+  cursor: pointer;
+}
+.today__device {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0 20px;
+  border-bottom: 1px solid var(--tb-rule);
+}
+.today__devtext {
+  color: var(--tb-ink-2);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.today__devlinks {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.today__act {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--tb-rule);
+}
+.today__say {
+  display: flex;
+  gap: 8px;
+}
+.today__sayin {
+  flex: 1;
+}
+.today__note {
+  color: var(--tb-ink-2);
+  font-size: 13px;
+}
+.today__deckwrap {
+  white-space: nowrap;
+  margin: 0 -20px;
+  width: calc(100% + 40px);
+}
+.today__deck {
+  display: inline-flex;
+  gap: 8px;
+  padding: 0 20px;
+  scroll-padding: 0 20px;
+}
+.today__day {
+  padding-top: 12px;
+}
+.today__dayhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 8px;
+}
+.today__dayhint {
+  font-size: 12px;
+  color: var(--tb-ink-2);
+}
+.today__status {
+  margin-top: 12px;
+}
+.today__weather {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 0;
+  border-top: 3px solid var(--tb-rule);
+  border-bottom: 1px solid var(--tb-rule);
+}
+.today__temp {
+  font-family: var(--tb-font-display);
+  font-weight: 700;
+  font-size: 24px;
+}
+.today__wtext {
+  display: flex;
+  flex-direction: column;
+}
+.today__more {
+  display: flex;
+  flex-direction: column;
+}
+.today__link {
+  --ink: var(--tb-ink);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--tb-rule-soft);
+  font-weight: 600;
+}
+.today__link text {
+  flex: 1;
+}
+.today__link .tb-icon:first-child {
+  color: var(--ink);
+}
 </style>

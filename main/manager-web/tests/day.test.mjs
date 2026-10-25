@@ -1,8 +1,8 @@
 // The Day page (src/views/day): the checks of tests/legacy/companionView.test.mjs for the
 // alarms, reminders, prayer, focus, day (routine) and night tabs, ported to the new page,
 // plus the page's own rules (timeline, ?focus, sync states).
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 
 const api = vi.hoisted(() => ({
   companion: {
@@ -30,6 +30,10 @@ import {
   dayTimeline, firesOn, previewActivity, nowIndex, routineOfKey, sectionPatch, sectionProblem, serverForm, tabOfKey,
 } from '@/views/day/dayModel';
 import { daysText, durationText, reminderWhen } from '@/views/day/dayText';
+import { resetRobotStatus } from '@/shell/robotStatus';
+
+// pages poll every 10 s: a page left mounted by one test must not answer in the next
+enableAutoUnmount(afterEach);
 
 function deviceView(overrides = {}) {
   return {
@@ -82,6 +86,7 @@ async function panel(wrapper, tab, Comp) {
 }
 
 beforeEach(() => {
+  resetRobotStatus();
   vi.clearAllMocks();
   i18n.global.locale = 'en';
   HTMLCanvasElement.prototype.getContext = () => null;

@@ -11,6 +11,20 @@ export const DEMO_AGENT = { id: 'demo-agent-1', agentName: 'TinyBot', ttsModelNa
 export const DEMO_DEVICE = { id: 'demo-device-1', alias: 'টাইনিবট', macAddress: '28:84:85:00:00:01', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: now.toISOString(), autoUpdate: 1, ...PRODUCT_FIELDS.tinybot };
 // A generic Nobix device (not a TinyBot): no companion view, so no Day, Look or Messages.
 export const DEMO_GENERIC_DEVICE = { id: 'demo-device-3', alias: 'পড়ার টেবিল', macAddress: '28:84:85:00:00:03', board: 'nobix-voice-box', appVersion: '1.9.0', lastConnectedAt: new Date(now.getTime() - 26 * 3600000).toISOString(), autoUpdate: 0, ...PRODUCT_FIELDS.generic };
+// Two more TinyBots for the connection states (fixtures in a-status.ts): one joining the server,
+// one whose sync is old. Both are on MQTT.
+export const DEMO_WAITING_DEVICE = { id: 'demo-device-4', alias: 'নতুন টাইনিবট', macAddress: '28:84:85:00:00:04', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: now.toISOString(), autoUpdate: 1, ...PRODUCT_FIELDS.tinybot };
+export const DEMO_STALE_DEVICE = { id: 'demo-device-5', alias: 'বসার ঘরের টাইনিবট', macAddress: '28:84:85:00:00:05', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: new Date(now.getTime() - 25 * 60000).toISOString(), autoUpdate: 1, ...PRODUCT_FIELDS.tinybot };
+/** The MQTT gateway's online map (a JSON string) for a list of devices. */
+export const ALIVE = new Set(['demo-device-1', 'demo-device-4', 'demo-device-5']);
+export function demoStatusMap(list: any[]) {
+  const map: Record<string, any> = {};
+  for (const d of list) {
+    const mac = d.macAddress.replace(/:/g, '_');
+    map[`${d.board}@@@${mac}@@@${mac}`] = { isAlive: ALIVE.has(d.id), exists: true };
+  }
+  return JSON.stringify(map);
+}
 
 // The routine comes first: the name plate's doing-now activity is read from it, so the plate and
 // the day table always agree (empty when no slot covers this minute).
@@ -61,7 +75,8 @@ const handlers: DemoHandler[] = [
   { method: 'GET', url: '/user/info', reply: { id: 1, username: 'demo', realName: 'Demo owner', superAdmin: 1 } },
   { method: 'GET', url: '/user/pub-config', reply: { version: '0.9.7', allowUserRegister: true, enableMobileRegister: false, sm2PublicKey: '' } },
   { method: 'GET', url: '/agent/list', reply: [DEMO_AGENT] },
-  { method: 'GET', url: /\/device\/bind\/[^/]+$/, reply: [DEMO_DEVICE, DEMO_GENERIC_DEVICE] },
+  { method: 'GET', url: /\/device\/bind\/[^/]+$/, reply: [DEMO_DEVICE, DEMO_GENERIC_DEVICE, DEMO_WAITING_DEVICE, DEMO_STALE_DEVICE] },
+  { method: 'POST', url: /\/device\/bind\/[^/]+$/, reply: () => demoStatusMap([DEMO_DEVICE, DEMO_GENERIC_DEVICE, DEMO_WAITING_DEVICE, DEMO_STALE_DEVICE]) },
   { method: 'GET', url: /\/device\/companion\/[^/]+$/, reply: DEMO_COMPANION },
   { method: 'GET', url: /\/device\/companion\/[^/]+\/messages$/, reply: DEMO_COMPANION.messages },
   { method: 'POST', url: /\/device\/companion\/[^/]+\/messages$/, reply: (req: any) => ({ id: 'm-new', ...req.data, status: 'pending' }) },

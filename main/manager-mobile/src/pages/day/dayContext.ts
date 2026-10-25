@@ -1,11 +1,17 @@
 import type { InjectionKey } from 'vue'
 import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/companion'
 import { inject, reactive } from 'vue'
-import { getCompanion, sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
+import { sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
 import { getCurrentLanguage, t } from '@/i18n'
 import { dayPart, digits, timeText, timeWithPart } from '@/utils/calendar.mjs'
 import { robot } from '@/utils/tbRobot'
+import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
+
+/** Is the robot plainly reachable (src/utils/robotConnection.mjs)? Otherwise what is sent waits. */
+function live() {
+  return statusOf(robot.deviceId).state === 'online'
+}
 
 export type SyncState = 'applied' | 'pending' | 'off' | 'error'
 
@@ -68,16 +74,21 @@ export function createDay(): DayCtx {
         return
       if (!quiet)
         day.loading = true
-      try {
-        const v = await getCompanion(robot.deviceId, quiet)
-        if (v && typeof v === 'object')
-          day.view = v as CompanionDevice
-        day.failed = false
-      }
-      catch {
-        // a failed background refresh keeps the last good view
-        if (!quiet || !day.view)
-          day.failed = true
+      const id = robot.deviceId
+      // silent: a failed view is said by the status panel (tb-robot-status), never as raw server text
+      const [res] = await Promise.all([refreshCompanion(id), robot.agentId ? refreshMqtt(robot.agentId) : Promise.resolve()])
+      if (id === robot.deviceId) {
+        if (res.view && typeof res.view === 'object') {
+          day.view = res.view as CompanionDevice
+          day.failed = false
+        }
+        else {
+          // a failed background refresh keeps the last good view, unless the server has no record
+          if (res.kind === 'not_registered')
+            day.view = null
+          if (!quiet || !day.view)
+            day.failed = true
+        }
       }
       day.loading = false
     },
@@ -91,7 +102,7 @@ export function createDay(): DayCtx {
         if (v && typeof v === 'object')
           day.view = v as CompanionDevice
         day.saving = { ...day.saving, [area]: false }
-        toast.success(day.view?.online === false ? t('day.savedOffline') : (okText || t('day.saved')))
+        toast.success(live() ? (okText || t('day.saved')) : t('day.savedOffline'))
         return true
       }
       catch {
@@ -107,7 +118,7 @@ export function createDay(): DayCtx {
       day.busy = busyKey || type
       try {
         await sendCompanionCommand(robot.deviceId, { type, arg: String(arg) })
-        toast.success(day.view?.online === false ? t('day.sentOffline') : (okText || t('day.sent')))
+        toast.success(live() ? (okText || t('day.sent')) : t('day.sentOffline'))
         return true
       }
       catch {
@@ -122,7 +133,7 @@ export function createDay(): DayCtx {
         return { state: 'pending' as SyncState, text: t('common.sync.pending') }
       if (day.saveFailed[area])
         return { state: 'error' as SyncState, text: t('common.sync.error') }
-      if (day.view && day.view.online === false)
+      if (day.view && !live())
         return { state: 'pending' as SyncState, text: t('day.sync.offline') }
       return { state: 'applied' as SyncState, text: t('common.sync.applied') }
     },

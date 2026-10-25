@@ -8,8 +8,8 @@
         <div class="rb-plate__text">
           <p class="rb-plate__name">{{ robot.botName }}</p>
           <p v-if="owner" class="rb-plate__owner">{{ $t('robot.status.ownerIs', { name: owner }) }}</p>
-          <p class="rb-plate__state" :class="{ 'is-off': !robot.online }">
-            <i aria-hidden="true"></i>{{ robot.online ? $t('common.online') : $t('common.offline') }}
+          <p class="rb-plate__state">
+            <TbRobotStatus compact :status="robot.status" />
             <span>{{ $t('robot.status.seen', { when: robot.ago(view.last_seen) }) }}</span>
           </p>
           <p v-if="together" class="rb-plate__days">
@@ -78,7 +78,7 @@ export default {
     view() { return this.robot.view || {}; },
     form() { return this.robot.forms.robot; },
     s() { return this.robot.stats; },
-    mood() { return faceMood(this.robot.view); },
+    mood() { return this.robot.online ? faceMood(this.robot.view) : 'offline'; },
     owner() { return (this.view.settings && this.view.settings.owner_name) || ''; },
     together() { return daysTogether(this.robot.view, this.robot.now); },
     rows() {
@@ -151,8 +151,6 @@ export default {
 .rb-plate__name { font-family: var(--tb-font-display); font-weight: 800; font-size: clamp(var(--tb-fs-24), 5vw, var(--tb-fs-32)); line-height: var(--tb-lh-tight); overflow-wrap: anywhere; }
 .rb-plate__owner { font-size: var(--tb-fs-14); color: var(--tb-ink-2); overflow-wrap: anywhere; }
 .rb-plate__state { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--tb-fs-13); font-weight: 600; }
-.rb-plate__state i { width: 8px; height: 8px; border-radius: 50%; background: var(--tb-ok); }
-.rb-plate__state.is-off i { background: transparent; border: 1.5px solid var(--tb-ink-3); }
 .rb-plate__state span { font-weight: 400; color: var(--tb-ink-2); }
 .rb-plate__days { font-size: var(--tb-fs-14); color: var(--tb-ink-2); }
 .rb-plate__days b { font-family: var(--tb-font-display); font-weight: 800; color: var(--tb-ink); font-size: var(--tb-fs-20); }

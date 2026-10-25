@@ -21,9 +21,10 @@ import { digits } from '@/utils/calendar.mjs'
 import { codeFromScan, linkPagePath } from '@/utils/linkCode.mjs'
 import { productName, productOf } from '@/utils/tbProducts.mjs'
 import { clearRobot, loadProducts, products, robot, selectRobot } from '@/utils/tbRobot'
+import { companionAskedAt, hasCompanion, noteMqttMap, refreshCompanion, robotStatuses, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import AddRobotSheet from './components/AddRobotSheet.vue'
-import { characterNameError, isOnline, keepSelection, NAME_MAX, nameMatches, parseStatus, toRobot, voiceName } from './robotsModel.mjs'
+import { characterNameError, keepSelection, NAME_MAX, nameMatches, parseStatus, toRobot, voiceName } from './robotsModel.mjs'
 import { countText, whenText } from './robotsText'
 
 defineOptions({ name: 'RobotsPage' })
@@ -55,15 +56,18 @@ const groups = computed(() => agents.value.map((agent) => {
   const status = statusByAgent[agent.id]
   let robots = (raw || []).map((d) => {
     const r = toRobot(agent, d)
-    const online = isOnline(status, d)
-    const known = Boolean(status)
+    // One status for every screen: the gateway map and, for robots it calls online, the
+    // companion server's word too (src/utils/robotConnection.mjs)
+    const st = statusOf(d.id, clock.value)
+    const known = Boolean(status) || Boolean(robotStatuses[d.id]?.companion)
+    const online = st.state === 'online'
     return {
       ...r,
       ...productOf(d, products.list),
       productHead: false,
       online,
-      state: online ? 'online' : 'offline',
-      stateText: online ? t('common.online') : (known ? t('common.offline') : t('robots.stateUnknown')),
+      state: st.state,
+      stateText: st.state === 'checking' && !known ? t('robots.stateUnknown') : t(`status.${st.state}.label`),
       seen: r.lastConnectedAt ? t('robots.seen', { when: whenText(r.lastConnectedAt, lang.value, clock.value) }) : t('robots.never'),
     }
   })
@@ -109,6 +113,26 @@ async function fetchStatus(id: string) {
   }
   catch {
     statusByAgent[id] = null
+  }
+  const devs = devicesByAgent[id] || []
+  noteMqttMap(id, statusByAgent[id], devs)
+  checkCompanions(devs)
+}
+
+// "Online" on the gateway is not enough: ask the companion server about the robots it calls
+// online (or cannot say), lazily and at most once per 30 s each. Offline robots need no call.
+const COMPANION_EVERY_MS = 30000
+function checkCompanions(devs: Device[]) {
+  const now = Date.now()
+  for (const d of devs) {
+    const e = robotStatuses[d.id]
+    if (!hasCompanion(d.id) || !e || e.mqtt === false)
+      continue
+    if (now - companionAskedAt(d.id) < COMPANION_EVERY_MS)
+      continue
+    refreshCompanion(d.id).then(() => {
+      clock.value = Date.now()
+    })
   }
 }
 async function loadDevices(id: string) {
@@ -318,7 +342,7 @@ onHide(() => clearInterval(poll))
 </script>
 
 <template>
-  <view class="robots tb-wrap">
+  <view class="tb-wrap robots">
     <tb-page-header :title="t('nav.robots')" :description="t('robots.desc')" back />
 
     <view v-if="loading && !loaded" class="robots__state">
@@ -398,32 +422,34 @@ onHide(() => clearInterval(poll))
         </view>
 
         <block v-for="r in g.robots" :key="r.deviceId">
-        <view v-if="r.productHead" class="rb-prodhead">
-          <text>{{ productName(r, lang) }}</text>
-        </view>
-        <view class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
-          <view
-            class="rb-row__main" role="button" :aria-label="t('robots.pickFor', { name: r.name || g.agent.agentName })"
-            hover-class="is-press" @click="choose(r)"
-          >
-            <tb-face v-if="r.features.includes('companion')" class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="72" :alt="t('robots.faceAlt', { name: r.name || g.agent.agentName })" />
-            <view v-else class="rb-row__face rb-row__device" aria-hidden="true">
-              <tb-icon name="devices" :size="24" />
+          <view v-if="r.productHead" class="rb-prodhead">
+            <text>{{ productName(r, lang) }}</text>
+          </view>
+          <view class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
+            <view
+              class="rb-row__main" role="button" :aria-label="t('robots.pickFor', { name: r.name || g.agent.agentName })"
+              hover-class="is-press" @click="choose(r)"
+            >
+              <tb-face v-if="r.features.includes('companion')" class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="72" :alt="t('robots.faceAlt', { name: r.name || g.agent.agentName })" />
+              <view v-else class="rb-row__face rb-row__device" aria-hidden="true">
+                <tb-icon name="devices" :size="24" />
+              </view>
+              <view class="rb-row__plate">
+                <tb-name-plate :name="r.name || t('robots.unnamed')" :detail="r.seen" :state="r.state" :state-text="r.stateText" />
+                <tb-tag class="rb-row__product">
+                  {{ productName(r, lang) }}
+                </tb-tag>
+              </view>
             </view>
-            <view class="rb-row__plate">
-              <tb-name-plate :name="r.name || t('robots.unnamed')" :detail="r.seen" :state="r.state" :state-text="r.stateText" />
-              <tb-tag class="rb-row__product">{{ productName(r, lang) }}</tb-tag>
+            <view class="rb-row__act">
+              <view v-if="r.deviceId === robot.deviceId" class="rb-now" role="status">
+                <view class="rb-now__rule" /><text>{{ t('robots.current') }}</text>
+              </view>
+              <tb-button v-else size="s" icon="check" @click="choose(r)">
+                {{ t('robots.pick') }}
+              </tb-button>
             </view>
           </view>
-          <view class="rb-row__act">
-            <view v-if="r.deviceId === robot.deviceId" class="rb-now" role="status">
-              <view class="rb-now__rule" /><text>{{ t('robots.current') }}</text>
-            </view>
-            <tb-button v-else size="s" icon="check" @click="choose(r)">
-              {{ t('robots.pick') }}
-            </tb-button>
-          </view>
-        </view>
         </block>
 
         <view v-if="g.failed" class="rb-note is-fail" role="alert">
@@ -485,7 +511,7 @@ onHide(() => clearInterval(poll))
           <text v-else class="rb-field__hint">
             {{ t('robots.addChar.hint') }}
           </text>
-          <text class="rb-field__count tb-num">
+          <text class="tb-num rb-field__count">
             {{ num(charName.length) }}/{{ num(NAME_MAX) }}
           </text>
         </view>
@@ -650,9 +676,30 @@ onHide(() => clearInterval(poll))
   flex: 1;
   overflow-wrap: anywhere;
 }
-.rb-row__plate { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.rb-row__device { display: flex; align-items: center; justify-content: center; width: 72px; height: 54px; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); flex: none; }
-.rb-prodhead { padding: 14px 0 4px; font-size: 13px; font-weight: 700; color: var(--tb-ink-2); border-bottom: 1px solid var(--tb-rule-soft); }
+.rb-row__plate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.rb-row__device {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 54px;
+  border: 1px solid var(--tb-rule);
+  border-radius: 8px;
+  color: var(--tb-ink-2);
+  flex: none;
+}
+.rb-prodhead {
+  padding: 14px 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tb-ink-2);
+  border-bottom: 1px solid var(--tb-rule-soft);
+}
 .rb-row__act {
   display: flex;
   justify-content: flex-end;

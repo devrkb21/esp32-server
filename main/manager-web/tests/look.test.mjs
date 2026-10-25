@@ -6,6 +6,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as face from '../src/utils/faceLook.mjs';
+import { resetRobotStatus } from '@/shell/robotStatus';
 
 const hoisted = vi.hoisted(() => ({
   Api: { companion: {}, device: {} },
@@ -50,6 +51,7 @@ async function mountLook({ deviceId = 'dev1', get, put, tool } = {}) {
 }
 
 beforeEach(() => {
+  resetRobotStatus();
   // jsdom draws nothing: the preview simply skips painting
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
 });
@@ -109,14 +111,34 @@ describe('Look state', () => {
     expect(wrapper.text()).toContain('lookPage.noRobot');
   });
 
-  it('shows a load error and blocks saving', async () => {
+  it('shows the shared status panel on a load error and blocks saving', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { vm, wrapper } = await mountLook({ get: (id, ok, fail) => fail({}) });
     vm.form.mouth = 'cat';
-    expect(vm.loadError).toBe('lookPage.loadFailed');
+    expect(vm.loadError).toBe('network');
     expect(vm.canSave).toBe(false);
     expect(vm.sync.state).toBe('error');
-    expect(wrapper.find('[role="alert"]').text()).toContain('lookPage.loadFailed');
+    const panel = wrapper.find('.tb-rstat');
+    expect(panel.exists()).toBe(true);
+    expect(panel.text()).toContain('status.server_error.label');
+    expect(panel.text()).toContain('status.server_error.whyNetwork');
+    expect(panel.text()).toContain('lookPage.statusHint');
+    warn.mockRestore();
+  });
+
+  it('a robot not yet known to the companion server: the panel says so, never the raw server text', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { vm, wrapper } = await mountLook({
+      get: (id, ok, fail) => fail({ status: 200, data: { code: 500, msg: 'device not found' } }),
+    });
+    expect(vm.status.state).toBe('waiting_companion');
+    expect(wrapper.text()).toContain('status.waiting_companion.label');
+    expect(wrapper.text()).toContain('status.waiting_companion.next');
+    expect(wrapper.text()).not.toContain('device not found');
+    expect(warn).toHaveBeenCalled();
+    // the live screen asks the robot itself, so it stays on offer
+    expect(vm.online).toBe(null);
+    expect(vm.viewOptions.find((o) => o.value === 'live').disabled).toBe(false);
     warn.mockRestore();
   });
 

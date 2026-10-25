@@ -85,7 +85,7 @@
               <span>{{ productName(r, lang) }}</span>
             </li>
             <li class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
-              <TbFace v-if="r.features.includes('companion')" class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="76"
+              <TbFace v-if="r.features.includes('companion')" class="rb-row__face" :mood="rowMood(r)" :width="76"
                 :alt="$t('robots.faceAlt', { name: r.name || g.agent.agentName })" />
               <span v-else class="rb-row__face rb-row__device" aria-hidden="true"><TbIcon name="devices" :size="26" /></span>
               <div class="rb-row__id">
@@ -99,12 +99,12 @@
                   <span v-else class="rb-mac">{{ r.mac.text }}</span>
                 </p>
               </div>
-              <p class="rb-row__state" :class="{ 'is-online': r.online }">
-                <template v-if="r.online"><i aria-hidden="true"></i>{{ $t('common.online') }}</template>
-                <template v-else>
-                  <span v-if="statusKnown[g.agent.id]" class="rb-row__off"><i aria-hidden="true"></i>{{ $t('common.offline') }}</span>
-                  <small>{{ r.lastConnectedAt ? $t('robots.seen', { when: whenText(r.lastConnectedAt) }) : $t('robots.never') }}</small>
-                </template>
+              <!-- the same connection word as every page (src/shell/robotStatus.js): never "online"
+                   before the companion server has heard from the robot -->
+              <p class="rb-row__state" :class="[`is-${r.status.state}`, { 'is-online': r.online }]">
+                <TbRobotStatus v-if="r.status.state !== 'checking'" compact :status="r.status" />
+                <small v-if="r.status.state === 'not_syncing' && r.status.lastSync">{{ $t('status.lastSync', { when: whenText(r.status.lastSync) }) }}</small>
+                <small v-else-if="r.status.state !== 'online' && r.status.state !== 'waiting_companion'">{{ (r.status.lastSeen || r.lastConnectedAt) ? $t('robots.seen', { when: whenText(r.status.lastSeen || r.lastConnectedAt) }) : $t('robots.never') }}</small>
               </p>
               <div class="rb-row__act rb-row__acts">
                 <span v-if="r.deviceId === robot.deviceId" class="rb-now" role="status"><i aria-hidden="true"></i>{{ $t('robots.current') }}</span>
@@ -219,6 +219,7 @@ import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
 import { digits } from '@/kit/calendar';
 import { clearRobot, loadProducts, products, robot, selectRobot } from '@/shell/robot';
+import { hasCompanion, links, noteMqttMap, refreshCompanion, statusOf } from '@/shell/robotStatus';
 import { productName, productOf } from '@/shell/products';
 import featureManager from '@/utils/featureManager';
 import {
@@ -243,7 +244,6 @@ const clock = ref(Date.now());
 const voiceprint = ref(false);
 
 const hasAgents = computed(() => allAgents.value.length > 0);
-const statusKnown = computed(() => Object.fromEntries(Object.entries(statusByAgent).map(([k, v]) => [k, !!v])));
 
 // More than one product among the account's devices: rows are grouped by product inside each
 // character (with a small product heading); with one product the tag on each row is enough.
@@ -258,7 +258,9 @@ const groups = computed(() => shownAgents.value.map((agent) => {
   const raw = devicesByAgent[agent.id];
   let robots = (raw || []).map((d) => {
     const r = toRobot(agent, d);
-    return { ...r, ...productOf(d, products.list), mac: maskMac(r.macAddress), online: isOnline(statusByAgent[agent.id], d) };
+    const item = { ...r, ...productOf(d, products.list) };
+    const status = statusOf(r.deviceId, { item, now: clock.value });
+    return { ...item, mac: maskMac(r.macAddress), status, online: status.state === 'online' };
   });
   if (multiProduct.value) {
     const rank = productRank.value;
@@ -309,11 +311,35 @@ function fetchDevices(agentId) {
 
 function fetchStatus(agentId) {
   return new Promise((resolve) => {
-    Api.device.getDeviceStatus(agentId, ({ data }) => {
-      statusByAgent[agentId] = data && data.code === 0 ? parseStatus(data.data) : null;
+    const done = (map) => {
+      statusByAgent[agentId] = map;
+      const devs = devicesByAgent[agentId] || [];
+      noteMqttMap(map, devs);
+      checkCompanions(devs, map);
       resolve();
-    }, () => { statusByAgent[agentId] = null; resolve(); });
+    };
+    Api.device.getDeviceStatus(agentId, ({ data }) => done(data && data.code === 0 ? parseStatus(data.data) : null), () => done(null));
   });
+}
+
+// The gateway alone cannot say "online": a robot can be on MQTT and still unknown to the companion
+// server. Ask the companion view of the account's own companion robots the gateway calls online
+// (or all of them when there is no gateway map), each at most every 30 s, a few at a time.
+const COMPANION_EVERY = 30000;
+const COMPANION_MAX = 8;
+function checkCompanions(devs, map) {
+  const now = Date.now();
+  devs.filter((d) => hasCompanion(d.id, productOf(d, products.list)))
+    .filter((d) => !map || isOnline(map, d))
+    .filter((d) => now - ((links[d.id] && links[d.id].companionAt) || 0) > COMPANION_EVERY)
+    .slice(0, COMPANION_MAX)
+    .forEach((d) => refreshCompanion(d.id));
+}
+
+/** The row's face: awake when online, asleep when offline, puzzled when the server side is not right. */
+function rowMood(r) {
+  if (r.online) return 'awake';
+  return ['offline', 'checking'].includes(r.status.state) ? 'offline' : 'confused';
 }
 
 async function loadDevices(agentId) {
@@ -711,11 +737,8 @@ onBeforeUnmount(() => { clearInterval(poll); document.removeEventListener('visib
 .rb-row__unnamed { color: var(--tb-ink-2); font-weight: 500; }
 .rb-row__mac { font-size: var(--tb-fs-13); color: var(--tb-ink-2); }
 .rb-row__state { grid-area: state; display: grid; gap: 0; font-size: var(--tb-fs-14); font-weight: 600; }
-.rb-row__state.is-online { display: flex; align-items: center; gap: 6px; color: var(--tb-ok); }
-.rb-row__state.is-online i { width: 8px; height: 8px; border-radius: 50%; background: var(--tb-ok); }
-.rb-row__off { display: inline-flex; align-items: center; gap: 6px; color: var(--tb-ink-2); }
-.rb-row__off i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--tb-ink-3); }
-.rb-row__state small { font-size: var(--tb-fs-13); font-weight: 400; color: var(--tb-ink-2); }
+.rb-row__state .tb-rstat.is-compact { font-size: var(--tb-fs-14); white-space: normal; }
+.rb-row__state small { font-size: var(--tb-fs-13); font-weight: 400; color: var(--tb-ink-2); max-width: 28ch; }
 .rb-row__act { grid-area: act; display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
 .rb-row--note { display: flex; align-items: center; justify-content: space-between; gap: var(--tb-s3); color: var(--tb-ink-2); font-size: var(--tb-fs-14); }
 .rb-row--note[role="alert"] { color: var(--tb-danger); }

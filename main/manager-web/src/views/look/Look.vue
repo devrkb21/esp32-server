@@ -6,13 +6,8 @@
       <TbIcon name="info" :size="18" /><span>{{ $t('lookPage.noRobot') }}</span>
       <TbButton size="s" icon="robots" to="/robots">{{ $t('common.goRobots') }}</TbButton>
     </p>
-    <p v-else-if="loadError" class="look__note is-error" role="alert">
-      <TbIcon name="warning" :size="18" /><span>{{ loadError }}</span>
-      <TbButton size="s" icon="refresh" @click="load">{{ $t('common.retry') }}</TbButton>
-    </p>
-    <p v-else-if="online === false" class="look__note" role="status">
-      <TbIcon name="warning" :size="18" /><span>{{ $t('lookPage.offline') }}</span>
-    </p>
+    <TbRobotStatus v-else-if="showStatus" class="look__status" :status="status" :loading="loading"
+      :hint="loadError ? $t('lookPage.statusHint') : ''" @refresh="recheck" />
 
     <div class="look__grid">
       <div class="look__left">
@@ -156,6 +151,9 @@ import Api from '@/apis/api';
 import { digits } from '@/kit/calendar';
 import { deviceIdFrom, loadRobots, robot } from '@/shell/robot';
 import {
+  ensureMqtt, friendlyError, noteCompanionError, noteCompanionView, refreshRobotStatus, statusOf,
+} from '@/shell/robotStatus';
+import {
   CHAT_FONTS,
   CHAT_FONT_SAMPLE,
   H,
@@ -195,9 +193,9 @@ export default {
       view: 'preview',
       form: defaultLook(),
       serverLook: defaultLook(),
-      online: null,
       loading: false,
       loadError: '',
+      checkedAt: Date.now(),
       saving: false,
       reducedMotion: false,
       scale: 2,
@@ -207,6 +205,16 @@ export default {
   computed: {
     deviceId() { return deviceIdFrom(this.$route); },
     robotReady() { return !!this.robot.loaded; },
+    // The robot's connection, the same on every page (src/shell/robotStatus.js)
+    status() { return statusOf(this.deviceId, { now: this.checkedAt }); },
+    showStatus() { return !!this.deviceId && !['online', 'checking'].includes(this.status.state); },
+    // true online, false offline, null in between (joining the server, not syncing, server trouble):
+    // the live screen asks the robot itself, so only a robot that is really offline turns it off
+    online() {
+      if (!this.deviceId) return null;
+      if (this.status.state === 'online') return true;
+      return this.status.state === 'offline' ? false : null;
+    },
     lang() { return this.$i18n ? this.$i18n.locale : 'en'; },
     dirty() { return !sameLook(this.form, this.serverLook); },
     isDefault() { return isDefaultLook(this.form); },
@@ -274,12 +282,13 @@ export default {
     num(n) { return digits(n, this.lang); },
     signed(n) { return n > 0 ? `+${this.num(n)}` : n < 0 ? `−${this.num(-n)}` : this.num(0); },
     opts(key) { return this.choices[key].map((v) => ({ value: v, label: this.$t(`lookPage.${key}.${v}`) })); },
-    errorText(err) { return (err && err.data && err.data.msg) || (err && err.msg) || this.$t('lookPage.saveFailed'); },
+    errorText(err) { return friendlyError(err, this.$t('lookPage.saveFailed')); },
+    recheck() { refreshRobotStatus(this.deviceId, { force: true, companion: false }); this.load(); },
 
     // ------------------------------------------------------------------ data
     applyView(view) {
+      if (view && typeof view === 'object') { noteCompanionView(this.deviceId, view); this.checkedAt = Date.now(); }
       const look = normalizeLook(view && view.settings && view.settings.look);
-      this.online = view && typeof view.online === 'boolean' ? view.online : null;
       this.serverLook = look;
       this.form = { ...look };
     },
@@ -287,13 +296,18 @@ export default {
       if (!this.deviceId) return;
       this.loading = true;
       this.loadError = '';
-      Api.companion.getCompanion(this.deviceId, (res) => {
+      const id = this.deviceId;
+      ensureMqtt(id);
+      Api.companion.getCompanion(id, (res) => {
         this.loading = false;
+        this.checkedAt = Date.now();
+        noteCompanionView(id, res && res.data && res.data.data);
         this.applyView(res && res.data && res.data.data);
       }, (err) => {
         this.loading = false;
-        this.loadError = this.$t('lookPage.loadFailed');
-        console.warn('TinyBot look: load failed', err);
+        this.checkedAt = Date.now();
+        // the status panel says what is wrong; the raw server text goes to the console only
+        this.loadError = noteCompanionError(id, err);
       });
     },
     save() {
@@ -360,6 +374,7 @@ export default {
 .look__note > span { flex: 1 1 24ch; min-width: 0; }
 .look__note .tb-icon { color: var(--tb-look); flex: none; }
 .look__note.is-error, .look__note.is-error .tb-icon { color: var(--tb-danger); }
+.look__status { margin-top: var(--tb-s3); }
 
 .look__grid { display: grid; grid-template-columns: minmax(0, 1fr); }
 .look__left { display: contents; }

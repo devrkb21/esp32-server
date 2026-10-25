@@ -102,6 +102,7 @@ export default {
     'lookPage.noRobot': 'কোনো রোবট বাছাই করা নেই। এখানে চেহারা বানিয়ে দেখতে পারেন; সংরক্ষণ করতে রোবট যুক্ত করুন।',
     'lookPage.offline': 'টাইনিবট এখন অফলাইন। সংরক্ষণ করা চেহারা অনলাইনে এলে পাবে।',
     'lookPage.loadFailed': 'টাইনিবটের এখনকার চেহারা আনা যায়নি।',
+    'lookPage.statusHint': 'সার্ভারের সাথে যোগাযোগ ঠিক হলে চেহারা সংরক্ষণ করা যাবে। ততক্ষণ নমুনায় দেখে নিতে পারেন।',
 
     'lookPage.live.alt': 'টাইনিবটের পর্দা, এই মুহূর্তে',
     'lookPage.live.live': 'সরাসরি',
@@ -219,6 +220,7 @@ export default {
     'lookPage.noRobot': 'No robot is chosen. You can try looks here; add a robot to save one.',
     'lookPage.offline': 'TinyBot is offline. It picks up the saved look when it reconnects.',
     'lookPage.loadFailed': 'Could not load TinyBot’s current look.',
+    'lookPage.statusHint': 'You can save a look once the server connection is back. Until then, try looks in the preview.',
 
     'lookPage.live.alt': 'TinyBot’s screen right now',
     'lookPage.live.live': 'Live',

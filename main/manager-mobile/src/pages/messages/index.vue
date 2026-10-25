@@ -13,13 +13,14 @@
 import type { ChatSession } from '@/api/chat-history/types'
 import type { CommandType, CompanionCommand, CompanionDevice, CompanionMessage, GameName } from '@/api/companion/types'
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
-import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, ref, watch } from 'vue'
 import { getChatSessions } from '@/api/chat-history/chat-history'
-import { getCompanion, sendCompanionCommand, sendCompanionMessage } from '@/api/companion/companion'
+import { sendCompanionCommand, sendCompanionMessage } from '@/api/companion/companion'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
 import { robot } from '@/utils/tbRobot'
+import { statusOf as connectionOf, refreshCompanion, refreshMqtt } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import {
   agoParts,
@@ -49,9 +50,12 @@ const num = (n: any) => digits(n ?? '', lang.value)
 // ---------------------------------------------------------------- the robot's view
 const view = ref<CompanionDevice | null>(null)
 const loading = ref(false)
-const failed = ref(false)
 const refreshing = ref(false)
-const offline = computed(() => !!view.value && view.value.online === false)
+const checkedAt = ref(Date.now())
+// The connection, said the same way on every screen (src/utils/robotConnection.mjs)
+const status = computed(() => connectionOf(robot.deviceId, checkedAt.value))
+const showStatus = computed(() => status.value.state !== 'online' && status.value.state !== 'checking')
+const offline = computed(() => status.value.state === 'offline')
 
 async function reload(quiet = false) {
   if (!robot.deviceId)
@@ -59,16 +63,17 @@ async function reload(quiet = false) {
   const want = robot.deviceId
   if (!quiet)
     loading.value = true
-  try {
-    const data = await getCompanion(want, quiet)
-    if (want === robot.deviceId) {
-      view.value = data || null
-      failed.value = false
+  // silent: a failed view is said by the status panel, never as raw server text
+  const [res] = await Promise.all([refreshCompanion(want), robot.agentId ? refreshMqtt(robot.agentId) : Promise.resolve()])
+  if (want === robot.deviceId) {
+    checkedAt.value = Date.now()
+    if (res.view) {
+      view.value = res.view || null
     }
-  }
-  catch {
-    if (want === robot.deviceId)
-      failed.value = true
+    else {
+      if (res.kind === 'not_registered')
+        view.value = null
+    }
   }
   loading.value = false
 }
@@ -124,7 +129,7 @@ async function send() {
     text.value = ''
     if (sent && (sent as any).id && view.value && !view.value.messages?.some(m => m.id === (sent as any).id))
       view.value = { ...view.value, messages: [{ ts: Math.floor(Date.now() / 1000), ...(sent as any) }, ...(view.value.messages || [])] }
-    toast.success(offline.value ? t('mmsg.compose.sentLater') : t('mmsg.compose.sent'))
+    toast.success(status.value.state === 'online' ? t('mmsg.compose.sent') : t('mmsg.compose.sentLater'))
     reload(true)
   }
   catch (error) {
@@ -299,12 +304,7 @@ watch(() => robot.agentId, () => {
     </view>
 
     <block v-else>
-      <view v-if="failed && !view" class="msgs__fail" role="alert">
-        <text>{{ t('common.loadFailed') }}</text>
-        <tb-button size="s" variant="quiet" icon="refresh" @click="reload()">
-          {{ t('common.retry') }}
-        </tb-button>
-      </view>
+      <tb-robot-status v-if="showStatus" class="msgs__status" :status="status" :loading="loading" @refresh="reload()" />
 
       <!-- What you tell TinyBot -->
       <tb-section :title="t('mmsg.compose.title')" :description="t('mmsg.compose.desc')" ink="message">
@@ -318,7 +318,7 @@ watch(() => robot.agentId, () => {
                 class="compose__text" :value="text" :maxlength="MAX_MESSAGE" auto-height :placeholder="t('mmsg.compose.textPlaceholder')"
                 placeholder-class="compose__ph" :aria-label="t('mmsg.compose.text')" @input="onText"
               />
-              <text class="compose__count tb-num">
+              <text class="tb-num compose__count">
                 {{ t('mmsg.compose.count', { n: num(text.length), max: num(MAX_MESSAGE) }) }}
               </text>
             </view>
@@ -501,6 +501,9 @@ watch(() => robot.agentId, () => {
 .msgs__note {
   color: var(--tb-ink-2);
   font-size: 13px;
+}
+.msgs__status {
+  margin-top: 12px;
 }
 .msgs__fail {
   display: flex;
