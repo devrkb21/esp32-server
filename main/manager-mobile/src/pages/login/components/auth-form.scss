@@ -1,0 +1,76 @@
+// The account forms, as the pages see them (owner: m-auth). uni-app scopes every component's
+// styles, so what a page puts into an AuthField (the inputs, the country code) and the page's own
+// form pieces are styled here and imported by each account page: login, register, forgot-password.
+
+.af-form {
+  display: flex;
+  flex-direction: column;
+  border-top: 3px solid var(--tb-rule);
+}
+
+/* the field sits on the rule: no box, the row's rule is its underline */
+.af .tb-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* the country code before a phone number */
+.af__area {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  min-height: 44px;
+  padding-right: 10px;
+  border-right: 1px solid var(--tb-rule-soft);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--tb-ink);
+}
+
+.af-alert {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 14px;
+  color: var(--tb-danger);
+  font-weight: 500;
+  font-size: 14px;
+}
+.af-submit {
+  margin-top: 24px;
+}
+.af-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0 16px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+.af-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--tb-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--tb-rule-soft);
+  text-underline-offset: 4px;
+}
+.af-hint {
+  display: block;
+  font-size: 13px;
+  color: var(--tb-ink-2);
+  padding-top: 8px;
+}
+.af-method {
+  align-self: flex-start;
+  flex: none;
+  margin-bottom: 16px;
+}

@@ -75,15 +75,21 @@
     },
     {
       "path": "pages/agent/edit",
-      "type": "page"
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationBarTitleText": "Character",
+        "navigationStyle": "custom"
+      }
     },
     {
       "path": "pages/agent/index",
       "type": "page",
       "layout": "default",
       "style": {
-        "navigationBarTitleText": "Agent",
-        "navigationStyle": "custom"
+        "navigationBarTitleText": "Character",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
       }
     },
     {
@@ -91,7 +97,7 @@
       "type": "page",
       "layout": "default",
       "style": {
-        "navigationBarTitleText": "Edit Source",
+        "navigationBarTitleText": "Fresh information",
         "navigationStyle": "custom"
       }
     },
@@ -100,7 +106,7 @@
       "type": "page",
       "layout": "default",
       "style": {
-        "navigationBarTitleText": "Voice Settings",
+        "navigationBarTitleText": "Voice tuning",
         "navigationStyle": "custom"
       }
     },
@@ -109,7 +115,7 @@
       "type": "page",
       "layout": "default",
       "style": {
-        "navigationBarTitleText": "Edit Features",
+        "navigationBarTitleText": "Tools",
         "navigationStyle": "custom"
       }
     },
@@ -124,7 +130,12 @@
     },
     {
       "path": "pages/chat-history/index",
-      "type": "page"
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Conversations"
+      }
     },
     {
       "path": "pages/companion/index",
@@ -146,13 +157,19 @@
     },
     {
       "path": "pages/device/index",
-      "type": "page"
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
+      }
     },
     {
       "path": "pages/device-config/index",
       "type": "page",
+      "layout": "default",
       "style": {
-        "navigationBarTitleText": "Device Configuration",
+        "navigationBarTitleText": "TinyBot",
         "navigationStyle": "custom"
       }
     },
@@ -258,15 +275,20 @@
     {
       "path": "pages/settings/index",
       "type": "page",
-      "layout": "default",
+      "layout": "tabbar",
       "style": {
-        "navigationBarTitleText": "Settings",
+        "navigationBarTitleText": "More",
         "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/voiceprint/index",
-      "type": "page"
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "TinyBot"
+      }
     }
   ],
   "subPackages": [

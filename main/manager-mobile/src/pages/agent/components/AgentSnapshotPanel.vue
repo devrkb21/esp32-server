@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { AgentSnapshot, AgentSnapshotData } from '@/api/agent/types'
+import type { ConfirmOptions } from '@/utils/tbConfirm'
 import { computed, ref, watch } from 'vue'
-import { useMessage } from 'wot-design-uni/components/wd-message-box'
 import {
   deleteAgentSnapshot,
   getAgentSnapshot,
@@ -13,6 +13,8 @@ import {
   restoreAgentSnapshot,
 } from '@/api/agent/agent'
 import { getCurrentLanguage, t } from '@/i18n'
+import { digits } from '@/utils/calendar.mjs'
+import { tbConfirm } from '@/utils/tbConfirm'
 import { toast } from '@/utils/toast'
 import {
   isSensitiveKey,
@@ -88,7 +90,6 @@ interface RestoreActionContext {
   willClearChatHistory: boolean
 }
 
-const message = useMessage()
 const restoring = ref(false)
 
 const panelVisible = computed({
@@ -564,9 +565,10 @@ async function confirmRestoreSnapshot() {
     if (props.hasUnsavedChanges) {
       const confirmed = await requestRestoreConfirmation({
         title: t('agentSnapshot.unsavedChangesTitle'),
-        msg: t('agentSnapshot.unsavedChangesWarning'),
-        confirmButtonText: t('agentSnapshot.discardAndRestore'),
-        cancelButtonText: t('common.cancel'),
+        message: t('agentSnapshot.unsavedChangesWarning'),
+        confirmText: t('agentSnapshot.discardAndRestore'),
+        cancelText: t('common.cancel'),
+        danger: true,
       })
       if (!confirmed || !isActiveRestoreAction(context)) {
         return
@@ -579,9 +581,10 @@ async function confirmRestoreSnapshot() {
     if (context.willClearChatHistory) {
       const confirmed = await requestRestoreConfirmation({
         title: t('agentSnapshot.confirmRestore'),
-        msg: t('agentSnapshot.restoreChatHistoryDestructiveWarning'),
-        confirmButtonText: t('agentSnapshot.confirmRestore'),
-        cancelButtonText: t('common.cancel'),
+        message: t('agentSnapshot.restoreChatHistoryDestructiveWarning'),
+        confirmText: t('agentSnapshot.confirmRestore'),
+        cancelText: t('common.cancel'),
+        danger: true,
       })
       if (!confirmed || !isActiveRestoreAction(context)) {
         return
@@ -625,14 +628,8 @@ async function confirmRestoreSnapshot() {
   }
 }
 
-async function requestRestoreConfirmation(options: Parameters<typeof message.confirm>[0]) {
-  try {
-    await message.confirm(options)
-    return true
-  }
-  catch {
-    return false
-  }
+async function requestRestoreConfirmation(options: ConfirmOptions) {
+  return tbConfirm(options)
 }
 
 function isActiveRestoreAction(context: RestoreActionContext) {
@@ -654,25 +651,28 @@ function invalidateRestoreAction() {
   restoring.value = false
 }
 
-function deleteSnapshot(row: SnapshotRow) {
-  message.confirm({
-    title: t('agentSnapshot.delete'),
-    msg: t('agentSnapshot.deleteConfirm', { version: row.versionNo }),
-  }).then(async () => {
-    deletingSnapshotId.value = row.id
-    try {
-      await deleteAgentSnapshot(props.agentId, row.id)
-      toast.success(t('agentSnapshot.deleteSuccess'))
-      await openPanel()
-    }
-    catch (error) {
-      console.error('Failed to delete snapshot:', error)
-      toast.error(t('agentSnapshot.deleteFailed'))
-    }
-    finally {
-      deletingSnapshotId.value = ''
-    }
-  }).catch(() => {})
+async function deleteSnapshot(row: SnapshotRow) {
+  const confirmed = await tbConfirm({
+    title: t('mAgent.snap.deleteTitle'),
+    message: t('agentSnapshot.deleteConfirm', { version: num(row.versionNo) }),
+    confirmText: t('agentSnapshot.delete'),
+    danger: true,
+  })
+  if (!confirmed)
+    return
+  deletingSnapshotId.value = row.id
+  try {
+    await deleteAgentSnapshot(props.agentId, row.id)
+    toast.success(t('agentSnapshot.deleteSuccess'))
+    await openPanel()
+  }
+  catch (error) {
+    console.error('Failed to delete snapshot:', error)
+    toast.error(t('agentSnapshot.deleteFailed'))
+  }
+  finally {
+    deletingSnapshotId.value = ''
+  }
 }
 
 function canRestoreSnapshot(row: SnapshotRow) {
@@ -950,19 +950,23 @@ function translatedFallback(key: string, fallback: string) {
   return value === key ? fallback : value
 }
 
+function num(value: any) {
+  return digits(value ?? '', getCurrentLanguage())
+}
+
 function formatVersion(versionNo?: number | null) {
-  return versionNo ? `#${versionNo}` : ''
+  return versionNo ? `#${num(versionNo)}` : ''
 }
 
 function formatVersionRangeTitle(label: string, beforeVersionNo?: number | null, afterVersionNo?: number | null) {
   if (beforeVersionNo && afterVersionNo) {
-    return `${label} #${beforeVersionNo} -> #${afterVersionNo}`
+    return `${label} ${formatVersion(beforeVersionNo)} → ${formatVersion(afterVersionNo)}`
   }
   if (beforeVersionNo) {
-    return `${label} #${beforeVersionNo}`
+    return `${label} ${formatVersion(beforeVersionNo)}`
   }
   if (afterVersionNo) {
-    return `${label} #${afterVersionNo}`
+    return `${label} ${formatVersion(afterVersionNo)}`
   }
   return label
 }
@@ -1118,541 +1122,182 @@ function redactDisplayValue(value: any, parentKey = ''): any {
 </script>
 
 <template>
-  <wd-popup
-    v-model="panelVisible"
-    position="bottom"
-    custom-class="agent-snapshot-popup"
-    :close-on-click-modal="!restoring"
-    safe-area-inset-bottom
-  >
-    <view class="agent-snapshot-shell">
-      <view class="agent-snapshot-handle" />
-      <view class="agent-snapshot-header">
-        <view class="agent-snapshot-title-block">
-          <text class="agent-snapshot-title">
-            {{ t('agentSnapshot.title') }}
-          </text>
-          <text v-if="displayedCurrentVersionNo" class="nx-num agent-snapshot-subtitle">
-            {{ t('agentSnapshot.currentVersion') }} {{ formatVersion(displayedCurrentVersionNo) }}
-          </text>
-        </view>
-        <view class="agent-snapshot-close" role="button" :aria-label="t('common.cancel')" @click="panelVisible = false">
-          <wd-icon name="close" size="18px" />
-        </view>
-      </view>
+  <!-- Saved versions of this character: newest first, each can be viewed, restored or deleted -->
+  <tb-sheet v-model:open="panelVisible" :title="t('agentSnapshot.title')" :close-on-scrim="!restoring">
+    <text v-if="displayedCurrentVersionNo" class="snap-lead">
+      {{ t('mAgent.snap.lead', { v: formatVersion(displayedCurrentVersionNo) }) }}
+    </text>
 
-      <scroll-view scroll-y class="agent-snapshot-body">
-        <view v-if="loading && !snapshots.length" class="agent-snapshot-list">
-          <view v-for="n in 3" :key="n" class="agent-snapshot-card">
-            <view class="nx-skeleton agent-snapshot-skel-title" />
-            <view class="nx-skeleton agent-snapshot-skel-line" />
-          </view>
-        </view>
-
-        <view v-else-if="!snapshots.length" class="nx-empty">
-          <view class="nx-icon-tile nx-icon-tile--lg">
-            <wd-icon name="time" size="28px" />
-          </view>
-          <text class="nx-empty__title">
-            {{ t('agentSnapshot.empty') }}
-          </text>
-          <text class="nx-empty__text">
-            {{ t('agentSnapshot.emptyTip') }}
-          </text>
-        </view>
-
-        <view v-else class="agent-snapshot-list">
-          <view
-            v-for="snapshot in snapshots"
-            :key="snapshot.id"
-            class="agent-snapshot-card"
-          >
-            <view class="agent-snapshot-card__head">
-              <text class="nx-num agent-snapshot-card__version">
-                {{ formatVersion(snapshot.versionNo) }}
-              </text>
-              <text v-if="snapshot.isLatestSnapshot" class="nx-badge nx-badge--accent">
-                {{ t('agentSnapshot.currentVersion') }}
-              </text>
-            </view>
-            <text class="agent-snapshot-card__meta">
-              {{ formatTime(snapshot.createdAt) }} · {{ sourceLabel(snapshot.source) }}
-            </text>
-
-            <view class="agent-snapshot-card__fields">
-              <text
-                v-for="field in snapshot.changedFields || []"
-                :key="field"
-                class="nx-badge"
-              >
-                {{ fieldLabel(field) }}
-              </text>
-              <text v-if="!(snapshot.changedFields || []).length" class="agent-snapshot-muted">
-                {{ t('agentSnapshot.noChangedContent') }}
-              </text>
-            </view>
-
-            <view class="agent-snapshot-actions">
-              <view class="agent-snapshot-action" role="button" @click="viewSnapshot(snapshot)">
-                {{ t('agentSnapshot.view') }}
-              </view>
-              <view
-                v-if="canRestoreSnapshot(snapshot)"
-                class="agent-snapshot-action agent-snapshot-action--primary"
-                :class="{ 'is-disabled': mutationBusy }"
-                role="button"
-                @click="!mutationBusy && previewRestoreSnapshot(snapshot)"
-              >
-                {{ t('agentSnapshot.restore') }}
-              </view>
-              <view
-                v-if="canDeleteSnapshot(snapshot)"
-                class="agent-snapshot-action agent-snapshot-action--danger"
-                :class="{ 'is-disabled': deletingSnapshotId === snapshot.id }"
-                role="button"
-                @click="deletingSnapshotId !== snapshot.id && deleteSnapshot(snapshot)"
-              >
-                <wd-loading v-if="deletingSnapshotId === snapshot.id" size="14px" />
-                <text v-else>
-                  {{ t('agentSnapshot.delete') }}
-                </text>
-              </view>
-            </view>
-          </view>
-
-          <view
-            v-if="hasMore"
-            class="nx-btn nx-btn--block agent-snapshot-more"
-            :class="{ 'is-disabled': loading }"
-            role="button"
-            @click="!loading && loadSnapshots(false)"
-          >
-            <wd-loading v-if="loading" size="16px" />
-            {{ t('agentSnapshot.loadMore') }}
-          </view>
-        </view>
-      </scroll-view>
+    <view v-if="loading && !snapshots.length" class="snap-state">
+      <tb-loading :label="t('mAgent.snap.loading')" />
     </view>
-  </wd-popup>
 
-  <wd-popup
-    v-model="detailPopupVisible"
-    position="bottom"
-    custom-class="agent-snapshot-popup agent-snapshot-popup--detail"
-    :close-on-click-modal="!restoring"
-    safe-area-inset-bottom
-  >
-    <view class="agent-snapshot-shell">
-      <view class="agent-snapshot-handle" />
-      <view class="agent-snapshot-header">
-        <text class="agent-snapshot-detail-title">
-          {{ detailTitle }}
-        </text>
-        <view class="agent-snapshot-close" role="button" :aria-label="t('common.cancel')" @click="closeDetail()">
-          <wd-icon name="close" size="18px" />
-        </view>
-      </view>
+    <tb-empty v-else-if="!snapshots.length" :title="t('agentSnapshot.empty')" :text="t('mAgent.snap.emptyText')" />
 
-      <scroll-view scroll-y class="agent-snapshot-body">
-        <view v-if="detailLoading" class="agent-snapshot-list">
-          <view v-for="n in 3" :key="n" class="agent-snapshot-card">
-            <view class="nx-skeleton agent-snapshot-skel-title" />
-            <view class="nx-skeleton agent-snapshot-skel-block" />
+    <view v-else class="snap-list">
+      <view v-for="snapshot in snapshots" :key="snapshot.id" class="snap-row" :class="{ 'is-now': snapshot.isLatestSnapshot }">
+        <view class="snap-row__head">
+          <text class="tb-num snap-row__no">
+            {{ formatVersion(snapshot.versionNo) }}
+          </text>
+          <view class="snap-row__meta">
+            <text class="snap-row__time">
+              {{ formatTime(snapshot.createdAt) }}
+            </text>
+            <text class="snap-row__src">
+              {{ sourceLabel(snapshot.source) }}
+            </text>
           </view>
+          <tb-tag v-if="snapshot.isLatestSnapshot" ink="ok" mark>
+            {{ t('mAgent.snap.now') }}
+          </tb-tag>
         </view>
 
-        <view v-else-if="!detailItems.length" class="nx-empty">
-          <text class="nx-empty__text">
+        <view class="snap-row__fields">
+          <tb-tag v-for="field in snapshot.changedFields || []" :key="field" ink="ink-2">
+            {{ fieldLabel(field) }}
+          </tb-tag>
+          <text v-if="!(snapshot.changedFields || []).length" class="snap-muted">
             {{ t('agentSnapshot.noChangedContent') }}
           </text>
         </view>
 
-        <view v-else class="agent-snapshot-list">
-          <view
-            v-for="item in detailItems"
-            :key="item.field"
-            class="agent-snapshot-card agent-snapshot-card--flush"
+        <view class="snap-row__acts">
+          <tb-button size="s" icon="eye" @click="viewSnapshot(snapshot)">
+            {{ t('agentSnapshot.view') }}
+          </tb-button>
+          <tb-button
+            v-if="canRestoreSnapshot(snapshot)"
+            size="s"
+            icon="history"
+            :disabled="mutationBusy"
+            @click="previewRestoreSnapshot(snapshot)"
           >
-            <view class="agent-snapshot-diff-head">
-              <text class="agent-snapshot-diff-label">
-                {{ item.label }}
-              </text>
-              <text v-if="item.recordedOnly" class="nx-badge">
-                {{ t('agentSnapshot.recordedChange') }}
-              </text>
-              <text v-if="item.redactedDifference" class="nx-badge nx-badge--warning">
-                {{ t('agentSnapshot.redactedValueChanged') }}
-              </text>
-            </view>
-
-            <view v-if="item.single" class="agent-snapshot-diff-body">
-              <text class="agent-snapshot-diff-caption">
-                {{ t('agentSnapshot.configValue') }}
-              </text>
-              <text class="agent-snapshot-value agent-snapshot-value--after">
-                {{ item.afterText }}
-              </text>
-            </view>
-
-            <view v-else class="agent-snapshot-diff-body">
-              <view>
-                <text class="agent-snapshot-diff-caption">
-                  {{ currentDetail?.mode === 'restore' ? t('agentSnapshot.beforeRestore') : t('agentSnapshot.beforeChange') }}
-                </text>
-                <text class="agent-snapshot-value agent-snapshot-value--before">
-                  {{ item.beforeText }}
-                </text>
-              </view>
-              <view>
-                <text class="agent-snapshot-diff-caption">
-                  {{ currentDetail?.mode === 'restore' ? t('agentSnapshot.afterRestore') : t('agentSnapshot.afterChange') }}
-                </text>
-                <text class="agent-snapshot-value agent-snapshot-value--after">
-                  {{ item.afterText }}
-                </text>
-              </view>
-            </view>
-          </view>
-
-          <view
-            v-if="currentDetail?.mode === 'restore'"
-            class="agent-snapshot-note"
-          >
-            {{ t('agentSnapshot.restoreConfirm', { version: currentDetail.afterVersionNo || '' }) }}
-          </view>
-          <view
-            v-if="currentDetail?.mode === 'restore' && hasUnsavedChanges"
-            class="agent-snapshot-note agent-snapshot-note--danger"
-          >
-            {{ t('agentSnapshot.unsavedChangesWarning') }}
-          </view>
-          <view
-            v-if="restoreWillClearChatHistory"
-            class="agent-snapshot-note agent-snapshot-note--danger"
-          >
-            {{ t('agentSnapshot.restoreChatHistoryDestructiveWarning') }}
-          </view>
+            {{ t('mAgent.snap.restore') }}
+          </tb-button>
+          <tb-button
+            v-if="canDeleteSnapshot(snapshot)"
+            size="s"
+            variant="quiet"
+            icon="trash"
+            :loading="deletingSnapshotId === snapshot.id"
+            :aria-label="t('mAgent.snap.deleteLabel', { v: formatVersion(snapshot.versionNo) })"
+            @click="deleteSnapshot(snapshot)"
+          />
         </view>
-      </scroll-view>
+      </view>
 
-      <view
-        v-if="currentDetail?.mode === 'restore'"
-        class="agent-snapshot-footer"
-      >
-        <wd-button type="info" :disabled="restoring" custom-class="agent-snapshot-footer-button flex-1" @click="closeDetail()">
-          {{ t('common.cancel') }}
-        </wd-button>
-        <wd-button
-          type="primary"
-          :loading="restoring"
-          :disabled="restoring || !canConfirmRestore"
-          custom-class="agent-snapshot-footer-button flex-1"
-          @click="confirmRestoreSnapshot"
-        >
-          {{ t('agentSnapshot.confirmRestore') }}
-        </wd-button>
+      <view v-if="hasMore" class="snap-more">
+        <tb-button block :loading="loading" @click="loadSnapshots(false)">
+          {{ t('mAgent.snap.older') }}
+        </tb-button>
       </view>
     </view>
-  </wd-popup>
+  </tb-sheet>
+
+  <!-- One version: what changed, or what a restore would change -->
+  <tb-sheet v-model:open="detailPopupVisible" :title="detailTitle" :close-on-scrim="!restoring">
+    <view v-if="detailLoading" class="snap-state">
+      <tb-loading :label="t('mAgent.snap.loading')" />
+    </view>
+
+    <tb-empty v-else-if="!detailItems.length" :text="t('agentSnapshot.noChangedContent')" />
+
+    <view v-else class="snap-diff">
+      <view v-for="item in detailItems" :key="item.field" class="snap-diff__item">
+        <view class="snap-diff__head">
+          <text class="snap-diff__label">
+            {{ item.label }}
+          </text>
+          <tb-tag v-if="item.recordedOnly" ink="ink-2">
+            {{ t('agentSnapshot.recordedChange') }}
+          </tb-tag>
+          <tb-tag v-if="item.redactedDifference" ink="warn">
+            {{ t('agentSnapshot.redactedValueChanged') }}
+          </tb-tag>
+        </view>
+
+        <view v-if="item.single" class="snap-diff__pair">
+          <text class="snap-diff__cap">
+            {{ t('agentSnapshot.configValue') }}
+          </text>
+          <text class="snap-diff__val is-after">
+            {{ item.afterText }}
+          </text>
+        </view>
+
+        <view v-else class="snap-diff__pair">
+          <text class="snap-diff__cap">
+            {{ currentDetail?.mode === 'restore' ? t('agentSnapshot.beforeRestore') : t('agentSnapshot.beforeChange') }}
+          </text>
+          <text class="snap-diff__val is-before">
+            {{ item.beforeText }}
+          </text>
+          <text class="snap-diff__cap">
+            {{ currentDetail?.mode === 'restore' ? t('agentSnapshot.afterRestore') : t('agentSnapshot.afterChange') }}
+          </text>
+          <text class="snap-diff__val is-after">
+            {{ item.afterText }}
+          </text>
+        </view>
+      </view>
+
+      <text v-if="currentDetail?.mode === 'restore'" class="snap-note">
+        {{ t('agentSnapshot.restoreConfirm', { version: num(currentDetail.afterVersionNo || '') }) }}
+      </text>
+      <text v-if="currentDetail?.mode === 'restore' && hasUnsavedChanges" class="snap-note is-danger">
+        {{ t('agentSnapshot.unsavedChangesWarning') }}
+      </text>
+      <text v-if="restoreWillClearChatHistory" class="snap-note is-danger">
+        {{ t('agentSnapshot.restoreChatHistoryDestructiveWarning') }}
+      </text>
+    </view>
+
+    <template v-if="currentDetail?.mode === 'restore'" #footer>
+      <tb-button :disabled="restoring" @click="closeDetail()">
+        {{ t('common.cancel') }}
+      </tb-button>
+      <tb-button
+        variant="primary"
+        :loading="restoring"
+        :disabled="restoring || !canConfirmRestore"
+        @click="confirmRestoreSnapshot"
+      >
+        {{ t('mAgent.snap.restoreConfirm') }}
+      </tb-button>
+    </template>
+  </tb-sheet>
 </template>
 
-<style lang="scss" scoped>
-:deep(.wd-popup.agent-snapshot-popup) {
-  left: 0;
-  right: 0;
-  width: 100vw;
-  height: 86vh;
-  max-height: 1800rpx;
-  margin: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
-  background: var(--nx-bg);
-}
+<style lang="scss">
+.snap-lead { font-size: 14px; color: var(--tb-ink-2); }
+.snap-state { display: flex; justify-content: center; padding: 32px 0; }
+.snap-list { display: flex; flex-direction: column; border-top: 1px solid var(--tb-rule); }
+.snap-row { display: flex; flex-direction: column; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--tb-rule-soft); }
+.snap-row__head { display: flex; align-items: center; gap: 12px; }
+.snap-row__no { font-family: var(--tb-font-display); font-weight: 800; font-size: 26px; line-height: 1; min-width: 56px; }
+.snap-row.is-now .snap-row__no { color: var(--tb-orange); }
+.snap-row__meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.snap-row__time { font-size: 14px; font-weight: 600; }
+.snap-row__src { font-size: 13px; color: var(--tb-ink-2); }
+.snap-row__fields { display: flex; flex-wrap: wrap; gap: 6px; }
+.snap-row__fields .tb-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.snap-muted { font-size: 13px; color: var(--tb-ink-2); }
+.snap-row__acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.snap-more { padding-top: 14px; }
 
-:deep(.wd-popup.agent-snapshot-popup--detail) {
-  height: 88vh;
-  max-height: 1880rpx;
+.snap-diff { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--tb-rule); }
+.snap-diff__item { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--tb-rule-soft); }
+.snap-diff__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.snap-diff__label { font-weight: 700; font-size: 15px; }
+.snap-diff__pair { display: flex; flex-direction: column; gap: 4px; }
+.snap-diff__cap { font-size: 12px; font-weight: 600; color: var(--tb-ink-2); }
+.snap-diff__val {
+  display: block; padding: 8px 10px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
+  border-radius: var(--tb-radius-s); background: var(--tb-paper-2);
 }
-
-@media (min-width: 901px) {
-  :deep(.wd-popup.agent-snapshot-popup) {
-    width: calc(100vw - 32px);
-    max-width: 760px;
-    margin: 0 auto;
-  }
-}
-
-.agent-snapshot-shell {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--nx-bg);
-}
-
-.agent-snapshot-handle {
-  flex: none;
-  width: 72rpx;
-  height: 10rpx;
-  margin: var(--nx-space-2) auto 0;
-  border-radius: var(--nx-radius-pill);
-  background: var(--nx-surface-3);
-}
-
-.agent-snapshot-header {
-  box-sizing: border-box;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--nx-space-3);
-  padding: var(--nx-space-3) var(--nx-gutter) var(--nx-space-3);
-  border-bottom: 1rpx solid var(--nx-border);
-}
-
-.agent-snapshot-title-block {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.agent-snapshot-title {
-  font-size: var(--nx-text-title);
-  font-weight: 700;
-  letter-spacing: -0.018em;
-  color: var(--nx-text);
-}
-
-.agent-snapshot-subtitle {
-  margin-top: 4rpx;
-  font-size: var(--nx-text-footnote);
-  color: var(--nx-text-2);
-}
-
-.agent-snapshot-detail-title {
-  min-width: 0;
-  flex: 1;
-  color: var(--nx-text);
-  font-size: var(--nx-text-headline);
-  font-weight: 600;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-.agent-snapshot-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background: var(--nx-surface-2);
-  color: var(--nx-text-2);
-  &:active {
-    background: var(--nx-surface-3);
-  }
-}
-
-.agent-snapshot-body {
-  box-sizing: border-box;
-  min-height: 0;
-  flex: 1;
-}
-
-.agent-snapshot-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nx-space-3);
-  padding: var(--nx-space-4) var(--nx-gutter) var(--nx-space-5);
-}
-
-.agent-snapshot-card {
-  padding: var(--nx-space-4);
-  border-radius: var(--nx-radius-lg);
-  background: var(--nx-surface);
-  box-shadow: var(--nx-shadow-1);
-
-  &--flush {
-    padding: 0;
-    overflow: hidden;
-  }
-  &__head {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-2);
-  }
-  &__version {
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-    color: var(--nx-text);
-  }
-  &__meta {
-    display: block;
-    margin-top: 4rpx;
-    font-size: var(--nx-text-footnote);
-    color: var(--nx-text-2);
-  }
-  &__fields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--nx-space-1);
-    margin-top: var(--nx-space-3);
-  }
-}
-
-.agent-snapshot-muted {
-  font-size: var(--nx-text-footnote);
-  color: var(--nx-text-3);
-}
-
-.agent-snapshot-actions {
-  display: flex;
-  gap: var(--nx-space-2);
-  margin-top: var(--nx-space-4);
-}
-
-.agent-snapshot-action {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 72rpx;
-  overflow: hidden;
-  border-radius: var(--nx-radius);
-  background: var(--nx-surface-2);
-  color: var(--nx-text);
-  font-size: var(--nx-text-callout);
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  transition: transform var(--nx-dur-1) var(--nx-ease);
-  &:active {
-    transform: scale(0.97);
-  }
-  &--primary {
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-  }
-  &--danger {
-    background: var(--nx-danger-soft);
-    color: var(--nx-danger);
-  }
-  &.is-disabled {
-    opacity: 0.5;
-  }
-}
-
-.agent-snapshot-more {
-  margin-top: var(--nx-space-1);
-  &.is-disabled {
-    opacity: 0.6;
-  }
-}
-
-.agent-snapshot-skel-title {
-  width: 40%;
-  height: 32rpx;
-}
-.agent-snapshot-skel-line {
-  width: 70%;
-  height: 24rpx;
-  margin-top: var(--nx-space-2);
-}
-.agent-snapshot-skel-block {
-  width: 100%;
-  height: 96rpx;
-  margin-top: var(--nx-space-3);
-}
-
-.agent-snapshot-diff-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--nx-space-2);
-  padding: var(--nx-space-3) var(--nx-space-4);
-  border-bottom: 1rpx solid var(--nx-border);
-}
-
-.agent-snapshot-diff-label {
-  font-size: var(--nx-text-body);
-  font-weight: 600;
-  color: var(--nx-text);
-}
-
-.agent-snapshot-diff-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nx-space-3);
-  padding: var(--nx-space-3) var(--nx-space-4) var(--nx-space-4);
-}
-
-.agent-snapshot-diff-caption {
-  display: block;
-  margin-bottom: var(--nx-space-1);
-  font-size: var(--nx-text-caption);
-  font-weight: 500;
-  color: var(--nx-text-3);
-}
-
-.agent-snapshot-value {
-  display: block;
-  padding: var(--nx-space-2) var(--nx-space-3);
-  border-radius: var(--nx-radius-sm);
-  font-family: var(--nx-font-mono);
-  font-size: var(--nx-text-footnote);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  color: var(--nx-text);
-
-  &--before {
-    background: var(--nx-danger-soft);
-  }
-  &--after {
-    background: var(--nx-success-soft);
-  }
-}
-
-.agent-snapshot-note {
-  padding: var(--nx-space-3) var(--nx-space-4);
-  border-radius: var(--nx-radius-lg);
-  background: var(--nx-info-soft);
-  color: var(--nx-text);
-  font-size: var(--nx-text-footnote);
-  line-height: 1.5;
-
-  &--danger {
-    background: var(--nx-danger-soft);
-  }
-}
-
-.agent-snapshot-footer {
-  box-sizing: border-box;
-  flex-shrink: 0;
-  display: flex;
-  gap: var(--nx-space-2);
-  padding: var(--nx-space-3) var(--nx-gutter);
-  background: var(--nx-glass);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
-  border-top: 1rpx solid var(--nx-border);
-}
-
-:deep(.agent-snapshot-footer-button) {
-  min-width: 0;
-  border-radius: var(--nx-radius);
-}
-
-:deep(.agent-snapshot-footer-button .wd-button__text) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.snap-diff__val.is-before { color: var(--tb-ink-2); }
+.snap-diff__val.is-after { background: transparent; border: 1px solid var(--tb-rule-soft); }
+.snap-note { display: block; padding-top: 12px; font-size: 14px; color: var(--tb-ink); }
+.snap-note.is-danger { color: var(--tb-danger); }
 </style>

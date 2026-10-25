@@ -1,36 +1,49 @@
+<!-- Tools: what TinyBot may use when it talks, and the MCP endpoint (owner: m-agent).
+     Edits the plugin store live; the character screen saves the choice with the rest. -->
 <route lang="jsonc" type="page">
 {
   "layout": "default",
   "style": {
-    "navigationBarTitleText": "Edit Features",
+    "navigationBarTitleText": "Tools",
     "navigationStyle": "custom"
   }
 }
 </route>
 
 <script lang="ts" setup>
-import { useMessage } from 'wot-design-uni/components/wd-message-box'
+import { computed, onMounted, ref, watch } from 'vue'
 import { getMcpAddress, getMcpTools } from '@/api/agent/agent'
-import { t } from '@/i18n'
+import { getCurrentLanguage, t } from '@/i18n'
 import { usePluginStore } from '@/store'
+import { digits } from '@/utils/calendar.mjs'
+import { toast } from '@/utils/toast'
+import { isHomeAssistant, linesToList, listToLines, normalizeFunctionParams } from './agentModel.mjs'
 
-const message = useMessage()
+defineOptions({
+  name: 'AgentTools',
+})
+
 const pluginStore = usePluginStore()
+const num = (n: any) => digits(n, getCurrentLanguage())
 
 const notSelectedList = ref<any[]>([])
 const selectedList = ref<any[]>([])
 
 // Use computed properties to get data from store
-const allFunctions = computed(() => pluginStore.allFunctions)
-const functions = computed(() => pluginStore.currentFunctions)
+const allFunctions = computed(() => pluginStore.allFunctions as any[])
+const functions = computed(() => pluginStore.currentFunctions as any[])
 const agentId = computed(() => pluginStore.currentAgentId)
 const mcpAddress = ref('')
 const mcpTools = ref<string[]>([])
+const mcpLoading = ref(false)
 
-// Load MCP address from local storage on init
-if (uni.getStorageSync(`cachedMcpAddress_${agentId.value}`)) {
-  mcpAddress.value = uni.getStorageSync(`cachedMcpAddress_${agentId.value}`)
+// Show the last known MCP address at once while the fresh one loads
+try {
+  const cached = uni.getStorageSync(`cachedMcpAddress_${agentId.value}`)
+  if (cached)
+    mcpAddress.value = cached
 }
+catch {}
 
 // Parameter editing related
 const showParamDialog = ref(false)
@@ -38,21 +51,7 @@ const currentFunction = ref<any>(null)
 const tempParams = ref<Record<string, any>>({})
 const arrayTextCache = ref<Record<string, string>>({})
 const jsonTextCache = ref<Record<string, string>>({})
-
-function normalizeFunctionParams(paramInfo: any, fallback: Record<string, any> = {}) {
-  if (!paramInfo)
-    return { ...fallback }
-  if (typeof paramInfo === 'string') {
-    try {
-      const parsed = JSON.parse(paramInfo)
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : { ...fallback }
-    }
-    catch {
-      return { ...fallback }
-    }
-  }
-  return typeof paramInfo === 'object' && !Array.isArray(paramInfo) ? { ...fallback, ...paramInfo } : { ...fallback }
-}
+const jsonInvalid = ref<Record<string, boolean>>({})
 
 async function mergeFunctions() {
   selectedList.value = functions.value.map((mapping) => {
@@ -75,19 +74,16 @@ async function mergeFunctions() {
   )
 
   if (agentId.value) {
-    // Prioritize getting and displaying MCP address
+    mcpLoading.value = true
     try {
       const address = await getMcpAddress(agentId.value)
-      mcpAddress.value = address
-      // Cache to local storage for immediate display on next open
-      uni.setStorageSync(`cachedMcpAddress_${agentId.value}`, address)
+      mcpAddress.value = address || ''
+      uni.setStorageSync(`cachedMcpAddress_${agentId.value}`, mcpAddress.value)
     }
     catch (error) {
-      mcpAddress.value = error
       console.error('Failed to get MCP address:', error)
     }
 
-    // Async fetch MCP tools without blocking UI
     try {
       const tools = await getMcpTools(agentId.value)
       mcpTools.value = tools || []
@@ -95,31 +91,24 @@ async function mergeFunctions() {
     catch (error) {
       console.error('Failed to get MCP tools list:', error)
     }
+    mcpLoading.value = false
   }
 }
 
 // Add plugin to selected
 function selectFunction(func: any) {
-  // Add to selected list
   selectedList.value = [...selectedList.value, {
     id: func.id,
     name: func.name,
     params: normalizeFunctionParams(func.params),
     fieldsMeta: func.fieldsMeta,
   }]
-
-  // Remove from unselected list
-  notSelectedList.value = notSelectedList.value.filter(
-    item => item.id !== func.id,
-  )
+  notSelectedList.value = notSelectedList.value.filter(item => item.id !== func.id)
 }
 
 // Remove plugin from selected
 function removeFunction(func: any) {
-  // Remove from selected list
   selectedList.value = selectedList.value.filter(item => item.id !== func.id)
-
-  // Add back to unselected list
   const originalFunc = allFunctions.value.find(f => f.id === func.id)
   if (originalFunc) {
     notSelectedList.value.push(originalFunc)
@@ -129,23 +118,19 @@ function removeFunction(func: any) {
 // Edit plugin parameters
 function editFunction(func: any) {
   currentFunction.value = func
-
-  // Use parameters of current function directly
   tempParams.value = normalizeFunctionParams(func.params)
+  arrayTextCache.value = {}
+  jsonTextCache.value = {}
+  jsonInvalid.value = {}
 
-  // Initialize text cache
   if (func.fieldsMeta) {
     func.fieldsMeta.forEach((field: any) => {
       if (field.type === 'array') {
-        const value = tempParams.value[field.key]
-        arrayTextCache.value[field.key] = Array.isArray(value)
-          ? value.join('\n')
-          : value || ''
+        arrayTextCache.value[field.key] = listToLines(tempParams.value[field.key])
       }
       else if (field.type === 'json') {
-        const value = tempParams.value[field.key]
         try {
-          jsonTextCache.value[field.key] = JSON.stringify(value || {}, null, 2)
+          jsonTextCache.value[field.key] = JSON.stringify(tempParams.value[field.key] || {}, null, 2)
         }
         catch {
           jsonTextCache.value[field.key] = '{}'
@@ -157,71 +142,41 @@ function editFunction(func: any) {
   showParamDialog.value = true
 }
 
-// Handle parameter change - save in real time
-function handleParamChange(key: string, value: any, field: any) {
-  tempParams.value[key] = value
-
-  // Real-time update to selectedList
+function writeBack() {
   if (currentFunction.value) {
-    const index = selectedList.value.findIndex(
-      f => f.id === currentFunction.value.id,
-    )
+    const index = selectedList.value.findIndex(f => f.id === currentFunction.value.id)
     if (index >= 0) {
       selectedList.value[index].params = { ...tempParams.value }
+      selectedList.value = [...selectedList.value]
     }
   }
+}
+
+// Handle parameter change - save in real time
+function handleParamChange(key: string, value: any) {
+  tempParams.value[key] = value
+  writeBack()
 }
 
 // Handle array parameter change - save in real time
-function handleArrayChange(key: string, value: string, field: any) {
+function handleArrayChange(key: string, value: string) {
   arrayTextCache.value[key] = value
-  // Convert to array storage
-  const arrayValue = value.split('\n').filter(Boolean)
-  tempParams.value[key] = arrayValue
-
-  // Real-time update to selectedList
-  if (currentFunction.value) {
-    const index = selectedList.value.findIndex(
-      f => f.id === currentFunction.value.id,
-    )
-    if (index >= 0) {
-      selectedList.value[index].params = { ...tempParams.value }
-    }
-  }
+  tempParams.value[key] = linesToList(value)
+  writeBack()
 }
 
-// Handle JSON parameter change - save in real-time
-function handleJsonChange(key: string, value: string, field: any) {
+// Handle JSON parameter change - kept only when it parses
+function handleJsonChange(key: string, value: string) {
   jsonTextCache.value[key] = value
   try {
-    const jsonValue = JSON.parse(value)
-    tempParams.value[key] = jsonValue
-
-    // Real-time update to selectedList
-    if (currentFunction.value) {
-      const index = selectedList.value.findIndex(
-        f => f.id === currentFunction.value.id,
-      )
-      if (index >= 0) {
-        selectedList.value[index].params = { ...tempParams.value }
-      }
-    }
+    tempParams.value[key] = JSON.parse(value)
+    jsonInvalid.value[key] = false
+    writeBack()
   }
   catch {
-    message.alert(t('agent.tools.jsonFormatError'))
+    jsonInvalid.value[key] = true
+    toast.error(t('mAgent.tools.jsonError'))
   }
-}
-
-// Home Assistant Smart Home Helpers
-function isHomeAssistant(func: any) {
-  if (!func)
-    return false
-  const code = String(func.providerCode || '').toLowerCase()
-  const id = String(func.id || '').toUpperCase()
-  const name = String(func.name || '').toLowerCase()
-  return code === 'hass_state' || code === 'home_assistant'
-    || id === 'SYSTEM_PLUGIN_HA_STATE'
-    || name.includes('homeassistant') || name.includes('home assistant')
 }
 
 function insertMobileDeviceTemplate(templateText: string) {
@@ -229,18 +184,17 @@ function insertMobileDeviceTemplate(templateText: string) {
     return
   const current = arrayTextCache.value.devices || ''
   const updated = current ? `${current.trim()}\n${templateText}` : templateText
-  const devicesField = currentFunction.value.fieldsMeta?.find((f: any) => f.key === 'devices')
-  handleArrayChange('devices', updated, devicesField)
-  uni.showToast({ title: 'Template added', icon: 'none' })
+  handleArrayChange('devices', updated)
+  toast.success(t('mAgent.tools.deviceAdded'))
 }
 
 // Quick-insert device templates for the smart home helper
 const haTemplates = [
-  { labelKey: 'agent.tools.addLight', template: 'Living Room, Light, light.living_room' },
-  { labelKey: 'agent.tools.addFan', template: 'Bedroom, Ceiling Fan, fan.bedroom' },
-  { labelKey: 'agent.tools.addClimate', template: 'Living Room, AC, climate.living_room' },
-  { labelKey: 'agent.tools.addSwitch', template: 'Kitchen, Plug, switch.kitchen_plug' },
-  { labelKey: 'agent.tools.addLock', template: 'Entrance, Front Door Lock, lock.front_door' },
+  { labelKey: 'mAgent.tools.addLight', template: 'Living Room, Light, light.living_room' },
+  { labelKey: 'mAgent.tools.addFan', template: 'Bedroom, Ceiling Fan, fan.bedroom' },
+  { labelKey: 'mAgent.tools.addClimate', template: 'Living Room, AC, climate.living_room' },
+  { labelKey: 'mAgent.tools.addSwitch', template: 'Kitchen, Plug, switch.kitchen_plug' },
+  { labelKey: 'mAgent.tools.addLock', template: 'Entrance, Front Door Lock, lock.front_door' },
 ]
 
 const haSampleCommands = [
@@ -281,20 +235,14 @@ function togglePlugin(row: PluginRow, enabled: boolean) {
   }
 }
 
-// Safe area for the custom navigation bar
-const safeTop = (uni.getSystemInfoSync().safeAreaInsets?.top) || 0
-
-// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
-function tx(key: string, fallback: string, params?: Record<string, string | number>) {
-  const value = t(key, params)
-  if (value !== key)
-    return value
-  if (!params)
-    return fallback
-  return Object.entries(params).reduce((text, [name, val]) => text.replace(`{${name}}`, String(val)), fallback)
+function rowHint(row: PluginRow) {
+  if (!row.selected)
+    return row.providerCode
+  const n = row.selected.fieldsMeta?.length || 0
+  return n ? t('mAgent.tools.settingsCount', { n: num(n) }) : t('mAgent.tools.nothingToSet')
 }
 
-// Close parameter editing dialog
+// Close parameter editing sheet
 function closeParamEdit() {
   showParamDialog.value = false
   tempParams.value = {}
@@ -302,7 +250,6 @@ function closeParamEdit() {
   jsonTextCache.value = {}
 }
 
-// Return to previous page and update config
 function goBack() {
   uni.navigateBack()
 }
@@ -310,7 +257,7 @@ function goBack() {
 // Copy MCP address
 function copyMcpAddress() {
   if (!mcpAddress.value) {
-    message.alert(t('agent.tools.noMcpAddressToCopy'))
+    toast.warning(t('mAgent.tools.noAddress'))
     return
   }
 
@@ -318,29 +265,19 @@ function copyMcpAddress() {
     data: mcpAddress.value,
     showToast: false,
     success: () => {
-      message.alert(t('agent.tools.mcpAddressCopied'))
+      toast.success(t('mAgent.tools.copied'))
     },
     fail: () => {
-      message.alert(t('agent.tools.copyFailed'))
+      toast.error(t('mAgent.tools.copyFailed'))
     },
   })
 }
 
-// Helper function for rendering parameter fields
-function getFieldDisplayValue(field: any, value: any) {
-  if (field.type === 'array') {
-    return Array.isArray(value) ? value.join('\n') : value || ''
-  }
-  return value || ''
-}
-
-// Field description
+// Field description: its label and default
 function getFieldRemark(field: any) {
-  let description = field.label || ''
-  if (field.default) {
-    description += `（${t('agent.tools.defaultValue')}：${field.default}）`
-  }
-  return description
+  return field.default !== undefined && field.default !== null && field.default !== ''
+    ? t('mAgent.tools.defaultValue', { v: String(field.default) })
+    : ''
 }
 
 // Watch selected list changes and update plugin config in real-time
@@ -349,521 +286,210 @@ watch(() => selectedList.value, (newSelectedList) => {
     pluginId: f.id,
     paramInfo: normalizeFunctionParams(f.params),
   }))
-  pluginStore.updateFunctions(finalFunctions)
-})
+  pluginStore.updateFunctions(finalFunctions as any)
+}, { deep: true })
 
 onMounted(async () => {
-  // Get data directly from store and merge
   await mergeFunctions()
 })
 </script>
 
 <template>
-  <view class="nx-subpage">
-    <view class="nx-subpage__nav" :style="{ paddingTop: `${safeTop}px` }">
-      <view class="nx-subpage__back" role="button" :aria-label="tx('agent.navBack', 'Back')" @click="goBack">
-        <wd-icon name="arrow-left" size="20px" />
+  <view class="tb-wrap tl">
+    <tb-page-header :title="t('mAgent.tools.title')" :description="t('mAgent.tools.lead')" back />
+
+    <!-- Built-in tools -->
+    <tb-section :title="t('mAgent.tools.builtIn')" :description="t('mAgent.tools.on', { n: num(selectedList.length) })">
+      <tb-empty v-if="!pluginRows.length" :text="t('mAgent.tools.none')" />
+      <view v-else class="tl-rows">
+        <view v-for="row in pluginRows" :key="row.id" class="tl-row" :class="{ 'is-on': !!row.selected }">
+          <view
+            class="tl-row__main" :role="row.selected ? 'button' : undefined" hover-class="is-press"
+            @click="row.selected && editFunction(row.selected)"
+          >
+            <text class="tl-row__name">
+              {{ row.name }}
+            </text>
+            <text v-if="rowHint(row)" class="tl-row__hint">
+              {{ rowHint(row) }}
+            </text>
+          </view>
+          <tb-switch :model-value="!!row.selected" :label="row.name" class="tl-row__sw" @change="(v: boolean) => togglePlugin(row, v)" />
+        </view>
       </view>
-      <text class="nx-subpage__nav-title nx-truncate">
-        {{ t('agent.plugins') }}
-      </text>
-      <view class="nx-subpage__back" />
+    </tb-section>
+
+    <!-- MCP endpoint -->
+    <tb-section :title="t('mAgent.tools.mcp')" :description="t('mAgent.tools.mcpLead')">
+      <view class="tl-mcp">
+        <text class="tl-mcp__addr" :class="{ 'is-empty': !mcpAddress }">
+          {{ mcpAddress || t('mAgent.tools.noAddress') }}
+        </text>
+        <tb-button size="s" icon="copy" :disabled="!mcpAddress" @click="copyMcpAddress">
+          {{ t('mAgent.tools.copy') }}
+        </tb-button>
+      </view>
+      <view class="tl-mcp__tools">
+        <text class="tl-mcp__label">
+          {{ t('mAgent.tools.mcpTools') }}
+        </text>
+        <tb-loading v-if="mcpLoading && !mcpTools.length" />
+        <text v-else-if="!mcpTools.length" class="tl-muted">
+          {{ t('mAgent.tools.mcpNone') }}
+        </text>
+        <view v-else class="tl-tags">
+          <tb-tag v-for="tool in mcpTools" :key="tool" ink="ink-2">
+            {{ tool }}
+          </tb-tag>
+        </view>
+      </view>
+    </tb-section>
+
+    <view class="tl-bar">
+      <tb-button variant="primary" size="l" block @click="goBack">
+        {{ t('mAgent.tools.done') }}
+      </tb-button>
     </view>
 
-    <scroll-view scroll-y class="nx-subpage__scroll">
-      <view class="nx-subpage__content">
-        <view class="nx-large-title">
-          <view class="nx-large-title__title">
-            {{ t('agent.plugins') }}
-          </view>
-          <view class="nx-large-title__subtitle">
-            {{ tx('agent.toolsSubtitle', 'Choose what your agent can do. Changes apply after you save the agent.') }}
-          </view>
-        </view>
+    <!-- Settings of one tool -->
+    <tb-sheet v-model:open="showParamDialog" :title="currentFunction?.name || t('mAgent.tools.settings')" @close="closeParamEdit">
+      <tb-empty
+        v-if="!currentFunction?.fieldsMeta || currentFunction.fieldsMeta.length === 0"
+        :text="t('mAgent.tools.noSettings', { name: currentFunction?.name || '' })"
+      />
 
-        <!-- Built-in tools -->
-        <view class="nx-group">
-          <view class="nx-group__header">
-            {{ t('agent.tools.builtInPlugins') }}
-          </view>
-          <view v-if="!pluginRows.length" class="nx-group__body">
-            <view class="nx-empty tools-empty">
-              <text class="nx-empty__text">
-                {{ t('agent.tools.noMorePlugins') }}
-              </text>
-            </view>
-          </view>
-          <view v-else class="nx-group__body">
-            <view
-              v-for="row in pluginRows"
-              :key="row.id"
-              class="nx-row"
-              :class="{ 'nx-row--tap': !!row.selected }"
-              @click="row.selected && editFunction(row.selected)"
-            >
-              <view class="nx-icon-tile tools-icon" :class="{ 'nx-icon-tile--neutral': !row.selected }">
-                <wd-icon name="app" size="18px" />
-              </view>
-              <view class="nx-row__main">
-                <view class="nx-row__title nx-truncate">
-                  {{ row.name }}
-                </view>
-                <view class="nx-row__subtitle nx-truncate">
-                  {{ row.selected ? t('agent.tools.clickToConfigure') : row.providerCode }}
-                </view>
-              </view>
-              <view @click.stop>
-                <wd-switch
-                  :model-value="!!row.selected"
-                  size="22px"
-                  @change="({ value }) => togglePlugin(row, value)"
-                />
-              </view>
-            </view>
-          </view>
-          <view class="nx-group__footer nx-num">
-            {{ tx('agent.toolsEnabledCount', '{count} on', { count: selectedList.length }) }}
-          </view>
-        </view>
-
-        <!-- MCP endpoint -->
-        <view class="nx-group">
-          <view class="nx-group__header">
-            {{ t('agent.tools.mcpEndpoint') }}
-          </view>
-          <view class="nx-group__body">
-            <view class="nx-row">
-              <view class="nx-row__main">
-                <text class="nx-mono nx-break tools-address">
-                  {{ mcpAddress || '—' }}
-                </text>
-              </view>
-              <view class="tools-copy" role="button" :aria-label="t('agent.tools.copy')" @click="copyMcpAddress">
-                <wd-icon name="copy" size="16px" />
-                <text>{{ t('agent.tools.copy') }}</text>
-              </view>
-            </view>
-            <view class="nx-row tools-mcp-list">
-              <view v-if="mcpTools && mcpTools.length === 0" class="nx-row__subtitle">
-                {{ t('agent.tools.noTools') }}
-              </view>
-              <view v-else class="tools-chips">
-                <text v-for="tool in mcpTools" :key="tool" class="nx-badge nx-mono tools-chip">
-                  {{ tool }}
-                </text>
-              </view>
-            </view>
-          </view>
-        </view>
-      </view>
-    </scroll-view>
-
-    <!-- Parameter sheet -->
-    <wd-popup
-      v-model="showParamDialog"
-      position="bottom"
-      custom-class="nx-sheet nx-sheet--full"
-      safe-area-inset-bottom
-      @close="closeParamEdit"
-    >
-      <view class="param-sheet">
-        <view class="param-sheet__bar">
-          <text class="nx-headline nx-truncate param-sheet__title">
-            {{ currentFunction?.name || t('agent.tools.parameterConfig') }}
+      <block v-else>
+        <!-- Smart home helper -->
+        <view v-if="isHomeAssistant(currentFunction)" class="tl-ha">
+          <text class="tl-ha__title">
+            {{ t('mAgent.tools.smartHome') }}
           </text>
-          <text class="param-sheet__done" role="button" @click="showParamDialog = false">
-            {{ tx('agent.editorDone', 'Done') }}
+          <text class="tl-muted">
+            {{ t('mAgent.tools.smartHomeDesc') }}
+          </text>
+          <view class="tl-ha__btns">
+            <tb-button v-for="item in haTemplates" :key="item.labelKey" size="s" icon="plus" @click="insertMobileDeviceTemplate(item.template)">
+              {{ t(item.labelKey) }}
+            </tb-button>
+          </view>
+          <text class="tl-ha__sub">
+            {{ t('mAgent.tools.samples') }}
+          </text>
+          <text v-for="line in haSampleCommands" :key="line" class="tl-ha__line">
+            {{ line }}
           </text>
         </view>
 
-        <scroll-view scroll-y class="param-sheet__scroll">
-          <view class="param-sheet__content">
-            <view class="nx-group__header">
-              {{ t('agent.tools.parameterConfig') }}
-            </view>
+        <view v-for="field in currentFunction.fieldsMeta" :key="field.key" class="tl-field">
+          <text class="tl-field__label">
+            {{ field.label }}
+          </text>
+          <text v-if="getFieldRemark(field)" class="tl-muted">
+            {{ getFieldRemark(field) }}
+          </text>
 
-            <!-- No parameters -->
-            <view
-              v-if="!currentFunction?.fieldsMeta || currentFunction.fieldsMeta.length === 0"
-              class="nx-group__body"
-            >
-              <view class="nx-empty tools-empty">
-                <text class="nx-empty__text">
-                  {{ currentFunction?.name }} {{ t('agent.tools.noParamsNeeded') }}
-                </text>
-              </view>
-            </view>
+          <!-- List: one item per line -->
+          <block v-if="field.type === 'array'">
+            <textarea
+              class="tl-area" :value="arrayTextCache[field.key]" :maxlength="-1" :aria-label="field.label"
+              :placeholder="t('mAgent.tools.eachLine')" placeholder-class="tl-ph"
+              @input="(e: any) => handleArrayChange(field.key, e.detail.value)"
+            />
+            <text class="tl-muted">
+              {{ t('mAgent.tools.eachLine') }}
+            </text>
+          </block>
 
-            <template v-else>
-              <!-- Smart home helper -->
-              <view v-if="isHomeAssistant(currentFunction)" class="nx-group">
-                <view class="nx-group__body ha-card">
-                  <text class="nx-row__title ha-card__title">
-                    {{ t('agent.tools.smartHomeGuide') }}
-                  </text>
-                  <text class="nx-row__subtitle ha-card__desc">
-                    {{ t('agent.tools.smartHomeGuideDesc') }}
-                  </text>
-                  <view class="tools-chips ha-card__chips">
-                    <view
-                      v-for="item in haTemplates"
-                      :key="item.labelKey"
-                      class="ha-chip"
-                      role="button"
-                      @click="insertMobileDeviceTemplate(item.template)"
-                    >
-                      <wd-icon name="add" size="12px" />
-                      <text>{{ t(item.labelKey) }}</text>
-                    </view>
-                  </view>
-                  <view class="ha-card__samples">
-                    <text class="ha-card__samples-title">
-                      {{ t('agent.tools.sampleCommands') }}
-                    </text>
-                    <text v-for="line in haSampleCommands" :key="line" class="ha-card__sample">
-                      {{ line }}
-                    </text>
-                  </view>
-                </view>
-              </view>
+          <!-- JSON -->
+          <block v-else-if="field.type === 'json'">
+            <textarea
+              class="tl-area tl-area--code" :class="{ 'is-invalid': jsonInvalid[field.key] }" :value="jsonTextCache[field.key]"
+              :maxlength="-1" :aria-label="field.label" :placeholder="t('mAgent.tools.validJson')" placeholder-class="tl-ph"
+              @input="(e: any) => (jsonTextCache[field.key] = e.detail.value)"
+              @blur="(e: any) => handleJsonChange(field.key, e.detail.value)"
+            />
+            <text class="tl-muted" :class="{ 'is-error': jsonInvalid[field.key] }">
+              {{ jsonInvalid[field.key] ? t('mAgent.tools.jsonError') : t('mAgent.tools.validJson') }}
+            </text>
+          </block>
 
-              <view v-for="field in currentFunction.fieldsMeta" :key="field.key" class="nx-group">
-                <view class="nx-group__body param-field">
-                  <text class="nx-row__title">
-                    {{ field.label }}
-                  </text>
-                  <text v-if="getFieldRemark(field)" class="nx-row__subtitle param-field__remark">
-                    {{ getFieldRemark(field) }}
-                  </text>
+          <!-- Number -->
+          <tb-input
+            v-else-if="field.type === 'number'" type="digit" :model-value="tempParams[field.key] ?? ''" :aria-label="field.label"
+            :placeholder="t('mAgent.tools.pleaseInput', { label: field.label })"
+            @update:model-value="(v: string) => handleParamChange(field.key, Number(v))"
+          />
 
-                  <!-- String type -->
-                  <input
-                    v-if="field.type === 'string'"
-                    v-model="tempParams[field.key]"
-                    class="param-input"
-                    type="text"
-                    :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
-                    placeholder-class="param-placeholder"
-                    @input="handleParamChange(field.key, $event.detail.value, field)"
-                  >
-
-                  <!-- Array type -->
-                  <view v-else-if="field.type === 'array'">
-                    <text class="param-field__hint">
-                      {{ t('agent.tools.eachLineOneItem') }}
-                    </text>
-                    <textarea
-                      v-model="arrayTextCache[field.key]"
-                      class="param-input param-input--area"
-                      :maxlength="-1"
-                      :placeholder="`${t('agent.tools.pleaseInput')}${field.label}，${t('agent.tools.eachLineOneItem')}`"
-                      placeholder-class="param-placeholder"
-                      @input="handleArrayChange(field.key, $event.detail.value, field)"
-                    />
-                  </view>
-
-                  <!-- JSON type -->
-                  <view v-else-if="field.type === 'json'">
-                    <text class="param-field__hint">
-                      {{ t('agent.tools.pleaseInputValidJson') }}
-                    </text>
-                    <textarea
-                      v-model="jsonTextCache[field.key]"
-                      class="param-input param-input--area nx-mono param-input--code"
-                      :maxlength="-1"
-                      :placeholder="t('agent.tools.pleaseInputValidJson')"
-                      placeholder-class="param-placeholder"
-                      @blur="handleJsonChange(field.key, $event.detail.value, field)"
-                    />
-                  </view>
-
-                  <!-- Number type -->
-                  <input
-                    v-else-if="field.type === 'number'"
-                    v-model="tempParams[field.key]"
-                    class="param-input nx-num"
-                    type="number"
-                    :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
-                    placeholder-class="param-placeholder"
-                    @input="handleParamChange(field.key, Number($event.detail.value), field)"
-                  >
-
-                  <!-- Boolean type -->
-                  <view v-else-if="field.type === 'boolean' || field.type === 'bool'" class="param-switch">
-                    <view class="nx-row__main">
-                      <text class="nx-row__title">
-                        {{ t('agent.tools.enableFunction') }}
-                      </text>
-                      <text class="nx-row__subtitle param-switch__sub">
-                        {{ t('agent.tools.toggleFunction') }}
-                      </text>
-                    </view>
-                    <wd-switch
-                      :model-value="!!tempParams[field.key]"
-                      size="22px"
-                      @change="({ value }) => handleParamChange(field.key, value, field)"
-                    />
-                  </view>
-
-                  <!-- Default string type -->
-                  <input
-                    v-else
-                    v-model="tempParams[field.key]"
-                    class="param-input"
-                    type="text"
-                    :placeholder="`${t('agent.tools.pleaseInput')}${field.label}`"
-                    placeholder-class="param-placeholder"
-                    @input="handleParamChange(field.key, $event.detail.value, field)"
-                  >
-                </view>
-              </view>
-            </template>
+          <!-- On / off -->
+          <view v-else-if="field.type === 'boolean' || field.type === 'bool'" class="tl-bool">
+            <text class="tl-muted">
+              {{ t('mAgent.tools.toggle') }}
+            </text>
+            <tb-switch
+              :model-value="!!tempParams[field.key]" :label="field.label" class="tl-row__sw"
+              @change="(v: boolean) => handleParamChange(field.key, v)"
+            />
           </view>
-        </scroll-view>
-      </view>
-    </wd-popup>
+
+          <!-- Text (string and anything else) -->
+          <tb-input
+            v-else :model-value="tempParams[field.key] ?? ''" :maxlength="1000" :aria-label="field.label"
+            :placeholder="t('mAgent.tools.pleaseInput', { label: field.label })"
+            @update:model-value="(v: string) => handleParamChange(field.key, v)"
+          />
+        </view>
+      </block>
+
+      <template #footer>
+        <tb-button variant="primary" @click="showParamDialog = false">
+          {{ t('mAgent.tools.settingsDone') }}
+        </tb-button>
+      </template>
+    </tb-sheet>
   </view>
 </template>
 
-<style scoped lang="scss">
-.nx-subpage {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: var(--nx-bg);
+<style lang="scss">
+.tl { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.tl-rows { display: flex; flex-direction: column; border-top: 1px solid var(--tb-rule-soft); }
+.tl-row { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--tb-rule-soft); }
+.tl-row:last-child { border-bottom: 0; }
+.tl-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 0; min-height: 54px; justify-content: center; }
+.tl-row__main.is-press { background: var(--tb-paper-2); }
+.tl-row__name { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.tl-row.is-on .tl-row__hint { color: var(--tb-ink-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--tb-rule-soft); }
+.tl-row__hint { font-size: 13px; color: var(--tb-ink-3); overflow-wrap: anywhere; }
+.tl-row__sw { flex: none; }
+.tl-row__sw .tb-switch__label { display: none; }
+.tl-muted { font-size: 13px; color: var(--tb-ink-2); }
+.tl-muted.is-error { color: var(--tb-danger); }
 
-  &__nav {
-    display: flex;
-    align-items: center;
-    flex: none;
-    gap: var(--nx-space-2);
-    padding-left: var(--nx-gutter);
-    padding-right: var(--nx-gutter);
-    min-height: var(--nx-touch);
-    background: var(--nx-bg);
-  }
-  &__back {
-    display: flex;
-    align-items: center;
-    flex: none;
-    width: var(--nx-touch);
-    height: var(--nx-touch);
-    color: var(--nx-accent);
-    &:active {
-      opacity: 0.6;
-    }
-  }
-  &__nav-title {
-    flex: 1;
-    text-align: center;
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-    color: var(--nx-text);
-  }
-  &__scroll {
-    flex: 1;
-    height: 0;
-  }
-  &__content {
-    padding: 0 var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
-  }
+.tl-mcp { display: flex; align-items: flex-start; gap: 10px; }
+.tl-mcp__addr { flex: 1; min-width: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; word-break: break-all; padding: 8px 10px; background: var(--tb-paper-2); border-radius: var(--tb-radius-s); }
+.tl-mcp__addr.is-empty { color: var(--tb-ink-3); word-break: normal; }
+.tl-mcp__tools { display: flex; flex-direction: column; gap: 8px; }
+.tl-mcp__label { font-size: 13px; font-weight: 600; color: var(--tb-ink-2); }
+.tl-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.tl-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 800; padding: 12px var(--tb-gutter) calc(12px + env(safe-area-inset-bottom));
+  background: var(--tb-paper); border-top: 3px solid var(--tb-rule);
 }
 
-.tools-icon {
-  width: 60rpx;
-  height: 60rpx;
-  border-radius: var(--nx-radius-sm);
+.tl-ha { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--tb-rule); }
+.tl-ha__title { font-weight: 700; font-size: 15px; }
+.tl-ha__btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.tl-ha__sub { font-size: 13px; font-weight: 600; margin-top: 4px; }
+.tl-ha__line { font-size: 13px; color: var(--tb-ink-2); }
+.tl-field { display: flex; flex-direction: column; gap: 6px; padding-bottom: 14px; border-bottom: 1px solid var(--tb-rule-soft); }
+.tl-field:last-child { border-bottom: 0; }
+.tl-field__label { font-size: 15px; font-weight: 600; }
+.tl-area {
+  width: 100%; height: 140px; padding: 10px 12px; box-sizing: border-box; font-size: 15px; line-height: 1.5; color: var(--tb-ink);
+  background: var(--tb-paper); border: 1.5px solid var(--tb-ink); border-radius: var(--tb-radius-m);
 }
-
-.tools-empty {
-  padding: var(--nx-space-6) var(--nx-space-4);
-}
-
-.tools-address {
-  font-size: var(--nx-text-footnote);
-  color: var(--nx-text);
-  line-height: 1.5;
-}
-
-.tools-copy {
-  display: flex;
-  align-items: center;
-  gap: var(--nx-space-1);
-  flex: none;
-  height: 64rpx;
-  padding: 0 var(--nx-space-3);
-  border-radius: var(--nx-radius-pill);
-  background: var(--nx-accent-soft);
-  color: var(--nx-accent);
-  font-size: var(--nx-text-footnote);
-  font-weight: 600;
-  &:active {
-    opacity: 0.7;
-  }
-}
-
-.tools-mcp-list {
-  align-items: flex-start;
-}
-
-.tools-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--nx-space-2);
-}
-
-.tools-chip {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-// Parameter sheet
-:deep(.wd-popup.nx-sheet) {
-  overflow: hidden;
-  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
-  background: var(--nx-bg);
-}
-
-:deep(.wd-popup.nx-sheet--full) {
-  height: 88vh;
-}
-
-.param-sheet {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-
-  &__bar {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-3);
-    flex: none;
-    min-height: var(--nx-touch);
-    padding: var(--nx-space-2) var(--nx-gutter);
-    border-bottom: 1rpx solid var(--nx-border);
-  }
-  &__title {
-    flex: 1;
-    min-width: 0;
-  }
-  &__done {
-    flex: none;
-    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-body);
-    font-weight: 600;
-  }
-  &__scroll {
-    flex: 1;
-    height: 0;
-  }
-  &__content {
-    padding: var(--nx-space-4) var(--nx-gutter) var(--nx-space-6);
-  }
-}
-
-.param-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nx-space-2);
-  padding: var(--nx-space-4);
-
-  &__remark {
-    margin-top: 0;
-  }
-  &__hint {
-    display: block;
-    margin-bottom: var(--nx-space-2);
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-}
-
-.param-input {
-  box-sizing: border-box;
-  width: 100%;
-  height: var(--nx-touch);
-  padding: 0 var(--nx-space-3);
-  border-radius: var(--nx-radius);
-  background: var(--nx-surface-2);
-  color: var(--nx-text);
-  font-size: var(--nx-text-body);
-
-  &--area {
-    height: 280rpx;
-    padding: var(--nx-space-3);
-    line-height: 1.55;
-  }
-  &--code {
-    height: 360rpx;
-    font-size: var(--nx-text-footnote);
-  }
-}
-
-:deep(.param-placeholder) {
-  color: var(--nx-text-3);
-}
-
-.param-switch {
-  display: flex;
-  align-items: center;
-  gap: var(--nx-space-3);
-  &__sub {
-    display: block;
-  }
-}
-
-.ha-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nx-space-2);
-  padding: var(--nx-space-4);
-
-  &__title {
-    font-weight: 600;
-  }
-  &__desc {
-    margin-top: 0;
-    line-height: 1.5;
-  }
-  &__chips {
-    margin-top: var(--nx-space-1);
-  }
-  &__samples {
-    display: flex;
-    flex-direction: column;
-    gap: 4rpx;
-    margin-top: var(--nx-space-2);
-    padding: var(--nx-space-3);
-    border-radius: var(--nx-radius);
-    background: var(--nx-surface-2);
-  }
-  &__samples-title {
-    font-size: var(--nx-text-footnote);
-    font-weight: 600;
-    color: var(--nx-text);
-  }
-  &__sample {
-    font-size: var(--nx-text-footnote);
-    line-height: 1.6;
-    color: var(--nx-text-2);
-  }
-}
-
-.ha-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--nx-space-1);
-  height: 60rpx;
-  padding: 0 var(--nx-space-3);
-  border-radius: var(--nx-radius-pill);
-  background: var(--nx-accent-soft);
-  color: var(--nx-accent);
-  font-size: var(--nx-text-footnote);
-  font-weight: 500;
-  &:active {
-    opacity: 0.7;
-  }
-}
+.tl-area--code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+.tl-area.is-invalid { border-color: var(--tb-danger); }
+.tl-ph { color: var(--tb-ink-3); }
+.tl-bool { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 </style>

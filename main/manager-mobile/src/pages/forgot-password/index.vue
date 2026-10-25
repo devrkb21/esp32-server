@@ -1,3 +1,4 @@
+<!-- New password through an SMS code (owner: m-auth) -->
 <route lang="jsonc" type="page">
 {
   "layout": "default",
@@ -10,775 +11,251 @@
 
 <script lang="ts" setup>
 import { onLoad } from '@dcloudio/uni-app'
-import { computed, onMounted, ref } from 'vue'
-// Import API interfaces
+import { computed, onMounted, reactive, ref } from 'vue'
 import { retrievePassword, sendSmsCode } from '@/api/auth'
-// Import i18n related functions
-import { initI18n, t } from '@/i18n'
-import { useConfigStore } from '@/store'
-import { getEnvBaseUrl, sm2Encrypt } from '@/utils'
+import { getCurrentLanguage, initI18n, t } from '@/i18n'
+import { faceMood, filledCount, hasCode, isPhone } from '@/pages/login/authKit.mjs'
+import AuthField from '@/pages/login/components/auth-field.vue'
+import AuthFrame from '@/pages/login/components/auth-frame.vue'
+import CaptchaImage from '@/pages/login/components/captcha-image.vue'
+import PickSheet from '@/pages/login/components/pick-sheet.vue'
+import { useCaptcha, useCountdown, usePubConfig } from '@/pages/login/useAuth'
+import { sm2Encrypt } from '@/utils'
+import { digits } from '@/utils/calendar.mjs'
 import { toast } from '@/utils/toast'
 
-// Get distance from screen boundary to safe area
-let safeAreaInsets
-let systemInfo
+defineOptions({ name: 'ForgotPasswordPage' })
 
-// #ifdef MP-WEIXIN
-// Mini-program uses new API
-systemInfo = uni.getWindowInfo()
-safeAreaInsets = systemInfo.safeArea
-  ? {
-      top: systemInfo.safeArea.top,
-      right: systemInfo.windowWidth - systemInfo.safeArea.right,
-      bottom: systemInfo.windowHeight - systemInfo.safeArea.bottom,
-      left: systemInfo.safeArea.left,
-    }
-  : null
-// #endif
+initI18n()
 
-// #ifndef MP-WEIXIN
-// Other platforms continue using uni API
-systemInfo = uni.getSystemInfoSync()
-safeAreaInsets = systemInfo.safeAreaInsets
-// #endif
+const { publicKey, areas, firstArea, load } = usePubConfig()
+const captcha = useCaptcha()
+const countdown = useCountdown(60)
 
-// Form data
-interface ForgotPasswordData {
-  mobile: string
-  captcha: string
-  captchaId: string
-  mobileCaptcha: string
-  newPassword: string
-  confirmPassword: string
-  areaCode: string
-}
-
-const formData = ref<ForgotPasswordData>({
+const form = reactive({
   mobile: '',
   captcha: '',
-  captchaId: '',
   mobileCaptcha: '',
   newPassword: '',
   confirmPassword: '',
-  areaCode: '+86',
+  areaCode: firstArea(),
 })
-
-// Captcha image
-const captchaImage = ref('')
+const errors = reactive({ mobile: '', captcha: '', mobileCaptcha: '', newPassword: '', confirmPassword: '' })
+const areaTouched = ref(false)
+const failure = ref('')
+const outcome = ref('')
 const loading = ref(false)
-
-// Get config store
-const configStore = useConfigStore()
-
-// State for area code action sheet
-const showAreaCodeSheet = ref(false)
-const selectedAreaCode = ref('+86')
-// SMS verification code countdown
-const smsCountdown = ref(0)
 const smsLoading = ref(false)
-const areaCodeList = computed(() =>
-  (configStore.config.mobileAreaList || []).map((item) => {
-    return {
-      value: item.key,
-      label: `${item.name} (${item.key})`,
-    }
-  }),
-)
+const pulse = ref(false)
+const showArea = ref(false)
 
-const canSendMobileCaptcha = computed(() => {
-  const mobile = formData.value.mobile
-  const phoneRegex = /^1[3-9]\d{9}$/
-  return phoneRegex.test(mobile) && smsCountdown.value === 0
-})
+const lang = computed(() => getCurrentLanguage())
+const areaOptions = computed(() => areas.value.map(a => ({ value: a.key, label: a.name, note: a.key })))
+const smsLabel = computed(() => (countdown.left.value > 0 ? t('mauth.resendIn', { n: digits(countdown.left.value, lang.value) }) : t('mauth.sendSms')))
+const mood = computed(() => faceMood({
+  filled: filledCount([form.mobile, form.captcha, form.mobileCaptcha, form.newPassword, form.confirmPassword]),
+  outcome: outcome.value,
+}))
 
-// SM2 public key
-const sm2PublicKey = computed(() => {
-  return configStore.config.sm2PublicKey
-})
-
-// Open area code selection dialog
-function openAreaCodeSheet() {
-  showAreaCodeSheet.value = true
+type Key = keyof typeof errors
+function touch(key: Key) {
+  errors[key] = ''
+  failure.value = ''
+  if (outcome.value === 'error')
+    outcome.value = ''
 }
-
-// Select area code
-function selectAreaCode(item: { value: string, label: string }) {
-  selectedAreaCode.value = item.value
-  formData.value.areaCode = item.value
-  showAreaCodeSheet.value = false
-}
-
-// Close area code selection dialog
-function closeAreaCodeSheet() {
-  showAreaCodeSheet.value = false
-}
-
-// Generate UUID
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    const v = c === 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
+function clearErrors() {
+  (Object.keys(errors) as Key[]).forEach((k) => {
+    errors[k] = ''
   })
+  failure.value = ''
+}
+function fail(key: Key | '', message: string) {
+  if (key)
+    errors[key] = message
+  else failure.value = message
+  outcome.value = 'error'
 }
 
-// Get graphic captcha
-async function refreshCaptcha() {
-  const uuid = generateUUID()
-  formData.value.captchaId = uuid
-  captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`
+function pickArea(key: string) {
+  form.areaCode = key
+  areaTouched.value = true
+  showArea.value = false
 }
 
-// Send SMS verification code
+// The phone number in international form: country code + number
+const internationalPhone = () => form.areaCode + form.mobile
+
 async function handleSendSmsCode() {
-  // Phone format validation
-  const phoneRegex = /^1[3-9]\d{9}$/
-  if (!phoneRegex.test(formData.value.mobile)) {
-    toast.warning(t('retrievePassword.inputCorrectMobile'))
+  if (countdown.left.value > 0 || smsLoading.value)
     return
-  }
+  clearErrors()
+  if (!isPhone(form.mobile))
+    return fail('mobile', t('mauth.err.mobile'))
+  if (!form.captcha)
+    return fail('captcha', t('mauth.err.captchaFirst'))
 
-  if (!formData.value.captcha) {
-    toast.warning(t('retrievePassword.captchaRequired'))
-    return
-  }
-
+  smsLoading.value = true
   try {
-    smsLoading.value = true
-    // Convert phone number to international format
-    const internationalPhone = formData.value.areaCode + formData.value.mobile
-    // Call send SMS verification code API
-    await sendSmsCode({
-      phone: internationalPhone,
-      captcha: formData.value.captcha,
-      captchaId: formData.value.captchaId,
-    })
-
-    toast.success(t('retrievePassword.captchaSendSuccess'))
-
-    // Start countdown
-    smsCountdown.value = 60
-    const timer = setInterval(() => {
-      smsCountdown.value--
-      if (smsCountdown.value <= 0) {
-        clearInterval(timer)
-      }
-    }, 1000)
+    await sendSmsCode({ phone: internationalPhone(), captcha: form.captcha, captchaId: captcha.id.value })
+    toast.success(t('mauth.smsSent'))
+    countdown.start()
   }
   catch (error: any) {
-    // Handle captcha error
-    if (error.message.includes('10067')) {
-      toast.warning(t('login.captchaError'))
-    }
-    // Refresh graphic captcha on send failure
-    refreshCaptcha()
+    if (hasCode(error, 10067))
+      fail('captcha', t('mauth.err.captchaWrong'))
+    captcha.refresh()
   }
   finally {
     smsLoading.value = false
   }
 }
 
-// Reset password
 async function handleResetPassword() {
-  // Form validation
-  if (!formData.value.mobile) {
-    toast.warning(t('retrievePassword.mobileRequired'))
+  if (loading.value)
     return
-  }
+  clearErrors()
+  if (!form.mobile || !isPhone(form.mobile))
+    return fail('mobile', t('mauth.err.mobile'))
+  if (!form.captcha)
+    return fail('captcha', t('mauth.err.captcha'))
+  if (!form.mobileCaptcha)
+    return fail('mobileCaptcha', t('mauth.err.smsCode'))
+  if (!form.newPassword)
+    return fail('newPassword', t('mauth.err.newPassword'))
+  if (!form.confirmPassword)
+    return fail('confirmPassword', t('mauth.err.confirm'))
+  if (form.newPassword !== form.confirmPassword)
+    return fail('confirmPassword', t('mauth.err.mismatch'))
+  if (!publicKey.value)
+    return fail('', t('mauth.err.noKey'))
 
-  // Phone format validation
-  const phoneRegex = /^1[3-9]\d{9}$/
-  if (!phoneRegex.test(formData.value.mobile)) {
-    toast.warning(t('retrievePassword.inputCorrectMobile'))
-    return
-  }
-
-  // Convert phone number to international format
-  const internationalPhone = formData.value.areaCode + formData.value.mobile
-
-  if (!formData.value.captcha) {
-    toast.warning(t('retrievePassword.captchaRequired'))
-    return
-  }
-
-  if (!formData.value.mobileCaptcha) {
-    toast.warning(t('retrievePassword.mobileCaptchaRequired'))
-    return
-  }
-
-  if (!formData.value.newPassword) {
-    toast.warning(t('retrievePassword.newPasswordRequired'))
-    return
-  }
-
-  if (!formData.value.confirmPassword) {
-    toast.warning(t('retrievePassword.confirmNewPasswordRequired'))
-    return
-  }
-
-  if (formData.value.newPassword !== formData.value.confirmPassword) {
-    toast.warning(t('retrievePassword.passwordsNotMatch'))
-    return
-  }
-
+  let encryptedPassword = ''
   try {
-    loading.value = true
+    encryptedPassword = sm2Encrypt(publicKey.value, form.captcha + form.newPassword)
+  }
+  catch (error) {
+    console.error('Password encryption failed:', error)
+    return fail('', t('mauth.err.encrypt'))
+  }
 
-    // Check if SM2 public key is configured
-    if (!sm2PublicKey.value) {
-      toast.warning(t('sm2.publicKeyNotConfigured'))
-      return
-    }
-
-    // Encrypt password
-    let encryptedPassword
-    try {
-      // Concatenate captcha and new password for encryption
-      const captchaAndPassword = formData.value.captcha + formData.value.newPassword
-      encryptedPassword = sm2Encrypt(sm2PublicKey.value, captchaAndPassword)
-    }
-    catch (error) {
-      console.error('Password encryption failed:', error)
-      toast.warning(t('sm2.encryptionFailed'))
-      return
-    }
-
-    // Call reset password API
+  loading.value = true
+  pulse.value = false
+  setTimeout(() => {
+    pulse.value = true
+  }, 16)
+  try {
     await retrievePassword({
-      phone: internationalPhone,
-      code: formData.value.mobileCaptcha,
+      phone: internationalPhone(),
+      code: form.mobileCaptcha,
       password: encryptedPassword,
-      captchaId: formData.value.captchaId,
+      captchaId: captcha.id.value,
     })
-
-    toast.success(t('retrievePassword.passwordUpdateSuccess'))
-
-    // Navigate to login page
+    outcome.value = 'ok'
+    toast.success(t('mauth.ok.reset'))
     setTimeout(() => {
-      uni.redirectTo({
-        url: '/pages/login/index',
-      })
+      uni.redirectTo({ url: '/pages/login/index' })
     }, 1000)
   }
   catch (error: any) {
-    // Handle captcha error
-    if (error.message.includes('10067')) {
-      toast.warning(t('login.captchaError'))
-    }
-    // Refresh captcha on reset failure
-    refreshCaptcha()
+    if (hasCode(error, 10067))
+      fail('captcha', t('mauth.err.captchaWrong'))
+    else outcome.value = 'error'
+    form.captcha = ''
+    captcha.refresh()
   }
   finally {
     loading.value = false
   }
 }
 
-// Show / hide the password text
-const showPassword = ref(false)
-
-// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
-function tx(key: string, fallback: string) {
-  const value = t(key)
-  return value === key ? fallback : value
-}
-
-// Back to login
 function goBack() {
-  uni.redirectTo({
-    url: '/pages/login/index',
-  })
+  uni.redirectTo({ url: '/pages/login/index' })
 }
 
-// Fetch captcha on page load
 onLoad(() => {
-  refreshCaptcha()
+  captcha.refresh()
 })
 
-// Ensure config is loaded on mount
 onMounted(async () => {
-  if (!configStore.config.name) {
-    try {
-      await configStore.fetchPublicConfig()
-    }
-    catch (error) {
-      console.error('Failed to get configuration:', error)
-    }
-  }
-  // Initialize i18n
-  initI18n()
+  await load()
+  if (!areaTouched.value)
+    form.areaCode = firstArea()
 })
 </script>
 
 <template>
-  <view class="nx-auth" :style="{ paddingTop: `${safeAreaInsets?.top || 0}px` }">
-    <view class="nx-auth__topbar nx-auth__topbar--split">
-      <view class="nx-auth__chip nx-auth__back" role="button" :aria-label="t('retrievePassword.goToLogin')" @click="goBack">
-        <wd-icon name="arrow-left" size="18px" />
-        <text>{{ tx('register.backToSignIn', 'Sign in') }}</text>
-      </view>
+  <AuthFrame :title="t('mauth.resetTitle')" :lead="t('mauth.resetLead')" :mood="mood" :pulse="pulse" back @back="goBack">
+    <view class="af-form">
+      <AuthField :label="t('mauth.mobile')" :error="errors.mobile">
+        <view class="af__area" role="button" :aria-label="t('mauth.areaCode')" @click="showArea = true">
+          <text class="tb-num">
+            {{ form.areaCode }}
+          </text><tb-icon name="chevron-down" :size="14" />
+        </view>
+        <tb-input
+          v-model="form.mobile" type="number" :maxlength="11" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
+          :invalid="!!errors.mobile" @update:model-value="touch('mobile')"
+        />
+      </AuthField>
+
+      <AuthField :label="t('mauth.captcha')" :error="errors.captcha">
+        <tb-input
+          v-model="form.captcha" :maxlength="6" :placeholder="t('mauth.captchaPh')" :aria-label="t('mauth.captcha')"
+          :invalid="!!errors.captcha" @update:model-value="touch('captcha')"
+        />
+        <template #aside>
+          <CaptchaImage :src="captcha.src.value" @refresh="captcha.refresh" />
+        </template>
+      </AuthField>
+
+      <AuthField :label="t('mauth.smsCode')" :error="errors.mobileCaptcha">
+        <tb-input
+          v-model="form.mobileCaptcha" :maxlength="6" :placeholder="t('mauth.smsCodePh')" :aria-label="t('mauth.smsCode')"
+          :invalid="!!errors.mobileCaptcha" @update:model-value="touch('mobileCaptcha')"
+        />
+        <template #aside>
+          <tb-button size="s" :loading="smsLoading" :disabled="countdown.left.value > 0" @click="handleSendSmsCode">
+            {{ smsLabel }}
+          </tb-button>
+        </template>
+      </AuthField>
+
+      <AuthField :label="t('mauth.newPassword')" :error="errors.newPassword">
+        <tb-input
+          v-model="form.newPassword" type="password" :maxlength="20" :placeholder="t('mauth.newPasswordPh')"
+          :aria-label="t('mauth.newPassword')" :invalid="!!errors.newPassword" @update:model-value="touch('newPassword')"
+        />
+      </AuthField>
+      <AuthField :label="t('mauth.confirmPassword')" :error="errors.confirmPassword">
+        <tb-input
+          v-model="form.confirmPassword" type="password" :maxlength="20" :placeholder="t('mauth.confirmPasswordPh')"
+          :aria-label="t('mauth.confirmPassword')" :invalid="!!errors.confirmPassword" @update:model-value="touch('confirmPassword')"
+        />
+      </AuthField>
+    </view>
+    <text class="af-hint">
+      {{ t('mauth.captchaHint') }}
+    </text>
+
+    <view v-if="failure" class="af-alert" role="alert">
+      <tb-icon name="warning" :size="18" /><text>{{ failure }}</text>
     </view>
 
-    <view class="nx-auth__body">
-      <view class="nx-auth__hero">
-        <image class="nx-auth__logo" src="/static/logo.svg" mode="aspectFit" />
-        <text class="nx-auth__title">
-          {{ t('retrievePassword.title') }}
-        </text>
-        <text class="nx-auth__subtitle">
-          {{ tx('retrievePassword.heroSubtitle', 'We’ll text a code to your phone so you can choose a new password.') }}
-        </text>
-      </view>
+    <tb-button class="af-submit" variant="primary" size="l" block :loading="loading" @click="handleResetPassword">
+      {{ loading ? t('mauth.resetting') : t('mauth.submitReset') }}
+    </tb-button>
 
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ tx('retrievePassword.phoneHeader', 'Your phone') }}
-        </view>
-        <view class="nx-group__body">
-          <view class="nx-field">
-            <view class="nx-field__prefix" role="button" :aria-label="t('login.selectCountry')" @click="openAreaCodeSheet">
-              <text class="nx-num">
-                {{ selectedAreaCode }}
-              </text>
-              <wd-icon name="arrow-down" size="12px" />
-            </view>
-            <input
-              v-model="formData.mobile"
-              class="nx-field__input"
-              type="number"
-              :maxlength="11"
-              :placeholder="t('retrievePassword.mobilePlaceholder')"
-              placeholder-class="nx-field__placeholder"
-            >
-          </view>
-
-          <view class="nx-field">
-            <wd-icon name="check" size="18px" custom-class="nx-field__icon" />
-            <input
-              v-model="formData.captcha"
-              class="nx-field__input"
-              type="text"
-              :maxlength="6"
-              :placeholder="t('retrievePassword.captchaPlaceholder')"
-              placeholder-class="nx-field__placeholder"
-            >
-            <view
-              class="nx-field__captcha"
-              role="button"
-              :aria-label="tx('login.refreshCaptcha', 'Get a new code')"
-              @click="refreshCaptcha"
-            >
-              <image :src="captchaImage" class="nx-field__captcha-img" mode="aspectFit" />
-            </view>
-          </view>
-
-          <view class="nx-field">
-            <wd-icon name="phone" size="18px" custom-class="nx-field__icon" />
-            <input
-              v-model="formData.mobileCaptcha"
-              class="nx-field__input"
-              type="text"
-              :maxlength="6"
-              :placeholder="t('retrievePassword.mobileCaptchaPlaceholder')"
-              placeholder-class="nx-field__placeholder"
-            >
-            <view
-              class="nx-num nx-field__send"
-              :class="{ 'is-disabled': smsCountdown > 0 || smsLoading }"
-              role="button"
-              @click="smsCountdown > 0 || smsLoading ? null : handleSendSmsCode()"
-            >
-              {{ smsCountdown > 0 ? `${smsCountdown}s` : t('retrievePassword.getMobileCaptcha') }}
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ tx('retrievePassword.passwordHeader', 'New password') }}
-        </view>
-        <view class="nx-group__body">
-          <view class="nx-field">
-            <wd-icon name="lock-on" size="18px" custom-class="nx-field__icon" />
-            <input
-              v-model="formData.newPassword"
-              class="nx-field__input"
-              type="text"
-              :password="!showPassword"
-              :maxlength="20"
-              :placeholder="t('retrievePassword.newPasswordPlaceholder')"
-              placeholder-class="nx-field__placeholder"
-            >
-            <view
-              class="nx-field__action"
-              role="button"
-              :aria-label="tx('login.togglePassword', 'Show or hide password')"
-              @click="showPassword = !showPassword"
-            >
-              <wd-icon :name="showPassword ? 'view' : 'eye-close'" size="18px" />
-            </view>
-          </view>
-          <view class="nx-field">
-            <wd-icon name="lock-on" size="18px" custom-class="nx-field__icon" />
-            <input
-              v-model="formData.confirmPassword"
-              class="nx-field__input"
-              type="text"
-              :password="!showPassword"
-              :maxlength="20"
-              :placeholder="t('retrievePassword.confirmNewPasswordPlaceholder')"
-              placeholder-class="nx-field__placeholder"
-            >
-          </view>
-        </view>
-      </view>
-
-      <view
-        class="nx-btn nx-btn--primary nx-btn--block nx-auth__submit"
-        :class="{ 'is-loading': loading }"
-        role="button"
-        @click="!loading && handleResetPassword()"
-      >
-        <wd-loading v-if="loading" size="18px" custom-class="nx-auth__spinner" />
-        {{ loading ? t('common.loading') : t('retrievePassword.resetButton') }}
-      </view>
-
-      <view class="nx-auth__links nx-auth__links--center">
-        <text class="nx-auth__link" @click="goBack">
-          {{ t('retrievePassword.goToLogin') }}
-        </text>
-      </view>
+    <view class="af-links">
+      <text class="af-link" role="link" @click="goBack">
+        {{ t('mauth.backToLogin') }}
+      </text>
     </view>
+  </AuthFrame>
 
-    <!-- Area code sheet -->
-    <wd-popup
-      v-model="showAreaCodeSheet"
-      position="bottom"
-      custom-class="nx-sheet"
-      safe-area-inset-bottom
-      @close="closeAreaCodeSheet"
-    >
-      <view class="nx-sheet__inner">
-        <view class="nx-sheet__handle" />
-        <view class="nx-sheet__header">
-          <text class="nx-headline">
-            {{ t('login.selectCountry') }}
-          </text>
-          <text class="nx-sheet__done" @click="closeAreaCodeSheet">
-            {{ t('login.confirm') }}
-          </text>
-        </view>
-        <scroll-view scroll-y class="nx-sheet__scroll">
-          <view class="nx-group__body">
-            <view
-              v-for="item in areaCodeList"
-              :key="item.value"
-              class="nx-row nx-row--tap"
-              @click="selectAreaCode(item)"
-            >
-              <view class="nx-row__main">
-                <view class="nx-row__title nx-truncate">
-                  {{ item.label }}
-                </view>
-              </view>
-              <wd-icon v-if="selectedAreaCode === item.value" name="check" size="18px" custom-class="nx-check" />
-            </view>
-          </view>
-        </scroll-view>
-      </view>
-    </wd-popup>
-  </view>
+  <PickSheet v-model:open="showArea" :title="t('mauth.areaTitle')" :value="form.areaCode" :options="areaOptions" @pick="pickArea" />
 </template>
 
-<style lang="scss" scoped>
-// Nobix auth screen (sign in / register / reset share this layout)
-.nx-auth {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  box-sizing: border-box;
-  padding-left: var(--nx-gutter);
-  padding-right: var(--nx-gutter);
-  padding-bottom: calc(var(--nx-space-5) + env(safe-area-inset-bottom));
-  background: var(--nx-bg);
-  color: var(--nx-text);
-
-  &__topbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--nx-space-2);
-    min-height: var(--nx-touch);
-    &--split {
-      justify-content: space-between;
-    }
-  }
-
-  &__chip,
-  &__icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--nx-space-1);
-    min-width: var(--nx-touch);
-    height: 64rpx;
-    padding: 0 var(--nx-space-3);
-    box-sizing: border-box;
-    border-radius: var(--nx-radius-pill);
-    background: var(--nx-surface);
-    box-shadow: var(--nx-shadow-1);
-    color: var(--nx-text-2);
-    font-size: var(--nx-text-footnote);
-    font-weight: 600;
-    transition: transform var(--nx-dur-1) var(--nx-ease);
-    &:active {
-      transform: scale(0.96);
-      background: var(--nx-surface-2);
-    }
-  }
-  &__icon-btn {
-    width: 64rpx;
-    min-width: 64rpx;
-    padding: 0;
-  }
-  &__back {
-    margin-left: calc(var(--nx-space-2) * -1);
-    padding: 0 var(--nx-space-2);
-    background: transparent;
-    box-shadow: none;
-    color: var(--nx-accent);
-    font-size: var(--nx-text-body);
-    font-weight: 500;
-  }
-
-  &__body {
-    flex: 1;
-    width: 100%;
-    max-width: 840rpx;
-    margin: 0 auto;
-  }
-
-  &__hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: var(--nx-space-6) 0 var(--nx-space-6);
-  }
-  &__logo {
-    width: 128rpx;
-    height: 128rpx;
-    border-radius: var(--nx-radius-lg);
-    box-shadow: var(--nx-shadow-2);
-  }
-  &__title {
-    margin-top: var(--nx-space-4);
-    font-size: var(--nx-text-display);
-    font-weight: 700;
-    letter-spacing: -0.022em;
-    line-height: 1.15;
-    color: var(--nx-text);
-  }
-  &__subtitle {
-    margin-top: var(--nx-space-2);
-    max-width: 560rpx;
-    font-size: var(--nx-text-callout);
-    line-height: 1.45;
-    color: var(--nx-text-2);
-  }
-
-  &__segmented {
-    margin-bottom: var(--nx-space-4);
-  }
-
-  &__submit {
-    &.is-loading {
-      opacity: 0.7;
-    }
-  }
-
-  &__links {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--nx-space-3);
-    margin-top: var(--nx-space-4);
-    padding: 0 var(--nx-space-2);
-    &--center {
-      justify-content: center;
-    }
-  }
-  &__link {
-    color: var(--nx-accent);
-    font-size: var(--nx-text-callout);
-    font-weight: 500;
-    padding: var(--nx-space-2) 0;
-    &:active {
-      opacity: 0.6;
-    }
-  }
-  &__muted {
-    color: var(--nx-text-2);
-    font-size: var(--nx-text-callout);
-  }
-
-  &__legal {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0 var(--nx-space-1);
-    margin-top: var(--nx-space-6);
-    padding: 0 var(--nx-space-4);
-    text-align: center;
-    color: var(--nx-text-3);
-    font-size: var(--nx-text-caption);
-    line-height: 1.6;
-    .nx-auth__link {
-      font-size: var(--nx-text-caption);
-      padding: 0;
-    }
-  }
-}
-
-:deep(.nx-auth__spinner) {
-  margin-right: var(--nx-space-1);
-}
-
-// One field per row inside an inset group
-.nx-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--nx-space-3);
-  min-height: 104rpx;
-  padding: 0 var(--nx-space-4);
-  box-sizing: border-box;
-  &:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    left: var(--nx-space-4);
-    right: 0;
-    bottom: 0;
-    height: 1rpx;
-    background: var(--nx-border);
-  }
-
-  &__input {
-    flex: 1;
-    min-width: 0;
-    height: 104rpx;
-    font-size: var(--nx-text-body);
-    color: var(--nx-text);
-    background: transparent;
-  }
-
-  &__prefix {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-1);
-    flex: none;
-    height: 64rpx;
-    padding: 0 var(--nx-space-3) 0 0;
-    border-right: 1rpx solid var(--nx-border);
-    color: var(--nx-text);
-    font-size: var(--nx-text-body);
-    font-weight: 500;
-  }
-
-  &__action {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: var(--nx-touch);
-    height: var(--nx-touch);
-    margin-right: calc(var(--nx-space-3) * -1);
-    color: var(--nx-text-3);
-    &:active {
-      opacity: 0.6;
-    }
-  }
-
-  &__send {
-    flex: none;
-    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
-    border-left: 1rpx solid var(--nx-border);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-callout);
-    font-weight: 600;
-    white-space: nowrap;
-    &.is-disabled {
-      color: var(--nx-text-3);
-    }
-    &:active {
-      opacity: 0.6;
-    }
-  }
-
-  &__captcha {
-    flex: none;
-    width: 184rpx;
-    height: 72rpx;
-    overflow: hidden;
-    border-radius: var(--nx-radius-sm);
-    background: var(--nx-surface-2);
-  }
-  &__captcha-img {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-}
-
-:deep(.nx-field__icon) {
-  flex: none;
-  color: var(--nx-text-3);
-}
-
-:deep(.nx-field__placeholder) {
-  color: var(--nx-text-3);
-}
-
-// Bottom sheet (wd-popup position="bottom")
-:deep(.wd-popup.nx-sheet) {
-  overflow: hidden;
-  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
-  background: var(--nx-bg);
-}
-
-.nx-sheet {
-  &__inner {
-    padding: 0 var(--nx-gutter) var(--nx-space-4);
-  }
-  &__handle {
-    width: 72rpx;
-    height: 10rpx;
-    margin: var(--nx-space-2) auto 0;
-    border-radius: var(--nx-radius-pill);
-    background: var(--nx-surface-3);
-  }
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: var(--nx-touch);
-    padding: var(--nx-space-2) 0;
-  }
-  &__done {
-    color: var(--nx-accent);
-    font-size: var(--nx-text-body);
-    font-weight: 600;
-    padding: var(--nx-space-2) 0 var(--nx-space-2) var(--nx-space-3);
-  }
-  &__scroll {
-    max-height: 60vh;
-    border-radius: var(--nx-radius-lg);
-  }
-}
-
-:deep(.nx-check) {
-  flex: none;
-  color: var(--nx-accent);
-}
+<style lang="scss">
+@import '../login/components/auth-form.scss';
 </style>

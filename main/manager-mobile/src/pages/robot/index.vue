@@ -1,3 +1,4 @@
+<!-- Robot: this robot itself. How it is now, sound and screen, talking first, what it remembers, jobs, firmware (owner: m-robot) -->
 <route lang="jsonc">
 {
   "layout": "default",
@@ -9,15 +10,376 @@
 </route>
 
 <script lang="ts" setup>
-import { t } from '@/i18n'
+import type { FirmwareUpdateState, RobotContext, SyncState } from './components/context'
+import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/companion'
+import type { Device, OtaFirmware } from '@/api/device'
+import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
+import { computed, provide, reactive, ref, watch } from 'vue'
+import { getCompanion, sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
+import { getBindDevices, getOtaFirmwares, updateDeviceAutoUpdate } from '@/api/device'
+import { getCurrentLanguage, t } from '@/i18n'
+import { useUserStore } from '@/store'
+import { digits, timeText } from '@/utils/calendar.mjs'
+import { loadRobots, robot } from '@/utils/tbRobot'
+import { toast } from '@/utils/toast'
+import { agoParts } from '../companion/companionUtils.mjs'
+import { createUpdateFlow, initialUpdateState, latestFirmware } from '../companion/firmwareUpdate.mjs'
+import { notifyError, robotKey } from './components/context'
+import RobotFirmware from './components/RobotFirmware.vue'
+import RobotJobs from './components/RobotJobs.vue'
+import RobotMemory from './components/RobotMemory.vue'
+import RobotSound from './components/RobotSound.vue'
+import RobotStatus from './components/RobotStatus.vue'
+import RobotTalk from './components/RobotTalk.vue'
+import { POLL_MS, syncState } from './robotModel.mjs'
 
-// Placeholder: this page is rebuilt by its owner (see .bunshin/owners.json).
 defineOptions({ name: 'RobotPage' })
+
+const userStore = useUserStore()
+const lang = computed(() => getCurrentLanguage() as string)
+const deviceId = computed(() => robot.deviceId)
+const agentId = computed(() => robot.agentId)
+
+const view = ref<CompanionDevice | null>(null)
+const loading = ref(false)
+const loadFailed = ref(false)
+const now = ref(Date.now())
+const busy = ref('')
+const saving = reactive<Record<string, boolean>>({})
+const failed = reactive<Record<string, boolean>>({})
+const online = computed(() => !!view.value && view.value.online !== false)
+const botName = computed(() => view.value?.name || robot.name || t('nav.robotFallback'))
+
+const sections = ['status', 'sound', 'talk', 'memory', 'jobs', 'firmware']
+
+function num(n: number | string | null | undefined) {
+  return digits(n ?? '–', lang.value)
+}
+function ago(ts: number | null | undefined) {
+  const p = agoParts(ts, now.value)
+  return t(`companion.${p.key}`, { n: num(p.n) })
+}
+function time(hhmm: string) {
+  return timeText(hhmm, lang.value, lang.value === 'bn')
+}
+function tOr(key: string, fallback: string) {
+  const v = t(key)
+  return v && v !== key ? v : fallback
+}
+
+// ------------------------------------------------------------------ firmware ("Update now")
+const fwState = ref<FirmwareUpdateState>(initialUpdateState() as FirmwareUpdateState)
+const fwDevice = ref<Device | null>(null)
+const fwLatest = ref<OtaFirmware | null>(null)
+const savingAuto = ref(false)
+const fwFlow = createUpdateFlow({
+  sendCommand: (cmd: { type: CommandType }) => sendCompanionCommand(deviceId.value, { type: cmd.type }),
+  fetchView: () => getCompanion(deviceId.value, true),
+  appVersion: () => fwDevice.value?.appVersion || '',
+  onChange: (state: FirmwareUpdateState) => {
+    fwState.value = state
+  },
+})
+
+async function loadDevice() {
+  if (!agentId.value || !deviceId.value)
+    return
+  try {
+    const list = await getBindDevices(agentId.value)
+    fwDevice.value = (list || []).find(d => d.id === deviceId.value) || null
+  }
+  catch {
+    // the firmware section then links to the robots list instead of showing the switch
+  }
+}
+
+// The OTA list is for super admins only: everyone else does not see the newest version
+async function loadLatest() {
+  if ((userStore.userInfo as any)?.superAdmin !== 1)
+    return
+  try {
+    const page = await getOtaFirmwares()
+    fwLatest.value = latestFirmware(page?.list || []) as OtaFirmware | null
+  }
+  catch {
+    fwLatest.value = null
+  }
+}
+
+async function setAutoUpdate(on: boolean) {
+  if (!fwDevice.value)
+    return
+  const previous = fwDevice.value.autoUpdate
+  fwDevice.value.autoUpdate = on ? 1 : 0
+  savingAuto.value = true
+  saving.auto = true
+  failed.auto = false
+  try {
+    await updateDeviceAutoUpdate(deviceId.value, on ? 1 : 0)
+    toast.success(on ? t('mrobot.fw.autoOn') : t('mrobot.fw.autoOff'))
+  }
+  catch (error) {
+    if (fwDevice.value)
+      fwDevice.value.autoUpdate = previous
+    failed.auto = true
+    notifyError(error)
+  }
+  savingAuto.value = false
+  saving.auto = false
+}
+
+watch(() => fwState.value.phase, (phase) => {
+  // read the version from the device list again once TinyBot is back
+  if (phase === 'updated' || phase === 'current')
+    loadDevice()
+})
+
+// ------------------------------------------------------------------ data
+// A poll that started before a save must not overwrite the save's newer response
+let mutationSeq = 0
+let inflight = false
+
+async function reload(silent = true) {
+  if (!deviceId.value || inflight)
+    return
+  inflight = true
+  const seq = mutationSeq
+  if (!view.value)
+    loading.value = true
+  try {
+    const data = await getCompanion(deviceId.value, silent)
+    if (seq === mutationSeq && data) {
+      view.value = data
+      now.value = Date.now()
+      fwFlow.observe(data)
+    }
+    loadFailed.value = false
+  }
+  catch (error) {
+    if (!view.value)
+      loadFailed.value = true
+    if (!silent)
+      notifyError(error)
+  }
+  inflight = false
+  loading.value = false
+}
+
+async function save(patch: CompanionConfigPatch, area: string, okMsg?: string): Promise<boolean> {
+  mutationSeq++
+  saving[area] = true
+  failed[area] = false
+  try {
+    const data = await updateCompanionConfig(deviceId.value, patch)
+    mutationSeq++
+    if (data) {
+      view.value = data
+      now.value = Date.now()
+    }
+    saving[area] = false
+    toast.success(okMsg || (online.value ? t('mrobot.saved') : t('mrobot.savedOffline')))
+    return true
+  }
+  catch (error) {
+    saving[area] = false
+    failed[area] = true
+    notifyError(error)
+    // undo optimistic edits
+    await reload()
+    return false
+  }
+}
+
+function syncOf(area: string) {
+  const state = syncState(!!saving[area], !!failed[area], view.value ? view.value.online : undefined) as SyncState
+  const offline = state === 'pending' && !saving[area]
+  const text = offline ? t('mrobot.sync.offline') : t(`common.sync.${state}`)
+  return { state, text }
+}
+
+async function command(type: CommandType, arg: string, okMsg?: string, busyKey?: string): Promise<boolean> {
+  if (busy.value || !deviceId.value)
+    return false
+  busy.value = busyKey || `${type}:${arg}`
+  try {
+    const cmd = await sendCompanionCommand(deviceId.value, { type, arg })
+    toast.success(online.value ? (okMsg || t('mrobot.jobs.sent')) : t('mrobot.jobs.sentOffline'))
+    if (view.value && cmd && (cmd as any).id)
+      view.value = { ...view.value, commands: [cmd, ...(view.value.commands || []).filter(c => c.id !== cmd.id)] }
+    busy.value = ''
+    reload()
+    return true
+  }
+  catch (error) {
+    busy.value = ''
+    notifyError(error)
+    return false
+  }
+}
+
+const ctx: RobotContext = {
+  deviceId,
+  agentId,
+  view,
+  online,
+  lang,
+  now,
+  botName,
+  num,
+  ago,
+  time,
+  tOr,
+  save,
+  syncOf,
+  saving,
+  command,
+  busy,
+  reload: () => reload(),
+  firmware: {
+    state: fwState,
+    device: fwDevice,
+    latest: fwLatest,
+    savingAuto,
+    start: () => fwFlow.start(view.value),
+    reset: () => fwFlow.reset(),
+    setAutoUpdate,
+  },
+}
+provide(robotKey, ctx)
+
+function jump(key: string) {
+  uni.pageScrollTo({ selector: `#rb-${key}`, duration: 200 })
+}
+function goRobots() {
+  uni.navigateTo({ url: '/pages/robots/index' })
+}
+
+let timer: ReturnType<typeof setInterval> | undefined
+function pageHidden() {
+  return typeof document !== 'undefined' && document.hidden
+}
+onShow(async () => {
+  await loadRobots()
+  reload(Boolean(view.value))
+  if (!fwDevice.value)
+    loadDevice()
+  if (!fwLatest.value)
+    loadLatest()
+  clearInterval(timer)
+  timer = setInterval(() => {
+    if (!pageHidden())
+      reload()
+  }, POLL_MS)
+})
+onHide(() => clearInterval(timer))
+onUnload(() => {
+  clearInterval(timer)
+  fwFlow.destroy()
+})
+watch(deviceId, () => {
+  view.value = null
+  fwDevice.value = null
+  fwFlow.reset()
+  reload(false)
+  loadDevice()
+})
 </script>
 
 <template>
-  <view class="tb-wrap">
-    <tb-page-header :title="t('nav.robot')" back />
-    <tb-empty face="awake" :title="t('nav.robot')" />
+  <view class="rbm tb-wrap">
+    <tb-page-header :title="t('nav.robot')" :description="t('mrobot.lede')" back>
+      <template v-if="view" #actions>
+        <tb-button size="s" variant="quiet" icon="refresh" :loading="loading" :aria-label="t('mrobot.refresh')" @click="reload(false)" />
+      </template>
+    </tb-page-header>
+
+    <view v-if="!robot.deviceId && robot.loaded" class="rbm__state">
+      <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
+        <tb-button variant="primary" icon="robots" @click="goRobots">
+          {{ t('common.goRobots') }}
+        </tb-button>
+      </tb-empty>
+    </view>
+
+    <view v-else-if="!view" class="rbm__state">
+      <tb-empty v-if="loadFailed" face="confused" :title="t('common.loadFailed')">
+        <tb-button icon="refresh" @click="reload(false)">
+          {{ t('common.retry') }}
+        </tb-button>
+      </tb-empty>
+      <tb-loading v-else :label="t('common.loading')" />
+    </view>
+
+    <block v-else>
+      <view v-if="!online" class="rbm__offline" role="status">
+        <tb-icon name="info" :size="18" />
+        <text>{{ t('mrobot.offlineNote') }}</text>
+      </view>
+
+      <scroll-view scroll-x class="rbm__indexwrap" :show-scrollbar="false">
+        <view class="rbm__index" role="navigation" :aria-label="t('mrobot.indexLabel')">
+          <view v-for="s in sections" :key="s" class="rbm__indexlink" role="link" hover-class="is-press" @click="jump(s)">
+            <text>{{ t(`mrobot.sec.${s}`) }}</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <RobotStatus id="rb-status" />
+      <RobotSound id="rb-sound" />
+      <RobotTalk id="rb-talk" />
+      <RobotMemory id="rb-memory" />
+      <RobotJobs id="rb-jobs" />
+      <RobotFirmware id="rb-firmware" />
+    </block>
   </view>
 </template>
+
+<style lang="scss">
+.rbm {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+}
+.rbm__state {
+  padding: 48px 0;
+  display: flex;
+  justify-content: center;
+}
+.rbm__offline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+  color: var(--tb-ink-2);
+  font-size: 14px;
+}
+.rbm__offline .tb-icon {
+  margin-top: 2px;
+}
+.rbm__indexwrap {
+  width: 100%;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--tb-rule);
+}
+.rbm__index {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 18px;
+  padding: 4px 0;
+  min-width: max-content;
+}
+.rbm__indexlink {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: 44px;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tb-ink-2);
+}
+.rbm__indexlink.is-press {
+  color: var(--tb-ink);
+}
+</style>

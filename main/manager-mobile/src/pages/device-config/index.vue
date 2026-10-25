@@ -1,263 +1,392 @@
+<!-- Robot setup: put TinyBot on the home Wi-Fi, one step per view (owner: m-setup) -->
+<route lang="jsonc" type="page">
+{
+  "layout": "default",
+  "style": {
+    "navigationBarTitleText": "TinyBot",
+    "navigationStyle": "custom"
+  }
+}
+</route>
+
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { t } from '@/i18n'
+import { onLoad } from '@dcloudio/uni-app'
+import { computed, ref } from 'vue'
+import { DEMO } from '@/api/demo'
+import { getCurrentLanguage, t } from '@/i18n'
+import { digits } from '@/utils/calendar.mjs'
 import BleConfig from './components/ble-config.vue'
 import UltrasonicConfig from './components/ultrasonic-config.vue'
 import WifiConfig from './components/wifi-config.vue'
 import WifiSelector from './components/wifi-selector.vue'
+import { isWeb, ssidError, wifiPasswordError } from './utils/hotspotClient'
 
-// Type definitions
 interface WiFiNetwork {
   ssid: string
   rssi: number
   authmode: number
   channel: number
+  hidden?: boolean
 }
 
 type ConfigType = 'wifi' | 'ble' | 'ultrasonic'
+type Step = 'method' | 'network' | 'send' | 'done'
 
-/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
-function tx(key: string, fallback: string) {
-  const text = t(key)
-  return text === key ? fallback : text
-}
+// TinyBot firmware has no BLE provisioning yet, and ble-config speaks a plain-JSON protocol that ESP
+// BluFi devices do not understand. Flip this once a robot ships a matching BLE service.
+const BLE_FIRMWARE_READY = false
 
-// Provisioning type
+const STEPS: Step[] = ['method', 'network', 'send', 'done']
+const lang = computed(() => getCurrentLanguage())
+const num = (n: number) => digits(n, lang.value)
+
+const step = ref<Step>('method')
 const configType = ref<ConfigType>('wifi')
-
-// WiFi selector ref
 const wifiSelectorRef = ref<InstanceType<typeof WifiSelector>>()
+const selectedWifiInfo = ref<{ network: WiFiNetwork | null, password: string }>({ network: null, password: '' })
+const result = ref<{ ssid: string, unconfirmed: boolean }>({ ssid: '', unconfirmed: false })
+const demoPair = ref(false)
 
-// Selected WiFi network info
-const selectedWifiInfo = ref<{
-  network: WiFiNetwork | null
-  password: string
-}>({
-  network: null,
-  password: '',
-})
+const web = isWeb()
+const bleNote = computed(() => (web ? t('msetup.method.bleWeb') : BLE_FIRMWARE_READY ? '' : t('msetup.method.bleFirmware')))
 
-// Provisioning mode options (segmented control)
-const configTypeOptions = computed(() => [
+const methods = computed(() => [
+  { value: 'wifi' as const, icon: 'wifi', title: t('msetup.method.hotspot'), text: t('msetup.method.hotspotText'), note: '', tag: '', disabled: false },
+  { value: 'ultrasonic' as const, icon: 'volume', title: t('msetup.method.sound'), text: t('msetup.method.soundText'), note: '', tag: '', disabled: false },
   {
-    name: tx('deviceConfig.methodWifi', 'Wi‑Fi'),
-    fullName: t('deviceConfig.wifiConfig'),
-    hint: tx('deviceConfig.methodWifiHint', 'Your phone joins the robot’s hotspot and sends the network to it.'),
-    value: 'wifi' as const,
-  },
-  // Bluetooth is not offered: TinyBot firmware has no BLE provisioning, and the ble-config
-  // component speaks a plain-JSON protocol that ESP BluFi devices do not understand. Re-add it
-  // once a robot ships a matching BLE service.
-  {
-    name: tx('deviceConfig.methodSound', 'Sound'),
-    fullName: t('deviceConfig.ultrasonicConfig'),
-    hint: tx('deviceConfig.methodSoundHintMic', 'Your phone plays a short tone the robot hears with its microphone. Turn the volume up.'),
-    value: 'ultrasonic' as const,
+    value: 'ble' as const,
+    icon: 'bluetooth',
+    title: t('msetup.method.ble'),
+    text: t('msetup.method.bleText'),
+    note: bleNote.value,
+    tag: web ? t('msetup.method.appOnly') : (BLE_FIRMWARE_READY ? '' : t('msetup.method.notYet')),
+    disabled: Boolean(bleNote.value),
   },
 ])
 
-const currentOption = computed(() => configTypeOptions.value.find(item => item.value === configType.value) || configTypeOptions.value[0])
+const stepIndex = computed(() => STEPS.indexOf(step.value))
+const progressText = computed(() => t('msetup.progress', {
+  n: num(stepIndex.value + 1),
+  total: num(STEPS.length),
+  name: t(`msetup.step.${step.value}`),
+}))
 
-const hasNetwork = computed(() => !!(selectedWifiInfo.value.network && selectedWifiInfo.value.network.ssid))
 const networkReady = computed(() => {
   const n = selectedWifiInfo.value.network
   if (!n || !n.ssid || !n.ssid.trim())
     return false
-  return !(n.authmode > 0 && !selectedWifiInfo.value.password)
+  if (n.authmode > 0 && !selectedWifiInfo.value.password)
+    return false
+  return !(ssidError(n.ssid) || wifiPasswordError(selectedWifiInfo.value.password, n.authmode > 0))
 })
 
-function selectConfigType(value: ConfigType) {
-  configType.value = value
+function selectConfigType(m: { value: ConfigType, disabled: boolean }) {
+  if (m.disabled)
+    return
+  if (m.value !== configType.value) {
+    // Hotspot setup scans; the others type the name: start the network step clean
+    wifiSelectorRef.value?.reset()
+    selectedWifiInfo.value = { network: null, password: '' }
+  }
+  configType.value = m.value
 }
 
-// WiFi network selection event
 function onNetworkSelected(network: WiFiNetwork | null, password: string) {
   selectedWifiInfo.value = { network, password }
 }
 
-// ESP32 connection status change event
-function onConnectionStatusChange(connected: boolean) {
-  console.log('ESP32 connection status:', connected)
+function go(next: Step) {
+  step.value = next
+  uni.pageScrollTo({ scrollTop: 0, duration: 0 })
 }
-// Set navbar title after mount
-onMounted(() => {
-  uni.setNavigationBarTitle({
-    title: t('deviceConfig.pageTitle'),
-  })
+
+function onDone(r: { ssid: string, unconfirmed: boolean }) {
+  result.value = r
+  go('done')
+}
+
+function goToday() {
+  uni.switchTab({ url: '/pages/index/index' })
+}
+
+function again() {
+  wifiSelectorRef.value?.reset()
+  selectedWifiInfo.value = { network: null, password: '' }
+  result.value = { ssid: '', unconfirmed: false }
+  go('method')
+}
+
+// Demo build only: open a later step directly (?step=network|send|done&method=wifi|ultrasonic)
+onLoad((q: any) => {
+  if (!DEMO || !q)
+    return
+  if (q.method && ['wifi', 'ultrasonic'].includes(q.method))
+    configType.value = q.method
+  demoPair.value = q.pair === '1'
+  if (q.step && STEPS.includes(q.step)) {
+    if (q.step !== 'method' && q.step !== 'network')
+      selectedWifiInfo.value = { network: { ssid: 'Home WiFi', rssi: -48, authmode: 3, channel: 6 }, password: 'demo-password' }
+    if (q.step === 'done')
+      result.value = { ssid: 'Home WiFi', unconfirmed: false }
+    step.value = q.step
+  }
 })
 </script>
 
 <template>
-  <view class="netcfg">
-    <view class="nx-large-title netcfg__title">
-      <view class="nx-large-title__title">
-        {{ tx('deviceConfig.largeTitle', 'Network') }}
+  <view class="setup tb-wrap">
+    <tb-page-header :title="t('msetup.title')" back />
+
+    <view
+      class="setup__progress" role="progressbar" :aria-valuemin="1" :aria-valuemax="STEPS.length" :aria-valuenow="stepIndex + 1"
+      :aria-valuetext="progressText"
+    >
+      <view class="setup__bars" aria-hidden="true">
+        <view v-for="(s, i) in STEPS" :key="s" class="setup__bar" :class="{ 'is-done': i < stepIndex, 'is-now': i === stepIndex }" />
       </view>
-      <view class="nx-large-title__subtitle">
-        {{ tx('deviceConfig.subtitle', 'Connect your robot to Wi‑Fi in two steps.') }}
+      <text class="setup__steptext">
+        {{ progressText }}
+      </text>
+    </view>
+
+    <!-- How -->
+    <view v-show="step === 'method'" class="setup-step">
+      <view class="setup-step__body">
+        <text class="setup-h">
+          {{ t('msetup.method.title') }}
+        </text>
+        <text class="setup-lead">
+          {{ t('msetup.method.text') }}
+        </text>
+        <view class="setup-ways" role="radiogroup" :aria-label="t('msetup.method.title')">
+          <view
+            v-for="m in methods" :key="m.value" class="setup-way" role="radio"
+            :class="{ 'is-on': configType === m.value, 'is-off': m.disabled }"
+            :aria-checked="configType === m.value ? 'true' : 'false'" :aria-disabled="m.disabled ? 'true' : 'false'"
+            @click="selectConfigType(m)"
+          >
+            <view class="setup-way__radio">
+              <tb-icon v-if="configType === m.value" name="check" :size="14" />
+            </view>
+            <view class="setup-way__main">
+              <view class="setup-way__head">
+                <tb-icon :name="m.icon" :size="18" />
+                <text class="setup-way__title">
+                  {{ m.title }}
+                </text>
+                <tb-tag v-if="m.tag">
+                  {{ m.tag }}
+                </tb-tag>
+              </view>
+              <text class="setup-way__text">
+                {{ m.text }}
+              </text>
+              <text v-if="m.note" class="setup-way__note">
+                {{ m.note }}
+              </text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="setup-foot">
+        <tb-button variant="primary" size="l" block @click="go('network')">
+          {{ t('msetup.next') }}
+        </tb-button>
       </view>
     </view>
 
-    <!-- Method -->
-    <view class="nx-group">
-      <view class="nx-group__header">
-        {{ t('deviceConfig.configMethod') }}
-      </view>
-      <view class="nx-segmented" role="tablist">
-        <view
-          v-for="item in configTypeOptions"
-          :key="item.value"
-          class="nx-segmented__item"
-          :class="{ 'is-active': configType === item.value }"
-          role="tab"
-          :aria-selected="configType === item.value"
-          :aria-label="item.fullName"
-          @click="selectConfigType(item.value)"
-        >
-          {{ item.name }}
+    <!-- Which Wi-Fi: kept mounted so the choice survives going back and forth -->
+    <view v-show="step === 'network'" class="setup-step">
+      <view class="setup-step__body">
+        <text class="setup-h">
+          {{ t('msetup.net.title') }}
+        </text>
+        <text class="setup-lead">
+          {{ configType === 'wifi' ? t('msetup.net.text') : t('msetup.net.typeText') }}
+        </text>
+        <view class="setup-net">
+          <wifi-selector
+            :key="configType" ref="wifiSelectorRef" :auto-connect="configType === 'wifi'" :can-scan="configType === 'wifi'"
+            :allow-hidden="configType !== 'ultrasonic'" @network-selected="onNetworkSelected"
+          />
         </view>
       </view>
-      <view class="nx-group__footer">
-        {{ currentOption.hint }}
+      <view class="setup-foot setup-foot--pair">
+        <tb-button size="l" icon="chevron-left" @click="go('method')">
+          {{ t('msetup.back') }}
+        </tb-button>
+        <tb-button variant="primary" size="l" :disabled="!networkReady" @click="go('send')">
+          {{ t('msetup.next') }}
+        </tb-button>
       </view>
     </view>
 
-    <!-- Step 1: network -->
-    <view class="step" :class="{ 'is-done': networkReady }">
-      <view class="step__head">
-        <view class="nx-num step__num">
-          <wd-icon v-if="networkReady" name="check" size="14px" />
-          <text v-else>
-            1
-          </text>
-        </view>
-        <view class="step__title">
-          {{ tx('deviceConfig.stepNetwork', 'Choose the Wi‑Fi network') }}
-        </view>
-      </view>
-      <view class="step__body">
-        <wifi-selector
-          ref="wifiSelectorRef"
-          @network-selected="onNetworkSelected"
-          @connection-status="onConnectionStatusChange"
-        />
-      </view>
-    </view>
+    <!-- Send it -->
+    <block v-if="step === 'send'">
+      <wifi-config
+        v-if="configType === 'wifi'" :selected-network="selectedWifiInfo.network" :password="selectedWifiInfo.password"
+        :start-pairing="demoPair" @done="onDone" @back="go('network')"
+      />
+      <ble-config
+        v-else-if="configType === 'ble'" :selected-network="selectedWifiInfo.network" :password="selectedWifiInfo.password"
+        @done="onDone" @back="go('network')"
+      />
+      <ultrasonic-config
+        v-else :selected-network="selectedWifiInfo.network" :password="selectedWifiInfo.password"
+        @done="onDone" @back="go('network')"
+      />
+    </block>
 
-    <!-- Step 2: send to the robot -->
-    <view class="step" :class="{ 'is-idle': !hasNetwork }">
-      <view class="step__head">
-        <view class="step__num nx-num">
-          2
-        </view>
-        <view class="step__title">
-          {{ tx('deviceConfig.stepSend', 'Send it to the robot') }}
-        </view>
+    <!-- Done -->
+    <view v-if="step === 'done'" class="setup-step">
+      <view class="setup-step__body setup-done" role="status">
+        <tb-face mood="happy" :width="180" :alt="t('msetup.done.title')" />
+        <text class="setup-done__title">
+          {{ result.unconfirmed ? t('msetup.done.sentTitle') : t('msetup.done.title') }}
+        </text>
+        <text class="setup-lead">
+          {{ result.unconfirmed ? t('msetup.done.sentText') : t('msetup.done.text', { ssid: result.ssid }) }}
+        </text>
+        <text v-if="configType === 'wifi'" class="setup-done__note">
+          {{ t('msetup.done.phoneBack') }}
+        </text>
       </view>
-
-      <view v-if="hasNetwork" class="step__body">
-        <!-- WiFi provisioning component -->
-        <wifi-config
-          v-if="configType === 'wifi'"
-          :selected-network="selectedWifiInfo.network"
-          :password="selectedWifiInfo.password"
-        />
-
-        <!-- BLE provisioning component -->
-        <ble-config
-          v-else-if="configType === 'ble'"
-          :selected-network="selectedWifiInfo.network"
-          :password="selectedWifiInfo.password"
-        />
-
-        <!-- Ultrasonic provisioning component -->
-        <ultrasonic-config
-          v-else-if="configType === 'ultrasonic'"
-          :selected-network="selectedWifiInfo.network"
-          :password="selectedWifiInfo.password"
-        />
-      </view>
-      <view v-else class="step__placeholder">
-        {{ tx('deviceConfig.stepSendIdle', 'Choose a network first.') }}
+      <view class="setup-foot">
+        <tb-button variant="primary" size="l" block icon="today" @click="goToday">
+          {{ t('msetup.done.today') }}
+        </tb-button>
+        <tb-button block icon="plus" @click="again">
+          {{ t('msetup.done.again') }}
+        </tb-button>
       </view>
     </view>
   </view>
 </template>
 
-<style lang="scss" scoped>
-.netcfg {
+<style lang="scss">
+@import './components/setup-shared.scss';
+
+.setup {
   min-height: 100vh;
-  padding: calc(var(--status-bar-height, 0px) + var(--nx-space-4)) var(--nx-gutter)
-    calc(var(--nx-space-7) + env(safe-area-inset-bottom));
-  background: var(--nx-bg);
-  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+.setup__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 0;
+}
+.setup__bars {
+  display: flex;
+  gap: 4px;
+}
+.setup__bar {
+  flex: 1;
+  height: 3px;
+  background: var(--tb-rule-soft);
+  transition: background-color var(--tb-t-row) var(--tb-ease);
+}
+.setup__bar.is-done {
+  background: var(--tb-ink);
+}
+.setup__bar.is-now {
+  background: var(--tb-orange);
+}
+.setup__steptext {
+  color: var(--tb-ink-2);
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.netcfg__title {
-  padding-top: var(--nx-space-3);
+/* the ways to send */
+.setup-ways {
+  margin-top: 16px;
+  border-top: 1px solid var(--tb-rule);
+}
+.setup-way {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+  transition: background-color var(--tb-t-hover) var(--tb-ease);
+}
+.setup-way__radio {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border: 1.5px solid var(--tb-ink);
+  border-radius: 50%;
+  color: var(--tb-paper);
+  transition: background-color var(--tb-t-fast) var(--tb-ease);
+}
+.setup-way.is-on .setup-way__radio {
+  background: var(--tb-ink);
+}
+.setup-way.is-off {
+  cursor: default;
+}
+.setup-way.is-off .setup-way__radio {
+  border-color: var(--tb-ink-3);
+}
+.setup-way.is-off .setup-way__head,
+.setup-way.is-off .setup-way__text {
+  color: var(--tb-ink-3);
+}
+.setup-way__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.setup-way__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.setup-way__title {
+  font-weight: 700;
+  font-size: 16px;
+}
+.setup-way__text {
+  color: var(--tb-ink-2);
+  font-size: 14px;
+}
+.setup-way__note {
+  color: var(--tb-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.setup-net {
+  margin-top: 18px;
 }
 
-.step {
-  margin-bottom: var(--nx-space-5);
-
-  &__head {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-2);
-    padding: 0 var(--nx-space-2) var(--nx-space-2);
-  }
-
-  &__num {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 44rpx;
-    height: 44rpx;
-    border-radius: 50%;
-    background: var(--nx-accent);
-    color: var(--nx-on-accent);
-    font-size: var(--nx-text-caption);
-    font-weight: 700;
-    transition: background-color var(--nx-dur-2) var(--nx-ease);
-  }
-
-  &__title {
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--nx-text);
-  }
-
-  &.is-done &__num {
-    background: var(--nx-success);
-  }
-
-  &.is-idle &__num {
-    background: var(--nx-surface-3);
-    color: var(--nx-text-3);
-  }
-
-  &.is-idle &__title {
-    color: var(--nx-text-3);
-  }
-
-  &__placeholder {
-    padding: var(--nx-space-4);
-    border-radius: var(--nx-radius-lg);
-    border: 2rpx dashed var(--nx-border-strong);
-    font-size: var(--nx-text-callout);
-    color: var(--nx-text-3);
-    text-align: center;
-  }
+/* done */
+.setup-done {
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 28px;
+}
+.setup-done .tb-face {
+  margin-bottom: 14px;
+}
+.setup-done__title {
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1.15;
+}
+.setup-done__note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--tb-rule-soft);
+  font-size: 14px;
 }
 </style>
-
-<route lang="jsonc" type="page">
-{
-  "style": {
-    "navigationBarTitleText": "Device Configuration",
-    "navigationStyle": "custom"
-  }
-}
-</route>

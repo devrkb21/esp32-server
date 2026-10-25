@@ -1,11 +1,13 @@
 <script setup lang="ts">
+// Hotspot setup, last step: check the phone is still on TinyBot's hotspot, match the pattern on its
+// face (pair-pattern), then send the Wi-Fi. The robot tries to join before it answers, so a wrong
+// password comes back as an error here, with a retry. Emits `done` on success, `back` to change.
 import { computed, ref } from 'vue'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
 import { exitPortal, probePortal, ssidError, submitCredentials, wifiPasswordError } from '../utils/hotspotClient'
 import PairPattern from './pair-pattern.vue'
 
-// Type definitions
 interface WiFiNetwork {
   ssid: string
   rssi: number
@@ -14,21 +16,23 @@ interface WiFiNetwork {
   hidden?: boolean
 }
 
-// Props
 interface Props {
   selectedNetwork: WiFiNetwork | null
   password: string
+  startPairing?: boolean // demo build: open on the pattern step
 }
 
 const props = defineProps<Props>()
+const emit = defineEmits<{
+  (e: 'done', result: { ssid: string, unconfirmed: boolean }): void
+  (e: 'back'): void
+}>()
 
-// Reactive data
 const configuring = ref(false)
-// Outcome of the last attempt: shown as a card under the button
-const result = ref<'' | 'success' | 'unconfirmed' | 'failed'>('')
+const failed = ref(false)
 const resultMessage = ref('')
 // Pairing: match the pattern on the robot's face before it accepts Wi-Fi (null = not done yet)
-const pairing = ref(false)
+const pairing = ref(Boolean(props.startPairing))
 const pairToken = ref<string | null>(null)
 
 // What is wrong with the input before we even try (wrong password length, name too long)
@@ -39,7 +43,6 @@ const inputError = computed(() => {
   return ssidError(net.ssid) || wifiPasswordError(props.password, net.authmode > 0)
 })
 
-// Computed properties
 const canSubmit = computed(() => {
   if (!props.selectedNetwork || !props.selectedNetwork.ssid || !props.selectedNetwork.ssid.trim())
     return false
@@ -48,49 +51,38 @@ const canSubmit = computed(() => {
   return !inputError.value
 })
 
-// Instructions shown under the button
-const steps = computed(() => [
-  t('deviceConfig.phoneConnectXiaozhiHotspot'),
-  t('deviceConfig.selectTargetWifiNetwork'),
-  t('deviceConfig.enterWifiPasswordIfNeeded'),
-  t('deviceConfig.clickStartConfigAndWait'),
-])
-
-/** Translate with an English fallback until the key is in every locale */
-function tx(key: string, fallback: string) {
-  const text = t(key)
-  return text === key ? fallback : text
-}
-
 function onPaired(token: string) {
   pairToken.value = token
   pairing.value = false
   submitConfig()
 }
 
-// Submit provisioning
+function cancelPairing() {
+  pairing.value = false
+}
+
 async function submitConfig() {
   const net = props.selectedNetwork
   if (!net || !canSubmit.value)
     return
-  result.value = ''
+  failed.value = false
+  resultMessage.value = ''
 
+  configuring.value = true
   const status = await probePortal()
   if (status === 'blocked' || status === 'unreachable') {
-    result.value = 'failed'
-    resultMessage.value = status === 'blocked'
-      ? tx('deviceConfig.httpsBlocked', 'This page is secure (https) and can’t talk to the robot. Use “Open robot setup page” instead.')
-      : t('deviceConfig.connectXiaozhiHotspot')
-    toast.error(resultMessage.value)
+    configuring.value = false
+    failed.value = true
+    resultMessage.value = status === 'blocked' ? t('msetup.hot.blocked') : t('msetup.err.notOnHotspot')
     return
   }
 
   if (pairToken.value === null) {
+    configuring.value = false
     pairing.value = true
     return
   }
 
-  configuring.value = true
   try {
     const res = await submitCredentials(net.ssid, net.authmode > 0 ? props.password : '', Boolean(net.hidden), pairToken.value)
     if (res.pairRequired) {
@@ -100,18 +92,14 @@ async function submitConfig() {
       return
     }
     if (res.ok) {
-      result.value = res.unconfirmed ? 'unconfirmed' : 'success'
-      resultMessage.value = res.unconfirmed
-        ? tx('deviceConfig.sentUnconfirmed', 'Sent. Watch the robot: it shows the Wi-Fi name and restarts when it joins.')
-        : `${t('deviceConfig.configSuccess')}! ${t('deviceConfig.deviceWillConnectTo')} ${net.ssid}. ${t('deviceConfig.pleaseDisconnectXiaozhiHotspot')}`
-      toast.success(t('deviceConfig.configSuccess'))
+      toast.success(t('msetup.done.toast'))
       // Let the robot finish its reply, then take it out of setup mode
       setTimeout(() => exitPortal(), 1500)
+      emit('done', { ssid: net.ssid, unconfirmed: Boolean(res.unconfirmed) })
     }
     else {
-      result.value = 'failed'
-      resultMessage.value = res.error || t('deviceConfig.configFailed')
-      toast.error(resultMessage.value)
+      failed.value = true
+      resultMessage.value = res.error || t('msetup.err.failed')
     }
   }
   finally {
@@ -121,152 +109,133 @@ async function submitConfig() {
 </script>
 
 <template>
-  <view class="prov">
-    <!-- Selected network -->
-    <view v-if="props.selectedNetwork" class="nx-group prov__group">
-      <view class="nx-group__body">
-        <view class="nx-row">
-          <view class="nx-icon-tile prov__icon">
-            <wd-icon name="wifi" size="18px" />
+  <view class="setup-step">
+    <block v-if="pairing">
+      <view class="setup-step__body">
+        <pair-pattern @paired="onPaired" />
+      </view>
+      <view class="setup-foot">
+        <tb-button block @click="cancelPairing">
+          {{ t('msetup.pair.cancel') }}
+        </tb-button>
+      </view>
+    </block>
+
+    <block v-else>
+      <view class="setup-step__body">
+        <text class="setup-h">
+          {{ t('msetup.send.title') }}
+        </text>
+        <text class="setup-lead">
+          {{ t('msetup.send.text') }}
+        </text>
+
+        <view v-if="selectedNetwork" class="setup-table">
+          <view class="setup-row">
+            <text class="setup-key">
+              {{ t('msetup.send.network') }}
+            </text>
+            <view class="setup-val">
+              <text class="setup-ssid">
+                {{ selectedNetwork.ssid }}
+              </text>
+              <tb-tag v-if="selectedNetwork.hidden">
+                {{ t('msetup.net.hidden') }}
+              </tb-tag>
+            </view>
           </view>
-          <view class="nx-row__main">
-            <view class="nx-caption">
-              {{ t('deviceConfig.selectedNetwork') }}
+          <view class="setup-row">
+            <text class="setup-key">
+              {{ t('msetup.send.password') }}
+            </text>
+            <view class="setup-val">
+              <text>{{ selectedNetwork.authmode > 0 ? t('msetup.send.passwordSet') : t('msetup.send.noPassword') }}</text>
             </view>
-            <view class="nx-row__title nx-truncate prov__ssid" :title="props.selectedNetwork.ssid">
-              {{ props.selectedNetwork.ssid }}
-            </view>
-            <view class="nx-row__subtitle nx-num">
-              {{ t('deviceConfig.signal') }} {{ props.selectedNetwork.rssi }} dBm · {{ props.selectedNetwork.authmode === 0 ? t('deviceConfig.openNetwork') : t('deviceConfig.encryptedNetwork') }}
-            </view>
+            <tb-button size="s" variant="quiet" icon="edit" :disabled="configuring" @click="emit('back')">
+              {{ t('msetup.send.change') }}
+            </tb-button>
           </view>
         </view>
+
+        <view v-if="inputError" class="setup-alert" role="alert">
+          <tb-icon name="warning" :size="18" /><text>{{ inputError }}</text>
+        </view>
+
+        <view v-if="configuring" class="prov__busy" role="status">
+          <tb-face mood="awake" :width="112" />
+          <view class="prov__busytext">
+            <tb-loading />
+            <text>{{ t('msetup.send.sending') }}</text>
+          </view>
+        </view>
+
+        <view v-else-if="failed" class="prov__fail" role="alert">
+          <text class="prov__failtitle">
+            {{ t('msetup.send.failed') }}
+          </text>
+          <text>{{ resultMessage }}</text>
+        </view>
+
+        <view v-else class="setup-lines">
+          <text class="setup-label">
+            {{ t('msetup.send.after') }}
+          </text>
+          <text class="setup-line">
+            {{ t('msetup.send.after1') }}
+          </text>
+          <text class="setup-line">
+            {{ t('msetup.send.after2') }}
+          </text>
+          <text class="setup-line">
+            {{ t('msetup.send.after3') }}
+          </text>
+        </view>
       </view>
-    </view>
 
-    <!-- Pairing step, then the provisioning button -->
-    <view v-if="pairing" class="prov__action">
-      <pair-pattern @paired="onPaired" />
-    </view>
-    <view v-else class="prov__action">
-      <wd-button
-        type="primary"
-        size="large"
-        block
-        :loading="configuring"
-        :disabled="!canSubmit"
-        @click="submitConfig"
-      >
-        {{ configuring ? t('deviceConfig.configuring') : t('deviceConfig.startWifiConfigButton') }}
-      </wd-button>
-    </view>
-
-    <view v-if="inputError" class="prov__notice prov__notice--warn" role="alert">
-      {{ inputError }}
-    </view>
-    <view v-else-if="result" class="prov__notice" :class="`prov__notice--${result}`" role="status">
-      {{ resultMessage }}
-    </view>
-
-    <!-- Instructions -->
-    <view class="nx-group prov__group">
-      <view class="nx-group__header">
-        {{ t('deviceConfig.wifiConfigInstructions') }}
-      </view>
-      <view class="nx-group__body">
-        <view
-          v-for="(item, index) in steps"
-          :key="index"
-          class="nx-row prov__step"
+      <view class="setup-foot">
+        <tb-button
+          variant="primary" size="l" block :icon="failed ? 'refresh' : 'send'" :loading="configuring" :disabled="!canSubmit"
+          @click="submitConfig"
         >
-          <view class="nx-num prov__step-num">
-            {{ index + 1 }}
-          </view>
-          <view class="nx-row__main prov__step-text">
-            {{ item }}
-          </view>
-        </view>
+          {{ failed ? t('common.retry') : t('msetup.send.button') }}
+        </tb-button>
       </view>
-      <view class="nx-group__footer">
-        {{ t('deviceConfig.afterConfigSuccessDeviceWillRestart') }}
-      </view>
-    </view>
+    </block>
   </view>
 </template>
 
-<style lang="scss" scoped>
-.prov {
-  &__group {
-    margin-bottom: var(--nx-space-4);
+<style lang="scss">
+@import './setup-shared.scss';
 
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-
-  &__icon {
-    width: 60rpx;
-    height: 60rpx;
-    border-radius: var(--nx-radius-sm);
-  }
-
-  &__ssid {
-    font-weight: 600;
-  }
-
-  &__action {
-    margin-bottom: var(--nx-space-5);
-  }
-
-  &__notice {
-    margin: calc(var(--nx-space-3) * -1) 0 var(--nx-space-5);
-    padding: var(--nx-space-3) var(--nx-space-4);
-    border-radius: var(--nx-radius);
-    font-size: var(--nx-text-callout);
-    line-height: 1.45;
-    background: var(--nx-surface-2);
-    color: var(--nx-text-2);
-    &--success {
-      background: var(--nx-success-soft);
-      color: var(--nx-success);
-    }
-    &--unconfirmed,
-    &--warn {
-      background: var(--nx-warning-soft);
-      color: var(--nx-warning);
-    }
-    &--failed {
-      background: var(--nx-danger-soft);
-      color: var(--nx-danger);
-    }
-  }
-
-  &__step {
-    align-items: flex-start;
-    min-height: 0;
-    padding-top: var(--nx-space-2);
-    padding-bottom: var(--nx-space-2);
-  }
-
-  &__step-num {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 40rpx;
-    height: 40rpx;
-    margin-top: 2rpx;
-    border-radius: 50%;
-    background: var(--nx-surface-2);
-    color: var(--nx-text-2);
-    font-size: var(--nx-text-caption);
-    font-weight: 600;
-  }
-
-  &__step-text {
-    font-size: var(--nx-text-callout);
-    line-height: 1.45;
-    color: var(--nx-text-2);
-  }
+.prov__busy {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 22px;
+}
+.prov__busytext {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--tb-ink-2);
+  font-size: 14px;
+}
+.prov__fail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 22px;
+  padding: 12px 0;
+  border-top: 3px solid var(--tb-danger);
+  color: var(--tb-ink);
+  font-size: 15px;
+}
+.prov__failtitle {
+  font-family: var(--tb-font-display);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--tb-danger);
 }
 </style>

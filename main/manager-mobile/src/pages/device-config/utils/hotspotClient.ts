@@ -11,6 +11,7 @@
 //   credentials go as text/plain (the portal parses the body as JSON regardless), and when even
 //   reading a response is blocked we fall back to an opaque `no-cors` request.
 
+import { DEMO, demoBody } from '@/api/demo'
 import { t } from '@/i18n'
 import { normalizePairState } from './pairingUtils.mjs'
 
@@ -51,7 +52,7 @@ export interface PairState {
   options: PairOption[]
 }
 
-/** True for the web build (H5). */
+/** True for the web build (H5). In the demo build the portal is answered from fixtures. */
 export function isWeb(): boolean {
   // #ifdef H5
   return true
@@ -62,10 +63,17 @@ export function isWeb(): boolean {
 
 /** An https page cannot reach the plain-http portal (the browser blocks mixed content). */
 export function isBlockedByHttps(): boolean {
-  return isWeb() && typeof window !== 'undefined' && window.location.protocol === 'https:'
+  return !DEMO && isWeb() && typeof window !== 'undefined' && window.location.protocol === 'https:'
 }
 
 function request<T = any>(options: UniApp.RequestOptions): Promise<UniApp.RequestSuccessCallbackResult & { data: T }> {
+  if (DEMO) {
+    // Demo build (src/api/demo/pages/m-setup.ts): the portal answers from fixtures, after a pause
+    const path = String(options.url || '').replace(PORTAL_URL, '')
+    const body = demoBody(path, String(options.method || 'GET'), parseJson(options.data))
+    const delay = /\/submit$/.test(path) ? 1800 : 450
+    return new Promise(resolve => setTimeout(() => resolve({ statusCode: 200, data: body, header: {}, cookies: [], errMsg: 'ok' } as any), delay))
+  }
   return new Promise((resolve, reject) => {
     uni.request({
       ...options,
@@ -88,7 +96,7 @@ function parseJson(data: unknown): any {
 
 /** Reachability check that works without CORS: an opaque response still proves the portal answered. */
 async function opaqueReachable(path: string, init: RequestInit, timeoutMs: number): Promise<boolean> {
-  if (!isWeb() || typeof fetch === 'undefined')
+  if (DEMO || !isWeb() || typeof fetch === 'undefined')
     return false
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null
@@ -193,9 +201,9 @@ export function wifiPasswordError(password: string, encrypted: boolean): string 
     return ''
   const pw = password || ''
   if (pw.length === 64)
-    return /^[0-9a-f]{64}$/i.test(pw) ? '' : t('deviceConfig.passwordHexInvalid')
+    return /^[0-9a-f]{64}$/i.test(pw) ? '' : t('msetup.err.passwordHex')
   if (pw.length < 8 || pw.length > 63)
-    return t('deviceConfig.passwordLengthInvalid')
+    return t('msetup.err.passwordLength')
   return ''
 }
 
@@ -203,16 +211,16 @@ export function wifiPasswordError(password: string, encrypted: boolean): string 
 export function ssidError(ssid: string): string {
   const bytes = new TextEncoder().encode(ssid || '').length
   if (!bytes)
-    return t('deviceConfig.selectWifiNetwork')
-  return bytes > 32 ? t('deviceConfig.ssidTooLong') : ''
+    return t('msetup.err.chooseNetwork')
+  return bytes > 32 ? t('msetup.err.ssidLong') : ''
 }
 
 function friendlyPortalError(raw: string): string {
   if (/connect to the access point/i.test(raw))
-    return t('deviceConfig.robotCouldNotJoin')
+    return t('msetup.err.couldNotJoin')
   if (/invalid ssid/i.test(raw))
-    return t('deviceConfig.ssidTooLong')
-  return raw || t('deviceConfig.configFailed')
+    return t('msetup.err.ssidLong')
+  return raw || t('msetup.err.failed')
 }
 
 /**
@@ -235,7 +243,7 @@ export async function submitCredentials(ssid: string, password: string, hidden =
     if (res.statusCode === 200 && data?.success)
       return { ok: true }
     if (data?.pair_required)
-      return { ok: false, pairRequired: true, error: t('deviceConfig.configFailed') }
+      return { ok: false, pairRequired: true, error: t('msetup.err.failed') }
     return { ok: false, error: friendlyPortalError(data?.error || (res.statusCode !== 200 ? `HTTP ${res.statusCode}` : '')) }
   }
   catch (err: any) {
@@ -244,7 +252,7 @@ export async function submitCredentials(ssid: string, password: string, hidden =
     if (isWeb() && await opaqueReachable('/submit', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body }, 25000))
       return { ok: true, unconfirmed: true }
     const msg = String(err?.errMsg || err?.message || '')
-    return { ok: false, error: /timeout/i.test(msg) ? t('deviceConfig.robotSlowToAnswer') : t('deviceConfig.connectXiaozhiHotspot') }
+    return { ok: false, error: /timeout/i.test(msg) ? t('msetup.err.slow') : t('msetup.err.notOnHotspot') }
   }
 }
 

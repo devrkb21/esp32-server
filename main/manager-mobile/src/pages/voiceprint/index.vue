@@ -1,1111 +1,719 @@
+<!-- Voiceprints: the people TinyBot recognises by voice, and the voice security policy (owner: m-voiceprint).
+     A page (?agentId=, else the character of "this robot") and also embedded by pages/agent/index.vue as
+     <VoiceprintManagement :agent-id>, which calls the exposed refresh(). Embedded, it draws no page header. -->
+<route lang="jsonc">
+{
+  "layout": "default",
+  "style": {
+    "navigationStyle": "custom",
+    "navigationBarTitleText": "TinyBot"
+  }
+}
+</route>
+
 <script lang="ts" setup>
-import type { ChatHistory, CreateSpeakerData, VoicePrint, VoiceprintSecurityConfig } from '@/api/voiceprint'
-import { computed, onMounted, ref } from 'vue'
-import { useMessage } from 'wot-design-uni/components/wd-message-box'
-import { useToast } from 'wot-design-uni/components/wd-toast'
+import type { ChatHistory, VoicePrint } from '@/api/voiceprint'
+import { onHide, onLoad } from '@dcloudio/uni-app'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
-  createVoicePrint,
   deleteVoicePrint,
-  getAudioDownloadId,
   getChatHistory,
   getVoicePrintList,
   getVoiceprintSecurity,
-  updateVoicePrint,
   updateVoiceprintSecurity,
 } from '@/api/voiceprint'
-import { t } from '@/i18n'
-import { getEnvBaseUrl } from '@/utils'
+import { getCurrentLanguage, t } from '@/i18n'
+import { digits } from '@/utils/calendar.mjs'
+import { tbConfirm } from '@/utils/tbConfirm'
+import { loadRobots, robot } from '@/utils/tbRobot'
+import { toast } from '@/utils/toast'
+import VoicePrintSheet from './components/VoicePrintSheet.vue'
+import { useVoicePlayer } from './useVoicePlayer'
+import {
+  clampPercent,
+  CONFIDENCE,
+  dateText,
+  isNotConfigured,
+  recordingsFrom,
+  sameSecurity,
+  securityOf,
+  securityPayload,
+  serverSaid,
+} from './voiceprintModel.mjs'
 
-defineOptions({
-  name: 'VoicePrintManage',
-})
+defineOptions({ name: 'VoicePrintManage' })
 
-const props = withDefaults(defineProps<Props>(), {
-  agentId: 'default',
-})
-
+const props = withDefaults(defineProps<{ agentId?: string, embedded?: boolean }>(), { agentId: 'default', embedded: false })
 const emits = defineEmits(['update-refresher-enabled'])
 
-// Receive props
-interface Props {
-  agentId?: string
+const lang = computed(() => getCurrentLanguage())
+const num = (n: any) => digits(n, lang.value)
+
+/* ---------- which character, page or embedded ---------- */
+function onOwnRoute() {
+  try {
+    const pages = getCurrentPages()
+    const last: any = pages[pages.length - 1]
+    if (last && String(last.route || '').includes('pages/voiceprint/'))
+      return true
+  }
+  catch {}
+  try {
+    return window.location.hash.includes('/pages/voiceprint/')
+  }
+  catch {
+    return false
+  }
 }
+const pageMode = ref(!props.embedded && onOwnRoute())
+const queryAgentId = ref('')
+onLoad((q: any) => {
+  pageMode.value = !props.embedded && onOwnRoute()
+  if (pageMode.value && q?.agentId)
+    queryAgentId.value = decodeURIComponent(String(q.agentId))
+})
+const propAgentId = computed(() => (props.agentId && props.agentId !== 'default' ? props.agentId : ''))
+const currentAgentId = computed(() => queryAgentId.value || propAgentId.value || robot.agentId || '')
 
-/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
-function tx(key: string, fallback: string) {
-  const text = t(key)
-  return text === key ? fallback : text
-}
-
-const message = useMessage()
-const toast = useToast()
-
-// Page data
+/* ---------- people ---------- */
 const voicePrintList = ref<VoicePrint[]>([])
-const chatHistoryList = ref<ChatHistory[]>([])
-const chatHistoryActions = ref<any[]>([])
-const swipeStates = ref<Record<string, 'left' | 'close' | 'right'>>({})
 const loading = ref(false)
+const loaded = ref(false)
+const failed = ref(false)
 
-// Audio playback related
-const audioRef = ref<UniApp.InnerAudioContext | null>(null)
-const playingAudioId = ref<string>('')
+/* ---------- recent recordings (to pick from, and the words of each row) ---------- */
+const recordings = ref<{ audioId: string, text: string, speaker: string }[]>([])
+const recentState = ref<'loading' | 'failed' | 'ok'>('ok')
 
-// Use provided agent ID
-const currentAgentId = computed(() => {
-  return props.agentId
+/* ---------- sheet ---------- */
+const sheetOpen = ref(false)
+const editing = ref<VoicePrint | null>(null)
+const opening = ref(false)
+
+/* ---------- security policy ---------- */
+const security = ref(securityOf(null))
+const savedSecurity = ref(securityOf(null))
+const securityLoaded = ref(false)
+const securityFailed = ref(false)
+const isSavingSecurity = ref(false)
+const securityDirty = computed(() => !sameSecurity(security.value, savedSecurity.value))
+
+const player = useVoicePlayer((kind) => {
+  toast.error(kind === 'fetch' ? t('voiceprint.getAudioFailed') : t('mVp.playFailed'))
 })
 
-// Agent selection related functions removed
+const wordsById = computed(() => {
+  const m: Record<string, { text: string, speaker: string }> = {}
+  for (const r of recordings.value) m[r.audioId] = r
+  return m
+})
+const nameOf = (row: VoicePrint) => (row.sourceName || '').trim() || t('mVp.unnamed')
+const wordsOf = (row: VoicePrint) => wordsById.value[row.audioId]?.text || ''
 
-// Dialog related
-const showAddDialog = ref(false)
-const showEditDialog = ref(false)
-const showChatHistoryDialog = ref(false)
-const addForm = ref<CreateSpeakerData>({
-  agentId: '',
-  audioId: '',
-  sourceName: '',
-  introduce: '',
-})
-const editForm = ref<VoicePrint>({
-  id: '',
-  audioId: '',
-  sourceName: '',
-  introduce: '',
-  createDate: '',
-})
+function playLabel(row: VoicePrint) {
+  if (player.loadingId.value === row.audioId)
+    return t('mVp.fetchingAudio')
+  return player.playingId.value === row.audioId ? t('mVp.stop') : t('mVp.listen', { name: nameOf(row) })
+}
 
-// Voiceprint Security policy state
-const securityConfig = ref<VoiceprintSecurityConfig>({
-  confidenceThreshold: 0.70,
-  requireVoiceMatchSmartHome: false,
-  adminSpeakerOnly: true,
-})
-const confidencePercent = ref<number>(70)
-const isSavingSecurity = ref<boolean>(false)
+async function loadVoicePrintList() {
+  if (!currentAgentId.value) {
+    voicePrintList.value = []
+    return
+  }
+  loading.value = true
+  failed.value = false
+  try {
+    const data = await getVoicePrintList(currentAgentId.value)
+    voicePrintList.value = Array.isArray(data) ? data : []
+  }
+  catch (error) {
+    console.error('Failed to get voiceprint list:', error)
+    failed.value = true
+  }
+  finally {
+    loading.value = false
+    loaded.value = true
+  }
+}
+
+async function loadChatHistory() {
+  if (!currentAgentId.value)
+    return
+  recentState.value = 'loading'
+  try {
+    const data = await getChatHistory(currentAgentId.value)
+    recordings.value = recordingsFrom((data || []) as ChatHistory[]) as any
+    recentState.value = 'ok'
+  }
+  catch (error) {
+    console.error('Failed to get dialogue records:', error)
+    recentState.value = 'failed'
+  }
+}
 
 async function loadSecuritySettings() {
   try {
     const data = await getVoiceprintSecurity()
-    if (data) {
-      securityConfig.value = {
-        confidenceThreshold: data.confidenceThreshold ?? 0.70,
-        requireVoiceMatchSmartHome: !!data.requireVoiceMatchSmartHome,
-        adminSpeakerOnly: !!data.adminSpeakerOnly,
-      }
-      confidencePercent.value = Math.round((data.confidenceThreshold ?? 0.70) * 100)
-    }
+    const s = securityOf(data)
+    security.value = { ...s }
+    savedSecurity.value = { ...s }
+    securityFailed.value = false
   }
   catch (error) {
     console.error('Failed to load voiceprint security settings:', error)
+    securityFailed.value = true
+  }
+  finally {
+    securityLoaded.value = true
   }
 }
 
 async function saveSecuritySettings() {
   isSavingSecurity.value = true
   try {
-    await updateVoiceprintSecurity({
-      confidenceThreshold: Number((confidencePercent.value / 100).toFixed(2)),
-      requireVoiceMatchSmartHome: securityConfig.value.requireVoiceMatchSmartHome,
-      adminSpeakerOnly: securityConfig.value.adminSpeakerOnly,
-    })
-    toast.success(t('voiceprint.securitySaved'))
+    await updateVoiceprintSecurity(securityPayload(security.value))
+    savedSecurity.value = { ...security.value }
+    securityFailed.value = false
+    toast.success(t('mVp.sec.saved'))
   }
   catch (error) {
     console.error('Failed to update voiceprint security settings:', error)
-    toast.error(t('voiceprint.securitySaveFailed'))
+    if (!serverSaid(error))
+      toast.error(t('mVp.sec.saveFailed'))
   }
   finally {
     isSavingSecurity.value = false
   }
 }
 
-// Get voiceprint list
-async function loadVoicePrintList() {
-  try {
-    console.log('Get voiceprint list')
-
-    // Check whether agent is currently selected
-    if (!currentAgentId.value) {
-      console.warn(t('voiceprint.noSelectedAgent'))
-      voicePrintList.value = []
-      return
-    }
-
-    loading.value = true
-    const data = await getVoicePrintList(currentAgentId.value)
-
-    // Initialize swipe state
-    const list = data || []
-    list.forEach((item) => {
-      if (!swipeStates.value[item.id]) {
-        swipeStates.value[item.id] = 'close'
-      }
-    })
-
-    voicePrintList.value = list
-  }
-  catch (error) {
-    console.error('Failed to get voiceprint list:', error)
-    voicePrintList.value = []
-  }
-  finally {
-    loading.value = false
-  }
+function onThreshold(e: any) {
+  security.value = { ...security.value, percent: clampPercent(e?.detail?.value) }
 }
 
-// Refresh method exposed to parent
+/** Refresh method exposed to the character page */
 async function refresh() {
-  await loadVoicePrintList()
+  await Promise.all([loadVoicePrintList(), loadChatHistory()])
 }
 
-// Get voice dialogue history
-async function loadChatHistory() {
-  try {
-    if (!currentAgentId.value) {
-      toast.error(t('voiceprint.pleaseSelectAgent'))
-      return
-    }
-
-    const data = await getChatHistory(currentAgentId.value)
-    chatHistoryList.value = data || []
-    // Convert to ActionSheet format
-    chatHistoryActions.value = chatHistoryList.value.map((item, index) => ({
-      name: item.content,
-      audioId: item.audioId,
-      index,
-    }))
-  }
-  catch (error) {
-    console.error('Failed to get dialogue records:', error)
-    toast.error(t('voiceprint.fetchHistoryFailed'))
-  }
-}
-
-// Open add dialog
-function openAddDialog() {
+/* ---------- add, edit, delete ---------- */
+async function openAdd() {
   if (!currentAgentId.value) {
     toast.error(t('voiceprint.pleaseSelectAgent'))
     return
   }
-
-  // Check if voiceprint API is configured
-  const checkVoicePrintConfig = async () => {
-    try {
-      await getVoicePrintList(currentAgentId.value)
-      // API is normal, open add dialog
-      addForm.value = {
-        agentId: currentAgentId.value,
-        audioId: '',
-        sourceName: '',
-        introduce: '',
-      }
-      showAddDialog.value = true
-    }
-    catch (error: any) {
-      // Catch unconfigured voiceprint API error
-      if (error.message && error.message.includes('10054')) {
-        toast.error(t('voiceprint.voiceprintInterfaceNotConfigured'))
-      }
-      else {
-        // Continue opening dialog on other errors
-        addForm.value = {
-          agentId: currentAgentId.value,
-          audioId: '',
-          sourceName: '',
-          introduce: '',
-        }
-        showAddDialog.value = true
-      }
-    }
-  }
-
-  checkVoicePrintConfig()
-}
-
-// Open edit dialog
-function openEditDialog(item: VoicePrint) {
-  editForm.value = { ...item }
-  showEditDialog.value = true
-}
-
-// Get display content of selected audio
-function getSelectedAudioContent(audioId: string) {
-  if (!audioId)
-    return t('voiceprint.clickToSelectVector')
-  const chatItem = chatHistoryList.value.find(item => item.audioId === audioId)
-  return chatItem ? chatItem.content : `Selected: ${audioId.substring(0, 8)}...`
-}
-
-// Select voiceprint vector
-function selectAudioId({ item }: { item: any }) {
-  if (showAddDialog.value) {
-    addForm.value.audioId = item.audioId
-  }
-  else if (showEditDialog.value) {
-    editForm.value.audioId = item.audioId
-  }
-  showChatHistoryDialog.value = false
-}
-
-// Click to select
-function handleItemClick(item: any) {
-  selectAudioId({ item })
-}
-
-// Submit add speaker
-async function submitAdd() {
-  if (!addForm.value.sourceName.trim()) {
-    toast.error(t('voiceprint.pleaseInputName'))
+  if (opening.value)
     return
-  }
-  if (!addForm.value.audioId) {
-    toast.error(t('voiceprint.pleaseSelectVector'))
-    return
-  }
-
+  opening.value = true
+  // The legacy check: is the voiceprint service configured? (error 10054 says it is not)
   try {
-    await createVoicePrint(addForm.value)
-    toast.success(t('voiceprint.addSuccess'))
-    showAddDialog.value = false
-    await loadVoicePrintList()
+    await getVoicePrintList(currentAgentId.value)
   }
-  catch (error) {
-    console.error('Failed to add speaker:', error)
-    toast.error(t('voiceprint.addFailed'))
-  }
-}
-
-// Submit edit speaker
-async function submitEdit() {
-  if (!editForm.value.sourceName.trim()) {
-    toast.error(t('voiceprint.pleaseInputName'))
-    return
-  }
-  if (!editForm.value.audioId) {
-    toast.error(t('voiceprint.pleaseSelectVector'))
-    return
-  }
-
-  try {
-    await updateVoicePrint({
-      id: editForm.value.id,
-      audioId: editForm.value.audioId,
-      sourceName: editForm.value.sourceName,
-      introduce: editForm.value.introduce,
-      createDate: editForm.value.createDate,
-    })
-    toast.success(t('voiceprint.editSuccess'))
-    showEditDialog.value = false
-    await loadVoicePrintList()
-  }
-  catch (error) {
-    console.error('Failed to edit speaker:', error)
-    toast.error(t('voiceprint.editFailed'))
-  }
-}
-
-const sheetOpen = computed({
-  get: () => showAddDialog.value || showEditDialog.value,
-  set: (open: boolean) => {
-    if (!open) {
-      showAddDialog.value = false
-      showEditDialog.value = false
+  catch (error: any) {
+    if (isNotConfigured(error)) {
+      toast.error(t('mVp.notConfigured'))
+      opening.value = false
+      return
     }
-  },
-})
-
-/** The form the open sheet edits (add or edit) */
-const sheetForm = computed(() => (showEditDialog.value ? editForm.value : addForm.value))
-
-function submitSheet() {
-  if (showEditDialog.value)
-    submitEdit()
-  else
-    submitAdd()
+  }
+  opening.value = false
+  player.stop()
+  editing.value = null
+  sheetOpen.value = true
+  if (recentState.value !== 'loading')
+    loadChatHistory()
 }
 
-function deleteFromSheet() {
-  const id = editForm.value.id
-  showEditDialog.value = false
-  handleDelete(id)
+function openEdit(row: VoicePrint) {
+  player.stop()
+  editing.value = { ...row }
+  sheetOpen.value = true
+  if (recentState.value === 'failed' || !recordings.value.length)
+    loadChatHistory()
 }
 
-// Handle edit operation
-function handleEdit(item: VoicePrint) {
-  openEditDialog(item)
-  swipeStates.value[item.id] = 'close'
-}
-
-// Delete voiceprint
-async function handleDelete(id: string) {
-  message.confirm({
-    msg: t('voiceprint.deleteConfirmMsg'),
-    title: t('voiceprint.deleteConfirmTitle'),
-  }).then(async () => {
-    await deleteVoicePrint(id)
-    toast.success(t('voiceprint.deleteSuccess'))
-    await loadVoicePrintList()
-  }).catch(() => {
-    console.log('Clicked cancel button')
+async function remove(row: VoicePrint) {
+  sheetOpen.value = false
+  const ok = await tbConfirm({
+    title: t('mVp.confirm.title'),
+    message: t('mVp.confirm.text', { name: nameOf(row) }),
+    confirmText: t('mVp.confirm.ok'),
+    cancelText: t('common.cancel'),
+    danger: true,
   })
+  if (!ok)
+    return
+  if (player.playingId.value === row.audioId)
+    player.stop()
+  try {
+    await deleteVoicePrint(row.id)
+    toast.success(t('mVp.deleted'))
+    await loadVoicePrintList()
+  }
+  catch (error) {
+    console.error('Failed to delete speaker:', error)
+    if (!serverSaid(error))
+      toast.error(t('mVp.deleteFailed'))
+  }
 }
 
-// Play audio
-async function playAudio(audioId: string, event: Event) {
-  event.stopPropagation() // Stop event propagation
-
-  if (!audioId) {
+function onRowPlay(row: VoicePrint) {
+  if (!row.audioId) {
     toast.warning(t('voiceprint.audioNotExist'))
     return
   }
+  player.toggle(row.audioId)
+}
 
-  // Stop if currently playing same audio
-  if (playingAudioId.value === audioId) {
-    stopAudio()
+function goRobots() {
+  uni.navigateTo({ url: '/pages/robots/index' })
+}
+
+// The character page turns its pull-down off while a sheet is open (legacy contract)
+watch(sheetOpen, open => emits('update-refresher-enabled', !open))
+
+watch(currentAgentId, (id, old) => {
+  if (!id || id === old)
     return
-  }
-
-  // Stop previous audio
-  stopAudio()
-
-  try {
-    // First get audio download ID
-    playingAudioId.value = audioId
-    const downloadId = await getAudioDownloadId(audioId)
-
-    if (!downloadId) {
-      toast.error(t('voiceprint.getAudioFailed'))
-      playingAudioId.value = ''
-      return
-    }
-
-    // Get baseURL
-    const baseURL = getEnvBaseUrl()
-    const audioUrl = `${baseURL}/agent/play/${downloadId}`
-
-    // Create new Audio instance
-    audioRef.value = uni.createInnerAudioContext()
-    audioRef.value.src = audioUrl
-    audioRef.value.autoplay = true
-
-    // Listen for playback end
-    audioRef.value.onEnded(() => {
-      playingAudioId.value = ''
-    })
-
-    // Listen for playback error
-    audioRef.value.onError((error) => {
-      console.error('Audio playback error:', error)
-      toast.error(t('voiceprint.audioPlayFailed'))
-      playingAudioId.value = ''
-    })
-  }
-  catch (error) {
-    console.error('Failed to play audio:', error)
-    toast.error(t('voiceprint.audioPlayFailed'))
-    playingAudioId.value = ''
-  }
-}
-
-// Stop audio
-function stopAudio() {
-  if (audioRef.value) {
-    audioRef.value.stop()
-    audioRef.value.destroy()
-    audioRef.value = null
-  }
-  playingAudioId.value = ''
-}
-
-watch(() => [showAddDialog.value, showEditDialog.value], (newValues) => {
-  if (newValues.some((value: boolean) => value)) {
-    emits('update-refresher-enabled', false)
-  }
-  else {
-    emits('update-refresher-enabled', true)
-  }
+  player.stop()
+  voicePrintList.value = []
+  recordings.value = []
+  loaded.value = false
+  refresh()
 })
+
+onHide(() => player.stop())
 
 onMounted(async () => {
-  // Agent simplified to default
   loadSecuritySettings()
-  loadVoicePrintList()
-  loadChatHistory()
+  if (currentAgentId.value) {
+    refresh()
+    return
+  }
+  await loadRobots()
+  loaded.value = true // with no robot, the empty state; otherwise the watch above loads
 })
 
-// Expose method to parent
-defineExpose({
-  showAddDialog,
-  showEditDialog,
-  refresh,
-})
+defineExpose({ refresh, sheetOpen })
 </script>
 
 <template>
-  <view class="vp">
-    <!-- Large title -->
-    <view class="vp__header">
-      <view class="min-w-0 flex-1">
-        <view class="vp__title">
-          {{ tx('voiceprint.listTitle', 'Voiceprints') }}
-        </view>
-        <view class="vp__subtitle">
-          {{ tx('voiceprint.listSubtitle', 'Let the robot recognise who is speaking.') }}
-        </view>
-      </view>
-      <view
-        v-if="voicePrintList.length"
-        class="vp__add"
-        role="button"
-        :aria-label="t('voiceprint.addSpeaker')"
-        @click="openAddDialog"
-      >
-        <wd-icon name="add" size="16px" />
-        <text>{{ tx('voiceprint.add', 'Add') }}</text>
-      </view>
+  <view class="vp" :class="{ 'tb-wrap': pageMode, 'is-page': pageMode }">
+    <tb-page-header v-if="pageMode" :title="t('nav.voiceprint')" :description="t('mVp.desc')" back />
+
+    <view v-if="!currentAgentId && robot.loaded" class="vp__state">
+      <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
+        <tb-button variant="primary" icon="robots" @click="goRobots">
+          {{ t('common.goRobots') }}
+        </tb-button>
+      </tb-empty>
     </view>
 
-    <!-- Speakers -->
-    <view v-if="loading && voicePrintList.length === 0" class="nx-group">
-      <view class="nx-group__body">
-        <view v-for="i in 3" :key="i" class="nx-row">
-          <view class="nx-skeleton vp__skeleton-icon" />
-          <view class="nx-row__main">
-            <view class="nx-skeleton vp__skeleton-line" />
-            <view class="nx-skeleton vp__skeleton-line vp__skeleton-line--short" />
-          </view>
-        </view>
-      </view>
-    </view>
+    <block v-else>
+      <tb-section :title="t('mVp.list.title')">
+        <template v-if="voicePrintList.length" #actions>
+          <text class="vp__count tb-num">
+            {{ t('mVp.list.count', { n: num(voicePrintList.length) }) }}
+          </text>
+        </template>
 
-    <view v-else-if="voicePrintList.length > 0" class="nx-group">
-      <view class="nx-group__header">
-        {{ tx('voiceprint.speakers', 'Speakers') }}
-      </view>
-      <view class="nx-group__body">
-        <wd-swipe-action
-          v-for="item in voicePrintList"
-          :key="item.id"
-          :model-value="swipeStates[item.id] || 'close'"
-          custom-class="vp__swipe"
-          @update:model-value="swipeStates[item.id] = $event"
-        >
-          <view class="nx-row nx-row--tap vp__row" @click="handleEdit(item)">
-            <view class="vp__avatar" aria-hidden="true">
-              {{ (item.sourceName || '?').trim().charAt(0).toUpperCase() }}
-            </view>
-            <view class="nx-row__main">
-              <view class="nx-row__title nx-truncate vp__name" :title="item.sourceName">
-                {{ item.sourceName }}
-              </view>
-              <view class="nx-truncate nx-row__subtitle" :title="item.introduce">
-                {{ item.introduce || tx('voiceprint.noDescription', 'No description') }}
-              </view>
-            </view>
-            <view class="nx-caption nx-num vp__date">
-              {{ item.createDate }}
-            </view>
-            <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
-          </view>
-
-          <template #right>
-            <view class="vp__swipe-btn" @click="handleDelete(item.id)">
-              <wd-icon name="delete" size="18px" />
-              <text>{{ t('voiceprint.delete') }}</text>
-            </view>
-          </template>
-        </wd-swipe-action>
-      </view>
-      <view class="nx-group__footer">
-        {{ tx('voiceprint.swipeHint', 'Tap a speaker to edit. Swipe left to delete.') }}
-      </view>
-    </view>
-
-    <view v-else-if="!loading" class="nx-empty vp__empty">
-      <view class="nx-icon-tile nx-icon-tile--lg">
-        <wd-icon name="user-talk" size="28px" />
-      </view>
-      <view class="nx-empty__title">
-        {{ t('voiceprint.emptyTitle') }}
-      </view>
-      <view class="nx-empty__text">
-        {{ tx('voiceprint.emptyText', 'Add a family member’s voice from a recent conversation so the robot knows who it is talking to.') }}
-      </view>
-      <view class="nx-btn nx-btn--primary vp__empty-btn" @click="openAddDialog">
-        <wd-icon name="add" size="16px" />
-        {{ t('voiceprint.addSpeaker') }}
-      </view>
-    </view>
-
-    <!-- Security policy -->
-    <view class="nx-group">
-      <view class="nx-group__header">
-        {{ t('voiceprint.securitySettings') }}
-      </view>
-      <view class="nx-group__body">
-        <view class="nx-row">
-          <view class="nx-row__main">
-            <view class="nx-row__title">
-              {{ t('voiceprint.requireSmartHome') }}
-            </view>
-            <view class="nx-row__subtitle">
-              {{ t('voiceprint.requireSmartHomeDesc') }}
-            </view>
-          </view>
-          <wd-switch v-model="securityConfig.requireVoiceMatchSmartHome" size="22px" />
-        </view>
-        <view class="nx-row">
-          <view class="nx-row__main">
-            <view class="nx-row__title">
-              {{ t('voiceprint.adminSpeakerOnly') }}
-            </view>
-            <view class="nx-row__subtitle">
-              {{ t('voiceprint.adminSpeakerOnlyDesc') }}
-            </view>
-          </view>
-          <wd-switch v-model="securityConfig.adminSpeakerOnly" size="22px" />
-        </view>
-        <view class="nx-row vp__slider-row">
-          <view class="vp__slider-head">
-            <view class="nx-row__title">
-              {{ t('voiceprint.confidenceThreshold') }}
-            </view>
-            <view class="nx-num nx-badge nx-badge--accent">
-              {{ confidencePercent }}%
-            </view>
-          </view>
-          <wd-slider
-            v-model="confidencePercent"
-            :min="50"
-            :max="95"
-            :step="5"
-            hide-label
-            hide-min-max
-          />
-          <view class="nx-num vp__scale">
-            <text>50% · {{ tx('voiceprint.flexible', 'Flexible') }}</text>
-            <text>70% · {{ tx('voiceprint.default', 'Default') }}</text>
-            <text>95% · {{ tx('voiceprint.strict', 'Strict') }}</text>
-          </view>
-        </view>
-      </view>
-      <view class="nx-group__footer">
-        {{ t('voiceprint.securityDesc') }}
-      </view>
-      <view class="vp__save">
-        <wd-button block type="info" :loading="isSavingSecurity" @click="saveSecuritySettings">
-          {{ t('voiceprint.saveSecurity') }}
-        </wd-button>
-      </view>
-    </view>
-
-    <!-- Add / edit speaker sheet -->
-    <wd-popup
-      v-model="sheetOpen"
-      position="bottom"
-      safe-area-inset-bottom
-      :z-index="100"
-      custom-class="vp-sheet"
-    >
-      <view class="vp-sheet__inner">
-        <view class="vp-sheet__handle" />
-        <view class="vp-sheet__header">
-          <view class="nx-truncate vp-sheet__title">
-            {{ showEditDialog ? t('voiceprint.editSpeaker') : t('voiceprint.addSpeaker') }}
-          </view>
-          <view class="vp-sheet__close" role="button" :aria-label="t('voiceprint.cancel')" @click="sheetOpen = false">
-            <wd-icon name="close" size="18px" />
-          </view>
+        <view v-if="(loading || !loaded) && !voicePrintList.length" class="vp__state">
+          <tb-loading :label="t('mVp.loading')" />
         </view>
 
-        <view class="field">
-          <view class="field__label">
-            {{ t('voiceprint.voiceVector') }}
-          </view>
-          <view class="field__picker" role="button" @click="showChatHistoryDialog = true">
-            <wd-icon name="sound" size="18px" custom-class="field__picker-icon" />
-            <text class="nx-truncate field__picker-text" :class="{ 'is-placeholder': !sheetForm.audioId }">
-              {{ getSelectedAudioContent(sheetForm.audioId) }}
-            </text>
-            <wd-icon name="arrow-right" size="16px" custom-class="nx-row__chevron" />
-          </view>
-          <view class="field__help">
-            {{ tx('voiceprint.vectorHelp', 'Pick a clear sentence this person said to the robot.') }}
-          </view>
+        <view v-else-if="failed && !voicePrintList.length" class="vp__state vp__fail" role="alert">
+          <text>{{ t('common.loadFailed') }}</text>
+          <tb-button size="s" icon="refresh" @click="refresh">
+            {{ t('common.retry') }}
+          </tb-button>
         </view>
 
-        <view class="field">
-          <view class="field__label">
-            {{ t('voiceprint.name') }}
-          </view>
-          <input
-            v-model="sheetForm.sourceName"
-            class="field__input"
-            type="text"
-            :maxlength="32"
-            :placeholder="t('voiceprint.pleaseInputName')"
-          >
-        </view>
+        <tb-empty v-else-if="!voicePrintList.length" face="awake" :title="t('mVp.empty.title')" :text="t('mVp.empty.text')">
+          <tb-button variant="primary" icon="plus" :loading="opening" @click="openAdd">
+            {{ t('mVp.add') }}
+          </tb-button>
+        </tb-empty>
 
-        <view class="field">
-          <view class="field__label">
-            {{ t('voiceprint.description') }}
-          </view>
-          <textarea
-            v-model="sheetForm.introduce"
-            class="field__textarea"
-            :maxlength="100"
-            :placeholder="t('voiceprint.pleaseInputDescription')"
-          />
-          <view class="nx-num field__count">
-            {{ (sheetForm.introduce || '').length }}/100
-          </view>
-        </view>
-
-        <view class="vp-sheet__actions">
-          <wd-button block size="large" @click="submitSheet">
-            {{ t('voiceprint.save') }}
-          </wd-button>
-          <view v-if="showEditDialog" class="vp-sheet__delete" role="button" @click="deleteFromSheet">
-            {{ t('voiceprint.delete') }}
-          </view>
-        </view>
-      </view>
-    </wd-popup>
-
-    <!-- Voice sample picker -->
-    <wd-popup
-      v-model="showChatHistoryDialog"
-      position="bottom"
-      safe-area-inset-bottom
-      :z-index="110"
-      custom-class="vp-sheet"
-      @close="stopAudio"
-    >
-      <view class="vp-sheet__inner">
-        <view class="vp-sheet__handle" />
-        <view class="vp-sheet__header">
-          <view class="vp-sheet__title nx-truncate">
-            {{ t('voiceprint.selectVector') }}
-          </view>
-          <view class="vp-sheet__close" role="button" :aria-label="t('voiceprint.cancel')" @click="showChatHistoryDialog = false">
-            <wd-icon name="close" size="18px" />
-          </view>
-        </view>
-
-        <scroll-view scroll-y class="vp-sheet__list">
-          <view v-if="!chatHistoryActions.length" class="nx-empty vp-sheet__empty">
-            <view class="nx-icon-tile nx-icon-tile--lg">
-              <wd-icon name="sound" size="28px" />
-            </view>
-            <view class="nx-empty__text">
-              {{ tx('voiceprint.noSamples', 'No voice recordings yet. Talk to the robot first, then come back.') }}
-            </view>
-          </view>
-          <view v-else class="vp-sheet__body">
+        <block v-else>
+          <view class="vp__rows" role="list" :aria-busy="loading ? 'true' : 'false'">
             <view
-              v-for="item in chatHistoryActions"
-              :key="item.audioId"
-              class="nx-row nx-row--tap"
-              :class="{ 'is-playing': playingAudioId === item.audioId }"
-              @click="handleItemClick(item)"
+              v-for="row in voicePrintList" :key="row.id" class="vp-row" role="listitem"
+              :class="{ 'is-playing': player.playingId.value === row.audioId }"
             >
-              <view
-                class="vp__play"
-                :class="{ 'is-playing': playingAudioId === item.audioId }"
-                role="button"
-                :aria-label="playingAudioId === item.audioId ? tx('voiceprint.stopAudio', 'Stop') : tx('voiceprint.playAudio', 'Play')"
-                @click.stop="playAudio(item.audioId, $event)"
-              >
-                <wd-icon :name="playingAudioId === item.audioId ? 'pause' : 'play'" size="14px" />
-              </view>
-              <view class="nx-row__main">
-                <view class="nx-row__title vp__sample">
-                  {{ item.name }}
+              <view class="vp-row__top">
+                <view class="vp-row__who" @click="openEdit(row)">
+                  <text class="vp-row__name">
+                    {{ nameOf(row) }}
+                  </text>
+                  <text v-if="row.introduce" class="vp-row__intro">
+                    {{ row.introduce }}
+                  </text>
                 </view>
-                <view v-if="playingAudioId === item.audioId" class="nx-row__subtitle vp__playing">
-                  {{ tx('voiceprint.playing', 'Playing…') }}
+                <view class="vp-row__act">
+                  <view class="vp-row__btn" role="button" :aria-label="t('mVp.editOf', { name: nameOf(row) })" @click="openEdit(row)">
+                    <tb-icon name="edit" :size="20" />
+                  </view>
+                  <view class="vp-row__btn vp-row__btn--del" role="button" :aria-label="t('mVp.deleteOf', { name: nameOf(row) })" @click="remove(row)">
+                    <tb-icon name="trash" :size="20" />
+                  </view>
                 </view>
               </view>
-              <wd-icon
-                v-if="sheetForm.audioId === item.audioId"
-                name="check"
-                size="18px"
-                custom-class="vp__check"
-              />
+              <view class="vp-row__src">
+                <view
+                  class="vp-play" :class="{ 'is-on': player.playingId.value === row.audioId }" role="button"
+                  :aria-label="playLabel(row)" :aria-pressed="player.playingId.value === row.audioId ? 'true' : 'false'"
+                  @click.stop="onRowPlay(row)"
+                >
+                  <view v-if="player.loadingId.value === row.audioId" class="vp-play__spin" />
+                  <tb-icon v-else :name="player.playingId.value === row.audioId ? 'pause' : 'play'" :size="16" />
+                </view>
+                <view class="vp-row__words">
+                  <text class="vp-row__from">
+                    {{ player.playingId.value === row.audioId ? t('mVp.playing') : t('mVp.learnedFrom') }}
+                  </text>
+                  <text v-if="wordsOf(row)" class="vp-row__quote">
+                    “{{ wordsOf(row) }}”
+                  </text>
+                  <text v-else class="vp-row__nowords">
+                    {{ t('mVp.noWords') }}
+                  </text>
+                </view>
+              </view>
+              <text v-if="row.createDate" class="tb-num vp-row__date">
+                {{ t('mVp.added.on', { date: dateText(row.createDate, lang) }) }}
+              </text>
             </view>
           </view>
-        </scroll-view>
-      </view>
-    </wd-popup>
+          <view class="vp__add">
+            <tb-button variant="primary" size="l" icon="plus" block :loading="opening" @click="openAdd">
+              {{ t('mVp.add') }}
+            </tb-button>
+          </view>
+        </block>
+      </tb-section>
 
-    <!-- MessageBox component -->
-    <wd-message-box />
+      <tb-section :title="t('mVp.sec.title')" :description="t('mVp.sec.desc')">
+        <view class="vp-sec">
+          <view class="vp-sec__row">
+            <view class="vp-sec__text">
+              <text class="vp-sec__title">
+                {{ t('mVp.sec.smartHome') }}
+              </text>
+              <text class="vp-sec__desc">
+                {{ t('mVp.sec.smartHomeDesc') }}
+              </text>
+            </view>
+            <tb-switch v-model="security.requireVoiceMatchSmartHome" :aria-label="t('mVp.sec.smartHome')" />
+          </view>
+          <view class="vp-sec__row">
+            <view class="vp-sec__text">
+              <text class="vp-sec__title">
+                {{ t('mVp.sec.admin') }}
+              </text>
+              <text class="vp-sec__desc">
+                {{ t('mVp.sec.adminDesc') }}
+              </text>
+            </view>
+            <tb-switch v-model="security.adminSpeakerOnly" :aria-label="t('mVp.sec.admin')" />
+          </view>
+          <view class="vp-sec__row vp-sec__row--col">
+            <view class="vp-sec__head">
+              <text class="vp-sec__title">
+                {{ t('mVp.sec.threshold') }}
+              </text>
+              <text class="tb-num vp-sec__pct">
+                {{ num(security.percent) }}%
+              </text>
+            </view>
+            <slider
+              class="vp-sec__slider" :value="security.percent" :min="CONFIDENCE.min" :max="CONFIDENCE.max" :step="CONFIDENCE.step"
+              active-color="var(--tb-action)" background-color="var(--tb-rule-soft)" block-color="var(--tb-ink)" :block-size="22"
+              :aria-label="t('mVp.sec.threshold')" @changing="onThreshold" @change="onThreshold"
+            />
+            <view class="tb-num vp-sec__scale">
+              <text>{{ num(CONFIDENCE.min) }}% {{ t('mVp.sec.flexible') }}</text>
+              <text>{{ num(CONFIDENCE.fallback) }}% {{ t('mVp.sec.default') }}</text>
+              <text>{{ num(CONFIDENCE.max) }}% {{ t('mVp.sec.strict') }}</text>
+            </view>
+          </view>
+          <text v-if="securityFailed" class="vp-sec__warn" role="alert">
+            {{ t('mVp.sec.loadFailed') }}
+          </text>
+          <view class="vp-sec__save">
+            <tb-sync v-if="securityLoaded" :state="securityDirty ? 'pending' : 'applied'" :text="securityDirty ? t('mVp.sec.unsaved') : t('mVp.sec.applied')" />
+            <tb-button :loading="isSavingSecurity" :disabled="!securityDirty && !securityFailed" @click="saveSecuritySettings">
+              {{ t('mVp.sec.save') }}
+            </tb-button>
+          </view>
+        </view>
+      </tb-section>
+
+      <tb-section :title="t('mVp.how.title')">
+        <view class="vp-how">
+          <text>{{ t('mVp.how.pick') }}</text>
+          <text>{{ t('mVp.how.source') }}</text>
+          <text>{{ t('mVp.how.name') }}</text>
+        </view>
+      </tb-section>
+    </block>
+
+    <VoicePrintSheet
+      v-model:open="sheetOpen" :agent-id="currentAgentId" :row="editing" :player="player"
+      :recordings="recordings" :recent-state="recentState" @saved="loadVoicePrintList" @retry="loadChatHistory" @delete="remove"
+    />
   </view>
 </template>
 
-<style lang="scss" scoped>
-.vp {
-  position: relative;
-  min-height: 100%;
-  padding: 0 var(--nx-gutter) calc(var(--nx-space-7) + env(safe-area-inset-bottom));
-  background: var(--nx-bg);
-  box-sizing: border-box;
-
-  &__header {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--nx-space-3);
-    padding: var(--nx-space-2) 0 var(--nx-space-4);
-  }
-
-  &__title {
-    font-size: var(--nx-text-display);
-    font-weight: 700;
-    letter-spacing: -0.022em;
-    line-height: 1.15;
-    color: var(--nx-text);
-  }
-
-  &__subtitle {
-    margin-top: 8rpx;
-    font-size: var(--nx-text-callout);
-    color: var(--nx-text-2);
-  }
-
-  &__add {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: 8rpx;
-    min-height: 64rpx;
-    padding: 0 var(--nx-space-3);
-    border-radius: var(--nx-radius-pill);
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-callout);
-    font-weight: 600;
-    transition: transform var(--nx-dur-1) var(--nx-ease);
-
-    &:active {
-      transform: scale(0.97);
-    }
-  }
-
-  &__row {
-    background: var(--nx-surface);
-  }
-
-  &__avatar {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 72rpx;
-    height: 72rpx;
-    border-radius: 50%;
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-  }
-
-  &__name {
-    font-weight: 600;
-  }
-
-  &__date {
-    flex: none;
-    max-width: 30%;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  &__swipe-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6rpx;
-    min-width: 144rpx;
-    height: 100%;
-    padding: 0 var(--nx-space-3);
-    box-sizing: border-box;
-    background: var(--nx-danger);
-    color: var(--nx-on-accent);
-    font-size: var(--nx-text-caption);
-    font-weight: 600;
-  }
-
-  &__empty {
-    padding-top: var(--nx-space-5);
-  }
-
-  &__empty-btn {
-    margin-top: var(--nx-space-3);
-  }
-
-  &__slider-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--nx-space-1);
-  }
-
-  &__slider-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  &__scale {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--nx-space-1);
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-
-  &__save {
-    margin-top: var(--nx-space-3);
-  }
-
-  &__play {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 64rpx;
-    height: 64rpx;
-    border-radius: 50%;
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    transition: transform var(--nx-dur-1) var(--nx-ease);
-
-    &:active {
-      transform: scale(0.92);
-    }
-
-    &.is-playing {
-      background: var(--nx-accent);
-      color: var(--nx-on-accent);
-    }
-  }
-
-  &__sample {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow-wrap: anywhere;
-  }
-
-  &__playing {
-    color: var(--nx-accent);
-  }
-
-  &__skeleton-icon {
-    width: 72rpx;
-    height: 72rpx;
-    border-radius: 50%;
-  }
-
-  &__skeleton-line {
-    width: 50%;
-    height: 28rpx;
-
-    &--short {
-      width: 70%;
-      height: 22rpx;
-      margin-top: 12rpx;
-    }
-  }
+<style lang="scss">
+.vp.is-page {
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+.vp__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+}
+.vp__fail {
+  color: var(--tb-danger);
+  font-size: 14px;
+  text-align: center;
+}
+.vp__count {
+  color: var(--tb-ink-2);
+  font-size: 14px;
+}
+.vp__add {
+  padding-top: 4px;
 }
 
-:deep(.vp__swipe) {
-  position: relative;
-  background: var(--nx-surface);
-
-  &:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    left: var(--nx-space-4);
-    right: 0;
-    bottom: 0;
-    height: 1rpx;
-    background: var(--nx-border);
-  }
+/* the people: ruled rows, the name as a plate over its description, then the recording it learned from */
+.vp__rows {
+  border-top: 3px solid var(--tb-rule);
 }
-
-:deep(.vp__check) {
+.vp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--tb-rule-soft);
+  transition: border-color var(--tb-t-hover) var(--tb-ease);
+}
+.vp-row:last-child {
+  border-bottom-color: var(--tb-rule);
+}
+.vp-row__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.vp-row__who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+}
+.vp-row__name {
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.vp-row__intro {
+  color: var(--tb-ink-2);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.vp-row__act {
   flex: none;
-  color: var(--nx-accent);
+  display: flex;
+  margin-right: -10px;
 }
-
-/* ---------- bottom sheets ---------- */
-:deep(.vp-sheet) {
-  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
-  background: var(--nx-bg);
+.vp-row__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--tb-ink-2);
+  border-radius: 50%;
+  transition: background-color var(--tb-t-hover) var(--tb-ease);
+}
+.vp-row__btn:active {
+  background: var(--tb-paper-2);
+}
+.vp-row__btn--del {
+  color: var(--tb-danger);
+}
+.vp-row__src {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.vp-row__words {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.vp-row__from {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tb-ink-2);
+}
+.vp-row.is-playing .vp-row__from {
+  color: var(--tb-action);
+}
+.vp-row__quote {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--tb-ink);
   overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.vp-row__nowords {
+  font-size: 14px;
+  color: var(--tb-ink-3);
+}
+.vp-row__date {
+  font-size: 13px;
+  color: var(--tb-ink-2);
 }
 
-.vp-sheet {
-  &__inner {
-    display: flex;
-    flex-direction: column;
-    max-height: 85vh;
-    padding: 0 var(--nx-gutter) var(--nx-space-4);
-    overflow-y: auto;
-    box-sizing: border-box;
-  }
-
-  &__handle {
-    flex: none;
-    width: 72rpx;
-    height: 10rpx;
-    margin: var(--nx-space-2) auto var(--nx-space-1);
-    border-radius: var(--nx-radius-pill);
-    background: var(--nx-border-strong);
-  }
-
-  &__header {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: var(--nx-space-2);
-    padding: var(--nx-space-2) 0 var(--nx-space-4);
-  }
-
-  &__title {
-    flex: 1;
-    min-width: 0;
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-    color: var(--nx-text);
-  }
-
-  &__close {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 64rpx;
-    height: 64rpx;
-    border-radius: 50%;
-    background: var(--nx-surface-3);
-    color: var(--nx-text-2);
-  }
-
-  &__actions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--nx-space-2);
-    margin-top: var(--nx-space-2);
-  }
-
-  &__delete {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: var(--nx-touch);
-    padding: 0 var(--nx-space-4);
-    color: var(--nx-danger);
-    font-size: var(--nx-text-body);
-    font-weight: 500;
-  }
-
-  &__list {
-    max-height: 60vh;
-  }
-
-  &__body {
-    overflow: hidden;
-    border-radius: var(--nx-radius-lg);
-    background: var(--nx-surface);
-  }
-
-  &__empty {
-    padding: var(--nx-space-5) var(--nx-space-4);
-  }
+/* the security policy: ruled setting rows */
+.vp-sec {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--tb-rule);
+}
+.vp-sec__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+}
+.vp-sec__row--col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.vp-sec__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vp-sec__title {
+  font-weight: 600;
+  font-size: 15px;
+}
+.vp-sec__desc {
+  font-size: 13px;
+  color: var(--tb-ink-2);
+  line-height: 1.5;
+}
+.vp-sec__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.vp-sec__pct {
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1;
+}
+.vp-sec__slider {
+  margin: 6px 4px;
+}
+.vp-sec__scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--tb-ink-2);
+}
+.vp-sec__scale > text:nth-child(2) {
+  text-align: center;
+}
+.vp-sec__scale > text:last-child {
+  text-align: right;
+}
+.vp-sec__warn {
+  padding-top: 10px;
+  font-size: 13px;
+  color: var(--tb-danger);
+}
+.vp-sec__save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 14px;
 }
 
-.field {
-  margin-bottom: var(--nx-space-4);
-
-  &__label {
-    margin-bottom: var(--nx-space-1);
-    font-size: var(--nx-text-footnote);
-    color: var(--nx-text-2);
-  }
-
-  &__help {
-    margin-top: var(--nx-space-1);
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-
-  &__count {
-    margin-top: var(--nx-space-1);
-    text-align: right;
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-
-  &__picker,
-  &__input,
-  &__textarea {
-    width: 100%;
-    border: 2rpx solid transparent;
-    border-radius: var(--nx-radius);
-    background: var(--nx-surface);
-    color: var(--nx-text);
-    font-size: var(--nx-text-body);
-    box-sizing: border-box;
-  }
-
-  &__picker {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-2);
-    min-height: var(--nx-touch);
-    padding: 0 var(--nx-space-3);
-
-    &:active {
-      background: var(--nx-surface-2);
-    }
-  }
-
-  &__picker-text {
-    flex: 1;
-
-    &.is-placeholder {
-      color: var(--nx-text-3);
-    }
-  }
-
-  &__input {
-    height: var(--nx-touch);
-    padding: 0 var(--nx-space-3);
-  }
-
-  &__textarea {
-    height: 200rpx;
-    padding: var(--nx-space-2) var(--nx-space-3);
-    line-height: 1.5;
-  }
-
-  &__input:focus,
-  &__textarea:focus {
-    border-color: var(--nx-accent);
-    box-shadow: 0 0 0 6rpx var(--nx-accent-soft);
-  }
-}
-
-:deep(.field__picker-icon) {
+.vp-play {
   flex: none;
-  color: var(--nx-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--tb-ink);
+  border-radius: 50%;
+  color: var(--tb-ink);
+  transition:
+    background-color var(--tb-t-hover) var(--tb-ease),
+    color var(--tb-t-hover) var(--tb-ease),
+    border-color var(--tb-t-hover) var(--tb-ease),
+    transform var(--tb-t-hover) var(--tb-ease);
+}
+.vp-play:active {
+  transform: translateY(1px);
+}
+.vp-play.is-on {
+  background: var(--tb-action);
+  border-color: var(--tb-action);
+  color: var(--tb-on-action);
+}
+.vp-play__spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: vp-spin 0.8s linear infinite;
+}
+@keyframes vp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vp-how {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--tb-ink-2);
+  font-size: 14px;
+  line-height: 1.6;
 }
 </style>
