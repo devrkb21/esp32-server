@@ -2,9 +2,9 @@ import type { DemoHandler, DemoRequest } from '../index'
 import { onPage } from '../index'
 
 // Robot setup (pages/device-config, owner: m-setup). The setup hotspot's portal (192.168.4.1:
-// /scan, /pair, /submit, /exit) answered with synthetic data, so the demo build walks the whole
-// flow. hotspotClient.ts sends these paths here in the demo build only. Pattern 0 is the one
-// "on TinyBot's face"; a wrong pick gets a new challenge, as the firmware does.
+// /scan, /pair, /advanced/submit, /submit, /exit) answered with synthetic data, so the demo build
+// walks the whole flow. hotspotClient.ts sends these paths here in the demo build only. Pattern 0
+// is the one "on TinyBot's face"; a wrong pick gets a new challenge, as the firmware does.
 const SETUP = '/pages/device-config/'
 
 const HEART = ['............', '.XXX....XXX.', 'XXXXX..XXXXX', 'XXXXXXXXXXXX', 'XXXXXXXXXXXX', 'XXXXXXXXXXXX', '.XXXXXXXXXX.', '..XXXXXXXX..', '...XXXXXX...', '....XXXX....', '.....XX.....', '............']
@@ -54,6 +54,12 @@ const handlers: DemoHandler[] = [
       }
       return challenge()
     },
+  },
+  {
+    // The app's server as the robot's OTA address; like /submit, it needs the pair token
+    method: 'POST',
+    url: onPage(SETUP, /^\/advanced\/submit$/),
+    body: (req: DemoRequest) => (req.data && req.data.pair_token ? { success: true } : { success: false, pair_required: true }),
   },
   {
     method: 'POST',

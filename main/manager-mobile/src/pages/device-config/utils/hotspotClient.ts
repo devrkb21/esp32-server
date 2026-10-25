@@ -2,7 +2,8 @@
 //
 // The phone joins the robot's open hotspot ("TinyBot-XXXX"), then this talks to the portal's JSON
 // API: GET /scan (nearby networks), GET/POST /pair (match the pattern on the robot's face, see
-// pairingUtils.mjs), POST /submit (credentials + pair token), POST /exit (leave setup mode).
+// pairingUtils.mjs), POST /advanced/submit (the app's server as the robot's OTA address, see
+// otaUrl.mjs), POST /submit (credentials + pair token), POST /exit (leave setup mode).
 //
 // Things that break this on the web (H5) build, handled here:
 // - An https page may not call http://192.168.4.1 at all (mixed content): detect it and offer the
@@ -13,6 +14,8 @@
 
 import { DEMO, demoBody } from '@/api/demo'
 import { t } from '@/i18n'
+import { getEnvBaseUrl } from '@/utils'
+import { otaUrlFromBase } from './otaUrl.mjs'
 import { normalizePairState } from './pairingUtils.mjs'
 
 export const PORTAL_URL = 'http://192.168.4.1'
@@ -71,7 +74,7 @@ function request<T = any>(options: UniApp.RequestOptions): Promise<UniApp.Reques
     // Demo build (src/api/demo/pages/m-setup.ts): the portal answers from fixtures, after a pause
     const path = String(options.url || '').replace(PORTAL_URL, '')
     const body = demoBody(path, String(options.method || 'GET'), parseJson(options.data))
-    const delay = /\/submit$/.test(path) ? 1800 : 450
+    const delay = path === '/submit' ? 1800 : 450
     return new Promise(resolve => setTimeout(() => resolve({ statusCode: 200, data: body, header: {}, cookies: [], errMsg: 'ok' } as any), delay))
   }
   return new Promise((resolve, reject) => {
@@ -253,6 +256,53 @@ export async function submitCredentials(ssid: string, password: string, hidden =
       return { ok: true, unconfirmed: true }
     const msg = String(err?.errMsg || err?.message || '')
     return { ok: false, error: /timeout/i.test(msg) ? t('msetup.err.slow') : t('msetup.err.notOnHotspot') }
+  }
+}
+
+/**
+ * OTA address of the server this app talks to ('' when it cannot be made absolute). A relative
+ * base (the H5 dev proxy) resolves against the page, which the robot reaches through that proxy.
+ */
+export function appOtaUrl(): string {
+  const origin = isWeb() && typeof window !== 'undefined' ? window.location.origin : ''
+  return otaUrlFromBase(getEnvBaseUrl(), origin)
+}
+
+export interface ServerResult {
+  ok: boolean
+  /** Sent, but the browser could not read the answer (older firmware without CORS). */
+  unconfirmed?: boolean
+  /** The robot wants the pattern on its face matched first (missing or stale pair token). */
+  pairRequired?: boolean
+}
+
+/**
+ * Point the robot at the app's server: POST /advanced/submit {ota_url, pair_token} saves the
+ * address in the robot (NVS wifi.ota_url). Must go before /submit, which restarts the robot.
+ * Only ota_url is sent, so the robot's other advanced settings stay as they are.
+ */
+export async function submitServerAddress(otaUrl: string, pairToken = ''): Promise<ServerResult> {
+  const body = JSON.stringify({ ota_url: otaUrl, pair_token: pairToken })
+  try {
+    const res = await request({
+      url: `${PORTAL_URL}/advanced/submit`,
+      method: 'POST',
+      header: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      data: body,
+      dataType: 'text',
+      timeout: 8000,
+    })
+    const data = parseJson(res.data)
+    if (res.statusCode === 200 && data?.success)
+      return { ok: true }
+    if (data?.pair_required)
+      return { ok: false, pairRequired: true }
+    return { ok: false }
+  }
+  catch {
+    if (isWeb() && await opaqueReachable('/advanced/submit', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body }, 8000))
+      return { ok: true, unconfirmed: true }
+    return { ok: false }
   }
 }
 

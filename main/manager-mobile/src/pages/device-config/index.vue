@@ -19,7 +19,8 @@ import BleConfig from './components/ble-config.vue'
 import UltrasonicConfig from './components/ultrasonic-config.vue'
 import WifiConfig from './components/wifi-config.vue'
 import WifiSelector from './components/wifi-selector.vue'
-import { isWeb, ssidError, wifiPasswordError } from './utils/hotspotClient'
+import { appOtaUrl, isWeb, ssidError, wifiPasswordError } from './utils/hotspotClient'
+import { differsFromProduction } from './utils/otaUrl.mjs'
 
 interface WiFiNetwork {
   ssid: string
@@ -32,9 +33,10 @@ interface WiFiNetwork {
 type ConfigType = 'wifi' | 'ble' | 'ultrasonic'
 type Step = 'method' | 'network' | 'send' | 'done'
 
-// TinyBot firmware has no BLE provisioning yet, and ble-config speaks a plain-JSON protocol that ESP
-// BluFi devices do not understand. Flip this once a robot ships a matching BLE service.
-const BLE_FIRMWARE_READY = false
+// What the robot being set up can do. TinyBot has no Bluetooth setup (no BluFi in its firmware, and
+// no room for it in 4 MB of flash), so the Bluetooth way stays visible but off. ble-config.vue is
+// kept for a future product with a matching BLE service: set bluetoothSetup for that product.
+const PRODUCT = { bluetoothSetup: false } as const
 
 const STEPS: Step[] = ['method', 'network', 'send', 'done']
 const lang = computed(() => getCurrentLanguage())
@@ -44,22 +46,44 @@ const step = ref<Step>('method')
 const configType = ref<ConfigType>('wifi')
 const wifiSelectorRef = ref<InstanceType<typeof WifiSelector>>()
 const selectedWifiInfo = ref<{ network: WiFiNetwork | null, password: string }>({ network: null, password: '' })
-const result = ref<{ ssid: string, unconfirmed: boolean }>({ ssid: '', unconfirmed: false })
+const result = ref<{ ssid: string, unconfirmed: boolean, serverKept?: boolean }>({ ssid: '', unconfirmed: false })
 const demoPair = ref(false)
 
 const web = isWeb()
-const bleNote = computed(() => (web ? t('msetup.method.bleWeb') : BLE_FIRMWARE_READY ? '' : t('msetup.method.bleFirmware')))
+const bleNote = computed(() => (!PRODUCT.bluetoothSetup ? t('msetup.method.bleNone') : web ? t('msetup.method.bleWeb') : ''))
+// Sound carries only the Wi-Fi: on another server than the robot's built-in one, the hotspot is the
+// way that gets the robot there too
+const otherServer = differsFromProduction(appOtaUrl())
 
 const methods = computed(() => [
-  { value: 'wifi' as const, icon: 'wifi', title: t('msetup.method.hotspot'), text: t('msetup.method.hotspotText'), note: '', tag: '', disabled: false },
-  { value: 'ultrasonic' as const, icon: 'volume', title: t('msetup.method.sound'), text: t('msetup.method.soundText'), note: '', tag: '', disabled: false },
+  {
+    value: 'wifi' as const,
+    icon: 'wifi',
+    title: t('msetup.method.hotspot'),
+    text: t('msetup.method.hotspotText'),
+    note: '',
+    hint: '',
+    tag: otherServer ? t('msetup.method.recommended') : '',
+    disabled: false,
+  },
+  {
+    value: 'ultrasonic' as const,
+    icon: 'volume',
+    title: t('msetup.method.sound'),
+    text: t('msetup.method.soundText'),
+    note: otherServer ? t('msetup.method.soundPreferHotspot') : '',
+    hint: t('msetup.method.soundServer'),
+    tag: '',
+    disabled: false,
+  },
   {
     value: 'ble' as const,
     icon: 'bluetooth',
     title: t('msetup.method.ble'),
     text: t('msetup.method.bleText'),
     note: bleNote.value,
-    tag: web ? t('msetup.method.appOnly') : (BLE_FIRMWARE_READY ? '' : t('msetup.method.notYet')),
+    hint: '',
+    tag: PRODUCT.bluetoothSetup && web ? t('msetup.method.appOnly') : '',
     disabled: Boolean(bleNote.value),
   },
 ])
@@ -102,7 +126,7 @@ function go(next: Step) {
   uni.pageScrollTo({ scrollTop: 0, duration: 0 })
 }
 
-function onDone(r: { ssid: string, unconfirmed: boolean }) {
+function onDone(r: { ssid: string, unconfirmed: boolean, serverKept?: boolean }) {
   result.value = r
   go('done')
 }
@@ -129,7 +153,7 @@ onLoad((q: any) => {
     if (q.step !== 'method' && q.step !== 'network')
       selectedWifiInfo.value = { network: { ssid: 'Home WiFi', rssi: -48, authmode: 3, channel: 6 }, password: 'demo-password' }
     if (q.step === 'done')
-      result.value = { ssid: 'Home WiFi', unconfirmed: false }
+      result.value = { ssid: 'Home WiFi', unconfirmed: false, serverKept: q.server === 'kept' }
     step.value = q.step
   }
 })
@@ -182,6 +206,9 @@ onLoad((q: any) => {
               </view>
               <text class="setup-way__text">
                 {{ m.text }}
+              </text>
+              <text v-if="m.hint" class="setup-way__hint">
+                {{ m.hint }}
               </text>
               <text v-if="m.note" class="setup-way__note">
                 {{ m.note }}
@@ -251,6 +278,9 @@ onLoad((q: any) => {
         </text>
         <text v-if="configType === 'wifi'" class="setup-done__note">
           {{ t('msetup.done.phoneBack') }}
+        </text>
+        <text v-if="configType === 'wifi' && result.serverKept" class="setup-done__muted">
+          {{ t('msetup.done.serverKept') }}
         </text>
       </view>
       <view class="setup-foot">
@@ -366,6 +396,10 @@ onLoad((q: any) => {
   color: var(--tb-ink-2);
   font-size: 14px;
 }
+.setup-way__hint {
+  color: var(--tb-ink-2);
+  font-size: 13px;
+}
 .setup-way__note {
   color: var(--tb-ink);
   font-size: 13px;
@@ -395,5 +429,9 @@ onLoad((q: any) => {
   padding-top: 12px;
   border-top: 1px solid var(--tb-rule-soft);
   font-size: 14px;
+}
+.setup-done__muted {
+  color: var(--tb-ink-2);
+  font-size: 13px;
 }
 </style>

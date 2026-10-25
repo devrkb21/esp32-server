@@ -1,7 +1,7 @@
 // Robot setup (pages/device-config): choose how, pick the Wi-Fi, send it, match the pattern on
 // TinyBot's face, done. Owner: m-setup. Facts come from the legacy screen and the firmware portal
 // (hotspot TinyBot-XXXX at 192.168.4.1, 8 to 63 character passwords, 32-byte names, 1800/1500 Hz tone).
-// OWNER: confirm whether TinyBot firmware will ever take Wi-Fi over Bluetooth (msetup.method.bleFirmware).
+// TinyBot has no Bluetooth setup (msetup.method.bleNone); the hotspot also sets the robot's server.
 const messages: Record<string, Record<string, string>> = {
   bn: {
     'msetup.title': 'রোবট সেটআপ',
@@ -23,9 +23,11 @@ const messages: Record<string, Record<string, string>> = {
     'msetup.method.ble': 'ব্লুটুথ দিয়ে',
     'msetup.method.bleText': 'ব্লুটুথ চালু রেখে ফোন টাইনিবটের কাছে ধরে পাঠান।',
     'msetup.method.bleWeb': 'ব্লুটুথ শুধু নোবিক্স অ্যাপে চলে, ব্রাউজারে নয়।',
-    'msetup.method.bleFirmware': 'টাইনিবটের এখনকার সফটওয়্যার ব্লুটুথে Wi-Fi নেয় না। হটস্পট বা শব্দ ব্যবহার করুন।',
+    'msetup.method.bleNone': 'টাইনিবটে ব্লুটুথ সেটআপ নেই; হটস্পট বা শব্দ দিয়ে করুন',
     'msetup.method.appOnly': 'শুধু অ্যাপে',
-    'msetup.method.notYet': 'এখনো নয়',
+    'msetup.method.recommended': 'এটাই ভালো',
+    'msetup.method.soundServer': 'শব্দ দিয়ে শুধু Wi-Fi যায়; রোবট নিজের ডিফল্ট সার্ভারে যুক্ত হবে',
+    'msetup.method.soundPreferHotspot': 'এই অ্যাপ অন্য সার্ভারে চলছে। রোবটকে সেখানে নিতে হটস্পট দিয়ে করুন।',
 
     'msetup.net.title': 'কোন Wi-Fi-তে যুক্ত হবে?',
     'msetup.net.text': 'বাসার যে Wi-Fi-তে টাইনিবট থাকবে, সেটা বেছে নিন।',
@@ -81,6 +83,8 @@ const messages: Record<string, Record<string, string>> = {
     'msetup.send.passwordSet': 'দেওয়া আছে',
     'msetup.send.noPassword': 'লাগবে না',
     'msetup.send.change': 'বদলান',
+    'msetup.send.server': 'রোবট এই সার্ভারে যুক্ত হবে: {url}',
+    'msetup.send.serverBuiltin': 'রোবট নিজের ডিফল্ট সার্ভারে যুক্ত হবে।',
     'msetup.send.button': 'টাইনিবটকে পাঠান',
     'msetup.send.sending': 'টাইনিবট আপনার Wi-Fi-তে যুক্ত হওয়ার চেষ্টা করছে। ১৫ সেকেন্ডের মতো লাগতে পারে, ফোন হটস্পটেই রাখুন।',
     'msetup.send.after': 'যা হবে',
@@ -144,6 +148,7 @@ const messages: Record<string, Record<string, string>> = {
     'msetup.done.sentTitle': 'পাঠানো হয়েছে',
     'msetup.done.sentText': 'টাইনিবটের পর্দা দেখুন: যুক্ত হলে Wi-Fi-র নাম দেখিয়ে আবার চালু হয়।',
     'msetup.done.phoneBack': 'আপনার ফোন এখন বাসার Wi-Fi-তে ফেরাতে পারেন।',
+    'msetup.done.serverKept': 'সার্ভারের ঠিকানা পাঠানো যায়নি; রোবট নিজের ডিফল্ট সার্ভারে যুক্ত হবে।',
     'msetup.done.today': 'আজ পাতায় যান',
     'msetup.done.again': 'আরেকটা রোবট সেটআপ',
     'msetup.done.toast': 'টাইনিবটকে Wi-Fi দেওয়া হয়েছে',
@@ -168,9 +173,11 @@ const messages: Record<string, Record<string, string>> = {
     'msetup.method.ble': 'With Bluetooth',
     'msetup.method.bleText': 'Keep Bluetooth on and hold the phone close to TinyBot.',
     'msetup.method.bleWeb': 'Bluetooth works only in the Nobix app, not in a browser.',
-    'msetup.method.bleFirmware': 'TinyBot’s current firmware does not take Wi-Fi over Bluetooth. Use the hotspot or sound.',
+    'msetup.method.bleNone': 'TinyBot has no Bluetooth setup; use the hotspot or sound',
     'msetup.method.appOnly': 'App only',
-    'msetup.method.notYet': 'Not yet',
+    'msetup.method.recommended': 'Recommended',
+    'msetup.method.soundServer': 'Sound sends only the Wi-Fi; the robot uses its built-in server',
+    'msetup.method.soundPreferHotspot': 'This app uses another server. Use the hotspot so the robot goes there too.',
 
     'msetup.net.title': 'Which Wi-Fi should it join?',
     'msetup.net.text': 'Pick the Wi-Fi TinyBot will live on.',
@@ -226,6 +233,8 @@ const messages: Record<string, Record<string, string>> = {
     'msetup.send.passwordSet': 'Set',
     'msetup.send.noPassword': 'Not needed',
     'msetup.send.change': 'Change',
+    'msetup.send.server': 'The robot will use this server: {url}',
+    'msetup.send.serverBuiltin': 'The robot will use its built-in server.',
     'msetup.send.button': 'Send to TinyBot',
     'msetup.send.sending': 'TinyBot is trying your Wi-Fi. This can take about 15 seconds: keep the phone on the hotspot.',
     'msetup.send.after': 'What happens',
@@ -289,6 +298,7 @@ const messages: Record<string, Record<string, string>> = {
     'msetup.done.sentTitle': 'Sent',
     'msetup.done.sentText': 'Watch TinyBot’s screen: it shows the Wi-Fi name and restarts when it joins.',
     'msetup.done.phoneBack': 'Your phone can go back to your home Wi-Fi now.',
+    'msetup.done.serverKept': 'The server address did not go through; the robot will use its built-in server.',
     'msetup.done.today': 'Go to Today',
     'msetup.done.again': 'Set up another robot',
     'msetup.done.toast': 'TinyBot has the Wi-Fi',

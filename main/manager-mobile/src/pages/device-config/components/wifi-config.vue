@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // Hotspot setup, last step: check the phone is still on TinyBot's hotspot, match the pattern on its
-// face (pair-pattern), then send the Wi-Fi. The robot tries to join before it answers, so a wrong
-// password comes back as an error here, with a retry. Emits `done` on success, `back` to change.
+// face (pair-pattern), point it at the app's server (POST /advanced/submit, best effort), then send
+// the Wi-Fi. The robot tries to join before it answers, so a wrong password comes back as an error
+// here, with a retry. Emits `done` on success, `back` to change.
 import { computed, ref } from 'vue'
 import { t } from '@/i18n'
 import { toast } from '@/utils/toast'
-import { exitPortal, probePortal, ssidError, submitCredentials, wifiPasswordError } from '../utils/hotspotClient'
+import { appOtaUrl, exitPortal, probePortal, ssidError, submitCredentials, submitServerAddress, wifiPasswordError } from '../utils/hotspotClient'
 import PairPattern from './pair-pattern.vue'
 
 interface WiFiNetwork {
@@ -24,7 +25,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
-  (e: 'done', result: { ssid: string, unconfirmed: boolean }): void
+  (e: 'done', result: { ssid: string, unconfirmed: boolean, serverKept?: boolean }): void
   (e: 'back'): void
 }>()
 
@@ -34,6 +35,9 @@ const resultMessage = ref('')
 // Pairing: match the pattern on the robot's face before it accepts Wi-Fi (null = not done yet)
 const pairing = ref(Boolean(props.startPairing))
 const pairToken = ref<string | null>(null)
+// The app's server, written into the robot so it does not fall back to its built-in one
+const otaUrl = appOtaUrl()
+const serverSet = ref(false)
 
 // What is wrong with the input before we even try (wrong password length, name too long)
 const inputError = computed(() => {
@@ -84,6 +88,17 @@ async function submitConfig() {
   }
 
   try {
+    // Before /submit (which restarts the robot). A failure does not block setup: the robot then
+    // keeps its built-in server, and the done step says so.
+    if (otaUrl && !serverSet.value) {
+      const server = await submitServerAddress(otaUrl, pairToken.value)
+      if (server.pairRequired) {
+        pairToken.value = null
+        pairing.value = true
+        return
+      }
+      serverSet.value = server.ok
+    }
     const res = await submitCredentials(net.ssid, net.authmode > 0 ? props.password : '', Boolean(net.hidden), pairToken.value)
     if (res.pairRequired) {
       // The robot restarted setup (or this is its first answer): match the new pattern
@@ -95,7 +110,7 @@ async function submitConfig() {
       toast.success(t('msetup.done.toast'))
       // Let the robot finish its reply, then take it out of setup mode
       setTimeout(() => exitPortal(), 1500)
-      emit('done', { ssid: net.ssid, unconfirmed: Boolean(res.unconfirmed) })
+      emit('done', { ssid: net.ssid, unconfirmed: Boolean(res.unconfirmed), serverKept: Boolean(otaUrl) && !serverSet.value })
     }
     else {
       failed.value = true
@@ -157,6 +172,10 @@ async function submitConfig() {
           </view>
         </view>
 
+        <text class="prov__server">
+          {{ otaUrl ? t('msetup.send.server', { url: otaUrl }) : t('msetup.send.serverBuiltin') }}
+        </text>
+
         <view v-if="inputError" class="setup-alert" role="alert">
           <tb-icon name="warning" :size="18" /><text>{{ inputError }}</text>
         </view>
@@ -207,6 +226,12 @@ async function submitConfig() {
 <style lang="scss">
 @import './setup-shared.scss';
 
+.prov__server {
+  margin-top: 10px;
+  color: var(--tb-ink-2);
+  font-size: 13px;
+  word-break: break-all;
+}
 .prov__busy {
   display: flex;
   align-items: center;
