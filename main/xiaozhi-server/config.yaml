@@ -102,24 +102,15 @@ module_test:
 
 # Wakeup words, used to distinguish wakeup word from speech content
 wakeup_words:
-  # Built-in ESP32 wake words: English firmware builds use "Hi ESP", Chinese ones "你好小智".
-  # Matching ignores case, spaces and punctuation.
+  # The robot's on-device wake word is the English "Hi ESP" (WakeNet); owners may also say the
+  # robot's name in English or Bangla. Matching ignores case, spaces and punctuation.
   - "Hi ESP"
-  - "你好小智"
-  - "nihaoxiaozhi"
-  - "Hello Xiaozhi"
-  - "Hey hello"
-  - "Hi Xiaozhi"
-  - "Xiaoai"
-  - "Hello Xiaoxin"
-  - "Xiaomei"
-  - "Xiaolong"
-  - "Miaomiao"
-  - "Xiaobin"
-  - "Xiaobing"
-# MCP endpoint address format: ws://YOUR_MCP_ENDPOINT_IP_OR_DOMAIN:PORT/mcp/?token=YOUR_TOKEN
-# Detailed guide: https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mcp-endpoint-integration.md
-mcp_endpoint: your_mcp_endpoint_websocket_address
+  - "Hey TinyBot"
+  - "Hi TinyBot"
+  - "TinyBot"
+  - "হাই টাইনিবট"
+  - "হেই টাইনিবট"
+  - "টাইনিবট"
 
 # Context providers configuration
 # Used to inject dynamic data into system prompt, such as health data, stock info, etc.
