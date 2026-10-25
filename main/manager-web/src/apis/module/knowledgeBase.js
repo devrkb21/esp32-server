@@ -66,6 +66,18 @@ export default {
    * @param {Function} callback - Callback function
    * @param {Function} errorCallback - Error callback
    */
+  // One knowledge base by id (GET /datasets/{dataset_id}), e.g. to open ?kb=<id> directly
+  getKnowledgeBase(datasetId, callback, errorCallback) {
+    makeApiRequest({
+      url: `${getServiceUrl()}/datasets/${encodeURIComponent(datasetId)}`,
+      method: 'GET',
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: 'Failed to get knowledge base',
+      retryFunction: () => this.getKnowledgeBase(datasetId, callback, errorCallback)
+    });
+  },
+
   getKnowledgeBaseList(params, callback, errorCallback) {
     const queryParams = new URLSearchParams({
       page: params.page,

@@ -1,4 +1,5 @@
 import { toast } from '@/kit/toast'
+import smCrypto from 'sm-crypto'
 import router from '../router'
 import Constant from '../utils/constant'
 
@@ -196,7 +197,7 @@ export function validateMobile(mobile, areaCode) {
  */
 export function generateSm2KeyPairHex() {
     // Generate SM2 keypair using sm-crypto
-    const sm2 = require('sm-crypto').sm2;
+    const sm2 = smCrypto.sm2;
     const keypair = sm2.generateKeyPairHex();
     
     return {
@@ -222,7 +223,7 @@ export function sm2Encrypt(publicKey, plainText) {
         throw new Error('Plaintext cannot be empty');
     }
     
-    const sm2 = require('sm-crypto').sm2;
+    const sm2 = smCrypto.sm2;
     // SM2 encrypt, add 04 prefix for uncompressed public key
     const encrypted = sm2.doEncrypt(plainText, publicKey, 1);
     // Convert to hex format (match backend, add 04 prefix)
@@ -238,7 +239,7 @@ export function sm2Encrypt(publicKey, plainText) {
  * @returns {string} Decrypted plaintext
  */
 export function sm2Decrypt(privateKey, cipherText) {
-    const sm2 = require('sm-crypto').sm2;
+    const sm2 = smCrypto.sm2;
     // Remove 04 prefix (match backend)
     const dataWithoutPrefix = cipherText.startsWith("04") ? cipherText.substring(2) : cipherText;
     // SM2 decrypt

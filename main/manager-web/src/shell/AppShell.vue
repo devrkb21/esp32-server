@@ -47,10 +47,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
-import { NAV, TABS } from './nav';
+import { TABS, visibleNav } from './nav';
 import { robot } from './robot';
 import { LANGUAGES, changeLanguage } from '@/i18n';
 import { applyTheme, getTheme } from '@/utils/theme';
@@ -62,7 +62,8 @@ const collapsed = ref(false);
 const langOpen = ref(false);
 const lang = computed(() => locale.value);
 const isAdmin = computed(() => Boolean(store.getters.getUserInfo?.superAdmin));
-const groups = computed(() => NAV.filter((g) => !g.admin || isAdmin.value));
+const groups = computed(() => visibleNav(isAdmin.value, store.getters.getPubConfig));
+onMounted(() => { store.dispatch('fetchPubConfig'); });
 const userName = computed(() => store.getters.getUserInfo?.username || '');
 const accountItems = computed(() => [
   { key: 'language', label: t('nav.language'), icon: 'language' },

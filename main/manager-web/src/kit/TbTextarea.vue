@@ -3,12 +3,14 @@
     <textarea ref="el" :id="id || null" :value="modelValue" :rows="rows" :placeholder="placeholder" :disabled="disabled"
       :readonly="readonly" :maxlength="maxlength || null" :aria-invalid="invalid ? 'true' : null" :aria-label="ariaLabel || null"
       @input="onInput" @blur="$emit('blur', $event)"></textarea>
-    <span v-if="maxlength && showCount" class="tb-textarea__count tb-num">{{ String(modelValue || '').length }}/{{ maxlength }}</span>
+    <span v-if="maxlength && showCount" class="tb-textarea__count tb-num">{{ n(String(modelValue || '').length) }}/{{ n(maxlength) }}</span>
   </div>
 </template>
 
 <script setup>
 import { nextTick, onMounted, ref, watch } from 'vue';
+import { useLocale } from './locale';
+import { digits } from './calendar';
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -24,6 +26,8 @@ const props = defineProps({
   ariaLabel: { type: String, default: '' },
 });
 const emit = defineEmits(['update:modelValue', 'blur']);
+const locale = useLocale();
+const n = (v) => digits(v, locale.value);
 const el = ref(null);
 function fit() {
   if (!props.autosize || !el.value) return;

@@ -136,8 +136,7 @@ export default {
             .send();
     },
     // Change user status
-    changeUserStatus(status, userIds, successCallback) {
-        console.log(555, userIds)
+    changeUserStatus(status, userIds, successCallback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/admin/users/changeStatus/${status}`)
             .method('put')
@@ -146,10 +145,14 @@ export default {
                 RequestService.clearRequestTime()
                 successCallback(res);
             })
-            .networkFail((err) => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail((err) => {
                 console.error('Failed to change user status:', err)
                 RequestService.reAjaxFun(() => {
-                    this.changeUserStatus(status, userIds)
+                    this.changeUserStatus(status, userIds, successCallback, failCallback)
                 })
             }).send()
     },

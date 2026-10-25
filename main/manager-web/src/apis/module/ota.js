@@ -1,4 +1,5 @@
 import { getServiceUrl } from '../api';
+import { DEMO, demoReply } from '../demo/index';
 import RequestService from '../httpRequest';
 import store from '../../store/index';
 

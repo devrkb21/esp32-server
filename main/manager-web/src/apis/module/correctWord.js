@@ -24,7 +24,7 @@ function retryCallbackRequest(retry, retryCount, onTerminalFailure, error, retry
 
 export default {
     // Get replacement word file list
-    getFileList(params, callback) {
+    getFileList(params, callback, failCallback) {
         const queryParams = new URLSearchParams({
             page: params.page,
             limit: params.pageSize
@@ -37,10 +37,14 @@ export default {
                 RequestService.clearRequestTime()
                 callback(res)
             })
-            .networkFail((err) => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail((err) => {
                 console.error('Failed to get replacement word file list:', err)
                 RequestService.reAjaxFun(() => {
-                    this.getFileList(params, callback)
+                    this.getFileList(params, callback, failCallback)
                 })
             }).send()
     },
@@ -130,7 +134,7 @@ export default {
     },
 
     // Delete replacement word file
-    deleteFile(id, callback) {
+    deleteFile(id, callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/correct-word/file/${id}`)
             .method('DELETE')
@@ -138,16 +142,20 @@ export default {
                 RequestService.clearRequestTime()
                 callback(res)
             })
-            .networkFail((err) => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail((err) => {
                 console.error('Failed to delete replacement word file:', err)
                 RequestService.reAjaxFun(() => {
-                    this.deleteFile(id, callback)
+                    this.deleteFile(id, callback, failCallback)
                 })
             }).send()
     },
 
     // Batch delete replacement word files
-    batchDeleteFile(ids, callback) {
+    batchDeleteFile(ids, callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/correct-word/file/batch-delete`)
             .method('POST')
@@ -156,10 +164,14 @@ export default {
                 RequestService.clearRequestTime()
                 callback(res)
             })
-            .networkFail((err) => {
+            .fail(failCallback ? (err) => {
+                    RequestService.clearRequestTime()
+                    failCallback(err)
+                } : undefined)
+                .networkFail((err) => {
                 console.error('Failed to batch delete replacement word files:', err)
                 RequestService.reAjaxFun(() => {
-                    this.batchDeleteFile(ids, callback)
+                    this.batchDeleteFile(ids, callback, failCallback)
                 })
             }).send()
     }

@@ -1,5 +1,8 @@
 <template>
   <div class="tb-table" :class="{ 'is-dense': dense, 'is-loading': loading }">
+    <div v-if="selectable && rows.length" class="tb-table__selall">
+      <TbCheckbox :model-value="allChecked" :indeterminate="someChecked" :label="selectAllLabel" @update:model-value="toggleAll" />
+    </div>
     <div class="tb-table__scroll">
       <table>
         <caption v-if="caption" class="tb-visually-hidden">{{ caption }}</caption>
@@ -25,7 +28,7 @@
             <td v-if="selectable" class="tb-table__sel" @click.stop>
               <TbCheckbox :model-value="isChecked(row)" :aria-label="selectRowLabel" @update:model-value="toggleRow(row, $event)" />
             </td>
-            <td v-for="c in columns" :key="c.key" :style="{ textAlign: c.align || null }" :data-label="c.label">
+            <td v-for="c in columns" :key="c.key" :class="{ 'is-full': c.full }" :style="{ textAlign: c.align || null }" :data-label="c.label">
               <slot :name="`cell-${c.key}`" :row="row" :value="row[c.key]" :index="i">{{ format(c, row) }}</slot>
             </td>
           </tr>
@@ -45,7 +48,9 @@ import TbEmpty from './TbEmpty.vue';
 import TbLoading from './TbLoading.vue';
 
 // The almanac table: ruled rows, ink header rule. columns: [{ key, label, width, align,
-// sortable, format(value,row) }]. Slots: cell-<key> ({ row, value, index }), empty.
+// sortable, format(value,row), full }]. `full`: on phones the cell spans the row with no label
+// (a name with its description). Slots: cell-<key> ({ row, value, index }), empty.
+// Selectable tables show their select-all above the rows on phones (the header is hidden there).
 const props = defineProps({
   columns: { type: Array, required: true },
   rows: { type: Array, default: () => [] },
@@ -98,6 +103,7 @@ function format(c, row) { const v = row[c.key]; return c.format ? c.format(v, ro
 .tb-table__sort .tb-icon { opacity: .35; } .tb-table__sort .tb-icon.is-on { opacity: 1; }
 .tb-table__state { padding: var(--tb-s8) var(--tb-s4); display: grid; place-items: center; }
 .tb-table.is-loading tbody { opacity: .35; }
+.tb-table__selall { display: none; }
 
 /* phones: each row becomes a ruled block, label beside value */
 @media (max-width: 640px) {
@@ -107,6 +113,9 @@ function format(c, row) { const v = row[c.key]; return c.format ? c.format(v, ro
   .tb-table td { border: 0; padding: 4px 4px; display: grid; grid-template-columns: 38% 1fr; gap: 8px; text-align: left !important; }
   .tb-table td::before { content: attr(data-label); color: var(--tb-ink-2); font-size: var(--tb-fs-13); }
   .tb-table td.tb-table__sel { display: block; }
+  .tb-table td.is-full { display: block; }
+  .tb-table td.is-full::before { content: none; }
+  .tb-table__selall { display: block; padding: 6px 4px; border-bottom: 1px solid var(--tb-rule); }
   .tb-table td.tb-table__sel::before { content: none; }
 }
 </style>
