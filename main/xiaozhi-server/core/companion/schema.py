@@ -247,6 +247,18 @@ def default_memory() -> Dict[str, Any]:
     return {"enabled": True}
 
 
+# Head-tap shortcuts (firmware counts taps exactly: 2 then a pause = double, 3 = triple, 4+ = nothing)
+GESTURE_KEYS = ("double_tap", "triple_tap")
+GESTURE_ACTIONS = (
+    "none", "talk", "focus", "breathe", "night_light", "lullaby", "story",
+    "game_catch", "game_simon", "game_dice", "game_reaction", "game_random", "pages", "status",
+)
+
+
+def default_gestures() -> Dict[str, str]:
+    return {"double_tap": "none", "triple_tap": "talk"}
+
+
 def default_look() -> Dict[str, Any]:
     return {
         "shape": "rounded", "size": 100, "spacing": 0, "height": 0, "eyes": "plain",
@@ -338,6 +350,13 @@ def settings(old: Dict, patch: Any) -> Dict:
             patch["look"],
             "settings.look",
             checks,
+        )
+    if "gestures" in patch:
+        out["gestures"] = _merge_section(
+            dict(default_gestures(), **(old.get("gestures") or {})),
+            patch["gestures"],
+            "settings.gestures",
+            {key: _choice(GESTURE_ACTIONS) for key in GESTURE_KEYS},
         )
     if "care" in patch:
         out["care"] = _merge_section(

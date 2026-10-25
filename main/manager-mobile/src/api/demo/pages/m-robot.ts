@@ -39,6 +39,8 @@ view.stats = {
   high_scores: { catch: 18, simon: 9, reaction_ms: 312 },
 }
 view.stats_updated = nowS() - 20
+// Tap shortcuts (settings.gestures): two taps start the focus timer, three taps start a chat
+view.settings.gestures = { double_tap: 'focus', triple_tap: 'talk' }
 view.settings.pages = { clock: true, weather: true, prayer: true, focus: true, games: true, breathe: true, story: true, night: true, status: false, bond: true }
 view.memories = [
   { id: 'n1', text: 'বৃহস্পতিবার ডাক্তারের কাছে যাবেন', kind: 'event', created: `${day(-2)}T19:40`, updated: `${day(-2)}T19:40`, until: day(3) },

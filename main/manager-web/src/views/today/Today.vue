@@ -49,7 +49,7 @@
         </form>
         <p v-if="state === 'offline'" class="today__note">{{ $t('today.offlineNote') }}</p>
         <div v-if="can('commands')" class="today__deck" role="group" :aria-label="$t('today.deckLabel')">
-          <TbButton v-for="c in commands" :key="c.type" :icon="c.icon" :loading="busy === c.type" @click="run(c)">{{ $t(c.label) }}</TbButton>
+          <TbButton v-for="c in commands" :key="c.type" :icon="c.icon" :loading="busy === c.type" @click="run(c)">{{ cmdName(c) }}</TbButton>
         </div>
       </section>
 
@@ -100,6 +100,7 @@ import {
 } from '@/shell/robotStatus';
 import { statusKeys } from '@/shell/connection.mjs';
 import { dayRows, daysTogether, isoDate, robotState } from './todayModel';
+import { focusMinutes } from '@/utils/companion.mjs';
 
 const { t, locale } = useI18n({ useScope: 'global' });
 const route = useRoute();
@@ -170,14 +171,17 @@ const nextUp = computed(() => {
   return (isToday.value ? sorted.filter((r) => minutesOf(r.time) > nowMinutes.value) : sorted).slice(0, 3);
 });
 
-const commands = [
+// The focus chip starts the saved default minutes (pomodoro.work_min, set on the Day page)
+const focusMin = computed(() => focusMinutes(view.value));
+const commands = computed(() => [
   { type: 'story', icon: 'story', label: 'today.cmd.story' },
   { type: 'lullaby', icon: 'lullaby', label: 'today.cmd.lullaby' },
-  { type: 'pomodoro', icon: 'focus', label: 'today.cmd.focus', arg: 25 },
+  { type: 'pomodoro', icon: 'focus', label: 'today.cmd.focus', arg: focusMin.value, params: { n: num(focusMin.value) } },
   { type: 'game', icon: 'game', label: 'today.cmd.game', arg: 'catch' },
   { type: 'breathe', icon: 'breathe', label: 'today.cmd.breathe' },
   { type: 'night_light', icon: 'light', label: 'today.cmd.light' },
-];
+]);
+function cmdName(c) { return t(c.label, c.params || {}); }
 
 // A device without the companion view: online state from the gateway (POST /device/bind/{agentId}).
 function refreshDevice() {
@@ -219,7 +223,7 @@ function run(c) {
   if (!deviceId.value) return;
   busy.value = c.type;
   Api.companion.sendCompanionCommand(deviceId.value, c.type, c.arg, () => {
-    busy.value = ''; toast.success(t('today.cmdSent', { name: t(c.label) }));
+    busy.value = ''; toast.success(t('today.cmdSent', { name: cmdName(c) }));
   }, () => { busy.value = ''; toast.error(t('today.sendFailed')); });
 }
 

@@ -3,7 +3,7 @@
 // go to the server as whole lists, settings sections as partial patches. Same model as
 // manager-web/src/views/day/dayModel.js, plus the proactive talk rows.
 // days bitmask: bit 0 = Sunday ... bit 6 = Saturday (docs/companion-api.md).
-import { EVERY_DAY, FRI_SAT, isHHMM, PRAYER_KEYS, proactiveSettings, SUN_TO_THU } from '../../utils/companionUtils.mjs'
+import { EVERY_DAY, FOCUS_PRESETS, FRI_SAT, isHHMM, parseMinutes, PRAYER_KEYS, proactiveSettings, SUN_TO_THU } from '../../utils/companionUtils.mjs'
 import { ACTIVITIES, minuteOfDay, normalizeRoutine, scheduledActivity } from '../../utils/faceLook.mjs'
 
 /** The parts of the day, in the order of the area tabs. */
@@ -215,4 +215,29 @@ export function daysText(mask, t) {
   if (preset)
     return t(`day.preset.${preset}`)
   return daysOf(mask).map(d => t(`day.weekday.${d}`)).join(', ')
+}
+
+// Focus "start now": preset chips plus a custom minutes box (1..120, Bangla digits accepted).
+export { FOCUS_PRESETS, parseMinutes }
+
+/**
+ * The picker state for a minutes value: a preset chip, or 'custom' with the value in the box.
+ * @param {unknown} minutes
+ * @returns {{ choice: number | 'custom', custom: string }} picker state
+ */
+export function focusPick(minutes) {
+  const n = parseMinutes(minutes)
+  if (n !== null && FOCUS_PRESETS.includes(n))
+    return { choice: n, custom: '' }
+  return { choice: 'custom', custom: n === null ? '' : String(n) }
+}
+
+/**
+ * The minutes the picker stands for (a chip, or the custom box), or null when the box is not 1..120.
+ * @param {number | 'custom'} choice
+ * @param {string} custom
+ * @returns {number | null} minutes
+ */
+export function pickedMinutes(choice, custom) {
+  return choice === 'custom' ? parseMinutes(custom) : parseMinutes(choice)
 }

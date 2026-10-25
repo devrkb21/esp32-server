@@ -35,6 +35,9 @@ if (!Array.isArray(v.memories) || !v.memories.length) {
   ];
 }
 
+// Tap shortcuts (settings.gestures): two taps start the focus timer, three taps start a chat
+if (!v.settings.gestures) v.settings = { ...v.settings, gestures: { double_tap: 'focus', triple_tap: 'talk' } };
+
 const ALL_EVENTS = [
   { type: 'game_score', id: 'catch', value: 14, ts: t0 - 1500, rx: t0 - 1500 },
   { type: 'reminder_done', id: 'r1', value: 0, ts: t0 - 4 * 3600, rx: t0 - 4 * 3600 },
