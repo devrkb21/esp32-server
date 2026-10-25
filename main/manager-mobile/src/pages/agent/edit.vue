@@ -1,11 +1,41 @@
+<!-- Character and voice: who TinyBot is when it talks (owner: m-agent). Opened as a page
+     (?agentId=, or this robot's character) and embedded by pages/agent/index.vue (prop agentId). -->
+<route lang="jsonc" type="page">
+{
+  "layout": "default",
+  "style": {
+    "navigationBarTitleText": "Character",
+    "navigationStyle": "custom"
+  }
+}
+</route>
+
 <script lang="ts" setup>
 import type { AgentDetail, ModelOption, PluginDefinition, RoleTemplate, TtsVoice } from '@/api/agent/types'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getAgentDetail, getAgentTags, getAllLanguage, getModelOptions, getPluginFunctions, getRoleTemplates, getVoiceCloneAudioId, updateAgent } from '@/api/agent/agent'
-import { t } from '@/i18n'
+import { getCurrentLanguage, t } from '@/i18n'
 import { usePluginStore, useProvider, useSpeedPitch } from '@/store'
 import { getEnvBaseUrl } from '@/utils'
+import { digits } from '@/utils/calendar.mjs'
+import { loadRobots, robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
+import {
+  applyMemoryChoice,
+  firstLine,
+  LOCAL_SHORT_MEMORY,
+  NO_MEMORY,
+  normalizeAgentFunctions,
+  pluginCatalog,
+  previewText,
+  PROMPT_MAX,
+  PROMPT_NEAR,
+  signed,
+  stableSerialize,
+  tuningSummary,
+} from './agentModel.mjs'
+import AgentRow from './components/AgentRow.vue'
 import AgentSnapshotPanel from './components/AgentSnapshotPanel.vue'
 import { filterTtsVoicesByLanguage, hasUsableTtsVoiceMetadata } from './components/agentSnapshotUtils.mjs'
 import { createVoicePreviewRequestGate, hasVoicePreview, resolveVoicePreviewUrl } from './components/voicePreviewUtils.mjs'
@@ -16,14 +46,25 @@ defineOptions({
 
 const props = withDefaults(defineProps<Props>(), {
   agentId: '',
+  embedded: false,
 })
 
 // Component props
 interface Props {
   agentId?: string
+  embedded?: boolean
 }
 
-const agentId = computed(() => props.agentId)
+// As a page the id comes from ?agentId=, else it is this robot's character.
+const queryAgentId = ref('')
+onLoad((q: any) => {
+  if (q?.agentId)
+    queryAgentId.value = decodeURIComponent(String(q.agentId))
+})
+const agentId = computed(() => props.agentId || queryAgentId.value || robot.agentId || '')
+
+const lang = computed(() => getCurrentLanguage())
+const num = (n: any) => digits(n ?? '', lang.value)
 
 // Form data
 const formData = ref<Partial<AgentDetail>>({
@@ -46,19 +87,18 @@ const formData = ref<Partial<AgentDetail>>({
 })
 
 // Display name data
-const displayNames = ref({
-// Display name data
-  vad: t('agent.pleaseSelect'),
-  asr: t('agent.pleaseSelect'),
-  llm: t('agent.pleaseSelect'),
-  slm: t('agent.pleaseSelect'),
-  vllm: t('agent.pleaseSelect'),
-  intent: t('agent.pleaseSelect'),
-  memory: t('agent.pleaseSelect'),
-  tts: t('agent.pleaseSelect'),
-  voiceprint: t('agent.pleaseSelect'),
-  report: t('agent.pleaseSelect'),
-  language: t('agent.pleaseSelect'),
+const displayNames = ref<Record<string, string>>({
+  vad: '',
+  asr: '',
+  llm: '',
+  slm: '',
+  vllm: '',
+  intent: '',
+  memory: '',
+  tts: '',
+  voiceprint: '',
+  report: '',
+  language: '',
 })
 
 // Role template data
@@ -67,6 +107,7 @@ const selectedTemplateId = ref('')
 
 // Loading status
 const loading = ref(false)
+const loadFailed = ref(false)
 const saving = ref(false)
 const showSnapshotPanel = ref(false)
 const currentVersionNo = ref<number | null>(null)
@@ -103,10 +144,10 @@ const voiceOptions = ref<VoiceOption[]>([])
 const voiceDetails = ref<Record<string, TtsVoice>>({})
 
 // Report mode options data
-const reportOptions = [
-  { name: t('agent.reportText'), value: 1 },
-  { name: t('agent.reportTextVoice'), value: 2 },
-]
+const reportOptions = computed(() => [
+  { name: t('mAgent.think.historyText'), value: 1 },
+  { name: t('mAgent.think.historyVoice'), value: 2 },
+])
 
 // Selector display status
 const pickerShow = ref<{
@@ -126,7 +167,7 @@ const pickerShow = ref<{
 })
 
 const allFunctions = ref<PluginDefinition[]>([])
-const dynamicTags = ref([])
+const dynamicTags = ref<any[]>([])
 const inputValue = ref('')
 const inputVisible = ref(false)
 const languageOptions = ref<any[]>([])
@@ -228,23 +269,6 @@ function pickEditableFields(data: Record<string, any>) {
   }, {})
 }
 
-function stableSerialize(value: any) {
-  return JSON.stringify(sortObjectKeys(value))
-}
-
-function sortObjectKeys(value: any): any {
-  if (Array.isArray(value)) {
-    return value.map(sortObjectKeys)
-  }
-  if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce<Record<string, any>>((result, key) => {
-      result[key] = sortObjectKeys(value[key])
-      return result
-    }, {})
-  }
-  return value
-}
-
 function cloneSerializable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
@@ -258,7 +282,7 @@ function showInput() {
 }
 
 function handleInputConfirm() {
-  if (inputValue.value) {
+  if (inputValue.value.trim()) {
     dynamicTags.value.push({ id: new Date().getTime(), tagName: inputValue.value.trim() })
     inputValue.value = ''
   }
@@ -266,31 +290,9 @@ function handleInputConfirm() {
 }
 
 // Whether to disable memory history input
-const isMemoryDisabled = computed(() => formData.value.memModelId !== 'Memory_mem_local_short')
+const isMemoryDisabled = computed(() => formData.value.memModelId !== LOCAL_SHORT_MEMORY)
 
-function normalizeFunctionParams(paramInfo: any) {
-  if (!paramInfo)
-    return {}
-  if (typeof paramInfo === 'string') {
-    try {
-      const parsed = JSON.parse(paramInfo)
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
-    }
-    catch {
-      return {}
-    }
-  }
-  return typeof paramInfo === 'object' && !Array.isArray(paramInfo) ? { ...paramInfo } : {}
-}
-
-function normalizeAgentFunctions(functions: any[] = []) {
-  return functions.map(item => ({
-    ...item,
-    paramInfo: normalizeFunctionParams(item.paramInfo),
-  }))
-}
-
-// Open context provider edit dialog
+// Open context provider edit screen
 function openContextProviderDialog() {
   uni.navigateTo({
     url: '/pages/agent/provider',
@@ -317,13 +319,15 @@ async function loadAgentDetail(targetAgentId = agentId.value) {
       return false
     }
     applyPersistedAgentDetail(detail, targetAgentId)
+    loadFailed.value = false
     await enhanceAgentDetailMetadata(detail, targetAgentId, requestId)
     return isActiveAgentDetailRequest(targetAgentId, requestId)
   }
   catch (error) {
     if (isActiveAgentDetailRequest(targetAgentId, requestId)) {
       console.error('Failed to load agent details:', error)
-      toast.error(t('agent.loadFail'))
+      loadFailed.value = true
+      toast.error(t('mAgent.loadFailed'))
     }
     return false
   }
@@ -357,6 +361,7 @@ function applyPersistedAgentDetail(detail: AgentDetail, targetAgentId: string) {
   })
   speedPitchStore.resetChangedFields()
   providerStore.updateProviders(detail.contextProviders || [])
+  updateDisplayNames()
 }
 
 async function enhanceAgentDetailMetadata(detail: AgentDetail, targetAgentId: string, requestId: number) {
@@ -398,26 +403,17 @@ function invalidateTtsMetadataRequest() {
 // Get voice display name
 function getVoiceDisplayName(ttsVoiceId: string) {
   if (!ttsVoiceId)
-    return 'Please select'
-
-  console.log('=== Voice mapping debug ===')
-  console.log('Current voice ID:', ttsVoiceId)
-  console.log('Current TTS model:', formData.value.ttsModelId)
-  console.log('Available voice options:', voiceOptions.value)
+    return ''
 
   // Try matching ID directly from voice options
   const voice = voiceOptions.value.find(v => v.id === ttsVoiceId)
   if (voice) {
-    console.log('Direct match success:', voice)
     return voice.name
   }
 
-  // If not found, try fallback mapping
+  // Older agents store voice1..voice5: map them to the list order
   if (voiceOptions.value.length > 0) {
-    console.log('Direct match failed, trying fallback mapping')
-
-    // Index mapping: voice1 -> 1st voice, voice2 -> 2nd voice
-    const indexMap = {
+    const indexMap: Record<string, number> = {
       voice1: 0,
       voice2: 1,
       voice3: 2,
@@ -427,13 +423,10 @@ function getVoiceDisplayName(ttsVoiceId: string) {
 
     const index = indexMap[ttsVoiceId]
     if (index !== undefined && voiceOptions.value[index]) {
-      const mappedVoice = voiceOptions.value[index]
-      console.log(`Index mapping: ${ttsVoiceId} -> index ${index} -> ${mappedVoice.name}`)
-      return mappedVoice.name
+      return voiceOptions.value[index].name
     }
   }
 
-  console.log('All mappings failed, returning raw ID:', ttsVoiceId)
   return ttsVoiceId
 }
 
@@ -451,19 +444,16 @@ function updateDisplayNames() {
   displayNames.value.memory = getModelDisplayName('Memory', formData.value.memModelId)
   displayNames.value.tts = getModelDisplayName('TTS', formData.value.ttsModelId)
 
-  // Special handling for role voice
-  displayNames.value.report = reportOptions.find(item => item.value === formData.value.chatHistoryConf)?.name
+  displayNames.value.report = reportOptions.value.find(item => item.value === formData.value.chatHistoryConf)?.name || ''
 
-  isVisibleReport.value = formData.value.memModelId !== 'Memory_nomem'
-
-  console.log('Final voice display name:', displayNames.value.voiceprint)
+  isVisibleReport.value = formData.value.memModelId !== NO_MEMORY
 }
 
 // Load role templates
 async function loadRoleTemplates() {
   try {
     const templates = await getRoleTemplates()
-    roleTemplates.value = templates
+    roleTemplates.value = templates || []
   }
   catch (error) {
     console.error('Failed to load role templates:', error)
@@ -476,14 +466,11 @@ async function loadModelOptions() {
 
   try {
     await Promise.all(
-      modelTypes?.map(async (type) => {
-        console.log(`Loading model type: ${type}`)
+      modelTypes.map(async (type) => {
         const options = await getModelOptions(type)
-        modelOptions.value[type] = options
-        console.log(`${type} options:`, options)
-      }) || [],
+        modelOptions.value[type] = options || []
+      }),
     )
-    console.log('All model options loaded:', modelOptions.value)
   }
   catch (error) {
     console.error('Failed to load model options:', error)
@@ -562,7 +549,7 @@ function filterVoicesByLanguage(options: VoiceSelectionOptions = {}) {
   // Filter voices by selected language
   const filteredVoices = filterTtsVoicesByLanguage(allVoices, selectedTtsLanguage.value)
 
-  voiceOptions.value = filteredVoices.map(voice => ({
+  voiceOptions.value = filteredVoices.map((voice: any) => ({
     id: voice.id,
     value: voice.id,
     name: voice.name,
@@ -575,7 +562,7 @@ function filterVoicesByLanguage(options: VoiceSelectionOptions = {}) {
 
   // Check if selected voice supports current language, fallback to first
   const currentVoiceSupportsLanguage = formData.value.ttsVoiceId
-    && filteredVoices.some(voice => voice.id === formData.value.ttsVoiceId)
+    && filteredVoices.some((voice: any) => voice.id === formData.value.ttsVoiceId)
 
   if (!currentVoiceSupportsLanguage && options.autoSelectVoice) {
     formData.value.ttsVoiceId = filteredVoices.length > 0 ? filteredVoices[0].id : ''
@@ -583,8 +570,8 @@ function filterVoicesByLanguage(options: VoiceSelectionOptions = {}) {
     ttsVoiceTouched.value = true
   }
   else {
-    displayNames.value.voiceprint = filteredVoices.find(item => item.id === formData.value.ttsVoiceId)?.name
-      || getVoiceDisplayName(formData.value.ttsVoiceId)
+    displayNames.value.voiceprint = filteredVoices.find((item: any) => item.id === formData.value.ttsVoiceId)?.name
+      || getVoiceDisplayName(formData.value.ttsVoiceId || '')
   }
 }
 
@@ -592,7 +579,7 @@ function getVoiceDefaultLanguage(ttsVoiceId: string) {
   if (!ttsVoiceId || !voiceDetails.value?.[ttsVoiceId]?.languages) {
     return ''
   }
-  const languages = voiceDetails.value[ttsVoiceId].languages
+  const languages = String(voiceDetails.value[ttsVoiceId].languages)
     .split(/[、；;,，]/)
     .map(lang => lang.trim())
     .filter(Boolean)
@@ -623,7 +610,7 @@ async function fetchAllLanguag(ttsModelId: string, options: VoiceSelectionOption
       return acc
     }, {})
     // Extract all language options and deduplicate
-    const allLanguages = new Set()
+    const allLanguages = new Set<string>()
     res.forEach((voice) => {
       if (voice.languages) {
         const languagesArray = voice.languages.split(/[、；;,，]/).map(lang => lang.trim()).filter(lang => lang)
@@ -656,8 +643,8 @@ async function fetchAllLanguag(ttsModelId: string, options: VoiceSelectionOption
       selectedTtsLanguage.value = formData.value.ttsLanguage
       displayNames.value.language = formData.value.ttsLanguage
     }
-    else if (getVoiceDefaultLanguage(formData.value.ttsVoiceId)) {
-      selectedTtsLanguage.value = getVoiceDefaultLanguage(formData.value.ttsVoiceId)
+    else if (getVoiceDefaultLanguage(formData.value.ttsVoiceId || '')) {
+      selectedTtsLanguage.value = getVoiceDefaultLanguage(formData.value.ttsVoiceId || '')
       displayNames.value.language = selectedTtsLanguage.value
     }
     else if (languageOptions.value.length > 0) {
@@ -684,23 +671,6 @@ async function fetchAllLanguag(ttsModelId: string, options: VoiceSelectionOption
   }
 }
 
-// Load TTS voice options
-// async function loadVoiceOptions(ttsModelId?: string) {
-//   if (!ttsModelId)
-//     return
-
-//   try {
-//     console.log(`Loading voice options: ${ttsModelId}`)
-//     const voices = await getTTSVoices(ttsModelId)
-//     voiceOptions.value = voices
-//     console.log('Voice options:', voices)
-//   }
-//   catch (error) {
-//     console.error('Failed to load voice options:', error)
-//     voiceOptions.value = []
-//   }
-// }
-
 // Select role template
 async function selectRoleTemplate(templateId: string) {
   if (ttsOptionsLoading.value) {
@@ -712,7 +682,7 @@ async function selectRoleTemplate(templateId: string) {
   }
 
   selectedTemplateId.value = templateId
-  const template = roleTemplates.value.find(t => t.id === templateId)
+  const template = roleTemplates.value.find(item => item.id === templateId)
   if (template) {
     const previousTtsState = captureTtsSelectionState()
     const templateTtsLanguage = template.ttsLanguage?.trim() || ''
@@ -740,14 +710,14 @@ async function selectRoleTemplate(templateId: string) {
       displayNames.value.language = templateTtsLanguage
     }
     if (template.ttsModelId || template.ttsVoiceId || hasTemplateTtsLanguage) {
-      const result = await fetchAllLanguag(template.ttsModelId || formData.value.ttsModelId, {
+      const result = await fetchAllLanguag(template.ttsModelId || formData.value.ttsModelId || '', {
         autoSelectVoice: true,
         preferredLanguage: hasTemplateTtsLanguage ? templateTtsLanguage : '',
         preferredVoiceId: template.ttsVoiceId,
       })
       if (result === 'failed') {
         restoreTtsSelectionState(previousTtsState)
-        toast.warning(t('agent.ttsOptionsLoadFailed'))
+        toast.warning(t('mAgent.voice.loadFailed'))
       }
       else if (result === 'loaded') {
         ttsLanguageTouched.value = true
@@ -755,6 +725,7 @@ async function selectRoleTemplate(templateId: string) {
       }
     }
     updateDisplayNames()
+    toast.info(t('mAgent.who.templateApplied', { name: template.agentName }))
   }
 }
 
@@ -768,8 +739,6 @@ function openPicker(type: string) {
 
 // Selector confirm
 async function onPickerConfirm(type: string, value: any, name: string) {
-  console.log('Selector confirm:', type, value, name)
-
   const previousTtsState = type === 'tts' ? captureTtsSelectionState() : null
   // Save display name
   displayNames.value[type] = name
@@ -792,31 +761,24 @@ async function onPickerConfirm(type: string, value: any, name: string) {
       break
     case 'intent':
       formData.value.intentModelId = value
-      displayNames.value.intent = name // Ensure display name updates correctly
       break
-    case 'memory':
-      formData.value.memModelId = value
-      formData.value.chatHistoryConf = value === 'Memory_nomem' ? 0 : 2
-      displayNames.value.memory = name // Ensure display name updates correctly
-      displayNames.value.report = reportOptions[1].name
-      isVisibleReport.value = value !== 'Memory_nomem'
-      if (value === 'Memory_nomem' || value === 'Memory_mem_report_only') {
-        tempSummaryMemory.value = formData.value.summaryMemory
-        formData.value.summaryMemory = ''
-      }
-      else if (tempSummaryMemory.value !== '' && formData.value.summaryMemory === '') {
-        formData.value.summaryMemory = tempSummaryMemory.value
-        tempSummaryMemory.value = ''
-      }
+    case 'memory': {
+      const next = applyMemoryChoice(formData.value, value, tempSummaryMemory.value)
+      formData.value = next.form
+      tempSummaryMemory.value = next.stash
+      displayNames.value.report = reportOptions.value[1].name
+      isVisibleReport.value = value !== NO_MEMORY
       break
+    }
     case 'tts': {
       const preferredLanguage = selectedTtsLanguage.value
       formData.value.ttsModelId = value
       formData.value.ttsVoiceId = ''
+      pickerShow.value[type] = false
       const result = await fetchAllLanguag(value, { autoSelectVoice: true, preferredLanguage })
       if (result === 'failed' && previousTtsState) {
         restoreTtsSelectionState(previousTtsState)
-        toast.warning(t('agent.ttsOptionsLoadFailed'))
+        toast.warning(t('mAgent.voice.loadFailed'))
       }
       else if (result === 'loaded') {
         ttsLanguageTouched.value = true
@@ -837,7 +799,6 @@ async function onPickerConfirm(type: string, value: any, name: string) {
         formData.value.ttsLanguage = selectedTtsLanguage.value
         ttsLanguageTouched.value = true
       }
-      displayNames.value.voiceprint = name // Ensure display name updates correctly
       break
     case 'report':
       formData.value.chatHistoryConf = value
@@ -857,9 +818,7 @@ function onPickerCancel(type: string) {
 }
 
 // Play audio
-async function playAudio(voice: VoiceOption, event: Event) {
-  event.stopPropagation() // Stop event propagation
-
+async function playAudio(voice: VoiceOption) {
   if (!hasVoicePreview(voice)) {
     return
   }
@@ -877,28 +836,26 @@ async function playAudio(voice: VoiceOption, event: Event) {
 
   try {
     const audioUrl = await resolveVoicePreviewUrl({
-      id: voice.value || voice.id,
+      id: voice.value || voice.id || '',
       isClone: voice.isClone,
       voiceDemo: voice.voiceDemo || voice.voice_demo,
       ttsVoice: voice.ttsVoice || (voiceDetails.value[voice.value] as (TtsVoice & { ttsVoice?: string | null }) | undefined)?.ttsVoice,
-    }, getVoiceCloneAudioId, getEnvBaseUrl())
+    }, getVoiceCloneAudioId as any, getEnvBaseUrl())
 
     // User may cancel or switch while waiting for temporary URL.
     if (!voicePreviewRequestGate.isCurrent(requestId) || playingVoiceId.value !== voice.value) {
       return
     }
     if (!audioUrl) {
-      toast.error(t('voiceprint.getAudioFailed'))
+      toast.error(t('mAgent.voice.sampleMissing'))
       playingVoiceId.value = ''
       return
     }
 
-    // Create new Audio instance
     const audio = uni.createInnerAudioContext()
     audioRef.value = audio
     audio.src = audioUrl
 
-    // Listen for playback end
     audio.onEnded(() => {
       if (
         voicePreviewRequestGate.isCurrent(requestId)
@@ -909,19 +866,17 @@ async function playAudio(voice: VoiceOption, event: Event) {
       }
     })
 
-    // Listen for playback error
     audio.onError(() => {
       if (
         voicePreviewRequestGate.isCurrent(requestId)
         && audioRef.value === audio
         && playingVoiceId.value === voice.value
       ) {
-        toast.error(t('voiceprint.audioPlayFailed'))
+        toast.error(t('mAgent.voice.sampleFailed'))
         playingVoiceId.value = ''
       }
     })
 
-    // Play audio
     audio.play()
   }
   catch (error) {
@@ -929,7 +884,7 @@ async function playAudio(voice: VoiceOption, event: Event) {
       return
     }
     console.error('Failed to get cloned voice preview URL:', error)
-    toast.error(t('voiceprint.getAudioFailed'))
+    toast.error(t('mAgent.voice.sampleMissing'))
     playingVoiceId.value = ''
   }
 }
@@ -946,22 +901,17 @@ function stopAudio() {
 }
 
 // Get model display name
-function getModelDisplayName(modelType: string, modelId: string) {
+function getModelDisplayName(modelType: string, modelId?: string) {
   if (!modelId)
-    return 'Please select'
+    return ''
 
-  // Find matching ID directly from API config data
   const options = modelOptions.value[modelType]
-
   if (!options || options.length === 0) {
     return modelId
   }
 
   const option = options.find(opt => opt.id === modelId)
-  if (option) {
-    return option.modelName
-  }
-  return modelId
+  return option ? option.modelName : modelId
 }
 
 // Save agent
@@ -985,16 +935,16 @@ async function saveAgent() {
     && (ttsOptionsModelId.value !== formData.value.ttsModelId
       || (hasLanguageOptions && !selectedTtsLanguage.value)
       || (hasVoiceOptions && !formData.value.ttsVoiceId))) {
-    toast.warning(t('agent.ttsOptionsLoadFailed'))
+    toast.warning(t('mAgent.voice.loadFailed'))
     return
   }
   if (!formData.value.agentName?.trim()) {
-    toast.warning(t('agent.pleaseInputAgentName'))
+    toast.warning(t('mAgent.who.nameMissing'))
     return
   }
 
   if (!formData.value.systemPrompt?.trim()) {
-    toast.warning(t('agent.pleaseInputRoleDescription'))
+    toast.warning(t('mAgent.who.promptMissing'))
     return
   }
 
@@ -1039,11 +989,11 @@ async function saveAgent() {
     speedPitchStore.resetChangedFields()
     await loadAgentDetail()
 
-    toast.success(t('agent.saveSuccess'))
+    toast.success(t('mAgent.save.done'))
   }
   catch (error) {
     console.error('Failed to save:', error)
-    toast.error(t('agent.saveFail'))
+    toast.error(t('mAgent.save.failed'))
   }
   finally {
     saving.value = false
@@ -1051,25 +1001,17 @@ async function saveAgent() {
 }
 
 function loadPluginFunctions() {
-  getPluginFunctions().then((res) => {
-    const processedFunctions = res?.map((item) => {
-      const meta = JSON.parse(item.fields || '[]')
-      const params = meta.reduce((m: any, f: any) => {
-        m[f.key] = f.default
-        return m
-      }, {})
-      return { ...item, fieldsMeta: meta, params }
-    }) || []
-
+  return getPluginFunctions().then((res) => {
+    const processedFunctions = pluginCatalog(res || [])
     allFunctions.value = processedFunctions
     // Also update to store
     pluginStore.setAllFunctions(processedFunctions)
+  }).catch((error) => {
+    console.warn('Failed to load plugin list:', error)
   })
 }
 
 function handleTools() {
-  console.log('Current plugin config:', formData.value.functions)
-
   // Ensure store has latest data
   pluginStore.setCurrentAgentId(agentId.value)
   pluginStore.setCurrentFunctions(normalizeAgentFunctions(formData.value.functions || []))
@@ -1138,6 +1080,7 @@ async function reloadAgentAfterSnapshotRestore(targetAgentId = agentId.value) {
     }
 
     applyPersistedAgentDetail(detail, targetAgentId)
+    loadFailed.value = false
     dynamicTags.value = tags || []
     originalTagNames.value = dynamicTags.value.map(tag => tag.tagName)
 
@@ -1155,6 +1098,8 @@ async function reloadAgentAfterSnapshotRestore(targetAgentId = agentId.value) {
     if (isActiveSnapshotReload(targetAgentId, reloadId, detailRequestId, tagRequestId)) {
       console.error('Failed to reload agent after restore:', error)
       snapshotReloadFailed.value = true
+      if (!originalAgentDetail.value)
+        loadFailed.value = true
       toast.error(t('agentSnapshot.reloadAfterRestoreFailed'))
     }
     return false
@@ -1200,9 +1145,18 @@ function isSameStringList(left: string[], right: string[]) {
   return left.every((value, index) => value === right[index])
 }
 
+// The first load failed: try the whole page again
+function retryLoad() {
+  loadFailed.value = false
+  if (snapshotReloadBlocked.value)
+    void reloadAgentAfterSnapshotRestore(agentId.value)
+  else
+    void Promise.all([loadAgentTags(), loadAgentDetail()])
+}
+
 // Watch plugin config changes in store
 watch(() => pluginStore.currentFunctions, (newFunctions) => {
-  formData.value.functions = normalizeAgentFunctions(newFunctions || [])
+  formData.value.functions = normalizeAgentFunctions(newFunctions || []) as any
 }, { deep: true })
 
 watch(agentId, (currentAgentId, previousAgentId) => {
@@ -1214,6 +1168,7 @@ watch(agentId, (currentAgentId, previousAgentId) => {
   snapshotReloadSequence += 1
   invalidateTtsMetadataRequest()
   loading.value = false
+  loadFailed.value = false
   snapshotReloadFailed.value = false
   snapshotReloadBlocked.value = Boolean(currentAgentId)
   originalAgentDetail.value = null
@@ -1223,31 +1178,27 @@ watch(agentId, (currentAgentId, previousAgentId) => {
   }
 }, { flush: 'sync' })
 
-// ---- Layout helpers for the grouped settings list (display only) ----
+// The voice sheet closing (any way) stops a sample that is playing
+watch(() => pickerShow.value.voiceprint, (open) => {
+  if (!open)
+    stopAudio()
+})
 
-// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
-function tx(key: string, fallback: string, params?: Record<string, string | number>) {
-  const value = t(key, params)
-  if (value !== key)
-    return value
-  if (!params)
-    return fallback
-  return Object.entries(params).reduce((text, [name, val]) => text.replace(`{${name}}`, String(val)), fallback)
-}
+// ---- Display helpers ----
 
 type PickerKey = 'vad' | 'asr' | 'llm' | 'slm' | 'vllm' | 'intent' | 'memory' | 'tts' | 'language' | 'report'
 
 const PICKER_TITLE_KEYS: Record<PickerKey, string> = {
-  vad: 'agent.vad',
-  asr: 'agent.asr',
-  llm: 'agent.llm',
-  slm: 'agent.slm',
-  vllm: 'agent.vllm',
-  intent: 'agent.intent',
-  memory: 'agent.memory',
-  tts: 'agent.tts',
-  language: 'agent.language',
-  report: 'agent.reportMode',
+  vad: 'mAgent.think.vad',
+  asr: 'mAgent.think.asr',
+  llm: 'mAgent.think.llm',
+  slm: 'mAgent.think.slm',
+  vllm: 'mAgent.think.vllm',
+  intent: 'mAgent.think.intent',
+  memory: 'mAgent.think.memory',
+  tts: 'mAgent.voice.engine',
+  language: 'mAgent.voice.language',
+  report: 'mAgent.think.history',
 }
 
 // The one list picker that is open (voice has its own sheet with previews)
@@ -1278,7 +1229,7 @@ const pickerActions = computed<Array<{ name: string, value: any }>>(() => {
     case 'memory': return toModelActions(modelOptions.value.Memory)
     case 'tts': return toModelActions(modelOptions.value.TTS)
     case 'language': return languageOptions.value
-    case 'report': return reportOptions
+    case 'report': return reportOptions.value
     default: return []
   }
 })
@@ -1302,14 +1253,14 @@ const pickerCurrentValue = computed(() => {
 const pickerTitle = computed(() => activePicker.value ? t(PICKER_TITLE_KEYS[activePicker.value]) : '')
 
 const modelRows = computed(() => [
-  { key: 'llm', label: t('agent.llm'), value: displayNames.value.llm, show: true },
-  { key: 'slm', label: t('agent.slm'), value: displayNames.value.slm, show: true },
-  { key: 'vllm', label: t('agent.vllm'), value: displayNames.value.vllm, show: true },
-  { key: 'asr', label: t('agent.asr'), value: displayNames.value.asr, show: true },
-  { key: 'vad', label: t('agent.vad'), value: displayNames.value.vad, show: true },
-  { key: 'intent', label: t('agent.intent'), value: displayNames.value.intent, show: true },
-  { key: 'memory', label: t('agent.memory'), value: displayNames.value.memory, show: true },
-  { key: 'report', label: t('agent.reportMode'), value: displayNames.value.report, show: isVisibleReport.value },
+  { key: 'llm', label: t('mAgent.think.llm'), hint: t('mAgent.think.llmHint'), value: displayNames.value.llm, show: true },
+  { key: 'slm', label: t('mAgent.think.slm'), hint: t('mAgent.think.slmHint'), value: displayNames.value.slm, show: true },
+  { key: 'vllm', label: t('mAgent.think.vllm'), hint: t('mAgent.think.vllmHint'), value: displayNames.value.vllm, show: true },
+  { key: 'asr', label: t('mAgent.think.asr'), hint: t('mAgent.think.asrHint'), value: displayNames.value.asr, show: true },
+  { key: 'vad', label: t('mAgent.think.vad'), hint: t('mAgent.think.vadHint'), value: displayNames.value.vad, show: true },
+  { key: 'intent', label: t('mAgent.think.intent'), hint: t('mAgent.think.intentHint'), value: displayNames.value.intent, show: true },
+  { key: 'memory', label: t('mAgent.think.memory'), hint: t('mAgent.think.memoryHint'), value: displayNames.value.memory, show: true },
+  { key: 'report', label: t('mAgent.think.history'), hint: t('mAgent.think.historyHint'), value: displayNames.value.report, show: isVisibleReport.value },
 ])
 
 const selectedTemplateName = computed(() => {
@@ -1323,23 +1274,29 @@ function chooseTemplate(templateId: string) {
   void selectRoleTemplate(templateId)
 }
 
-const agentInitial = computed(() => {
-  const name = (formData.value.agentName || '').trim()
-  return name ? Array.from(name)[0].toUpperCase() : '?'
-})
-
 const toolCount = computed(() => (formData.value.functions || []).length)
 
+// Only the values moved off 0, each with its name: "গতি +১০"
+const TUNING_LABELS = [['ttsRate', 'mAgent.tune.rate'], ['ttsPitch', 'mAgent.tune.pitch'], ['ttsVolume', 'mAgent.tune.volume']] as const
 const speedPitchSummary = computed(() => {
-  const { ttsVolume, ttsRate, ttsPitch } = speedPitchStore.speedPitch
-  if (!ttsVolume && !ttsRate && !ttsPitch)
-    return tx('agent.voiceTuningDefault', 'Standard')
-  return [ttsVolume, ttsRate, ttsPitch].map(value => (value > 0 ? `+${value}` : `${value}`)).join(' / ')
+  if (!tuningSummary(speedPitchStore.speedPitch))
+    return t('mAgent.voice.tuningNormal')
+  return TUNING_LABELS
+    .filter(([key]) => Number(speedPitchStore.speedPitch[key]) !== 0)
+    .map(([key, label]) => `${t(label)} ${num(signed(speedPitchStore.speedPitch[key]))}`)
+    .join(', ')
 })
 
 const showActionBar = computed(() => hasUnsavedChanges.value || saving.value || snapshotReloadBlocked.value)
 
-// Full-screen text editor sheet for the prompt and memory
+const syncState = computed(() => (hasUnsavedChanges.value ? 'pending' : 'applied'))
+const syncText = computed(() => {
+  if (hasUnsavedChanges.value)
+    return t('mAgent.state.unsaved')
+  return currentVersionNo.value ? t('mAgent.state.savedVersion', { n: num(currentVersionNo.value) }) : t('mAgent.state.saved')
+})
+
+// Text editor sheet for the prompt and the memory summary
 type EditorField = 'systemPrompt' | 'summaryMemory'
 const editorField = ref<EditorField | ''>('')
 const editorDraft = ref('')
@@ -1352,9 +1309,16 @@ const editorVisible = computed({
   },
 })
 
-const editorTitle = computed(() => editorField.value === 'summaryMemory' ? t('agent.historyMemory') : t('agent.roleDescription'))
-const editorPlaceholder = computed(() => editorField.value === 'summaryMemory' ? t('agent.memoryContent') : t('agent.inputRoleDescription'))
-const editorMaxLength = computed(() => editorField.value === 'systemPrompt' ? 2000 : -1)
+const editorTitle = computed(() => editorField.value === 'summaryMemory' ? t('mAgent.think.summary') : t('mAgent.who.prompt'))
+const editorHint = computed(() => editorField.value === 'summaryMemory' ? t('mAgent.think.summaryHint') : t('mAgent.who.promptHint'))
+const editorPlaceholder = computed(() => editorField.value === 'summaryMemory' ? t('mAgent.think.summaryEmpty') : t('mAgent.who.promptPlaceholder'))
+const editorMaxLength = computed(() => editorField.value === 'systemPrompt' ? PROMPT_MAX : -1)
+const editorCount = computed(() => {
+  const n = editorDraft.value.length
+  return n >= PROMPT_NEAR
+    ? t('mAgent.who.nearLimit', { n: num(PROMPT_MAX - n) })
+    : `${num(n)} / ${num(PROMPT_MAX)}`
+})
 
 function openEditor(field: EditorField) {
   if (field === 'summaryMemory' && isMemoryDisabled.value)
@@ -1369,11 +1333,12 @@ function applyEditor() {
   editorField.value = ''
 }
 
-function previewText(value?: string | null) {
-  return (value || '').replace(/\s+/g, ' ').trim()
-}
+function goRobots() { uni.navigateTo({ url: '/pages/robots/index' }) }
 
 onMounted(async () => {
+  if (!agentId.value && !robot.loaded)
+    await loadRobots()
+
   loadAgentTags()
 
   // Load model options and role templates first
@@ -1387,508 +1352,299 @@ onMounted(async () => {
   if (agentId.value && !snapshotReloadBlocked.value) {
     await loadAgentDetail()
   }
+  else {
+    updateDisplayNames()
+  }
 })
+
+onUnmounted(stopAudio)
 </script>
 
 <template>
-  <view class="agent-edit" :class="{ 'agent-edit--with-bar': showActionBar }">
-    <!-- First load -->
-    <view v-if="loading && !originalAgentDetail" class="agent-edit__loading">
-      <view class="nx-card agent-hero">
-        <view class="nx-skeleton agent-hero__avatar" />
-        <view class="agent-hero__text">
-          <view class="nx-skeleton agent-edit__skel-title" />
-          <view class="nx-skeleton agent-edit__skel-line" />
-        </view>
-      </view>
-      <view v-for="n in 3" :key="n" class="nx-group">
-        <view class="nx-group__body">
-          <view v-for="m in 3" :key="m" class="nx-row">
-            <view class="nx-skeleton agent-edit__skel-row" />
-          </view>
-        </view>
-      </view>
+  <view class="ag" :class="{ 'tb-wrap': !embedded, 'is-embedded': embedded, 'has-bar': showActionBar }">
+    <tb-page-header v-if="!embedded" :title="t('nav.character')" :description="t('mAgent.lead')" back />
+
+    <!-- No robot yet -->
+    <view v-if="!agentId && robot.loaded" class="ag__state">
+      <tb-empty face="confused" :title="t('common.noRobot')" :text="t('common.noRobotText')">
+        <tb-button variant="primary" icon="robots" @click="goRobots">
+          {{ t('common.goRobots') }}
+        </tb-button>
+      </tb-empty>
     </view>
 
-    <template v-else>
-      <!-- Identity -->
-      <view class="nx-card agent-hero">
-        <view class="agent-hero__avatar">
-          {{ agentInitial }}
-        </view>
-        <view class="agent-hero__text">
-          <text class="nx-truncate agent-hero__name" :title="formData.agentName">
-            {{ formData.agentName || t('agent.editTitle') }}
-          </text>
-          <text class="nx-num agent-hero__meta">
-            {{ currentVersionNo ? `${t('agentSnapshot.currentVersion')} #${currentVersionNo}` : t('agent.editTitle') }}
-          </text>
-        </view>
-        <view v-if="hasUnsavedChanges" class="nx-badge nx-badge--warning">
-          {{ tx('agent.unsavedBadge', 'Unsaved') }}
-        </view>
+    <!-- First load failed -->
+    <view v-else-if="loadFailed && !originalAgentDetail" class="ag__state">
+      <tb-empty face="confused" :title="t('mAgent.loadFailed')" :text="t('common.loadFailed')">
+        <tb-button icon="refresh" @click="retryLoad">
+          {{ t('common.retry') }}
+        </tb-button>
+      </tb-empty>
+    </view>
+
+    <!-- First load -->
+    <view v-else-if="!originalAgentDetail" class="ag__state">
+      <tb-loading :label="t('mAgent.loading')" />
+    </view>
+
+    <block v-else>
+      <view class="ag__status">
+        <tb-sync :state="syncState" :text="syncText" />
+        <tb-loading v-if="loading" />
       </view>
 
       <!-- Restore reload notice -->
-      <view v-if="snapshotReloadBlocked" class="agent-notice">
-        <wd-icon name="warning" size="18px" custom-class="agent-notice__icon" />
-        <view class="agent-notice__main">
-          <text class="agent-notice__text">
-            {{ t(snapshotReloadFailed ? 'agentSnapshot.reloadAfterRestoreFailed' : 'agentSnapshot.reloadAfterRestorePending') }}
-          </text>
-          <view
-            v-if="snapshotReloadFailed"
-            class="agent-notice__action"
-            role="button"
-            @click="retrySnapshotReload"
-          >
+      <view v-if="snapshotReloadBlocked" class="ag__notice" role="alert">
+        <tb-icon name="warning" :size="18" />
+        <view class="ag__notice-main">
+          <text>{{ t(snapshotReloadFailed ? 'agentSnapshot.reloadAfterRestoreFailed' : 'agentSnapshot.reloadAfterRestorePending') }}</text>
+          <tb-button v-if="snapshotReloadFailed" size="s" icon="refresh" @click="retrySnapshotReload">
             {{ t('agentSnapshot.retryReload') }}
-          </view>
+          </tb-button>
         </view>
       </view>
 
-      <!-- Identity group -->
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ t('agent.basicInfo') }}
+      <!-- Who it is -->
+      <tb-section :title="t('mAgent.who.title')" :description="t('mAgent.who.desc')">
+        <view class="ag-field">
+          <text class="ag-field__label">
+            {{ t('mAgent.who.name') }}
+          </text>
+          <tb-input v-model="formData.agentName" :maxlength="64" :placeholder="t('mAgent.who.namePlaceholder')" :aria-label="t('mAgent.who.name')" />
         </view>
-        <view class="nx-group__body">
-          <view class="nx-row">
-            <text class="nx-row__title agent-label">
-              {{ t('agent.agentName') }}
-            </text>
-            <input
-              v-model="formData.agentName"
-              class="agent-inline-input"
-              type="text"
-              :maxlength="64"
-              :placeholder="t('agent.inputAgentName')"
-              placeholder-class="agent-placeholder"
-            >
-          </view>
 
-          <view class="nx-row nx-row--tap" @click="showTemplateSheet = true">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.roleMode') }}
-              </view>
-            </view>
-            <text class="nx-row__value nx-truncate">
-              {{ selectedTemplateName || tx('agent.templateNone', 'None') }}
-            </text>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-
-          <view class="nx-row agent-tags-row">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.agentTag') }}
-              </view>
-              <view class="agent-tags">
-                <view v-for="tag in dynamicTags" :key="tag.id" class="agent-tag">
-                  <text class="nx-truncate">
-                    {{ tag.tagName }}
-                  </text>
-                  <view class="agent-tag__close" role="button" :aria-label="t('common.delete')" @click="handleCloseTag(tag.id)">
-                    <wd-icon name="close" size="12px" />
-                  </view>
-                </view>
-                <input
-                  v-if="inputVisible"
-                  v-model="inputValue"
-                  class="agent-tag-input"
-                  type="text"
-                  :maxlength="20"
-                  :focus="inputVisible"
-                  :placeholder="t('agent.inputAgentTag')"
-                  placeholder-class="agent-placeholder"
-                  @confirm="handleInputConfirm"
-                  @blur="handleInputConfirm"
-                >
-                <view v-else class="agent-tag agent-tag--add" role="button" @click="showInput">
-                  <wd-icon name="add" size="12px" />
-                  <text>{{ t('agent.addAgentTag') }}</text>
-                </view>
-              </view>
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <!-- Personality -->
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ tx('agent.groupPersonality', 'Personality') }}
-        </view>
-        <view class="nx-group__body">
-          <view class="nx-row nx-row--tap" @click="openEditor('systemPrompt')">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.roleDescription') }}
-              </view>
-              <text class="agent-preview" :class="{ 'agent-preview--empty': !previewText(formData.systemPrompt) }">
-                {{ previewText(formData.systemPrompt) || t('agent.inputRoleDescription') }}
+        <view class="ag-field">
+          <text class="ag-field__label">
+            {{ t('mAgent.who.tags') }}
+          </text>
+          <view class="ag-tags">
+            <view v-for="tag in dynamicTags" :key="tag.id" class="ag-tag">
+              <text class="ag-tag__name">
+                {{ tag.tagName }}
               </text>
-            </view>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-          <view
-            class="nx-row"
-            :class="{ 'nx-row--tap': !isMemoryDisabled, 'agent-row--disabled': isMemoryDisabled }"
-            @click="openEditor('summaryMemory')"
-          >
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.historyMemory') }}
+              <view class="ag-tag__x" role="button" :aria-label="t('mAgent.who.removeTag', { name: tag.tagName })" @click="handleCloseTag(tag.id)">
+                <tb-icon name="close" :size="14" />
               </view>
-              <text class="agent-preview" :class="{ 'agent-preview--empty': !previewText(formData.summaryMemory) }">
-                {{ previewText(formData.summaryMemory) || t('agent.memoryContent') }}
-              </text>
             </view>
-            <wd-icon v-if="!isMemoryDisabled" name="arrow-right" size="14px" custom-class="nx-row__chevron" />
+            <tb-button v-if="!inputVisible" size="s" icon="plus" @click="showInput">
+              {{ t('mAgent.who.addTag') }}
+            </tb-button>
+          </view>
+          <view v-if="inputVisible" class="ag-tags__new">
+            <tb-input
+              v-model="inputValue" class="ag-tags__in" :maxlength="20" :placeholder="t('mAgent.who.tagInput')"
+              :aria-label="t('mAgent.who.tagInput')" @confirm="handleInputConfirm"
+            />
+            <tb-button size="m" @click="handleInputConfirm">
+              {{ t('common.add') }}
+            </tb-button>
           </view>
         </view>
-        <view v-if="isMemoryDisabled" class="nx-group__footer">
-          {{ tx('agent.memoryReadOnlyHint', 'Memory can be edited when the memory model is set to local short-term memory.') }}
-        </view>
-      </view>
 
-      <!-- Voice -->
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ t('agent.voiceSettings') }}
-        </view>
-        <view class="nx-group__body">
-          <view class="nx-row nx-row--tap" @click="openPicker('tts')">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.tts') }}
-              </view>
-            </view>
-            <text class="nx-row__value nx-truncate">
-              {{ displayNames.tts }}
-            </text>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-          <view class="nx-row nx-row--tap" @click="openPicker('language')">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.language') }}
-              </view>
-            </view>
-            <text class="nx-row__value nx-truncate">
-              {{ displayNames.language || '—' }}
-            </text>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-          <view class="nx-row nx-row--tap" @click="openPicker('voiceprint')">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.voiceprint') }}
-              </view>
-            </view>
-            <text class="nx-row__value nx-truncate">
-              {{ displayNames.voiceprint }}
-            </text>
-            <view
-              v-if="currentVoiceOption && hasVoicePreview(currentVoiceOption)"
-              class="agent-play"
-              :class="{ 'is-playing': playingVoiceId === currentVoiceOption.value }"
-              role="button"
-              :aria-label="t('agent.playDemo')"
-              @click.stop="playAudio(currentVoiceOption, $event)"
-            >
-              <wd-icon :name="playingVoiceId === currentVoiceOption.value ? 'pause-circle' : 'play-circle'" size="22px" />
-            </view>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-          <view class="nx-row nx-row--tap" @click="handleRegulate">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.languageConfig') }}
-              </view>
-            </view>
-            <text class="nx-row__value nx-num">
-              {{ speedPitchSummary }}
-            </text>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-        </view>
-        <view v-if="ttsOptionsLoading" class="nx-group__footer">
-          {{ t('common.loading') }}
-        </view>
-      </view>
-
-      <!-- Models -->
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ t('agent.modelConfig') }}
-        </view>
-        <view class="nx-group__body">
-          <template v-for="row in modelRows" :key="row.key">
-            <view v-show="row.show" class="nx-row nx-row--tap" @click="openPicker(row.key)">
-              <view class="nx-row__main">
-                <view class="nx-row__title nx-truncate">
-                  {{ row.label }}
-                </view>
-              </view>
-              <text class="nx-row__value nx-truncate">
-                {{ row.value }}
-              </text>
-              <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-            </view>
-          </template>
-        </view>
-      </view>
-
-      <!-- Capabilities -->
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ tx('agent.groupCapabilities', 'Capabilities') }}
-        </view>
-        <view class="nx-group__body">
-          <view class="nx-row nx-row--tap" @click="handleTools">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.plugins') }}
-              </view>
-            </view>
-            <text class="nx-row__value nx-num">
-              {{ tx('agent.toolsEnabledCount', '{count} on', { count: toolCount }) }}
-            </text>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-          <view class="nx-row nx-row--tap" @click="openContextProviderDialog">
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agent.contextProvider') }}
-              </view>
-              <view class="nx-row__subtitle">
-                {{ t('agent.contextProviderSuccess', { count: providerStore.providers.length }) }}
-              </view>
-            </view>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-        </view>
-        <view class="nx-group__footer">
-          <a class="agent-link" href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/context-provider-integration.md" target="_blank">
-            {{ t('agent.contextProviderDocLink') }}
-          </a>
-        </view>
-      </view>
-
-      <!-- Versions -->
-      <view class="nx-group">
-        <view class="nx-group__header">
-          {{ tx('agent.groupVersions', 'Versions') }}
-        </view>
-        <view class="nx-group__body">
-          <view
-            class="nx-row nx-row--tap"
-            :class="{ 'agent-row--disabled': saving || snapshotReloadBlocked }"
-            :disabled="saving || snapshotReloadBlocked"
-            role="button"
-            :aria-disabled="saving || snapshotReloadBlocked"
-            @click="openSnapshotPanel"
-          >
-            <view class="nx-icon-tile nx-icon-tile--neutral agent-row-icon">
-              <wd-icon name="time" size="18px" />
-            </view>
-            <view class="nx-row__main">
-              <view class="nx-row__title">
-                {{ t('agentSnapshot.title') }}
-              </view>
-            </view>
-            <text v-if="currentVersionNo" class="nx-row__value nx-num">
-              #{{ currentVersionNo }}
-            </text>
-            <wd-icon name="arrow-right" size="14px" custom-class="nx-row__chevron" />
-          </view>
-        </view>
-      </view>
-    </template>
-
-    <!-- Save: pinned when there is something to save -->
-    <view v-if="showActionBar" class="nx-action-bar">
-      <wd-button
-        type="primary"
-        block
-        size="large"
-        :loading="saving"
-        :disabled="saving || ttsOptionsLoading || snapshotReloadBlocked"
-        custom-class="agent-save-btn"
-        @click="saveAgent"
-      >
-        {{ saving ? t('agent.saving') : t('agent.save') }}
-      </wd-button>
-    </view>
-
-    <!-- List picker (models, language, report mode) -->
-    <wd-popup
-      v-model="pickerSheetVisible"
-      position="bottom"
-      custom-class="nx-sheet"
-      safe-area-inset-bottom
-    >
-      <view class="nx-sheet__inner">
-        <view class="nx-sheet__handle" />
-        <view class="nx-sheet__header">
-          <text class="nx-headline nx-truncate">
-            {{ pickerTitle }}
-          </text>
-        </view>
-        <scroll-view scroll-y class="nx-sheet__scroll">
-          <view v-if="!pickerActions.length" class="nx-empty agent-sheet-empty">
-            <text class="nx-empty__text">
-              {{ tx('agent.noOptions', 'Nothing to choose from yet.') }}
-            </text>
-          </view>
-          <view v-else class="nx-group__body">
-            <view
-              v-for="item in pickerActions"
-              :key="String(item.value)"
-              class="nx-row nx-row--tap"
-              @click="onPickerConfirm(activePicker, item.value, item.name)"
-            >
-              <view class="nx-row__main">
-                <view class="nx-row__title nx-break">
-                  {{ item.name }}
-                </view>
-              </view>
-              <wd-icon v-if="pickerCurrentValue === item.value" name="check" size="18px" custom-class="nx-check" />
-            </view>
-          </view>
-        </scroll-view>
-      </view>
-    </wd-popup>
-
-    <!-- Voice picker with previews -->
-    <wd-popup
-      v-model="pickerShow.voiceprint"
-      position="bottom"
-      custom-class="nx-sheet"
-      safe-area-inset-bottom
-      @close="onPickerCancel('voiceprint')"
-    >
-      <view class="nx-sheet__inner">
-        <view class="nx-sheet__handle" />
-        <view class="nx-sheet__header">
-          <text class="nx-headline">
-            {{ t('agent.voiceprint') }}
-          </text>
-        </view>
-        <scroll-view scroll-y class="nx-sheet__scroll">
-          <view v-if="!voiceOptions.length" class="nx-empty agent-sheet-empty">
-            <text class="nx-empty__text">
-              {{ tx('agent.noOptions', 'Nothing to choose from yet.') }}
-            </text>
-          </view>
-          <view v-else class="nx-group__body">
-            <view
-              v-for="voice in voiceOptions"
-              :key="voice.value"
-              class="nx-row nx-row--tap"
-              @click="onPickerConfirm('voiceprint', voice.value, voice.name)"
-            >
-              <view
-                v-if="hasVoicePreview(voice)"
-                class="agent-play"
-                :class="{ 'is-playing': playingVoiceId === voice.value }"
-                role="button"
-                :aria-label="t('agent.playDemo')"
-                @click.stop="playAudio(voice, $event)"
-              >
-                <wd-icon :name="playingVoiceId === voice.value ? 'pause-circle' : 'play-circle'" size="24px" />
-              </view>
-              <view class="nx-row__main">
-                <view class="nx-row__title nx-truncate">
-                  {{ voice.name }}
-                </view>
-              </view>
-              <wd-icon v-if="formData.ttsVoiceId === voice.value" name="check" size="18px" custom-class="nx-check" />
-            </view>
-          </view>
-        </scroll-view>
-      </view>
-    </wd-popup>
-
-    <!-- Role template picker -->
-    <wd-popup
-      v-model="showTemplateSheet"
-      position="bottom"
-      custom-class="nx-sheet"
-      safe-area-inset-bottom
-    >
-      <view class="nx-sheet__inner">
-        <view class="nx-sheet__handle" />
-        <view class="nx-sheet__header">
-          <text class="nx-headline">
-            {{ t('agent.roleMode') }}
-          </text>
-        </view>
-        <scroll-view scroll-y class="nx-sheet__scroll">
-          <view v-if="!roleTemplates.length" class="nx-empty agent-sheet-empty">
-            <text class="nx-empty__text">
-              {{ tx('agent.noOptions', 'Nothing to choose from yet.') }}
-            </text>
-          </view>
-          <view v-else class="nx-group__body">
-            <view
-              v-for="template in roleTemplates"
-              :key="template.id"
-              class="nx-row nx-row--tap"
-              @click="chooseTemplate(template.id)"
-            >
-              <view class="nx-row__main">
-                <view class="nx-row__title nx-truncate">
-                  {{ template.agentName }}
-                </view>
-              </view>
-              <wd-icon v-if="selectedTemplateId === template.id" name="check" size="18px" custom-class="nx-check" />
-            </view>
-          </view>
-        </scroll-view>
-        <view class="nx-group__footer">
-          {{ tx('agent.templateHint', 'A template fills in the prompt, voice and models. Review them before you save.') }}
-        </view>
-      </view>
-    </wd-popup>
-
-    <!-- Full-screen text editor -->
-    <wd-popup
-      v-model="editorVisible"
-      position="bottom"
-      custom-class="nx-sheet nx-sheet--full"
-      safe-area-inset-bottom
-    >
-      <view class="agent-editor">
-        <view class="agent-editor__bar">
-          <text class="agent-editor__btn" role="button" @click="editorVisible = false">
-            {{ t('common.cancel') }}
-          </text>
-          <text class="nx-headline nx-truncate agent-editor__title">
-            {{ editorTitle }}
-          </text>
-          <text class="agent-editor__btn agent-editor__btn--primary" role="button" @click="applyEditor">
-            {{ tx('agent.editorDone', 'Done') }}
-          </text>
-        </view>
-        <view class="agent-editor__body">
-          <textarea
-            v-if="editorVisible"
-            v-model="editorDraft"
-            class="agent-editor__textarea"
-            :maxlength="editorMaxLength"
-            :placeholder="editorPlaceholder"
-            placeholder-class="agent-placeholder"
-            :auto-focus="true"
+        <view class="ag-rows">
+          <AgentRow
+            :label="t('mAgent.who.prompt')" preview :placeholder="!previewText(formData.systemPrompt)"
+            :value="previewText(formData.systemPrompt) || t('mAgent.who.promptEmpty')" @click="openEditor('systemPrompt')"
+          />
+          <AgentRow
+            :label="t('mAgent.who.template')" :hint="t('mAgent.who.templateRowHint')"
+            :value="selectedTemplateName || t('mAgent.who.templateNone')" :placeholder="!selectedTemplateName" @click="showTemplateSheet = true"
           />
         </view>
-        <view v-if="editorField === 'systemPrompt'" class="nx-num agent-editor__count">
-          {{ editorDraft.length }}/2000
+      </tb-section>
+
+      <!-- Voice and language -->
+      <tb-section :title="t('mAgent.voice.title')" :description="t('mAgent.voice.desc')">
+        <view class="ag-rows">
+          <AgentRow
+            :label="t('mAgent.voice.engine')" :value="displayNames.tts || t('mAgent.choose')" :placeholder="!displayNames.tts"
+            :disabled="ttsOptionsLoading" @click="openPicker('tts')"
+          />
+          <AgentRow
+            :label="t('mAgent.voice.language')" :hint="t('mAgent.voice.languageHint')" :value="displayNames.language || t('mAgent.choose')"
+            :placeholder="!displayNames.language" :disabled="ttsOptionsLoading" @click="openPicker('language')"
+          />
+          <AgentRow
+            :label="t('mAgent.voice.voice')" :value="displayNames.voiceprint || t('mAgent.choose')" :placeholder="!displayNames.voiceprint"
+            :disabled="ttsOptionsLoading" @click="openPicker('voiceprint')"
+          >
+            <view v-if="currentVoiceOption && hasVoicePreview(currentVoiceOption)" class="ag-play" @click.stop>
+              <tb-button
+                size="s" variant="quiet" :icon="playingVoiceId === currentVoiceOption.value ? 'pause' : 'play'"
+                :aria-label="playingVoiceId === currentVoiceOption.value ? t('mAgent.voice.pause') : t('mAgent.voice.play')"
+                @click="playAudio(currentVoiceOption)"
+              />
+            </view>
+          </AgentRow>
+          <AgentRow :label="t('mAgent.voice.tuning')" :value="speedPitchSummary" @click="handleRegulate" />
+        </view>
+        <tb-loading v-if="ttsOptionsLoading" :label="t('mAgent.voice.loading')" />
+      </tb-section>
+
+      <!-- How it thinks -->
+      <tb-section :title="t('mAgent.think.title')" :description="t('mAgent.think.desc')">
+        <view class="ag-rows">
+          <block v-for="row in modelRows" :key="row.key">
+            <AgentRow
+              v-if="row.show" :label="row.label" :hint="row.hint" :value="row.value || t('mAgent.choose')" :placeholder="!row.value"
+              @click="openPicker(row.key)"
+            />
+          </block>
+          <AgentRow
+            :label="t('mAgent.think.summary')" preview :disabled="isMemoryDisabled"
+            :placeholder="!previewText(formData.summaryMemory)"
+            :value="previewText(formData.summaryMemory) || t('mAgent.think.summaryEmpty')"
+            :hint="isMemoryDisabled ? t('mAgent.think.summaryLocked') : ''" @click="openEditor('summaryMemory')"
+          />
+        </view>
+      </tb-section>
+
+      <!-- What it can do -->
+      <tb-section :title="t('mAgent.can.title')" :description="t('mAgent.can.desc')">
+        <view class="ag-rows">
+          <AgentRow
+            :label="t('mAgent.can.tools')" :hint="t('mAgent.can.toolsHint')"
+            :value="toolCount ? t('mAgent.can.toolsOn', { n: num(toolCount) }) : t('mAgent.can.toolsNone')" @click="handleTools"
+          />
+          <AgentRow
+            :label="t('mAgent.can.context')" :hint="t('mAgent.can.contextHint')"
+            :value="providerStore.providers.length ? t('mAgent.can.contextCount', { n: num(providerStore.providers.length) }) : t('mAgent.can.contextNone')"
+            @click="openContextProviderDialog"
+          />
+        </view>
+        <a class="ag-link" href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/context-provider-integration.md" target="_blank">
+          <tb-icon name="external" :size="16" /><text>{{ t('mAgent.can.contextDoc') }}</text>
+        </a>
+      </tb-section>
+
+      <!-- History -->
+      <tb-section :title="t('mAgent.history.title')" :description="t('mAgent.history.desc')">
+        <view class="ag-rows">
+          <AgentRow
+            :label="t('mAgent.history.versions')"
+            :value="currentVersionNo ? t('mAgent.history.current', { n: num(currentVersionNo) }) : t('mAgent.history.none')"
+            :disabled="saving || snapshotReloadBlocked"
+            @click="openSnapshotPanel"
+          />
+        </view>
+      </tb-section>
+    </block>
+
+    <!-- Save: pinned when there is something to save -->
+    <view v-if="showActionBar" class="ag-bar" :class="{ 'is-embedded': embedded }" role="region" :aria-label="t('mAgent.state.unsaved')">
+      <view class="ag-bar__text">
+        <text class="ag-bar__title">
+          {{ snapshotReloadBlocked ? t('mAgent.save.waiting') : t('mAgent.state.unsaved') }}
+        </text>
+        <text class="ag-bar__hint">
+          {{ t('mAgent.save.restart') }}
+        </text>
+      </view>
+      <tb-button
+        variant="primary"
+        size="l"
+        :loading="saving"
+        :disabled="saving || ttsOptionsLoading || snapshotReloadBlocked"
+        @click="saveAgent"
+      >
+        {{ t('common.save') }}
+      </tb-button>
+    </view>
+
+    <!-- List picker (models, language, chat history) -->
+    <tb-sheet v-model:open="pickerSheetVisible" :title="pickerTitle">
+      <tb-empty v-if="!pickerActions.length" :text="t('mAgent.sheet.noOptions')" />
+      <view v-else class="ag-opts" role="radiogroup" :aria-label="pickerTitle">
+        <view
+          v-for="item in pickerActions" :key="String(item.value)" class="ag-opt" :class="{ 'is-on': pickerCurrentValue === item.value }"
+          role="radio" :aria-checked="pickerCurrentValue === item.value ? 'true' : 'false'" hover-class="is-press"
+          @click="onPickerConfirm(activePicker, item.value, item.name)"
+        >
+          <text class="ag-opt__name">
+            {{ item.name }}
+          </text>
+          <tb-icon v-if="pickerCurrentValue === item.value" name="check" :size="20" />
         </view>
       </view>
-    </wd-popup>
+    </tb-sheet>
+
+    <!-- Voice picker with samples -->
+    <tb-sheet v-model:open="pickerShow.voiceprint" :title="t('mAgent.voice.voice')">
+      <text v-if="displayNames.language" class="ag-sheet-note">
+        {{ t('mAgent.voice.onlyLanguage', { lang: displayNames.language }) }}
+      </text>
+      <tb-empty v-if="!voiceOptions.length" :text="t('mAgent.sheet.noOptions')" />
+      <view v-else class="ag-opts" role="radiogroup" :aria-label="t('mAgent.voice.voice')">
+        <view
+          v-for="voice in voiceOptions" :key="voice.value" class="ag-opt" :class="{ 'is-on': formData.ttsVoiceId === voice.value }"
+          role="radio" :aria-checked="formData.ttsVoiceId === voice.value ? 'true' : 'false'" hover-class="is-press"
+          @click="onPickerConfirm('voiceprint', voice.value, voice.name)"
+        >
+          <view v-if="hasVoicePreview(voice)" class="ag-play" @click.stop>
+            <tb-button
+              size="s" :icon="playingVoiceId === voice.value ? 'pause' : 'play'"
+              :aria-label="playingVoiceId === voice.value ? t('mAgent.voice.pause') : t('mAgent.voice.play')" @click="playAudio(voice)"
+            />
+          </view>
+          <text class="ag-opt__name">
+            {{ voice.name }}
+          </text>
+          <tb-icon v-if="formData.ttsVoiceId === voice.value" name="check" :size="20" />
+        </view>
+      </view>
+    </tb-sheet>
+
+    <!-- Role template picker -->
+    <tb-sheet v-model:open="showTemplateSheet" :title="t('mAgent.who.template')">
+      <text class="ag-sheet-note">
+        {{ t('mAgent.who.templateHint') }}
+      </text>
+      <tb-empty v-if="!roleTemplates.length" :text="t('mAgent.sheet.noOptions')" />
+      <view v-else class="ag-opts">
+        <view
+          v-for="template in roleTemplates" :key="template.id" class="ag-opt" :class="{ 'is-on': selectedTemplateId === template.id }"
+          role="button" hover-class="is-press" @click="chooseTemplate(template.id)"
+        >
+          <view class="ag-opt__text">
+            <text class="ag-opt__name">
+              {{ template.agentName }}
+            </text>
+            <text class="ag-opt__sub">
+              {{ firstLine(template.systemPrompt) || t('mAgent.who.templateNoPrompt') }}
+            </text>
+          </view>
+          <tb-icon v-if="selectedTemplateId === template.id" name="check" :size="20" />
+        </view>
+      </view>
+    </tb-sheet>
+
+    <!-- Text editor -->
+    <tb-sheet v-model:open="editorVisible" :title="editorTitle">
+      <text class="ag-sheet-note">
+        {{ editorHint }}
+      </text>
+      <textarea
+        v-if="editorVisible"
+        v-model="editorDraft"
+        class="ag-editor"
+        :maxlength="editorMaxLength"
+        :placeholder="editorPlaceholder"
+        placeholder-class="ag-editor__ph"
+        :auto-height="false"
+        :aria-label="editorTitle"
+      />
+      <text v-if="editorField === 'systemPrompt'" class="ag-editor__count tb-num" :class="{ 'is-near': editorDraft.length >= PROMPT_NEAR }">
+        {{ editorCount }}
+      </text>
+      <template #footer>
+        <tb-button @click="editorVisible = false">
+          {{ t('common.cancel') }}
+        </tb-button>
+        <tb-button variant="primary" @click="applyEditor">
+          {{ t('mAgent.editor.keep') }}
+        </tb-button>
+      </template>
+    </tb-sheet>
 
     <AgentSnapshotPanel
       v-model:visible="showSnapshotPanel"
@@ -1901,329 +1657,54 @@ onMounted(async () => {
   </view>
 </template>
 
-<style lang="scss" scoped>
-.agent-edit {
-  padding: var(--nx-space-4) var(--nx-gutter) calc(var(--nx-space-6) + env(safe-area-inset-bottom));
-  &--with-bar {
-    padding-bottom: calc(200rpx + env(safe-area-inset-bottom));
-  }
+<style lang="scss">
+.ag { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+.ag.has-bar { padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
+.ag.is-embedded { padding-bottom: 24px; }
+.ag.is-embedded.has-bar { padding-bottom: 132px; }
+.ag__state { display: flex; justify-content: center; padding: 56px 0; }
+.ag__status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--tb-rule); }
+.ag__notice { display: flex; gap: 10px; padding: 14px 0; color: var(--tb-warn); border-bottom: 1px solid var(--tb-rule); }
+.ag__notice-main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--tb-ink); }
 
-  &__skel-title {
-    width: 50%;
-    height: 34rpx;
-  }
-  &__skel-line {
-    width: 30%;
-    height: 24rpx;
-    margin-top: var(--nx-space-2);
-  }
-  &__skel-row {
-    width: 100%;
-    height: 28rpx;
-  }
+.ag-field { display: flex; flex-direction: column; gap: 6px; }
+.ag-field__label { font-size: 13px; font-weight: 600; color: var(--tb-ink-2); }
+.ag-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ag-tag { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; min-height: 34px; padding-left: 12px; border: 1px solid var(--tb-ink-2); border-radius: 999px; font-size: 14px; }
+.ag-tag__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-tag__x { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; color: var(--tb-ink-2); }
+.ag-tags__new { display: flex; gap: 8px; align-items: center; }
+.ag-tags__in { flex: 1; min-width: 0; }
+
+.ag-rows { display: flex; flex-direction: column; border-top: 1px solid var(--tb-rule-soft); }
+.ag-play { flex: none; display: flex; }
+.ag-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--tb-message); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+
+.ag-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 800; display: flex; align-items: center; gap: 12px;
+  padding: 12px var(--tb-gutter) calc(12px + env(safe-area-inset-bottom)); background: var(--tb-paper); border-top: 3px solid var(--tb-rule);
+  animation: ag-rise var(--tb-t-sheet) var(--tb-ease);
 }
+.ag-bar__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ag-bar__title { font-weight: 700; font-size: 15px; }
+.ag-bar__hint { font-size: 12px; color: var(--tb-ink-2); line-height: 1.4; }
+@keyframes ag-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-// Identity header card
-.agent-hero {
-  display: flex;
-  align-items: center;
-  gap: var(--nx-space-3);
-  margin-bottom: var(--nx-space-5);
+.ag-sheet-note { font-size: 14px; color: var(--tb-ink-2); }
+.ag-opts { display: flex; flex-direction: column; border-top: 1px solid var(--tb-rule); }
+.ag-opt { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; border-bottom: 1px solid var(--tb-rule-soft); }
+.ag-opt.is-press { background: var(--tb-paper-2); }
+.ag-opt__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ag-opt__name { flex: 1; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
+.ag-opt__sub { font-size: 13px; color: var(--tb-ink-2); overflow-wrap: anywhere; }
+.ag-opt.is-on .ag-opt__name { font-weight: 700; }
+.ag-opt.is-on .tb-icon { color: var(--tb-orange); }
 
-  &__avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: 104rpx;
-    height: 104rpx;
-    border-radius: var(--nx-radius-lg);
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-title);
-    font-weight: 700;
-  }
-  &__text {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  &__name {
-    display: block;
-    font-size: var(--nx-text-title);
-    font-weight: 700;
-    letter-spacing: -0.018em;
-    color: var(--nx-text);
-  }
-  &__meta {
-    margin-top: 4rpx;
-    font-size: var(--nx-text-footnote);
-    color: var(--nx-text-2);
-  }
+.ag-editor {
+  width: 100%; height: 44vh; padding: 12px; box-sizing: border-box; font-size: 16px; line-height: 1.6; color: var(--tb-ink);
+  background: var(--tb-paper); border: 1.5px solid var(--tb-ink); border-radius: var(--tb-radius-m);
 }
-
-.agent-notice {
-  display: flex;
-  gap: var(--nx-space-2);
-  margin-bottom: var(--nx-space-5);
-  padding: var(--nx-space-3) var(--nx-space-4);
-  border-radius: var(--nx-radius-lg);
-  background: var(--nx-warning-soft);
-  color: var(--nx-text);
-
-  &__main {
-    flex: 1;
-    min-width: 0;
-  }
-  &__text {
-    display: block;
-    font-size: var(--nx-text-footnote);
-    line-height: 1.5;
-  }
-  &__action {
-    display: inline-flex;
-    margin-top: var(--nx-space-2);
-    padding: var(--nx-space-1) 0;
-    color: var(--nx-accent);
-    font-size: var(--nx-text-callout);
-    font-weight: 600;
-  }
-}
-
-:deep(.agent-notice__icon) {
-  flex: none;
-  margin-top: 2rpx;
-  color: var(--nx-warning);
-}
-
-.agent-label {
-  flex: none;
-}
-
-.agent-inline-input {
-  flex: 1;
-  min-width: 0;
-  height: var(--nx-touch);
-  text-align: right;
-  font-size: var(--nx-text-body);
-  color: var(--nx-text);
-}
-
-:deep(.agent-placeholder) {
-  color: var(--nx-text-3);
-}
-
-.agent-tags-row {
-  align-items: flex-start;
-}
-
-.agent-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--nx-space-2);
-  margin-top: var(--nx-space-2);
-}
-
-.agent-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--nx-space-1);
-  max-width: 100%;
-  height: 56rpx;
-  padding: 0 var(--nx-space-1) 0 var(--nx-space-3);
-  box-sizing: border-box;
-  border-radius: var(--nx-radius-pill);
-  background: var(--nx-accent-soft);
-  color: var(--nx-accent);
-  font-size: var(--nx-text-footnote);
-  font-weight: 500;
-
-  &__close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44rpx;
-    height: 44rpx;
-    border-radius: 50%;
-    &:active {
-      background: var(--nx-surface-2);
-    }
-  }
-  &--add {
-    padding: 0 var(--nx-space-3);
-    background: var(--nx-surface-2);
-    color: var(--nx-text-2);
-    &:active {
-      background: var(--nx-surface-3);
-    }
-  }
-}
-
-.agent-tag-input {
-  flex: 1;
-  min-width: 240rpx;
-  height: 56rpx;
-  padding: 0 var(--nx-space-3);
-  border-radius: var(--nx-radius-pill);
-  background: var(--nx-surface-2);
-  font-size: var(--nx-text-footnote);
-  color: var(--nx-text);
-}
-
-.agent-preview {
-  display: -webkit-box;
-  margin-top: 4rpx;
-  overflow: hidden;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  font-size: var(--nx-text-footnote);
-  line-height: 1.45;
-  color: var(--nx-text-2);
-  overflow-wrap: anywhere;
-  &--empty {
-    color: var(--nx-text-3);
-  }
-}
-
-.agent-row--disabled {
-  opacity: 0.55;
-}
-
-.agent-row-icon {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: var(--nx-radius-sm);
-}
-
-.agent-play {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 64rpx;
-  height: 64rpx;
-  color: var(--nx-text-3);
-  &.is-playing {
-    color: var(--nx-accent);
-  }
-  &:active {
-    opacity: 0.6;
-  }
-}
-
-.agent-link {
-  color: var(--nx-accent);
-  text-decoration: none;
-}
-
-:deep(.nx-row__chevron) {
-  color: var(--nx-text-3);
-}
-
-:deep(.agent-save-btn) {
-  border-radius: var(--nx-radius);
-}
-
-// Sheets
-:deep(.wd-popup.nx-sheet) {
-  overflow: hidden;
-  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
-  background: var(--nx-bg);
-}
-
-:deep(.wd-popup.nx-sheet--full) {
-  height: 92vh;
-}
-
-.nx-sheet {
-  &__inner {
-    padding: 0 var(--nx-gutter) var(--nx-space-4);
-  }
-  &__handle {
-    width: 72rpx;
-    height: 10rpx;
-    margin: var(--nx-space-2) auto 0;
-    border-radius: var(--nx-radius-pill);
-    background: var(--nx-surface-3);
-  }
-  &__header {
-    display: flex;
-    align-items: center;
-    min-height: var(--nx-touch);
-    padding: var(--nx-space-2) 0;
-  }
-  &__scroll {
-    max-height: 60vh;
-    border-radius: var(--nx-radius-lg);
-  }
-}
-
-.agent-sheet-empty {
-  padding: var(--nx-space-6) var(--nx-space-4);
-}
-
-:deep(.nx-check) {
-  flex: none;
-  color: var(--nx-accent);
-}
-
-// Full-screen editor
-.agent-editor {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  box-sizing: border-box;
-
-  &__bar {
-    display: flex;
-    align-items: center;
-    gap: var(--nx-space-2);
-    min-height: var(--nx-touch);
-    padding: var(--nx-space-2) var(--nx-gutter);
-    border-bottom: 1rpx solid var(--nx-border);
-  }
-  &__title {
-    flex: 1;
-    min-width: 0;
-    text-align: center;
-  }
-  &__btn {
-    flex: none;
-    min-width: 120rpx;
-    padding: var(--nx-space-2) 0;
-    color: var(--nx-accent);
-    font-size: var(--nx-text-body);
-    &--primary {
-      text-align: right;
-      font-weight: 600;
-    }
-    &:active {
-      opacity: 0.6;
-    }
-  }
-  &__body {
-    flex: 1;
-    min-height: 0;
-    margin: var(--nx-space-4) var(--nx-gutter) 0;
-    padding: var(--nx-space-4);
-    border-radius: var(--nx-radius-lg);
-    background: var(--nx-surface);
-    box-shadow: var(--nx-shadow-1);
-  }
-  &__textarea {
-    width: 100%;
-    height: 100%;
-    font-size: var(--nx-text-body);
-    line-height: 1.6;
-    color: var(--nx-text);
-  }
-  &__count {
-    padding: var(--nx-space-2) var(--nx-gutter) var(--nx-space-4);
-    text-align: right;
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-}
+.ag-editor__ph { color: var(--tb-ink-3); }
+.ag-editor__count { align-self: flex-end; font-size: 13px; color: var(--tb-ink-2); }
+.ag-editor__count.is-near { color: var(--tb-danger); font-weight: 600; }
 </style>

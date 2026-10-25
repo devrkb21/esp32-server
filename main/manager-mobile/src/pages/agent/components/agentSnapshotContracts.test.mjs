@@ -22,7 +22,7 @@ test('restore enters busy state before confirmations and requires a final destru
   )
   const busyIndex = restore.indexOf('restoring.value = true')
   const unsavedConfirmIndex = restore.indexOf('title: t(\'agentSnapshot.unsavedChangesTitle\')')
-  const destructiveConfirmIndex = restore.indexOf('msg: t(\'agentSnapshot.restoreChatHistoryDestructiveWarning\')')
+  const destructiveConfirmIndex = restore.indexOf('message: t(\'agentSnapshot.restoreChatHistoryDestructiveWarning\')')
   const postIndex = restore.indexOf('await restoreAgentSnapshot(')
 
   assert.ok(busyIndex >= 0 && busyIndex < unsavedConfirmIndex)
@@ -36,7 +36,7 @@ test('restore enters busy state before confirmations and requires a final destru
 })
 test('restore guards popup exits and stale action completion', () => {
   assert.match(panelSource, /if \(!value && restoring\.value\) \{\s*return\s*\}/)
-  assert.equal((panelSource.match(/:close-on-click-modal="!restoring"/g) || []).length, 2)
+  assert.equal((panelSource.match(/:close-on-scrim="!restoring"/g) || []).length, 2)
   assert.match(panelSource, /function closeDetail\(force = false\) \{\s*if \(restoring\.value && !force\)/)
   assert.match(panelSource, /context\.agentId === props\.agentId/)
   assert.match(panelSource, /context\.detailRequestSequence === detailRequestSequence/)

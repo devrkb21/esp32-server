@@ -1,0 +1,134 @@
+// Shared look of the setup steps (owner: m-setup). Imported by every step component: uni-app
+// scopes page styles on H5, so rules written in index.vue never reach the components.
+/* one step per view, the action pinned to the bottom */
+.setup-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: setup-in var(--tb-t-day) var(--tb-ease);
+}
+.setup-step__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 640px;
+  padding: 16px 0 24px;
+}
+@keyframes setup-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.setup-h {
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.setup-lead {
+  margin-top: 6px;
+  color: var(--tb-ink-2);
+  font-size: 15px;
+}
+.setup-label {
+  color: var(--tb-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.setup-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 calc(-1 * var(--tb-gutter));
+  padding: 12px var(--tb-gutter) calc(12px + env(safe-area-inset-bottom));
+  background: var(--tb-paper);
+  border-top: 1px solid var(--tb-rule);
+}
+.setup-foot--pair {
+  flex-direction: row;
+}
+.setup-foot--pair > .tb-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+/* a summary table and short ruled lines, shared by the send steps */
+.setup-table {
+  margin-top: 18px;
+  border-top: 1px solid var(--tb-rule);
+}
+.setup-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+}
+.setup-key {
+  width: 30%;
+  flex: none;
+  color: var(--tb-ink-2);
+  font-size: 14px;
+}
+.setup-val {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.setup-ssid {
+  font-weight: 700;
+  font-size: 17px;
+  word-break: break-all;
+}
+.setup-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--tb-danger);
+  font-size: 14px;
+}
+.setup-alert > text {
+  flex: 1;
+  min-width: 0;
+}
+.setup-lines {
+  display: flex;
+  flex-direction: column;
+  margin-top: 22px;
+}
+.setup-lines .setup-label {
+  margin-bottom: 4px;
+}
+.setup-line {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+  color: var(--tb-ink-2);
+  font-size: 14px;
+}
+.setup-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--tb-rule-soft);
+}
+.setup-toggle__sub {
+  padding-left: 58px;
+  color: var(--tb-ink-2);
+  font-size: 13px;
+}

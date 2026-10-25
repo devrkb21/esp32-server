@@ -1,52 +1,55 @@
+<!-- Speed, pitch and volume of TinyBot's voice (owner: m-agent). Edits the speedPitch store;
+     the character screen saves the changed fields with the rest. -->
 <route lang="jsonc" type="page">
 {
   "layout": "default",
   "style": {
-    "navigationBarTitleText": "Voice Settings",
+    "navigationBarTitleText": "Voice tuning",
     "navigationStyle": "custom"
   }
 }
 </route>
 
 <script lang="ts" setup>
-import { t } from '@/i18n'
+import { computed, onMounted, ref } from 'vue'
+import { getCurrentLanguage, t } from '@/i18n'
 import { useSpeedPitch } from '@/store'
+import { digits } from '@/utils/calendar.mjs'
+import { signed } from './agentModel.mjs'
 
 defineOptions({
   name: 'SpeedPitch',
 })
 
 const speedPitchStore = useSpeedPitch()
-
-// Safe area for the custom navigation bar
-const safeTop = (uni.getSystemInfoSync().safeAreaInsets?.top) || 0
 const SPEED_PITCH_FIELDS = ['ttsVolume', 'ttsRate', 'ttsPitch'] as const
+type Field = typeof SPEED_PITCH_FIELDS[number]
 
-const localSettings = ref({
+const localSettings = ref<Record<Field, number>>({
   ttsVolume: 0,
   ttsRate: 0,
   ttsPitch: 0,
 })
 
-// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
-function tx(key: string, fallback: string) {
-  const value = t(key)
-  return value === key ? fallback : value
-}
+const lang = computed(() => getCurrentLanguage())
 
 const sliders = computed(() => [
-  { key: 'ttsVolume' as const, label: t('agent.ttsVolume'), hint: t('agent.volumeHint') },
-  { key: 'ttsRate' as const, label: t('agent.ttsRate'), hint: t('agent.speedHint') },
-  { key: 'ttsPitch' as const, label: t('agent.ttsPitch'), hint: t('agent.pitchHint') },
+  { key: 'ttsRate' as const, label: t('mAgent.tune.rate'), hint: t('mAgent.tune.rateHint') },
+  { key: 'ttsPitch' as const, label: t('mAgent.tune.pitch'), hint: t('mAgent.tune.pitchHint') },
+  { key: 'ttsVolume' as const, label: t('mAgent.tune.volume'), hint: t('mAgent.tune.volumeHint') },
 ])
 
 const hasLocalChanges = computed(() => SPEED_PITCH_FIELDS.some(field => localSettings.value[field] !== speedPitchStore.speedPitch[field]))
 
 function formatSigned(value: number) {
-  return value > 0 ? `+${value}` : `${value}`
+  return digits(signed(value), lang.value)
 }
 
-function resetField(field: typeof SPEED_PITCH_FIELDS[number]) {
+function setField(field: Field, value: any) {
+  localSettings.value[field] = Math.max(-100, Math.min(100, Math.round(Number(value) || 0)))
+}
+
+function resetField(field: Field) {
   localSettings.value[field] = 0
 }
 
@@ -54,11 +57,10 @@ function handleConfirm() {
   const changedFields = SPEED_PITCH_FIELDS.filter((field) => {
     return localSettings.value[field] !== speedPitchStore.speedPitch[field]
   })
-  speedPitchStore.updateSpeedPitch(localSettings.value, { changedFields })
+  speedPitchStore.updateSpeedPitch({ ...localSettings.value }, { changedFields: [...changedFields] })
   goBack()
 }
 
-// Return to previous page and update config
 function goBack() {
   uni.navigateBack()
 }
@@ -73,171 +75,74 @@ onMounted(() => {
 </script>
 
 <template>
-  <view class="nx-subpage">
-    <view class="nx-subpage__nav" :style="{ paddingTop: `${safeTop}px` }">
-      <view class="nx-subpage__back" role="button" :aria-label="tx('agent.navBack', 'Back')" @click="goBack">
-        <wd-icon name="arrow-left" size="20px" />
+  <view class="tb-wrap tune">
+    <tb-page-header :title="t('mAgent.tune.title')" :description="t('mAgent.tune.lead')" back />
+
+    <view v-for="item in sliders" :key="item.key" class="tune-row">
+      <view class="tune-row__head">
+        <view class="tune-row__text">
+          <text class="tune-row__label">
+            {{ item.label }}
+          </text>
+          <text class="tune-row__hint">
+            {{ item.hint }}
+          </text>
+        </view>
+        <text class="tb-num tune-row__val" :class="{ 'is-zero': localSettings[item.key] === 0 }">
+          {{ formatSigned(localSettings[item.key]) }}
+        </text>
       </view>
-      <text class="nx-subpage__nav-title nx-truncate">
-        {{ t('agent.languageConfig') }}
-      </text>
-      <view class="nx-subpage__back" />
+      <slider
+        class="tune-row__slider"
+        :value="localSettings[item.key]"
+        :min="-100"
+        :max="100"
+        :step="1"
+        active-color="var(--tb-action)"
+        background-color="var(--tb-rule-soft)"
+        block-color="var(--tb-ink)"
+        :block-size="24"
+        :aria-label="item.label"
+        @changing="(e: any) => setField(item.key, e.detail.value)"
+        @change="(e: any) => setField(item.key, e.detail.value)"
+      />
+      <view class="tb-num tune-row__scale">
+        <text>{{ formatSigned(-100) }}</text><text>{{ formatSigned(0) }}</text><text>{{ formatSigned(100) }}</text>
+      </view>
+      <view v-if="localSettings[item.key] !== 0" class="tune-row__reset">
+        <tb-button size="s" variant="quiet" icon="refresh" @click="resetField(item.key)">
+          {{ t('mAgent.tune.reset') }}
+        </tb-button>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="nx-subpage__scroll">
-      <view class="nx-subpage__content">
-        <view class="nx-large-title">
-          <view class="nx-large-title__title">
-            {{ t('agent.languageConfig') }}
-          </view>
-          <view class="nx-large-title__subtitle">
-            {{ tx('agent.voiceTuningSubtitle', 'Fine-tune how your agent sounds. 0 is the voice’s natural setting.') }}
-          </view>
-        </view>
+    <text class="tune__foot">
+      {{ t('mAgent.tune.footer') }}
+    </text>
 
-        <view v-for="item in sliders" :key="item.key" class="nx-group">
-          <view class="nx-group__body tune-card">
-            <view class="tune-card__head">
-              <text class="nx-row__title">
-                {{ item.label }}
-              </text>
-              <view class="nx-num tune-card__value" :class="{ 'is-default': localSettings[item.key] === 0 }">
-                {{ formatSigned(localSettings[item.key]) }}
-              </view>
-            </view>
-            <wd-slider
-              v-model="localSettings[item.key]"
-              :min="-100"
-              :max="100"
-              :step="1"
-              hide-min-max
-              hide-label
-              custom-class="tune-card__slider"
-            />
-            <view class="tune-card__foot">
-              <text class="tune-card__hint">
-                {{ item.hint }}
-              </text>
-              <text
-                v-if="localSettings[item.key] !== 0"
-                class="tune-card__reset"
-                role="button"
-                @click="resetField(item.key)"
-              >
-                {{ tx('agent.voiceTuningReset', 'Reset') }}
-              </text>
-            </view>
-          </view>
-        </view>
-
-        <view class="nx-group__footer">
-          {{ tx('agent.voiceTuningFooter', 'Changes apply after you save the agent.') }}
-        </view>
-      </view>
-    </scroll-view>
-
-    <view class="nx-action-bar">
-      <wd-button type="primary" block size="large" custom-class="tune-save" @click="handleConfirm">
-        {{ hasLocalChanges ? t('agent.save') : tx('agent.editorDone', 'Done') }}
-      </wd-button>
+    <view class="tune-bar">
+      <tb-button variant="primary" size="l" block @click="handleConfirm">
+        {{ hasLocalChanges ? t('mAgent.tune.keep') : t('mAgent.tune.done') }}
+      </tb-button>
     </view>
   </view>
 </template>
 
-<style scoped lang="scss">
-.nx-subpage {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: var(--nx-bg);
-
-  &__nav {
-    display: flex;
-    align-items: center;
-    flex: none;
-    gap: var(--nx-space-2);
-    padding-left: var(--nx-gutter);
-    padding-right: var(--nx-gutter);
-    min-height: var(--nx-touch);
-    background: var(--nx-bg);
-  }
-  &__back {
-    display: flex;
-    align-items: center;
-    flex: none;
-    width: var(--nx-touch);
-    height: var(--nx-touch);
-    color: var(--nx-accent);
-    &:active {
-      opacity: 0.6;
-    }
-  }
-  &__nav-title {
-    flex: 1;
-    text-align: center;
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-    color: var(--nx-text);
-  }
-  &__scroll {
-    flex: 1;
-    height: 0;
-  }
-  &__content {
-    padding: 0 var(--nx-gutter) calc(220rpx + env(safe-area-inset-bottom));
-  }
-}
-
-.tune-card {
-  padding: var(--nx-space-4);
-
-  &__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  &__value {
-    min-width: 88rpx;
-    padding: 4rpx var(--nx-space-2);
-    border-radius: var(--nx-radius-pill);
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-callout);
-    font-weight: 600;
-    text-align: center;
-    &.is-default {
-      background: var(--nx-surface-2);
-      color: var(--nx-text-2);
-    }
-  }
-  &__foot {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--nx-space-3);
-  }
-  &__hint {
-    flex: 1;
-    font-size: var(--nx-text-caption);
-    line-height: 1.5;
-    color: var(--nx-text-3);
-  }
-  &__reset {
-    flex: none;
-    color: var(--nx-accent);
-    font-size: var(--nx-text-footnote);
-    font-weight: 600;
-  }
-}
-
-:deep(.tune-card__slider) {
-  --wot-slider-axie-bg: var(--nx-surface-3);
-  --wot-slider-line-color: var(--nx-accent);
-  --wot-slider-handle-bg: var(--nx-surface);
-  margin: var(--nx-space-3) 0 var(--nx-space-2);
-}
-
-:deep(.tune-save) {
-  border-radius: var(--nx-radius);
+<style lang="scss">
+.tune { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.tune-row { display: flex; flex-direction: column; gap: 6px; padding: 18px 0; border-bottom: 1px solid var(--tb-rule); }
+.tune-row__head { display: flex; align-items: flex-start; gap: 12px; }
+.tune-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tune-row__label { font-family: var(--tb-font-display); font-weight: 700; font-size: 19px; }
+.tune-row__hint { font-size: 13px; color: var(--tb-ink-2); }
+.tune-row__val { font-family: var(--tb-font-display); font-weight: 800; font-size: 40px; line-height: 1; color: var(--tb-ink); }
+.tune-row__val.is-zero { color: var(--tb-ink-3); }
+.tune-row__slider { margin: 10px 4px 0; }
+.tune-row__scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--tb-ink-3); padding: 0 2px; }
+.tune-row__reset { display: flex; }
+.tune__foot { display: block; padding-top: 14px; font-size: 13px; color: var(--tb-ink-2); }
+.tune-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 800; padding: 12px var(--tb-gutter) calc(12px + env(safe-area-inset-bottom));
+  background: var(--tb-paper); border-top: 3px solid var(--tb-rule);
 }
 </style>

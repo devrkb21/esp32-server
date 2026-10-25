@@ -25,8 +25,9 @@ const face = computed(() => {
 </template>
 
 <style lang="scss">
-.tb-face { background: var(--tb-face); border-radius: var(--tb-radius-s); padding: 6%; aspect-ratio: 2 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.tb-face__img { width: 100%; height: 100%; image-rendering: pixelated; }
+/* No percentage padding: it resolves against the parent's width and blanks small faces in wide rows. */
+.tb-face { background: var(--tb-face); border-radius: var(--tb-radius-s); aspect-ratio: 2 / 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.tb-face__img { width: 88%; height: 88%; image-rendering: pixelated; }
 .tb-face.is-off { opacity: .55; }
 .tb-face.is-pulse { animation: tb-face-pulse 200ms var(--tb-ease); }
 @keyframes tb-face-pulse { 50% { box-shadow: 0 0 0 4px var(--tb-orange); } }

@@ -1,8 +1,10 @@
+<!-- More: the fourth tab (owner: m-auth). Every place not on the first three tabs, then the
+     account and this app: language, colours, server address, stored data, about, terms, sign out. -->
 <route lang="jsonc" type="page">
 {
-  "layout": "default",
+  "layout": "tabbar",
   "style": {
-    "navigationBarTitleText": "Settings",
+    "navigationBarTitleText": "More",
     "navigationStyle": "custom"
   }
 }
@@ -11,62 +13,53 @@
 <script lang="ts" setup>
 import type { Language } from '@/store/lang'
 import type { ThemeMode } from '@/store/theme'
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useMessage } from 'wot-design-uni/components/wd-message-box'
-import { useToast } from 'wot-design-uni/components/wd-toast'
+import { onShow } from '@dcloudio/uni-app'
+import { computed, ref, watch } from 'vue'
 import { changeLanguage, getCurrentLanguage, getSupportedLanguages, t } from '@/i18n'
+import { isValidServerUrl, legalPath, normalizeServerUrl, storageMb } from '@/pages/login/authKit.mjs'
+import PickSheet from '@/pages/login/components/pick-sheet.vue'
 import { useConfigStore, useThemeStore, useUserStore } from '@/store'
 import { clearServerBaseUrlOverride, getEnvBaseUrl, getServerBaseUrlOverride, setServerBaseUrlOverride } from '@/utils'
+import { digits } from '@/utils/calendar.mjs'
+import { tbConfirm } from '@/utils/tbConfirm'
+import { toast } from '@/utils/toast'
 
-defineOptions({
-  name: 'SettingsPage',
-})
+defineOptions({ name: 'SettingsPage' })
 
-const toast = useToast()
-const message = useMessage()
-
-// App version shown in About (same value the About dialog has always used)
+// App version shown in About (the value the About dialog has always used)
 const APP_VERSION = '1.0.0'
-
-// Cache info
-const cacheInfo = reactive({
-  storageSize: '0MB',
-  imageCache: '0MB',
-  dataCache: '0MB',
-})
 
 const configStore = useConfigStore()
 const userStore = useUserStore()
+const themeStore = useThemeStore()
+const lang = computed(() => getCurrentLanguage())
+const num = (v: any) => digits(v, lang.value)
 
-// System info (reserved)
-const systemInfo = computed(() => {
-  const info = uni.getSystemInfoSync()
-  return `${info.platform} ${info.system}`
-})
-
-// Safe area for the custom large title
-const safeTop = (uni.getSystemInfoSync().safeAreaInsets?.top) || 0
-
-// Pending copy (src/i18n/_pending/mobile-home-agents.ts): English fallback until merged
-function tx(key: string, fallback: string) {
-  const value = t(key)
-  return value === key ? fallback : value
-}
-
-// Get cache info
-function getCacheInfo() {
-  try {
-    const info = uni.getStorageInfoSync()
-    const totalSize = (info.currentSize || 0) / 1024 // KB to MB
-    cacheInfo.storageSize = `${totalSize.toFixed(2)}MB`
-  }
-  catch (error) {
-    console.error('Failed to get cache info:', error)
-  }
+// ---- Places: everything that is not Today, Day or Look
+const places = computed(() => [
+  {
+    group: t('nav.group.robot'),
+    items: [
+      { url: '/pages/messages/index', icon: 'message', label: t('nav.messages'), ink: 'message' },
+      { url: '/pages/robot/index', icon: 'robot', label: t('mauth.more.robotSettings') },
+    ],
+  },
+  {
+    group: t('nav.group.character'),
+    items: [
+      { url: '/pages/agent/index', icon: 'agent', label: t('nav.character') },
+      { url: '/pages/voiceprint/index', icon: 'voiceprint', label: t('nav.voiceprint') },
+      { url: '/pages/robots/index', icon: 'robots', label: t('nav.robots') },
+      { url: '/pages/device-config/index', icon: 'plus', label: t('mauth.more.addRobot') },
+    ],
+  },
+])
+function go(url: string) {
+  uni.navigateTo({ url })
 }
 
 // ---- Account
-const isSignedIn = computed(() => Boolean(uni.getStorageSync('token')) && Boolean(userStore.userInfo?.username))
+const signedIn = ref(false)
 const accountName = computed(() => userStore.userInfo?.realName || userStore.userInfo?.username || '')
 const accountDetail = computed(() => {
   const info = userStore.userInfo
@@ -74,80 +67,149 @@ const accountDetail = computed(() => {
     return ''
   return info.mobile || info.email || (info.realName ? info.username : '') || ''
 })
-const accountInitial = computed(() => {
-  const name = accountName.value.trim()
-  return name ? Array.from(name)[0].toUpperCase() : '?'
-})
-
+function refreshAccount() {
+  signedIn.value = Boolean(uni.getStorageSync('token')) && Boolean(userStore.userInfo?.username)
+}
+async function loadAccount() {
+  refreshAccount()
+  if (!signedIn.value && uni.getStorageSync('token')) {
+    try {
+      await userStore.getUserInfo()
+    }
+    catch {}
+    refreshAccount()
+  }
+}
 function goToLogin() {
   uni.reLaunch({ url: '/pages/login/index' })
 }
-
-function handleSignOut() {
-  message
-    .confirm({
-      title: tx('settings.signOutTitle', 'Sign out?'),
-      msg: tx('settings.signOutMessage', 'You’ll need to sign in again to manage your robots.'),
-      confirmButtonText: tx('settings.signOut', 'Sign out'),
-      cancelButtonText: t('common.cancel'),
-    })
-    .then(async () => {
-      await userStore.logout()
-      uni.reLaunch({ url: '/pages/login/index' })
-    })
-    .catch(() => {})
+async function handleSignOut() {
+  const ok = await tbConfirm({
+    title: t('mauth.more.signOutTitle'),
+    message: t('mauth.more.signOutMessage'),
+    confirmText: t('nav.logout'),
+    danger: true,
+  })
+  if (!ok)
+    return
+  await userStore.logout()
+  uni.reLaunch({ url: '/pages/login/index' })
 }
 
-// ---- Language switch
-const supportedLanguages = getSupportedLanguages()
-const currentLanguage = ref<Language>(getCurrentLanguage())
-const showLanguageSheet = ref(false)
-const currentLanguageName = computed(() => supportedLanguages.find(lang => lang.code === currentLanguage.value)?.name || '')
-
-function handleLanguageChange(lang: Language) {
-  changeLanguage(lang)
-  showLanguageSheet.value = false
-  currentLanguage.value = lang
-  toast.success(t('settings.languageChanged'))
+// ---- Language
+const languages = getSupportedLanguages()
+const showLanguage = ref(false)
+const languageName = computed(() => languages.find(l => l.code === lang.value)?.name || '')
+const languageOptions = computed(() => languages.map(l => ({ value: l.code, label: l.name })))
+function pickLanguage(code: string) {
+  showLanguage.value = false
+  if (code === lang.value)
+    return
+  changeLanguage(code as Language)
+  toast.success(t('mauth.more.languageChanged'))
 }
 
-// ---- Theme settings (segmented: auto / light / dark)
-const themeStore = useThemeStore()
-
+// ---- Colours: like the phone / light / dark
 const themeOptions = computed(() => [
-  { mode: 'auto' as ThemeMode, name: tx('settings.themeAutoShort', 'Auto'), fullName: t('settings.themeAuto') },
-  { mode: 'light' as ThemeMode, name: tx('settings.themeLightShort', 'Light'), fullName: t('settings.themeLight') },
-  { mode: 'dark' as ThemeMode, name: tx('settings.themeDarkShort', 'Dark'), fullName: t('settings.themeDark') },
+  { value: 'auto', label: t('mauth.more.themeAuto') },
+  { value: 'light', label: t('mauth.more.themeLight') },
+  { value: 'dark', label: t('mauth.more.themeDark') },
 ])
-
-function handleThemeChange(mode: ThemeMode) {
+function pickTheme(mode: ThemeMode) {
   if (themeStore.themeMode === mode)
     return
   themeStore.setThemeMode(mode)
-  toast.success(t('settings.themeChanged'))
+  toast.success(t('mauth.more.themeChanged'))
+}
+
+// ---- Stored data
+const cacheMb = ref('0.00')
+function getCacheInfo() {
+  try {
+    cacheMb.value = storageMb(uni.getStorageInfoSync().currentSize || 0)
+  }
+  catch (error) {
+    console.error('Failed to get cache info:', error)
+  }
+}
+
+// Clear everything stored, keeping only the server address the owner chose
+function clearAllCacheAfterUrlChange() {
+  try {
+    const preservedOverride = getServerBaseUrlOverride()
+    uni.clearStorageSync()
+    // #ifdef H5
+    if (typeof localStorage !== 'undefined')
+      localStorage.clear()
+    // #endif
+    if (preservedOverride)
+      setServerBaseUrlOverride(preservedOverride)
+    getCacheInfo()
+  }
+  catch (error) {
+    console.error('Failed to clear cache:', error)
+  }
+}
+
+async function clearCache() {
+  const ok = await tbConfirm({
+    title: t('mauth.more.clearTitle'),
+    message: t('mauth.more.clearMessage'),
+    confirmText: t('mauth.more.clearConfirm'),
+    danger: true,
+  })
+  if (!ok)
+    return
+  try {
+    clearAllCacheAfterUrlChange()
+    toast.success(t('mauth.more.cleared'))
+    setTimeout(() => {
+      uni.reLaunch({ url: '/pages/login/index' })
+    }, 1500)
+  }
+  catch (error) {
+    console.error('Failed to clear cache:', error)
+    toast.error(t('mauth.more.clearFailed'))
+  }
 }
 
 // ---- Server address
 const currentServerUrl = ref(getEnvBaseUrl())
 const isCustomServer = ref(Boolean(getServerBaseUrlOverride()))
-const showServerSheet = ref(false)
+const showServer = ref(false)
 const serverDraft = ref('')
 const serverError = ref('')
 // Connection check before saving: idle | testing | ok | failed
 const serverTest = ref<'idle' | 'testing' | 'ok' | 'failed'>('idle')
-// URL that failed the check; saving it again means "save anyway"
+// The address that failed the check; saving it again means "save anyway"
 const failedServerUrl = ref('')
+const saveAnyway = computed(() => Boolean(failedServerUrl.value) && failedServerUrl.value === normalizeServerUrl(serverDraft.value))
+const testState = computed(() => ({ testing: 'pending', ok: 'applied', failed: 'error' } as Record<string, 'pending' | 'applied' | 'error'>)[serverTest.value])
+const testText = computed(() => ({
+  testing: t('mauth.more.serverTesting'),
+  ok: t('mauth.more.serverOk'),
+  failed: t('mauth.more.serverUnreachable'),
+} as Record<string, string>)[serverTest.value] || '')
 
-function openServerSheet() {
+let quietDraft = false
+watch(serverDraft, () => {
+  if (quietDraft)
+    return
+  serverError.value = ''
+  serverTest.value = 'idle'
+  failedServerUrl.value = ''
+})
+
+function openServer() {
+  quietDraft = true
   serverDraft.value = currentServerUrl.value
   serverError.value = ''
   serverTest.value = 'idle'
   failedServerUrl.value = ''
-  showServerSheet.value = true
-}
-
-function isValidServerUrl(url: string) {
-  return /^https?:\/\/\S+$/i.test(url)
+  showServer.value = true
+  setTimeout(() => {
+    quietDraft = false
+  })
 }
 
 function restartToLogin() {
@@ -157,9 +219,8 @@ function restartToLogin() {
 }
 
 /**
- * Ask the server for its public config (no login needed). Resolves true when it answers like a
- * Nobix / xiaozhi manager-api, so a typo or a missing "/xiaozhi" path is caught before the app
- * signs the user out.
+ * Ask the server for its public config (no sign-in needed). True when it answers like a
+ * manager-api, so a typo or a missing "/xiaozhi" path is caught before the app signs you out.
  */
 function checkServer(url: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -177,27 +238,25 @@ function checkServer(url: string): Promise<boolean> {
 }
 
 async function testServerUrl() {
-  const url = serverDraft.value.trim().replace(/\/+$/, '')
+  const url = normalizeServerUrl(serverDraft.value)
   if (!url || !isValidServerUrl(url)) {
-    serverError.value = t(url ? 'settings.validServerUrl' : 'settings.enterServerUrl')
+    serverError.value = t(url ? 'mauth.more.serverInvalid' : 'mauth.more.serverEnter')
     return
   }
   serverError.value = ''
   serverTest.value = 'testing'
   const ok = await checkServer(url)
   serverTest.value = ok ? 'ok' : 'failed'
-  if (!ok)
-    serverError.value = t('settings.serverUnreachable')
 }
 
 async function saveServerUrl() {
-  const url = serverDraft.value.trim().replace(/\/+$/, '')
+  const url = normalizeServerUrl(serverDraft.value)
   if (!url) {
-    serverError.value = t('settings.enterServerUrl')
+    serverError.value = t('mauth.more.serverEnter')
     return
   }
   if (!isValidServerUrl(url)) {
-    serverError.value = t('settings.validServerUrl')
+    serverError.value = t('mauth.more.serverInvalid')
     return
   }
   if (serverTest.value === 'testing')
@@ -209,7 +268,7 @@ async function saveServerUrl() {
     serverTest.value = ok ? 'ok' : 'failed'
     if (!ok) {
       failedServerUrl.value = url
-      serverError.value = t('settings.serverUnreachableSaveAnyway')
+      serverError.value = t('mauth.more.serverSaveAnywayHint')
       return
     }
   }
@@ -217,8 +276,8 @@ async function saveServerUrl() {
   clearAllCacheAfterUrlChange()
   currentServerUrl.value = getEnvBaseUrl()
   isCustomServer.value = true
-  showServerSheet.value = false
-  toast.success(t('settings.serverUrlSavedAndCacheCleared'))
+  showServer.value = false
+  toast.success(t('mauth.more.serverSaved'))
   restartToLogin()
 }
 
@@ -227,490 +286,399 @@ function resetServerUrl() {
   clearAllCacheAfterUrlChange()
   currentServerUrl.value = getEnvBaseUrl()
   isCustomServer.value = false
-  showServerSheet.value = false
-  toast.success(t('settings.resetToDefaultAndCacheCleared'))
+  showServer.value = false
+  toast.success(t('mauth.more.serverResetDone'))
   restartToLogin()
 }
 
-// Clear all cache after switching address
-function clearAllCacheAfterUrlChange() {
-  try {
-    // Backup runtime override URL to restore after cleanup
-    const preservedOverride = getServerBaseUrlOverride()
-
-    // Clear all cache including token
-    uni.clearStorageSync()
-
-    // Clear localStorage (H5 environment)
-    // #ifdef H5
-    if (typeof localStorage !== 'undefined') {
-      localStorage.clear()
-    }
-    // #endif
-
-    // Restore runtime override URL after cleanup
-    if (preservedOverride) {
-      setServerBaseUrlOverride(preservedOverride)
-    }
-
-    // Refresh cache info
-    getCacheInfo()
-  }
-  catch (error) {
-    console.error('Failed to clear cache:', error)
-  }
+// ---- About and terms
+const showAbout = ref(false)
+const serverVersion = computed(() => {
+  const v = configStore.config?.version
+  return v && v !== 'null' ? String(v) : ''
+})
+function openLegal(page: 'user-agreement' | 'privacy-policy') {
+  uni.navigateTo({ url: legalPath(page, lang.value) })
 }
 
-// Clear cache
-async function clearCache() {
-  try {
-    uni.showModal({
-      title: t('settings.confirmClear'),
-      content: t('settings.confirmClearMessage'),
-      confirmText: t('common.confirm'),
-      cancelText: t('common.cancel'),
-      success: (res) => {
-        if (res.confirm) {
-          clearAllCacheAfterUrlChange()
-          toast.success(t('settings.cacheCleared'))
-
-          // Delay navigation to login page
-          setTimeout(() => {
-            uni.reLaunch({ url: '/pages/login/index' })
-          }, 1500)
-        }
-      },
-    })
-  }
-  catch (error) {
-    console.error('Failed to clear cache:', error)
-    toast.error(t('settings.clearCacheFailed'))
-  }
-}
-
-// About us
-function showAbout() {
-  uni.showModal({
-    title: t('settings.aboutApp', { appName: import.meta.env.VITE_APP_TITLE }),
-    content: t('settings.aboutContent', {
-      appName: import.meta.env.VITE_APP_TITLE,
-      version: APP_VERSION,
-    }),
-    showCancel: false,
-    confirmText: t('common.confirm'),
-  })
-}
-
-onMounted(async () => {
+onShow(() => {
   getCacheInfo()
-
-  // Dynamically set navbar title to i18n text
-  uni.setNavigationBarTitle({
-    title: t('settings.title'),
-  })
+  loadAccount()
+  currentServerUrl.value = getEnvBaseUrl()
+  isCustomServer.value = Boolean(getServerBaseUrlOverride())
 })
 </script>
 
 <template>
-  <view class="nx-page settings" :style="{ paddingTop: `${safeTop}px` }">
-    <view class="nx-large-title settings__title">
-      <view class="nx-large-title__title">
-        {{ t('settings.title') }}
-      </view>
-    </view>
+  <view class="tb-wrap more">
+    <tb-page-header :title="t('nav.more')" />
 
     <!-- Account -->
-    <view class="nx-group">
-      <view class="nx-group__header">
-        {{ tx('settings.account', 'Account') }}
-      </view>
-      <view class="nx-group__body">
-        <view v-if="isSignedIn" class="nx-row settings-account">
-          <view class="settings-account__avatar">
-            {{ accountInitial }}
-          </view>
-          <view class="nx-row__main">
-            <view class="nx-row__title nx-truncate settings-account__name">
-              {{ accountName }}
-            </view>
-            <view v-if="accountDetail" class="nx-truncate nx-row__subtitle">
-              {{ accountDetail }}
-            </view>
-          </view>
-        </view>
-        <view v-else class="nx-row nx-row--tap" @click="goToLogin">
-          <view class="nx-icon-tile nx-icon-tile--neutral settings-icon">
-            <wd-icon name="user" size="18px" />
-          </view>
-          <view class="nx-row__main">
-            <view class="nx-row__title settings-link">
-              {{ t('login.loginButton') }}
-            </view>
-          </view>
-          <wd-icon name="arrow-right" size="14px" custom-class="settings-chevron" />
-        </view>
-      </view>
-    </view>
-
-    <!-- Appearance -->
-    <view class="nx-group">
-      <view class="nx-group__header">
-        {{ t('settings.themeSettings') }}
-      </view>
-      <view class="nx-group__body settings-appearance">
-        <view class="nx-segmented" role="radiogroup" :aria-label="t('settings.theme')">
-          <view
-            v-for="item in themeOptions"
-            :key="item.mode"
-            class="nx-segmented__item"
-            :class="{ 'is-active': themeStore.themeMode === item.mode }"
-            role="radio"
-            :aria-checked="themeStore.themeMode === item.mode"
-            :aria-label="item.fullName"
-            @click="handleThemeChange(item.mode)"
-          >
-            {{ item.name }}
-          </view>
-        </view>
-      </view>
-      <view class="nx-group__footer">
-        {{ tx('settings.themeFooter', 'Auto follows your phone’s light or dark setting.') }}
-      </view>
-    </view>
-
-    <!-- General -->
-    <view class="nx-group">
-      <view class="nx-group__header">
-        {{ tx('settings.general', 'General') }}
-      </view>
-      <view class="nx-group__body">
-        <view class="nx-row nx-row--tap" @click="showLanguageSheet = true">
-          <view class="nx-icon-tile settings-icon">
-            <wd-icon name="translate-bold" size="18px" />
-          </view>
-          <view class="nx-row__main">
-            <view class="nx-row__title">
-              {{ t('settings.language') }}
-            </view>
-          </view>
-          <text class="nx-truncate nx-row__value">
-            {{ currentLanguageName }}
+    <view class="more__account">
+      <block v-if="signedIn">
+        <view class="more__who">
+          <text class="more__name">
+            {{ accountName }}
           </text>
-          <wd-icon name="arrow-right" size="14px" custom-class="settings-chevron" />
-        </view>
-
-        <view class="nx-row nx-row--tap" @click="openServerSheet">
-          <view class="nx-icon-tile settings-icon">
-            <wd-icon name="link" size="18px" />
-          </view>
-          <view class="nx-row__main">
-            <view class="nx-row__title">
-              {{ t('settings.serverApiUrl') }}
-            </view>
-            <view class="nx-row__subtitle nx-mono nx-break">
-              {{ currentServerUrl }}
-            </view>
-          </view>
-          <wd-icon name="arrow-right" size="14px" custom-class="settings-chevron" />
-        </view>
-      </view>
-    </view>
-
-    <!-- Storage -->
-    <view class="nx-group">
-      <view class="nx-group__header">
-        {{ t('settings.cacheManagement') }}
-      </view>
-      <view class="nx-group__body">
-        <view class="nx-row">
-          <view class="nx-row__main">
-            <view class="nx-row__title">
-              {{ t('settings.totalCacheSize') }}
-            </view>
-          </view>
-          <text class="nx-row__value nx-num">
-            {{ cacheInfo.storageSize }}
+          <text v-if="accountDetail" class="more__detail">
+            {{ accountDetail }}
           </text>
         </view>
-        <view class="nx-row nx-row--tap" @click="clearCache">
-          <view class="nx-row__main">
-            <view class="nx-row__title settings-link">
-              {{ t('settings.clearCache') }}
-            </view>
-          </view>
+      </block>
+      <view v-else class="more__row" role="button" hover-class="is-press" @click="goToLogin">
+        <tb-icon name="user" />
+        <view class="more__rowtext">
+          <text>{{ t('mauth.more.signIn') }}</text>
+          <text class="more__note">
+            {{ t('mauth.more.signInText') }}
+          </text>
         </view>
-      </view>
-      <view class="nx-group__footer">
-        {{ t('settings.confirmClearMessage') }}
+        <tb-icon name="chevron-right" :size="16" />
       </view>
     </view>
 
-    <!-- About -->
-    <view class="nx-group">
-      <view class="nx-group__header">
-        {{ t('settings.appInfo') }}
-      </view>
-      <view class="nx-group__body">
-        <view class="nx-row nx-row--tap" @click="showAbout">
-          <view class="nx-row__main">
-            <view class="nx-row__title">
-              {{ t('settings.aboutUs') }}
-            </view>
-          </view>
-          <wd-icon name="arrow-right" size="14px" custom-class="settings-chevron" />
-        </view>
-        <view class="nx-row">
-          <view class="nx-row__main">
-            <view class="nx-row__title">
-              {{ tx('settings.version', 'Version') }}
-            </view>
-          </view>
-          <text class="nx-row__value nx-mono">
-            {{ APP_VERSION }}
-          </text>
-        </view>
+    <!-- Every place that is not on the first three tabs -->
+    <view v-for="g in places" :key="g.group" class="more__group" role="navigation" :aria-label="g.group">
+      <text class="more__title">
+        {{ g.group }}
+      </text>
+      <view
+        v-for="it in g.items" :key="it.url" class="more__row" role="link" hover-class="is-press"
+        :style="it.ink ? { '--ink': `var(--tb-${it.ink})` } : undefined" @click="go(it.url)"
+      >
+        <tb-icon :name="it.icon" />
+        <text class="more__label">
+          {{ it.label }}
+        </text>
+        <tb-icon name="chevron-right" :size="16" />
       </view>
     </view>
 
-    <!-- Sign out -->
-    <view v-if="isSignedIn" class="nx-group">
-      <view class="nx-group__body">
-        <view class="nx-row nx-row--tap settings-signout" role="button" @click="handleSignOut">
-          {{ tx('settings.signOut', 'Sign out') }}
+    <!-- This app -->
+    <view class="more__group">
+      <text class="more__title">
+        {{ t('mauth.more.app') }}
+      </text>
+
+      <view class="more__row" role="button" hover-class="is-press" @click="showLanguage = true">
+        <tb-icon name="language" />
+        <text class="more__label">
+          {{ t('mauth.language') }}
+        </text>
+        <text class="more__value">
+          {{ languageName }}
+        </text>
+        <tb-icon name="chevron-right" :size="16" />
+      </view>
+
+      <view class="more__block">
+        <view class="more__blockhead">
+          <tb-icon :name="themeStore.currentTheme === 'dark' ? 'moon' : 'sun'" /><text>{{ t('mauth.more.theme') }}</text>
         </view>
+        <tb-choice :model-value="themeStore.themeMode" :options="themeOptions" wrap :aria-label="t('mauth.more.theme')" @change="pickTheme" />
+      </view>
+
+      <view class="more__row" role="button" hover-class="is-press" @click="openServer">
+        <tb-icon name="server" />
+        <view class="more__rowtext">
+          <text>{{ t('mauth.more.server') }}</text>
+          <text class="more__url">
+            {{ currentServerUrl }}
+          </text>
+          <text class="more__note">
+            {{ isCustomServer ? t('mauth.more.serverCustom') : t('mauth.more.serverDefault') }}
+          </text>
+        </view>
+        <tb-icon name="chevron-right" :size="16" />
+      </view>
+
+      <view class="more__row is-static">
+        <tb-icon name="memory" />
+        <text class="more__label">
+          {{ t('mauth.more.storage') }}
+        </text>
+        <text class="more__value tb-num">
+          {{ t('mauth.more.storageSize', { n: num(cacheMb) }) }}
+        </text>
+      </view>
+      <view class="more__row is-danger" role="button" hover-class="is-press" @click="clearCache">
+        <tb-icon name="trash" />
+        <text class="more__label">
+          {{ t('mauth.more.clear') }}
+        </text>
       </view>
     </view>
 
-    <!-- Language sheet -->
-    <wd-popup
-      v-model="showLanguageSheet"
-      position="bottom"
-      custom-class="nx-sheet"
-      safe-area-inset-bottom
-    >
-      <view class="nx-sheet__inner">
-        <view class="nx-sheet__handle" />
-        <view class="nx-sheet__header">
-          <text class="nx-headline">
-            {{ t('settings.selectLanguage') }}
-          </text>
-        </view>
-        <scroll-view scroll-y class="nx-sheet__scroll">
-          <view class="nx-group__body">
-            <view
-              v-for="lang in supportedLanguages"
-              :key="lang.code"
-              class="nx-row nx-row--tap"
-              @click="handleLanguageChange(lang.code)"
-            >
-              <view class="nx-row__main">
-                <view class="nx-row__title">
-                  {{ lang.name }}
-                </view>
-              </view>
-              <wd-icon v-if="currentLanguage === lang.code" name="check" size="18px" custom-class="nx-check" />
-            </view>
-          </view>
-        </scroll-view>
+    <!-- About and terms -->
+    <view class="more__group">
+      <text class="more__title">
+        {{ t('mauth.more.about') }}
+      </text>
+      <view class="more__row" role="button" hover-class="is-press" @click="showAbout = true">
+        <tb-icon name="info" />
+        <text class="more__label">
+          {{ t('mauth.more.about') }}
+        </text>
+        <text class="more__value tb-num">
+          {{ num(APP_VERSION) }}
+        </text>
+        <tb-icon name="chevron-right" :size="16" />
       </view>
-    </wd-popup>
+      <view class="more__row" role="link" hover-class="is-press" @click="openLegal('user-agreement')">
+        <tb-icon name="book" />
+        <text class="more__label">
+          {{ t('mauth.termsTitle') }}
+        </text>
+        <tb-icon name="chevron-right" :size="16" />
+      </view>
+      <view class="more__row" role="link" hover-class="is-press" @click="openLegal('privacy-policy')">
+        <tb-icon name="book" />
+        <text class="more__label">
+          {{ t('mauth.privacyTitle') }}
+        </text>
+        <tb-icon name="chevron-right" :size="16" />
+      </view>
+    </view>
 
-    <!-- Server address sheet -->
-    <wd-popup
-      v-model="showServerSheet"
-      position="bottom"
-      custom-class="nx-sheet"
-      safe-area-inset-bottom
-    >
-      <view class="nx-sheet__inner">
-        <view class="nx-sheet__handle" />
-        <view class="nx-sheet__header">
-          <text class="nx-headline">
-            {{ t('settings.serverApiUrl') }}
+    <view v-if="signedIn" class="more__out">
+      <tb-button variant="danger" icon="logout" block @click="handleSignOut">
+        {{ t('nav.logout') }}
+      </tb-button>
+    </view>
+
+    <PickSheet v-model:open="showLanguage" :title="t('mauth.language')" :value="lang" :options="languageOptions" @pick="pickLanguage" />
+
+    <tb-sheet v-model:open="showServer" :title="t('mauth.more.server')">
+      <tb-input
+        v-model="serverDraft" :placeholder="t('mauth.more.serverPh')" :invalid="!!serverError || serverTest === 'failed'"
+        :aria-label="t('mauth.more.server')" :maxlength="300" clearable
+      />
+      <view class="more__check">
+        <tb-button size="s" icon="refresh" :loading="serverTest === 'testing'" @click="testServerUrl">
+          {{ t('mauth.more.serverTest') }}
+        </tb-button>
+        <tb-sync v-if="serverTest !== 'idle'" :state="testState" :text="testText" />
+      </view>
+      <text class="more__hint" :class="{ 'is-error': !!serverError }">
+        {{ serverError || t('mauth.more.serverHint') }}
+      </text>
+      <tb-button v-if="isCustomServer" variant="quiet" block @click="resetServerUrl">
+        {{ t('mauth.more.serverReset') }}
+      </tb-button>
+      <template #footer>
+        <tb-button @click="showServer = false">
+          {{ t('common.cancel') }}
+        </tb-button>
+        <tb-button variant="primary" :loading="serverTest === 'testing'" @click="saveServerUrl">
+          {{ saveAnyway ? t('mauth.more.serverSaveAnyway') : t('mauth.more.serverSave') }}
+        </tb-button>
+      </template>
+    </tb-sheet>
+
+    <tb-sheet v-model:open="showAbout" :title="t('mauth.more.about')">
+      <view class="more__about">
+        <image class="more__mark" src="/static/logo.svg" mode="aspectFit" aria-hidden="true" />
+        <view class="more__abouttext">
+          <text class="more__brand">
+            {{ t('nav.brand') }}
+          </text>
+          <text class="more__note">
+            {{ t('mauth.more.aboutText') }}
           </text>
         </view>
-        <view class="nx-group">
-          <view class="nx-group__body">
-            <view class="nx-row">
-              <input
-                v-model="serverDraft"
-                class="nx-mono settings-input"
-                type="text"
-                :placeholder="t('settings.enterServerUrl')"
-                placeholder-class="settings-placeholder"
-                @input="serverError = ''; serverTest = 'idle'; failedServerUrl = ''"
-              >
-              <view
-                class="settings-test"
-                :class="`settings-test--${serverTest}`"
-                role="button"
-                :aria-label="t('settings.testConnection')"
-                @click="testServerUrl"
-              >
-                <wd-loading v-if="serverTest === 'testing'" size="14px" />
-                <wd-icon v-else-if="serverTest === 'ok'" name="check" size="14px" />
-                <wd-icon v-else-if="serverTest === 'failed'" name="close" size="14px" />
-                <text>{{ serverTest === 'ok' ? t('settings.connected') : t('settings.testConnection') }}</text>
-              </view>
-            </view>
-          </view>
-          <view class="nx-group__footer" :class="{ 'settings-error': serverError }">
-            {{ serverError || t('settings.modifyWillClearCache') }}
-          </view>
+      </view>
+      <view class="more__facts">
+        <view class="more__fact">
+          <text>{{ t('mauth.more.appVersion') }}</text><text class="tb-num">
+            {{ num(APP_VERSION) }}
+          </text>
         </view>
-        <view class="nx-btn nx-btn--primary nx-btn--block" role="button" @click="saveServerUrl">
-          {{ failedServerUrl && failedServerUrl === serverDraft.trim().replace(/\/+$/, '') ? t('settings.saveAnyway') : t('settings.saveSettings') }}
-        </view>
-        <view
-          v-if="isCustomServer"
-          class="nx-btn nx-btn--block settings-reset"
-          role="button"
-          @click="resetServerUrl"
-        >
-          {{ t('settings.resetDefault') }}
+        <view v-if="serverVersion" class="more__fact">
+          <text>{{ t('mauth.more.serverVersion') }}</text><text class="tb-num">
+            {{ num(serverVersion) }}
+          </text>
         </view>
       </view>
-    </wd-popup>
+    </tb-sheet>
   </view>
 </template>
 
-<style lang="scss" scoped>
-.settings-test {
-  flex: none;
+<style lang="scss">
+.more {
+  padding-bottom: 28px;
+}
+.more__account {
+  padding: 14px 0 4px;
+}
+.more__who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+  min-width: 0;
+}
+.more__name {
+  font-family: var(--tb-font-display);
+  font-weight: 700;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.more__detail {
+  font-size: 14px;
+  color: var(--tb-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.more__group {
+  display: flex;
+  flex-direction: column;
+  padding-top: 22px;
+}
+.more__title {
+  font-family: var(--tb-font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--tb-ink-2);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--tb-rule);
+}
+
+.more__row {
+  --ink: var(--tb-ink);
   display: flex;
   align-items: center;
-  gap: 8rpx;
-  height: 56rpx;
-  padding: 0 20rpx;
-  border-radius: var(--nx-radius-pill);
-  background: var(--nx-surface-2);
-  color: var(--nx-text-2);
-  font-size: var(--nx-text-caption);
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
   font-weight: 600;
-  &:active {
-    opacity: 0.8;
-  }
-  &--ok {
-    background: var(--nx-success-soft);
-    color: var(--nx-success);
-  }
-  &--failed {
-    background: var(--nx-danger-soft);
-    color: var(--nx-danger);
-  }
+  font-size: 15px;
+  color: var(--tb-ink);
+  transition: background-color var(--tb-t-hover) var(--tb-ease);
 }
-
-.settings {
-  padding-bottom: calc(var(--nx-space-7) + env(safe-area-inset-bottom));
-
-  &__title {
-    padding-top: var(--nx-space-5);
-  }
+.more__row.is-press {
+  background: var(--tb-paper-2);
 }
-
-.settings-icon {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: var(--nx-radius-sm);
+.more__row > .tb-icon:first-child {
+  color: var(--ink);
 }
-
-:deep(.settings-chevron) {
+.more__row > .tb-icon:last-child:not(:first-child) {
+  color: var(--tb-ink-3);
+}
+.more__label {
+  flex: 1;
+  min-width: 0;
+}
+.more__rowtext {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.more__value {
   flex: none;
-  color: var(--nx-text-3);
+  max-width: 45%;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--tb-ink-2);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.more__note {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.more__url {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--tb-ink);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.more__row.is-danger {
+  color: var(--tb-danger);
+}
+.more__row.is-danger > .tb-icon:first-child {
+  color: var(--tb-danger);
 }
 
-.settings-account {
-  padding-top: var(--nx-space-4);
-  padding-bottom: var(--nx-space-4);
-
-  &__avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: 96rpx;
-    height: 96rpx;
-    border-radius: 50%;
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    font-size: var(--nx-text-title);
-    font-weight: 700;
-  }
-  &__name {
-    font-size: var(--nx-text-headline);
-    font-weight: 600;
-  }
+.more__block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--tb-rule-soft);
+}
+.more__blockhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 15px;
 }
 
-.settings-appearance {
-  padding: var(--nx-space-3);
+.more__out {
+  padding-top: 28px;
 }
 
-.settings-link {
-  color: var(--nx-accent);
+.more__check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-
-.settings-signout {
-  justify-content: center;
-  color: var(--nx-danger);
-  font-size: var(--nx-text-body);
+.more__hint {
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.more__hint.is-error {
+  color: var(--tb-danger);
   font-weight: 500;
 }
 
-.settings-input {
-  flex: 1;
-  min-width: 0;
-  height: 72rpx;
-  font-size: var(--nx-text-callout);
-  color: var(--nx-text);
+.more__about {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
-
-:deep(.settings-placeholder) {
-  color: var(--nx-text-3);
-}
-
-.settings-error {
-  color: var(--nx-danger);
-}
-
-.settings-reset {
-  margin-top: var(--nx-space-2);
-  color: var(--nx-danger);
-  background: transparent;
-}
-
-// Sheets
-:deep(.wd-popup.nx-sheet) {
-  overflow: hidden;
-  border-radius: var(--nx-radius-xl) var(--nx-radius-xl) 0 0;
-  background: var(--nx-bg);
-}
-
-.nx-sheet {
-  &__inner {
-    padding: 0 var(--nx-gutter) var(--nx-space-4);
-  }
-  &__handle {
-    width: 72rpx;
-    height: 10rpx;
-    margin: var(--nx-space-2) auto 0;
-    border-radius: var(--nx-radius-pill);
-    background: var(--nx-surface-3);
-  }
-  &__header {
-    display: flex;
-    align-items: center;
-    min-height: var(--nx-touch);
-    padding: var(--nx-space-2) 0;
-  }
-  &__scroll {
-    max-height: 60vh;
-    border-radius: var(--nx-radius-lg);
-  }
-}
-
-:deep(.nx-check) {
+.more__mark {
+  width: 48px;
+  height: 48px;
   flex: none;
-  color: var(--nx-accent);
+}
+.more__abouttext {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.more__brand {
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 20px;
+}
+.more__facts {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--tb-rule);
+}
+.more__fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  .more {
+    max-width: 640px;
+    margin: 0 auto;
+  }
 }
 </style>

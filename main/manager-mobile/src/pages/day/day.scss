@@ -1,0 +1,207 @@
+// Shared by the Day screen's area panels (imported by index.vue: a page's own <style> is scoped on H5).
+.dsub {
+  font-family: var(--tb-font-display);
+  font-weight: 700;
+  font-size: 16px;
+}
+.dnote {
+  display: block;
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.dnote--strong {
+  color: var(--tb-ink);
+  font-weight: 600;
+}
+.dswitches {
+  display: flex;
+  flex-direction: column;
+}
+.dbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dcount {
+  font-size: 12px;
+  color: var(--tb-ink-2);
+}
+.drange {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.dpair {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dgroup__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--tb-alarm);
+}
+.dgroup__head .dsub {
+  color: var(--tb-ink);
+}
+.dblock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dblock + .dblock {
+  padding-top: 18px;
+  border-top: 1px solid var(--tb-rule);
+}
+.dblock__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dblock.is-focus,
+.drow.is-focus {
+  background: var(--tb-paper-2);
+}
+
+.drows {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--tb-rule);
+}
+.drow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 0;
+  border-top: 1px solid var(--tb-rule);
+  transition: background-color var(--tb-t-hover) var(--tb-ease);
+}
+.drow.is-press,
+.drow__main.is-press {
+  background: var(--tb-paper-2);
+}
+.drow__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 44px;
+}
+.drow__time {
+  flex: none;
+  min-width: 3.3em;
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--tb-alarm);
+}
+.drow__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.drow__title {
+  font-weight: 600;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.drow__meta {
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.drow__say {
+  font-size: 13px;
+  color: var(--tb-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drow.is-off .drow__time {
+  color: var(--tb-ink-3);
+}
+.drow.is-off .drow__title {
+  color: var(--tb-ink-3);
+  text-decoration: line-through;
+}
+.drow__switch {
+  flex: none;
+}
+.drow__switch .tb-switch__label {
+  display: none;
+}
+.drow--add {
+  gap: 10px;
+  color: var(--tb-ink-2);
+  font-weight: 600;
+  font-size: 14px;
+  border-top-style: dashed;
+  border-top-color: var(--tb-rule-soft);
+}
+.drows.is-dim .drow--talk .dtime {
+  opacity: 0.55;
+}
+
+.dfoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dfoot--start {
+  justify-content: flex-start;
+}
+.dfoot__left {
+  margin-right: auto;
+}
+.dfoot__unsaved {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tb-warn);
+}
+.dfoot .dfoot__unsaved {
+  margin-right: auto;
+}
+
+.dsay {
+  position: relative;
+  border: 1.5px solid var(--tb-ink);
+  border-radius: var(--tb-radius-m);
+  background: var(--tb-paper);
+  padding: 10px 12px 22px;
+}
+.dsay__el {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--tb-ink);
+  background: transparent;
+}
+.dsay__ph {
+  color: var(--tb-ink-3);
+}
+.dsay__count {
+  position: absolute;
+  right: 10px;
+  bottom: 4px;
+  font-size: 11px;
+  color: var(--tb-ink-3);
+}

@@ -1,3 +1,5 @@
+<!-- One conversation as a ruled transcript: the person's lines in message ink at the right,
+     TinyBot's in ink at the left, recordings to play, the transcript to download (owner: m-messages) -->
 <route lang="jsonc" type="page">
 {
   "layout": "default",
@@ -9,58 +11,56 @@
 </route>
 
 <script lang="ts" setup>
-import type { ChatMessage, UserMessageContent } from '@/api/chat-history/types'
-import { onLoad, onUnload } from '@dcloudio/uni-app'
-import { computed, ref } from 'vue'
+import type { ChatMessage } from '@/api/chat-history/types'
+import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { getAudioId, getChatHistory } from '@/api/chat-history/chat-history'
-import { t } from '@/i18n'
+import { http } from '@/http/request/alova'
+import { getCurrentLanguage, t } from '@/i18n'
 import { debounce, getEnvBaseUrl } from '@/utils'
+import { robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
+import { firstLine, lineContent, speakerOf, stampText, TOOL_FOLD, withTimeMarks } from '../messages/messagesModel.mjs'
 
-defineOptions({
-  name: 'ChatDetail',
-})
+defineOptions({ name: 'ChatDetail' })
 
-// Page parameters
+const lang = computed(() => getCurrentLanguage())
 const sessionId = ref('')
 const agentId = ref('')
+const badLink = ref(false)
 
-// Agent info (simplified)
-const currentAgent = computed(() => {
-  return {
-    id: agentId.value,
-    agentName: t('chatHistory.assistantName'),
-  }
-})
-
-// Chat data
 const messageList = ref<ChatMessage[]>([])
 const loading = ref(false)
+const failed = ref(false)
 
-// Audio playback related
 const audioContext = ref<UniApp.InnerAudioContext | null>(null)
 const playingAudioId = ref<string | null>(null)
-const expandedToolResults = ref({})
+const openTools = reactive<Record<string, boolean>>({})
+const toolFold = TOOL_FOLD
 
-// Back to previous page
-function goBack() {
-  uni.navigateBack()
-}
+const transcript = computed(() => withTimeMarks(messageList.value))
+const words = computed(() => ({ today: t('mmsg.today'), yesterday: t('mmsg.yesterday') }))
+const stamp = (v: string) => stampText(v, lang.value, words.value)
+const title = computed(() => {
+  const first = messageList.value[0]?.createdAt
+  const when = first ? stamp(first) : ''
+  return when ? t('mmsg.conv.transcript', { when }) : t('mmsg.conv.title')
+})
+const botName = computed(() => robot.name || t('nav.robotFallback'))
 
-// Load chat records
 async function loadChatHistory() {
-  if (!sessionId.value || !agentId.value) {
-    console.error('Missing required parameters')
+  if (!sessionId.value || !agentId.value)
     return
-  }
-
+  loading.value = true
   try {
-    loading.value = true
     const response = await getChatHistory(agentId.value, sessionId.value)
-    messageList.value = response
+    messageList.value = Array.isArray(response) ? response : []
+    failed.value = false
+    // the legacy screen opens at the newest line
+    nextTick(() => uni.pageScrollTo({ scrollTop: 999999, duration: 0 }))
   }
-  catch (error) {
-    console.error('Failed to get chat records:', error)
+  catch {
+    failed.value = true
     toast.error(t('chatHistory.loadFailed'))
   }
   finally {
@@ -68,561 +68,345 @@ async function loadChatHistory() {
   }
 }
 
-// Parse user message content
-function parseUserMessage(content: string): UserMessageContent | null {
-  try {
-    return JSON.parse(content)
-  }
-  catch {
-    return null
-  }
+const who = (line: ChatMessage) => speakerOf(line)
+const content = (line: ChatMessage) => lineContent(line.content)
+function whoLabel(line: ChatMessage) {
+  const w = who(line)
+  if (w === 'person')
+    return content(line).speaker || t('mmsg.conv.you')
+  if (w === 'tool')
+    return t('mmsg.conv.tool')
+  return botName.value
+}
+const isOpenTool = (key: string, i: number) => !!openTools[`${key}-${i}`]
+function toggleTool(key: string, i: number) {
+  const k = `${key}-${i}`
+  openTools[k] = !openTools[k]
 }
 
-// Get message display content
-function getMessageContent(message: ChatMessage): string {
-  if (message.chatType === 1) {
-    // User message, parse JSON
-    const parsed = parseUserMessage(message.content)
-    return parsed ? parsed.content : message.content
-  }
-  else {
-    // AI message, display directly
-    return message.content
+// ---------------------------------------------------------------- recordings (legacy behaviour)
+function dropAudio() {
+  if (audioContext.value) {
+    audioContext.value.destroy()
+    audioContext.value = null
   }
 }
-
-// Get speaker name
-function getSpeakerName(message: ChatMessage): string {
-  if (message.chatType === 1) {
-    const parsed = parseUserMessage(message.content)
-    return parsed ? parsed.speaker : t('chatHistory.userName')
-  }
-  else {
-    return currentAgent.value?.agentName || t('chatHistory.aiAssistantName')
-  }
-}
-
-// Format time
-function formatTime(timeStr: string) {
-  if (!timeStr)
-    return t('chatHistory.unknownTime')
-
-  // Handle time string format
-  const date = new Date(timeStr.replace(' ', 'T')) // Convert to ISO format
-  const now = new Date()
-
-  // Check if date is valid
-  if (Number.isNaN(date.getTime())) {
-    return timeStr // Return original string if parse fails
-  }
-
-  const diff = now.getTime() - date.getTime()
-
-  // Less than 1 minute
-  if (diff < 60000)
-    return t('chatHistory.justNow')
-
-  // Less than 1 hour
-  if (diff < 3600000)
-    return t('chatHistory.minutesAgo', { minutes: Math.floor(diff / 60000) })
-
-  // Less than 1 day (24 hours)
-  if (diff < 86400000)
-    return t('chatHistory.hoursAgo', { hours: Math.floor(diff / 3600000) })
-
-  // Less than 7 days
-  if (diff < 604800000) {
-    const days = Math.floor(diff / 86400000)
-    return t('chatHistory.daysAgo', { days })
-  }
-
-  // Over 7 days, show exact date
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const currentYear = now.getFullYear()
-
-  // Do not display year if current year
-  if (year === currentYear) {
-    return `${month}-${day}`
-  }
-
-  return `${year}-${month}-${day}`
-}
-
-// Play audio
 const playAudio = debounce(async (audioId: string) => {
   if (!audioId) {
-    toast.error(t('chatHistory.invalidAudioId'))
+    toast.error(t('mmsg.conv.noAudio'))
     return
   }
-
   try {
-    // Stop other audio if currently playing
-    if (audioContext.value) {
+    if (audioContext.value)
       audioContext.value.stop()
-    }
-    // Pause playback if current audio ID matches requested ID
+    // a second press on the line that plays stops it
     if (playingAudioId.value === audioId) {
       playingAudioId.value = null
       return
     }
-
-    // Get audio download ID
     const downloadId = await getAudioId(audioId)
-
-    // Construct audio playback URL
-    const baseUrl = getEnvBaseUrl()
-    const audioUrl = `${baseUrl}/agent/play/${downloadId}`
-
-    // Create audio context
-    if (!audioContext.value) {
+    if (!audioContext.value)
       audioContext.value = uni.createInnerAudioContext()
-    }
-    audioContext.value.src = audioUrl
-
-    // Set playback state
+    audioContext.value.src = `${getEnvBaseUrl()}/agent/play/${downloadId}`
     playingAudioId.value = audioId
-
-    // Listen for playback completion
     audioContext.value.onEnded(() => {
       playingAudioId.value = null
-      if (audioContext.value) {
-        audioContext.value.destroy()
-        audioContext.value = null
-      }
+      dropAudio()
     })
-
-    // Listen for playback error
-    audioContext.value.onError((error) => {
-      console.error('Audio playback failed:', error)
-      toast.error(t('chatHistory.audioPlayFailed'))
+    audioContext.value.onError(() => {
+      toast.error(t('mmsg.conv.playFailed'))
       playingAudioId.value = null
-      if (audioContext.value) {
-        audioContext.value.destroy()
-        audioContext.value = null
-      }
+      dropAudio()
     })
-
-    // Start playback
     audioContext.value.play()
   }
-  catch (error) {
-    console.error('Failed to play audio:', error)
-    toast.error(t('chatHistory.playAudioFailed'))
+  catch {
+    toast.error(t('mmsg.conv.playFailed'))
     playingAudioId.value = null
   }
 }, 400)
 
-function extractContentFromString(content: string) {
-  if (!content || content.trim() === '') {
-    return content
-  }
-
-  // Try parsing as JSON
+// ---------------------------------------------------------------- download (same calls as manager-web)
+const downloading = ref('')
+async function download(kind: 'current' | 'previous') {
+  if (!sessionId.value || !agentId.value || downloading.value)
+    return
+  downloading.value = kind
   try {
-    const jsonObj = JSON.parse(content)
-
-    // If array format (contains text and tool)
-    if (Array.isArray(jsonObj)) {
-      return jsonObj
-    }
-
-    // If object and has content field
-    if (jsonObj && typeof jsonObj === 'object' && jsonObj.content) {
-      return jsonObj.content
-    }
+    // TODO(shared): move to src/api/chat-history as getChatDownloadUrl (see the owner's change request)
+    const uuid = await http.Post<string>(`/agent/chat-history/getDownloadUrl/${agentId.value}/${sessionId.value}`, {}, { meta: { ignoreAuth: false, toast: false } as any })
+    if (!uuid)
+      throw new Error('no link')
+    const url = `${getEnvBaseUrl()}/agent/chat-history/download/${uuid}/${kind}`
+    // #ifdef H5
+    window.open(url, '_blank')
+    // #endif
+    // #ifdef APP-PLUS
+    plus.runtime.openURL(url)
+    // #endif
+    // #ifndef H5 || APP-PLUS
+    uni.setClipboardData({ data: url })
+    // #endif
   }
-  catch (e) {
-    // If not valid JSON, return original content
+  catch {
+    toast.error(t('mmsg.conv.downloadFailed'))
   }
-
-  // If not JSON format or no content field, return original content
-  return content
-}
-
-function toggleToolResult(messageIndex, itemIndex) {
-  const key = `${messageIndex}-${itemIndex}`
-  expandedToolResults.value[key] = !expandedToolResults.value[key]
-}
-
-function isToolResultCollapsed(messageIndex, itemIndex) {
-  const key = `${messageIndex}-${itemIndex}`
-  // Default collapsed (true means collapsed)
-  return !expandedToolResults.value[key]
-}
-
-/** Show a centred time stamp before the first message and after a pause of 5+ minutes */
-function showTimeBefore(index: number): boolean {
-  if (index === 0)
-    return true
-  const cur = Date.parse(String(messageList.value[index]?.createdAt || '').replace(' ', 'T'))
-  const prev = Date.parse(String(messageList.value[index - 1]?.createdAt || '').replace(' ', 'T'))
-  if (Number.isNaN(cur) || Number.isNaN(prev))
-    return false
-  return cur - prev >= 5 * 60 * 1000
-}
-
-/** Speaker label for user messages recognised by voiceprint (empty for the default user) */
-function userSpeaker(message: ChatMessage): string {
-  if (message.chatType !== 1)
-    return ''
-  const name = getSpeakerName(message)
-  return name && name !== t('chatHistory.userName') ? name : ''
-}
-
-/** Translate with an English fallback for keys still waiting in src/i18n/_pending */
-function tx(key: string, fallback: string) {
-  const text = t(key)
-  return text === key ? fallback : text
-}
-
-function getFirstLineText(text: string) {
-  if (!text) {
-    return ''
+  finally {
+    downloading.value = ''
   }
-  const firstLine = text.split('\n')[0]
-  return firstLine.length < text.length ? `${firstLine}...` : text
 }
 
-onLoad((options) => {
+onLoad((options: any) => {
   if (options?.sessionId && options?.agentId) {
-    sessionId.value = options.sessionId
-    agentId.value = options.agentId
+    sessionId.value = decodeURIComponent(String(options.sessionId))
+    agentId.value = decodeURIComponent(String(options.agentId))
   }
   else {
-    console.error('Missing required parameters')
+    badLink.value = true
     toast.error(t('chatHistory.parameterError'))
   }
 })
-
 onShow(() => {
   loadChatHistory()
 })
-
-// Clean up audio resources on page destroy
 onUnload(() => {
   if (audioContext.value) {
     audioContext.value.stop()
-    audioContext.value.destroy()
-    audioContext.value = null
+    dropAudio()
   }
 })
 </script>
 
 <template>
-  <view class="chat">
-    <!-- Navigation bar -->
-    <wd-navbar
-      :title="t('chatHistory.pageTitle')"
+  <view class="tb-wrap chat">
+    <tb-page-header :title="title" back />
 
-      safe-area-inset-top placeholder fixed
-      :bordered="false"
-      custom-class="chat__nav"
-    >
-      <template #left>
-        <view class="chat__back" role="button" :aria-label="tx('chatHistory.back', 'Back')" @click="goBack">
-          <wd-icon name="arrow-left" size="20px" />
-        </view>
-      </template>
-    </wd-navbar>
+    <view v-if="badLink" class="chat__state">
+      <tb-empty face="confused" :title="t('mmsg.conv.badLink')" />
+    </view>
 
-    <!-- Chat messages list -->
-    <scroll-view
-      scroll-y
-      class="chat__scroll"
-      :scroll-into-view="`message-${messageList.length - 1}`"
-    >
-      <view class="chat__body">
-        <!-- Loading skeleton -->
-        <view v-if="loading" class="chat__list" role="status" :aria-label="t('chatHistory.loading')">
-          <view v-for="i in 4" :key="i" class="chat__item" :class="i % 2 ? 'is-robot' : 'is-user'">
-            <view class="nx-skeleton chat__skeleton" :class="{ 'chat__skeleton--wide': i === 3 }" />
+    <view v-else-if="loading && !messageList.length" class="chat__state">
+      <tb-loading :label="t('common.loading')" />
+    </view>
+
+    <view v-else-if="failed && !messageList.length" class="chat__state">
+      <tb-empty face="confused" :title="t('common.loadFailed')">
+        <tb-button icon="refresh" @click="loadChatHistory">
+          {{ t('common.retry') }}
+        </tb-button>
+      </tb-empty>
+    </view>
+
+    <view v-else-if="!messageList.length" class="chat__state">
+      <tb-empty face="sleepy" :title="t('mmsg.conv.empty')">
+        <tb-button icon="refresh" @click="loadChatHistory">
+          {{ t('mmsg.refresh') }}
+        </tb-button>
+      </tb-empty>
+    </view>
+
+    <block v-else>
+      <view class="tx">
+        <block v-for="item in transcript" :key="item.key">
+          <view v-if="item.mark" class="tx-mark">
+            <text class="tb-num">
+              {{ stamp(item.at) }}
+            </text>
           </view>
-        </view>
-
-        <view v-else-if="!messageList.length" class="nx-empty">
-          <view class="nx-icon-tile nx-icon-tile--lg">
-            <wd-icon name="chat" size="28px" />
-          </view>
-          <view class="nx-empty__title">
-            {{ t('chatHistory.noChatRecords') }}
-          </view>
-          <view class="nx-btn nx-btn--primary chat__retry" @click="loadChatHistory">
-            {{ tx('chatHistory.refresh', 'Refresh') }}
-          </view>
-        </view>
-
-        <view v-else class="chat__list">
-          <view
-            v-for="(message, index) in messageList"
-            :id="`message-${index}`"
-            :key="index"
-            class="chat__item"
-            :class="{
-              'is-user': message.chatType === 1,
-              'is-robot': message.chatType === 2,
-              'is-tool': message.chatType === 3,
-            }"
-          >
-            <view v-if="showTimeBefore(index)" class="nx-num chat__time">
-              {{ formatTime(message.createdAt) }}
-            </view>
-
-            <view v-if="userSpeaker(message)" class="nx-truncate chat__speaker">
-              {{ userSpeaker(message) }}
-            </view>
-
-            <view class="chat__bubble">
-              <template v-if="Array.isArray(extractContentFromString(message.content))">
-                <view v-for="(item, idx) in extractContentFromString(message.content)" :key="idx" class="chat__part">
-                  <view v-if="item.type === 'text'" class="chat__text">
-                    {{ item.text }}
-                  </view>
-                  <view v-else-if="item.type === 'tool'" class="chat__tool nx-mono nx-break">
-                    <wd-icon name="tools" size="12px" />
-                    {{ item.text }}
-                  </view>
-                  <view v-else-if="item.type === 'tool_result'" class="chat__tool nx-mono nx-break">
-                    <view v-if="item.text && item.text.length > 80" class="chat__tool-result">
-                      <view class="chat__tool-body" :class="{ 'is-collapsed': isToolResultCollapsed(index, idx) }">
-                        {{ isToolResultCollapsed(index, idx) ? getFirstLineText(item.text) : item.text }}
-                      </view>
-                      <view
-                        class="chat__tool-toggle"
-                        role="button"
-                        :aria-label="isToolResultCollapsed(index, idx) ? tx('chatHistory.expand', 'Show more') : tx('chatHistory.collapse', 'Show less')"
-                        @click="toggleToolResult(index, idx)"
-                      >
-                        <wd-icon :name="isToolResultCollapsed(index, idx) ? 'arrow-down' : 'arrow-up'" size="12px" />
-                      </view>
-                    </view>
-                    <view v-else>
-                      {{ item.text }}
-                    </view>
-                  </view>
+          <view v-else class="tx-line" :class="`is-${who(item.line)}`">
+            <view class="tx-line__head">
+              <text class="tx-line__who">
+                {{ whoLabel(item.line) }}
+              </text>
+              <view
+                v-if="item.line.audioId" class="tx-play" :class="{ 'is-playing': playingAudioId === item.line.audioId }" role="button"
+                :aria-pressed="playingAudioId === item.line.audioId ? 'true' : 'false'"
+                :aria-label="playingAudioId === item.line.audioId ? t('mmsg.conv.stop') : t('mmsg.conv.play')"
+                @click="playAudio(item.line.audioId)"
+              >
+                <view class="tx-play__dot">
+                  <tb-icon :name="playingAudioId === item.line.audioId ? 'stop' : 'play'" :size="14" />
                 </view>
-              </template>
-
-              <view v-else class="chat__content">
-                <!-- Audio playback -->
-                <view
-                  v-if="message.audioId"
-                  class="chat__play"
-                  :class="{ 'is-playing': playingAudioId === message.audioId }"
-                  role="button"
-                  :aria-label="playingAudioId === message.audioId ? tx('chatHistory.stopAudio', 'Stop audio') : tx('chatHistory.playAudio', 'Play audio')"
-                  @click="playAudio(message.audioId)"
-                >
-                  <wd-icon :name="playingAudioId === message.audioId ? 'pause' : 'play'" size="14px" />
-                </view>
-                <text class="chat__text">
-                  {{ getMessageContent(message) }}
-                </text>
               </view>
             </view>
+            <view class="tx-line__said">
+              <block v-for="(p, i) in content(item.line).parts" :key="i">
+                <text v-if="p.type === 'text'" class="tx-line__text">
+                  {{ p.text }}
+                </text>
+                <view v-else class="tx-line__tool">
+                  <text class="tx-line__tooltag">
+                    {{ t('mmsg.conv.tool') }}
+                  </text>
+                  <text v-if="p.type !== 'tool_result' || p.text.length <= toolFold" class="tx-line__tooltext">
+                    {{ p.text }}
+                  </text>
+                  <block v-else>
+                    <text class="tx-line__tooltext">
+                      {{ isOpenTool(item.key, i) ? p.text : firstLine(p.text) }}
+                    </text>
+                    <view class="tx-line__fold" role="button" :aria-expanded="isOpenTool(item.key, i) ? 'true' : 'false'" @click="toggleTool(item.key, i)">
+                      <text>{{ isOpenTool(item.key, i) ? t('mmsg.conv.toolLess') : t('mmsg.conv.toolMore') }}</text>
+                      <tb-icon :name="isOpenTool(item.key, i) ? 'chevron-up' : 'chevron-down'" :size="14" />
+                    </view>
+                  </block>
+                </view>
+              </block>
+            </view>
           </view>
-        </view>
+        </block>
       </view>
-    </scroll-view>
+
+      <view class="chat__downloads">
+        <tb-button block icon="download" :loading="downloading === 'current'" @click="download('current')">
+          {{ t('mmsg.conv.download') }}
+        </tb-button>
+        <tb-button block variant="quiet" icon="download" :loading="downloading === 'previous'" @click="download('previous')">
+          {{ t('mmsg.conv.downloadPrev') }}
+        </tb-button>
+      </view>
+    </block>
+    <view class="chat__end" />
   </view>
 </template>
 
-<style lang="scss" scoped>
-.chat {
+<style lang="scss">
+.chat__state {
+  padding: 32px 0;
+  display: flex;
+  justify-content: center;
+}
+.chat__end {
+  height: calc(24px + env(safe-area-inset-bottom));
+}
+.chat__downloads {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background: var(--nx-bg);
-
-  &__back {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--nx-touch);
-    height: var(--nx-touch);
-    margin-left: calc(var(--nx-space-2) * -1);
-    color: var(--nx-text);
-  }
-
-  &__scroll {
-    flex: 1;
-    height: 0;
-  }
-
-  &__body {
-    padding: var(--nx-space-3) var(--nx-gutter) calc(var(--nx-space-6) + env(safe-area-inset-bottom));
-    box-sizing: border-box;
-  }
-
-  &__list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--nx-space-2);
-  }
-
-  &__item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-
-    &.is-user {
-      align-items: flex-end;
-    }
-  }
-
-  &__time {
-    align-self: center;
-    margin: var(--nx-space-3) 0 var(--nx-space-1);
-    font-size: var(--nx-text-caption);
-    font-weight: 500;
-    color: var(--nx-text-3);
-  }
-
-  &__speaker {
-    max-width: 70%;
-    margin: 0 var(--nx-space-2) 4rpx;
-    font-size: var(--nx-text-caption);
-    color: var(--nx-text-3);
-  }
-
-  &__bubble {
-    max-width: 80%;
-    padding: var(--nx-space-2) var(--nx-space-3);
-    border-radius: var(--nx-radius-lg);
-    background: var(--nx-surface);
-    box-shadow: var(--nx-shadow-1);
-    color: var(--nx-text);
-    font-size: var(--nx-text-body);
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    box-sizing: border-box;
-  }
-
-  &__item.is-robot &__bubble {
-    border-bottom-left-radius: var(--nx-radius-sm);
-  }
-
-  &__item.is-user &__bubble {
-    border-bottom-right-radius: var(--nx-radius-sm);
-    background: var(--nx-accent-soft);
-    box-shadow: none;
-  }
-
-  &__item.is-tool &__bubble {
-    background: var(--nx-surface-2);
-    box-shadow: none;
-  }
-
-  &__content {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--nx-space-2);
-  }
-
-  &__text {
-    display: block;
-    min-width: 0;
-    white-space: pre-wrap;
-  }
-
-  &__part + &__part {
-    margin-top: var(--nx-space-1);
-  }
-
-  &__play {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 52rpx;
-    height: 52rpx;
-    margin-top: -2rpx;
-    border-radius: 50%;
-    background: var(--nx-accent-soft);
-    color: var(--nx-accent);
-    transition: transform var(--nx-dur-1) var(--nx-ease);
-
-    &:active {
-      transform: scale(0.92);
-    }
-
-    &.is-playing {
-      background: var(--nx-accent);
-      color: var(--nx-on-accent);
-    }
-  }
-
-  &__item.is-user &__play {
-    background: var(--nx-surface);
-  }
-
-  &__item.is-user &__play.is-playing {
-    background: var(--nx-accent);
-  }
-
-  &__tool {
-    display: block;
-    padding: var(--nx-space-1) var(--nx-space-2);
-    border-radius: var(--nx-radius-sm);
-    background: var(--nx-surface-2);
-    color: var(--nx-text-2);
-    font-size: var(--nx-text-caption);
-    line-height: 1.5;
-  }
-
-  &__tool-result {
-    position: relative;
-    padding-right: 48rpx;
-  }
-
-  &__tool-body.is-collapsed {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  &__tool-toggle {
-    position: absolute;
-    top: -12rpx;
-    right: -12rpx;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 56rpx;
-    height: 56rpx;
-    color: var(--nx-accent);
-  }
-
-  &__skeleton {
-    width: 360rpx;
-    height: 72rpx;
-    border-radius: var(--nx-radius-lg);
-
-    &--wide {
-      width: 480rpx;
-      height: 120rpx;
-    }
-  }
-
-  &__retry {
-    margin-top: var(--nx-space-3);
-  }
+  gap: 4px;
+  padding-top: 16px;
 }
 
-:deep(.chat__nav) {
-  background: var(--nx-glass);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1rpx solid var(--nx-border);
+.tx {
+  display: flex;
+  flex-direction: column;
+}
+.tx-mark {
+  padding: 14px 0 4px;
+  color: var(--tb-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+.tx-line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+}
+.tx-line__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+}
+.tx-line__who {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tb-ink-2);
+}
+.tx-line__said {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tx-line__text {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.tx-line.is-bot,
+.tx-line.is-tool {
+  padding-right: 12%;
+}
+.tx-line.is-person {
+  padding-left: 12%;
+  align-items: flex-end;
+  text-align: right;
+}
+.tx-line.is-person .tx-line__head {
+  flex-direction: row-reverse;
+}
+.tx-line.is-person .tx-line__said {
+  align-items: flex-end;
+}
+.tx-line.is-person .tx-line__text,
+.tx-line.is-person .tx-line__who {
+  color: var(--tb-message);
+}
+.tx-line__tool {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 6px 0 2px;
+  border-top: 1px dashed var(--tb-rule-soft);
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.tx-line__tool:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.tx-line__tooltag {
+  font-size: 12px;
+  font-weight: 600;
+}
+.tx-line__tooltext {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tx-line__fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  color: var(--tb-ink);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  :deep(.chat__nav) {
-    background: var(--nx-surface);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
+/* a 44px target around a 28px ring */
+.tx-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px 0;
+  color: var(--tb-ink);
+}
+.tx-line.is-person .tx-play {
+  color: var(--tb-message);
+}
+.tx-play__dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  transition:
+    background-color var(--tb-t-hover) var(--tb-ease),
+    color var(--tb-t-hover) var(--tb-ease);
+}
+.tx-play.is-playing .tx-play__dot {
+  background: var(--tb-action);
+  border-color: var(--tb-action);
+  color: var(--tb-on-action);
 }
 </style>
