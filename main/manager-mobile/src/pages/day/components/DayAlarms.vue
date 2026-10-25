@@ -2,9 +2,9 @@
 import type { CompanionAlarm } from '@/api/companion'
 import { computed, ref, watch } from 'vue'
 import { t } from '@/i18n'
+import { asciiLabel, clampInt, isHHMM, MAX_LABEL, MAX_SAY, newAlarm, removeById, sortByTime, stripAlarm, upsertById } from '@/utils/companionUtils.mjs'
 import { tbConfirm } from '@/utils/tbConfirm'
 import { toast } from '@/utils/toast'
-import { asciiLabel, clampInt, isHHMM, MAX_LABEL, MAX_SAY, newAlarm, removeById, sortByTime, stripAlarm, upsertById } from '../../companion/companionUtils.mjs'
 import { useDay } from '../dayContext'
 import { daysText, MAX_ALARMS, SNOOZE_LIMITS } from '../dayModel.mjs'
 import DayField from './DayField.vue'
@@ -102,7 +102,7 @@ defineExpose({ focusKey, add: () => openAlarm() })
     <view v-else class="drows">
       <view v-for="a in sorted" :key="a.id" class="drow" :class="{ 'is-off': !a.enabled, 'is-focus': focused === `a-${a.id}` }">
         <view class="drow__main" role="button" :aria-label="t('day.alarm.edit')" hover-class="is-press" @click="openAlarm(a)">
-          <text class="drow__time tb-num">
+          <text class="tb-num drow__time">
             <text v-if="day.part(a.time)" class="drow__part">
               {{ day.part(a.time) }}
             </text>{{ day.clock(a.time) }}

@@ -14,6 +14,7 @@ import {
 } from '@/api/agent/agent'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { notifyRequestError } from '@/utils/requestError'
 import { tbConfirm } from '@/utils/tbConfirm'
 import { toast } from '@/utils/toast'
 import {
@@ -320,7 +321,7 @@ async function loadSnapshots(reset = false, requestId = snapshotRequestSequence)
       return
     }
     console.error('Failed to load snapshots:', error)
-    toast.error(t('agentSnapshot.fetchFailed'))
+    notifyRequestError(error, 'agentSnapshot.fetchFailed')
   }
   finally {
     if (isActiveSnapshotRequest(requestId)) {
@@ -388,7 +389,7 @@ async function viewSnapshot(row: SnapshotRow) {
       return
     }
     console.error('Failed to load snapshot detail:', error)
-    toast.error(t('agentSnapshot.detailFailed'))
+    notifyRequestError(error, 'agentSnapshot.detailFailed')
     detailVisible.value = false
   }
   finally {
@@ -447,7 +448,7 @@ async function previewRestoreSnapshot(row: SnapshotRow) {
       return
     }
     console.error('Failed to load restore preview:', error)
-    toast.error(t('agentSnapshot.detailFailed'))
+    notifyRequestError(error, 'agentSnapshot.detailFailed')
     detailVisible.value = false
   }
   finally {
@@ -615,7 +616,7 @@ async function confirmRestoreSnapshot() {
   catch (error) {
     if (isActiveRestoreAction(context)) {
       console.error('Failed to restore snapshot:', error)
-      toast.error(t('agentSnapshot.restoreFailed'))
+      notifyRequestError(error, 'agentSnapshot.restoreFailed')
     }
   }
   finally {
@@ -668,7 +669,7 @@ async function deleteSnapshot(row: SnapshotRow) {
   }
   catch (error) {
     console.error('Failed to delete snapshot:', error)
-    toast.error(t('agentSnapshot.deleteFailed'))
+    notifyRequestError(error, 'agentSnapshot.deleteFailed')
   }
   finally {
     deletingSnapshotId.value = ''
@@ -1270,34 +1271,137 @@ function redactDisplayValue(value: any, parentKey = ''): any {
 </template>
 
 <style lang="scss">
-.snap-lead { font-size: 14px; color: var(--tb-ink-2); }
-.snap-state { display: flex; justify-content: center; padding: 32px 0; }
-.snap-list { display: flex; flex-direction: column; border-top: 1px solid var(--tb-rule); }
-.snap-row { display: flex; flex-direction: column; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--tb-rule-soft); }
-.snap-row__head { display: flex; align-items: center; gap: 12px; }
-.snap-row__no { font-family: var(--tb-font-display); font-weight: 800; font-size: 26px; line-height: 1; min-width: 56px; }
-.snap-row.is-now .snap-row__no { color: var(--tb-orange); }
-.snap-row__meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.snap-row__time { font-size: 14px; font-weight: 600; }
-.snap-row__src { font-size: 13px; color: var(--tb-ink-2); }
-.snap-row__fields { display: flex; flex-wrap: wrap; gap: 6px; }
-.snap-row__fields .tb-tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.snap-muted { font-size: 13px; color: var(--tb-ink-2); }
-.snap-row__acts { display: flex; flex-wrap: wrap; gap: 8px; }
-.snap-more { padding-top: 14px; }
-
-.snap-diff { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--tb-rule); }
-.snap-diff__item { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--tb-rule-soft); }
-.snap-diff__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.snap-diff__label { font-weight: 700; font-size: 15px; }
-.snap-diff__pair { display: flex; flex-direction: column; gap: 4px; }
-.snap-diff__cap { font-size: 12px; font-weight: 600; color: var(--tb-ink-2); }
-.snap-diff__val {
-  display: block; padding: 8px 10px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere;
-  border-radius: var(--tb-radius-s); background: var(--tb-paper-2);
+.snap-lead {
+  font-size: 14px;
+  color: var(--tb-ink-2);
 }
-.snap-diff__val.is-before { color: var(--tb-ink-2); }
-.snap-diff__val.is-after { background: transparent; border: 1px solid var(--tb-rule-soft); }
-.snap-note { display: block; padding-top: 12px; font-size: 14px; color: var(--tb-ink); }
-.snap-note.is-danger { color: var(--tb-danger); }
+.snap-state {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}
+.snap-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--tb-rule);
+}
+.snap-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+}
+.snap-row__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.snap-row__no {
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1;
+  min-width: 56px;
+}
+.snap-row.is-now .snap-row__no {
+  color: var(--tb-orange);
+}
+.snap-row__meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.snap-row__time {
+  font-size: 14px;
+  font-weight: 600;
+}
+.snap-row__src {
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.snap-row__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.snap-row__fields .tb-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.snap-muted {
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.snap-row__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.snap-more {
+  padding-top: 14px;
+}
+
+.snap-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--tb-rule);
+}
+.snap-diff__item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+}
+.snap-diff__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.snap-diff__label {
+  font-weight: 700;
+  font-size: 15px;
+}
+.snap-diff__pair {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snap-diff__cap {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tb-ink-2);
+}
+.snap-diff__val {
+  display: block;
+  padding: 8px 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: var(--tb-radius-s);
+  background: var(--tb-paper-2);
+}
+.snap-diff__val.is-before {
+  color: var(--tb-ink-2);
+}
+.snap-diff__val.is-after {
+  background: transparent;
+  border: 1px solid var(--tb-rule-soft);
+}
+.snap-note {
+  display: block;
+  padding-top: 12px;
+  font-size: 14px;
+  color: var(--tb-ink);
+}
+.snap-note.is-danger {
+  color: var(--tb-danger);
+}
 </style>

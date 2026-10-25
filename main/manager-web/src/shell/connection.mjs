@@ -42,7 +42,8 @@ export function companionErrorKind(err) {
   if (err.data && typeof err.data === 'object' && 'code' in err.data) body = err.data;
   else if ('code' in err && (typeof err.code === 'number' || /^\d+$/.test(String(err.code)))) body = err;
   if (!body || body.code === undefined || body.code === null) return 'network';
-  const msg = String(body.msg || body.message || '');
+  // the raw server text (src/apis/httpRequest.js keeps it in rawMsg and cleans msg for people)
+  const msg = String(body.rawMsg || body.msg || body.message || '');
   if (/device not found/i.test(msg)) return 'not_registered';
   if (Number(body.code) === CODE_FEATURE_NOT_SUPPORTED) return 'no_companion';
   return 'server';
@@ -51,7 +52,7 @@ export function companionErrorKind(err) {
 /** The raw server text of an error (for the console only, never the screen). */
 export function rawErrorText(err) {
   if (!err) return '';
-  if (err.data && typeof err.data === 'object' && err.data.msg) return String(err.data.msg);
+  if (err.data && typeof err.data === 'object' && (err.data.rawMsg || err.data.msg)) return String(err.data.rawMsg || err.data.msg);
   return String(err.msg || err.message || err.errMsg || '');
 }
 
@@ -111,6 +112,27 @@ export function connectionOf({ hasCompanion = true, mqtt, companion, lastConnect
   if (view.online === true || age < STALE_S) return out('online', 'fresh-sync');
   if (mqtt === true) return out('not_syncing', 'stale-sync');
   return out('offline', 'stale-sync');
+}
+
+/** List pages ask a robot's companion view at most this often (ms) ... */
+export const COMPANION_EVERY_MS = 30000;
+/** ... and at most this many at a time. */
+export const COMPANION_MAX = 8;
+
+/**
+ * Which companion views a list page (Robots, a character's robots) asks for its statuses: the
+ * gateway alone cannot say "online", so it asks the companion robots the gateway calls online or
+ * cannot say (mqtt true or null; offline robots need no call), each at most every
+ * COMPANION_EVERY_MS and at most COMPANION_MAX at a time.
+ *   devices  [{ id, hasCompanion, mqtt, askedAt (ms, 0 never) }]
+ * Returns the ids to ask.
+ */
+export function companionsToAsk(devices, now = Date.now()) {
+  return (devices || [])
+    .filter((d) => d && d.id && d.hasCompanion && (d.mqtt === true || d.mqtt === null))
+    .filter((d) => now - (Number(d.askedAt) || 0) >= COMPANION_EVERY_MS)
+    .slice(0, COMPANION_MAX)
+    .map((d) => d.id);
 }
 
 /** Is the robot reachable enough that what you send is done right away? */

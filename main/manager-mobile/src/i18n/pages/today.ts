@@ -6,7 +6,7 @@ const messages: Record<string, Record<string, string>> = {
     'today.actLabel': 'টাইনিবটকে কিছু বলুন বা করতে দিন',
     'today.sayLabel': 'টাইনিবট যা বলবে',
     'today.sayPlaceholder': 'টাইনিবটকে কিছু বলতে দিন…',
-    'today.sayButton': 'পাঠান',
+    'today.sayButton': 'বলো',
     'today.sent': 'পাঠানো হয়েছে, টাইনিবট এখনই বলবে',
     'today.sentLater': 'পাঠানো হয়েছে, টাইনিবট অনলাইনে এলে বলবে',
     'today.sendFailed': 'পাঠানো যায়নি, আবার চেষ্টা করুন',
@@ -79,12 +79,12 @@ const messages: Record<string, Record<string, string>> = {
     'today.linkCharacter': 'চরিত্র আর কণ্ঠ',
   },
   en: {
-    'today.heroLabel': "Today's date and TinyBot",
-    'today.faceAlt': "{name}'s face",
+    'today.heroLabel': 'Today\'s date and TinyBot',
+    'today.faceAlt': '{name}\'s face',
     'today.actLabel': 'Tell TinyBot something or give it a job',
     'today.sayLabel': 'What TinyBot will say',
     'today.sayPlaceholder': 'Give TinyBot something to say…',
-    'today.sayButton': 'Send',
+    'today.sayButton': 'Say',
     'today.sent': 'Sent, TinyBot will say it now',
     'today.sentLater': 'Sent, TinyBot will say it when it is back online',
     'today.sendFailed': 'Could not send, try again',
@@ -109,7 +109,7 @@ const messages: Record<string, Record<string, string>> = {
     'today.willRemind': 'Will remind',
     'today.alarm': 'Alarm',
     'today.reminder': 'Reminder',
-    'today.routine': "TinyBot's routine",
+    'today.routine': 'TinyBot\'s routine',
     'today.until': 'until {time}',
     'today.night': 'Night mode',
     'today.nightUntil': 'Quiet until {time}',
@@ -156,6 +156,6 @@ const messages: Record<string, Record<string, string>> = {
     'today.linkLook': 'Face and look',
     'today.linkCharacter': 'Character and voice',
   },
-};
+}
 
 export default messages

@@ -30,8 +30,6 @@ export function toRow(device, formatDate) {
     autoUpdate: device.autoUpdate === 1,
     volume: device.volume === undefined ? null : device.volume,
     rawBindTime,
-    deviceStatus: 'offline',
-    state: 'offline',
   };
 }
 
@@ -69,16 +67,6 @@ export function onlineFrom(map, row) {
   if (info.isAlive === true) return 'online';
   if (info.isAlive === false) return 'offline';
   return info.isAlive === null && info.exists === true ? 'online' : 'offline';
-}
-
-/**
- * The state word of a row, in the name plate's vocabulary: online, offline, sleeping, updating.
- * `connection` is what the gateway says; `fine` is the robot's own state from its companion view
- * (robotState of Today), used only to refine an online robot.
- */
-export function rowState(connection, fine) {
-  if (connection !== 'online') return 'offline';
-  return fine === 'sleeping' || fine === 'updating' ? fine : 'online';
 }
 
 /** Rows whose name, board or MAC address contains the query (case-insensitive). */

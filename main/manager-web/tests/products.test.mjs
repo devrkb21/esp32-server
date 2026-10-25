@@ -80,14 +80,21 @@ describe('product of a device', () => {
 describe('navigation by features', () => {
   it('marks the robot pages with the feature they need', () => {
     const needs = Object.fromEntries(NAV.flatMap((g) => g.items).filter((i) => i.needs).map((i) => [i.to, i.needs]));
-    expect(needs).toEqual({ '/day': 'day', '/messages': 'messages', '/look': 'look', '/robot': 'companion',
+    expect(needs).toEqual({ '/day': 'day', '/messages': 'messages', '/history': 'chat_history', '/look': 'look', '/robot': 'companion',
       '/role-config': 'character', '/voice-print': 'voiceprint' });
+  });
+  it('shows chat history on its own page only for products without messages', () => {
+    expect(paths(visibleNav(false, {}, null))).not.toContain('/history');
+    expect(paths(visibleNav(false, {}, productOf({}, []).features))).not.toContain('/history');
+    expect(paths(visibleNav(false, {}, GENERIC))).toContain('/history');
+    expect(paths(visibleNav(false, {}, ['chat', 'character']))).not.toContain('/history');
+    expect(visibleTabs(GENERIC).map((t) => t.to)).not.toContain('/history');
   });
   it('shows everything with no robot, and hides what a generic device lacks', () => {
     const all = paths(visibleNav(false, {}, null));
     expect(all).toEqual(expect.arrayContaining(['/today', '/day', '/messages', '/look', '/robot', '/role-config', '/voice-print', '/robots']));
     const generic = paths(visibleNav(false, {}, GENERIC));
-    expect(generic).toEqual(expect.arrayContaining(['/today', '/role-config', '/voice-print', '/robots']));
+    expect(generic).toEqual(expect.arrayContaining(['/today', '/history', '/role-config', '/voice-print', '/robots']));
     for (const p of ['/day', '/messages', '/look', '/robot']) expect(generic).not.toContain(p);
     const tiny = paths(visibleNav(false, {}, productOf({}, []).features));
     expect(tiny).toEqual(all);
@@ -120,7 +127,7 @@ describe('route guard', () => {
 
   it('routes name the feature they need', () => {
     const need = Object.fromEntries(routes.filter((r) => r.meta && r.meta.needs).map((r) => [r.path, r.meta.needs]));
-    expect(need).toEqual({ '/day': 'day', '/messages': 'messages', '/look': 'look', '/robot': 'companion',
+    expect(need).toEqual({ '/day': 'day', '/messages': 'messages', '/history': 'chat_history', '/look': 'look', '/robot': 'companion',
       '/role-config': 'character', '/voice-print': 'voiceprint' });
   });
 

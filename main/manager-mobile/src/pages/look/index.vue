@@ -20,9 +20,6 @@ import { updateCompanionConfig } from '@/api/companion/companion'
 import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
-import { robot } from '@/utils/tbRobot'
-import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
-import { toast } from '@/utils/toast'
 import {
   CHAT_FONT_SAMPLE,
   CHAT_FONTS,
@@ -38,7 +35,11 @@ import {
   renderMoodStill,
   sameLook,
   toSvgDataUri,
-} from '../companion/faceLook.mjs'
+} from '@/utils/faceLook.mjs'
+import { notifyRequestError } from '@/utils/requestError'
+import { robot } from '@/utils/tbRobot'
+import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
+import { toast } from '@/utils/toast'
 import LookLive from './components/LookLive.vue'
 
 defineOptions({ name: 'LookPage' })
@@ -135,11 +136,9 @@ async function save() {
     toast.success(t('lookPage.saved'))
   }
   catch (e) {
-    // the edits stay on screen, still unsaved, so the owner can try again. Business and HTTP
-    // errors were already shown by the request layer; network errors and timeouts were not.
-    const raw = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-    if (!/^Request error|HTTP request error/.test(raw))
-      toast.error(t('lookPage.saveFailed'))
+    // the edits stay on screen, still unsaved, so the owner can try again (one plain toast:
+    // nothing more when the request layer already showed it)
+    notifyRequestError(e, 'lookPage.saveFailed')
   }
   saving.value = false
 }

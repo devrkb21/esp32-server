@@ -290,7 +290,7 @@ onLoad((options?: Record<string, string>) => {
           <text class="lk-robot__name">
             {{ productLabel }}
           </text>
-          <text v-if="info.macTail" class="lk-robot__mac tb-num">
+          <text v-if="info.macTail" class="tb-num lk-robot__mac">
             {{ t('link.macTail', { tail: info.macTail }) }}
           </text>
         </view>
@@ -555,12 +555,12 @@ onLoad((options?: Record<string, string>) => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--tb-orange);
+  background: var(--tb-ink);
   transform: scale(0);
   transition: transform 160ms var(--tb-ease);
 }
 .lk-agent.is-picked .lk-agent__mark {
-  border-color: var(--tb-orange);
+  border-color: var(--tb-ink);
 }
 .lk-agent.is-picked .lk-agent__mark::after {
   transform: scale(1);

@@ -3,6 +3,9 @@
 export default {
   bn: {
     'messages.desc': 'টাইনিবটকে কিছু বলতে দিন, আর পড়ুন আপনাদের মধ্যে কী কথা হলো।',
+    'nav.history': 'কথার খাতা',
+    'history.desc': 'রোবটের সাথে আপনাদের কী কথা হলো, দিন ধরে পড়ুন।',
+    'history.sectionDesc': 'রোবটের সাথে মুখে বলা কথা, দিন ধরে সাজানো।',
     'messages.refresh': 'আবার দেখুন',
 
     'messages.compose.title': 'টাইনিবটকে বলতে দিন',
@@ -63,6 +66,9 @@ export default {
   },
   en: {
     'messages.desc': 'Give TinyBot something to say, and read what the two of you talked about.',
+    'nav.history': 'Chat history',
+    'history.desc': 'Read what you and the robot talked about, by day.',
+    'history.sectionDesc': 'What was said aloud with the robot, by day.',
     'messages.refresh': 'Refresh',
 
     'messages.compose.title': 'Tell TinyBot',

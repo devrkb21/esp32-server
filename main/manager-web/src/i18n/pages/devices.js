@@ -17,11 +17,6 @@ export default {
     'devices.col.seen': 'শেষ সংযোগ',
     'devices.col.actions': 'কাজ',
 
-    'devices.state.online': 'অনলাইন',
-    'devices.state.offline': 'অফলাইন',
-    'devices.state.sleeping': 'ঘুমাচ্ছে',
-    'devices.state.updating': 'আপডেট হচ্ছে',
-    'devices.state.unknown': 'জানা নেই',
 
     'devices.faceAlt': '{name}-এর মুখ',
     'devices.unnamed': 'নাম নেই',
@@ -141,11 +136,6 @@ export default {
     'devices.col.seen': 'Last connected',
     'devices.col.actions': 'Actions',
 
-    'devices.state.online': 'Online',
-    'devices.state.offline': 'Offline',
-    'devices.state.sleeping': 'Sleeping',
-    'devices.state.updating': 'Updating',
-    'devices.state.unknown': 'Unknown',
 
     'devices.faceAlt': "{name}'s face",
     'devices.unnamed': 'Unnamed robot',

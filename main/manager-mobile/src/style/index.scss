@@ -16,7 +16,6 @@ page {
 }
 
 /* Dark mode definitions */
-.wot-theme-dark,
 .dark,
 html.dark page {
   --app-bg-page: var(--nx-bg);
@@ -60,17 +59,6 @@ html.dark page {
     color: var(--app-text-muted) !important;
   }
 
-  // Wot Design Uni components in dark mode
-  .wd-navbar {
-    background-color: var(--app-navbar-bg) !important;
-    border-bottom: 1px solid var(--app-border-color);
-  }
-
-  .wd-navbar__title {
-    color: var(--app-text-primary) !important;
-  }
-
-  .wd-popup,
   .custom-popup {
     .bg-white {
       background-color: var(--app-bg-card) !important;

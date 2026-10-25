@@ -7,7 +7,7 @@
 // the robot restart now so that the check runs immediately.
 //
 // The same file lives in manager-web (src/utils/firmwareUpdate.mjs) and manager-mobile
-// (src/pages/companion/firmwareUpdate.mjs). Keep the two copies identical.
+// (src/utils/firmwareUpdate.mjs). Keep the two copies identical.
 //
 // Pure functions only: no DOM, no Vue, no uni. Timers and the clock are injected so the flow can
 // be tested with fake timers.

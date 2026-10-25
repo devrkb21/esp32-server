@@ -5,7 +5,7 @@
 // already parsed, as a JSON string, or as the raw MCP result (JSON text in content[0].text).
 //
 // The same file lives in manager-web (src/utils/liveScreen.mjs) and manager-mobile
-// (src/pages/companion/liveScreen.mjs). Keep the two copies identical.
+// (src/utils/liveScreen.mjs). Keep the two copies identical.
 //
 // Pure functions only: no DOM, no Vue, no uni. Timers and the clock are injected so the polling
 // can be tested with fake timers.

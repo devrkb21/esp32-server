@@ -2,10 +2,9 @@ import type { ComputedRef, InjectionKey, Ref } from 'vue'
 import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/companion'
 import type { Device, OtaFirmware } from '@/api/device'
 import { inject } from 'vue'
-import { t } from '@/i18n'
-import { toast } from '@/utils/toast'
+import { notifyRequestError } from '@/utils/requestError'
 
-/** State of the "Update now" flow (see ../../companion/firmwareUpdate.mjs) */
+/** State of the "Update now" flow (see src/utils/firmwareUpdate.mjs) */
 export interface FirmwareUpdateState {
   phase: 'idle' | 'sending' | 'sent' | 'waiting' | 'updated' | 'current' | 'timeout' | 'failed'
   fromVersion?: string
@@ -73,8 +72,5 @@ export function useRobot(): RobotContext {
  * are already shown by the request layer; network errors and timeouts are not.
  */
 export function notifyError(error: unknown) {
-  const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
-  if (/^\[?Request error|HTTP request error/.test(raw))
-    return
-  toast.error(t('mrobot.requestFailed'))
+  notifyRequestError(error, 'mrobot.requestFailed')
 }

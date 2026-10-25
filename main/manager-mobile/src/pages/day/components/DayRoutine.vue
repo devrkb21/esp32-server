@@ -2,7 +2,6 @@
 import type { RoutineItem, RoutineSettings } from '@/api/companion'
 import { computed, ref, watch } from 'vue'
 import { t } from '@/i18n'
-import { toast } from '@/utils/toast'
 import {
   ACTIVITIES,
   defaultRoutine,
@@ -19,7 +18,8 @@ import {
   sameRoutine,
   scheduledActivity,
   sortRoutine,
-} from '../../companion/faceLook.mjs'
+} from '@/utils/faceLook.mjs'
+import { toast } from '@/utils/toast'
 import { useDay } from '../dayContext'
 import { nowIndex, previewActivity, routineOfKey } from '../dayModel.mjs'
 import DayField from './DayField.vue'
@@ -209,7 +209,8 @@ defineExpose({ focusKey })
             <text class="drow__mark" />{{ activityName(item.activity) }}
           </text>
           <text class="drow__meta">
-            {{ duration(item) }}<text v-if="overlapRows.has(i)" class="drow__warn">{{ ', ' }}{{ t('day.routine.overlapShort') }}
+            {{ duration(item) }}<text v-if="overlapRows.has(i)" class="drow__warn">
+              {{ ', ' }}{{ t('day.routine.overlapShort') }}
             </text>
           </text>
         </view>

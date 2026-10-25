@@ -23,16 +23,43 @@ function onEnd(e: any) {
 
 <template>
   <view class="tb-dateblock" :class="{ 'is-friday': isFriday }" @touchstart="onStart" @touchend="onEnd">
-    <text class="tb-dateblock__num">{{ dayNum }}</text>
-    <text class="tb-dateblock__wd">{{ weekday }}</text>
-    <text class="tb-dateblock__sub">{{ subline }}</text>
+    <text class="tb-dateblock__num">
+      {{ dayNum }}
+    </text>
+    <text class="tb-dateblock__wd">
+      {{ weekday }}
+    </text>
+    <text class="tb-dateblock__sub">
+      {{ subline }}
+    </text>
   </view>
 </template>
 
 <style lang="scss">
-.tb-dateblock { display: flex; flex-direction: column; }
-.tb-dateblock__num { font-family: var(--tb-font-display); font-weight: 800; font-size: clamp(88px, 28vw, 124px); line-height: .92; color: var(--tb-alarm); letter-spacing: -.02em; }
-.tb-dateblock.is-friday .tb-dateblock__num { color: var(--tb-prayer); }
-.tb-dateblock__wd { font-family: var(--tb-font-display); font-weight: 700; font-size: 20px; margin-top: 4px; }
-.tb-dateblock__sub { color: var(--tb-ink-2); font-size: 13px; }
+.tb-dateblock {
+  display: flex;
+  flex-direction: column;
+}
+/* the wall calendar's rule: everyday dates in ink, Fridays (the weekly holiday) in red */
+.tb-dateblock__num {
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: clamp(88px, 28vw, 124px);
+  line-height: 0.92;
+  color: var(--tb-ink);
+  letter-spacing: -0.02em;
+}
+.tb-dateblock.is-friday .tb-dateblock__num {
+  color: var(--tb-alarm);
+}
+.tb-dateblock__wd {
+  font-family: var(--tb-font-display);
+  font-weight: 700;
+  font-size: 20px;
+  margin-top: 4px;
+}
+.tb-dateblock__sub {
+  color: var(--tb-ink-2);
+  font-size: 13px;
+}
 </style>

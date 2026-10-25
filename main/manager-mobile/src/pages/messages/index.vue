@@ -19,6 +19,7 @@ import { sendCompanionCommand, sendCompanionMessage } from '@/api/companion/comp
 import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { notifyRequestError } from '@/utils/requestError'
 import { robot } from '@/utils/tbRobot'
 import { statusOf as connectionOf, refreshCompanion, refreshMqtt } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
@@ -78,12 +79,9 @@ async function reload(quiet = false) {
   loading.value = false
 }
 
-/** Business and HTTP errors are already shown by the request layer; network errors are not (legacy rule). */
+/** One plain toast per failed request: nothing more when the request layer already showed it. */
 function notifyError(error: unknown) {
-  const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
-  if (/^Request error|HTTP request error/.test(raw))
-    return
-  toast.error(t('mmsg.failed'))
+  notifyRequestError(error, 'mmsg.failed')
 }
 
 // ---------------------------------------------------------------- composer

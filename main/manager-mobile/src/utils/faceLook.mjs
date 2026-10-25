@@ -17,7 +17,7 @@
 // and the settings.look / settings.routine contracts of xiaozhi-server core/companion/schema.py.
 //
 // The same file lives in manager-web (src/utils/faceLook.mjs) and manager-mobile
-// (src/pages/companion/faceLook.mjs). Keep the two copies identical.
+// (src/utils/faceLook.mjs). Keep the two copies identical.
 //
 // Pure functions only: no DOM, no Vue. Pose scaling uses Math.fround like the firmware's float
 // maths; the primitives run in double precision, which can differ from the robot only for

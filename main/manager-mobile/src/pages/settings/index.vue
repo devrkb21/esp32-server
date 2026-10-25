@@ -44,6 +44,7 @@ const places = computed(() => visiblePlaces([
     group: t('nav.group.robot'),
     items: [
       { url: '/pages/messages/index', icon: 'message', label: t('nav.messages'), ink: 'message' },
+      { url: '/pages/chat-history/index', icon: 'history', label: t('nav.history'), ink: 'message', unless: 'messages' },
       { url: '/pages/robot/index', icon: 'robot', label: t('mauth.more.robotSettings') },
     ],
   },

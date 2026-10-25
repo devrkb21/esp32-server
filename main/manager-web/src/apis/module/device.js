@@ -1,4 +1,3 @@
-import { toast } from '@/kit/toast'
 import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
@@ -87,7 +86,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('Failed to update OTA status:', err)
-                toast.error(err.msg || 'Failed to update OTA status')
+                RequestService.showFailure(err)
                 RequestService.reAjaxFun(() => {
                     this.updateDeviceInfo(id, payload, callback, failCallback)
                 })

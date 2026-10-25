@@ -7,8 +7,9 @@ import { computed, reactive, ref, watch } from 'vue'
 import { createVoicePrint, updateVoicePrint } from '@/api/voiceprint'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { notifyRequestError } from '@/utils/requestError'
 import { toast } from '@/utils/toast'
-import { filterRecordings, INTRO_MAX, NAME_MAX, payloadOf, serverSaid, validate, withCurrent } from '../voiceprintModel.mjs'
+import { filterRecordings, INTRO_MAX, NAME_MAX, payloadOf, validate, withCurrent } from '../voiceprintModel.mjs'
 
 interface Recording { audioId: string, text: string, speaker: string }
 
@@ -111,8 +112,7 @@ async function submit() {
   }
   catch (error) {
     console.error('Failed to save speaker:', error)
-    if (!serverSaid(error))
-      toast.error(t('mVp.saveFailed'))
+    notifyRequestError(error, 'mVp.saveFailed')
   }
   finally {
     saving.value = false

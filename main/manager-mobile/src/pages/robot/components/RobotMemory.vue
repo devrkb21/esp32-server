@@ -2,8 +2,8 @@
 import type { MemoryNote } from '@/api/companion'
 import { computed, ref, watch } from 'vue'
 import { t } from '@/i18n'
+import { memoryDay, memoryKindKey, memoryList, memorySettings } from '@/utils/companionUtils.mjs'
 import { tbConfirm } from '@/utils/tbConfirm'
-import { memoryDay, memoryKindKey, memoryList, memorySettings } from '../../companion/companionUtils.mjs'
 import { useRobot } from './context'
 
 // What TinyBot remembers: after each voice chat it notes a few lasting things about the family and

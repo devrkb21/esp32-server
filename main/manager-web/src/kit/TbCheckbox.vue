@@ -37,11 +37,12 @@ function onChange(e) {
 .tb-check__el { position: absolute; opacity: 0; width: 22px; height: 22px; margin: 0; cursor: pointer; }
 .tb-check__box {
   width: 20px; height: 20px; flex: none; display: grid; place-items: center;
-  border: 1.5px solid var(--tb-ink); border-radius: 5px; background: var(--tb-paper); color: var(--tb-on-action);
+  border: 1.5px solid var(--tb-ink); border-radius: 5px; background: var(--tb-paper); color: var(--tb-paper);
   transition: background-color var(--tb-t-hover) var(--tb-ease);
 }
-.tb-check__el:checked + .tb-check__box, .tb-check__el:indeterminate + .tb-check__box { background: var(--tb-action); border-color: var(--tb-action); }
+/* checked in ink, like the switch: orange stays the page's one action */
+.tb-check__el:checked + .tb-check__box, .tb-check__el:indeterminate + .tb-check__box { background: var(--tb-ink); border-color: var(--tb-ink); }
 .tb-check__el:focus-visible + .tb-check__box { outline: 2px solid var(--tb-focus); outline-offset: 2px; }
-.tb-check__dash { width: 10px; height: 2px; background: var(--tb-on-action); }
+.tb-check__dash { width: 10px; height: 2px; background: var(--tb-paper); }
 .tb-check.is-disabled { opacity: .45; cursor: not-allowed; }
 </style>

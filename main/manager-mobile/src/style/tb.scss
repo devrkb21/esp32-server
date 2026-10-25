@@ -39,6 +39,10 @@
   --tb-ok: #0B7A4A;
   --tb-warn: #8F5F08;
   --tb-danger: #B81E18;
+  /* state marks on a toast (the toast is ink on paper: inverted, so the lifted inks) */
+  --tb-toast-ok: #7FD8A8;
+  --tb-toast-danger: #FF8A80;
+  --tb-toast-warn: #F2C46B;
   --tb-focus: #1F4FA3;
   --tb-font-display: "Libre Franklin", "Anek Bangla", "Hind Siliguri", system-ui, sans-serif;
   --tb-font-text: "Public Sans", "Hind Siliguri", system-ui, sans-serif;
@@ -85,6 +89,9 @@
   --tb-ok: #3DBE84;
   --tb-warn: #E3A73A;
   --tb-danger: #FF5A4E;
+  --tb-toast-ok: #0B7A4A;
+  --tb-toast-danger: #B81E18;
+  --tb-toast-warn: #8F5F08;
   --tb-focus: #7BA2F0;
   --tb-shadow-sheet: 0 12px 32px rgba(0, 0, 0, .5), 0 2px 6px rgba(0, 0, 0, .3);
 }

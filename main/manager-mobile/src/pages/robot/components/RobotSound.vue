@@ -2,7 +2,6 @@
 import type { DisplaySettings, RobotPage } from '@/api/companion'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { t } from '@/i18n'
-import { toast } from '@/utils/toast'
 import {
   DIM_PRESETS,
   DISPLAY_MAX,
@@ -13,7 +12,8 @@ import {
   OFF_PRESETS,
   ROBOT_PAGES,
   robotPages,
-} from '../../companion/companionUtils.mjs'
+} from '@/utils/companionUtils.mjs'
+import { toast } from '@/utils/toast'
 import { presetChoice, reportedVolume, sliderVolume, typedMinutes, volumeFromPhone } from '../robotModel.mjs'
 import { useRobot } from './context'
 

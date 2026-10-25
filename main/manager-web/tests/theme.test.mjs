@@ -130,7 +130,7 @@ describe('ThemeGenerator chat font', () => {
   });
 
   it('locales drop the old font strings', () => {
-    for (const loc of ['en', 'de', 'vi', 'pt_BR']) {
+    for (const loc of ['en', 'bn']) {
       const text = fs.readFileSync(path.resolve(process.cwd(), `src/i18n/${loc}.js`), 'utf8');
       expect(text).not.toMatch(/'themeGen\.font\.|'themeGen\.summary\.font'/);
     }

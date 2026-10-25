@@ -11,7 +11,8 @@ import { normalizeLanguage } from '@/store/lang'
 import { getEnvBaseUrl } from '@/utils'
 import { safePagePath } from '@/utils/linkCode.mjs'
 import { toast } from '@/utils/toast'
-import { ContentTypeEnum, ResultEnum, ShowMessage } from './enum'
+import { ContentTypeEnum, ResultEnum } from './enum'
+import { httpStatusKey, networkErrorKey, requestErrorMessage } from './errorText.mjs'
 
 // Language mapping for Accept-Language header
 const langMap: Record<Language, string> = {
@@ -20,16 +21,25 @@ const langMap: Record<Language, string> = {
 }
 
 /**
- * Turn a transport failure (no response at all) into one short, actionable message. uni.request
- * reports these as errMsg strings such as "request:fail timeout" or "request:fail abort".
+ * Every error this layer shows is one plain line in the app's language (errorText.mjs); the raw
+ * server or transport text goes to the console only. A thrown error carries `shown: true` when it
+ * was toasted here, so screens do not toast it again (src/utils/requestError.ts).
  */
-function networkErrorMessage(error: any): string {
-  const raw = String(error?.errMsg || error?.message || error || '').toLowerCase()
-  if (raw.includes('timeout'))
-    return t('network.timeout')
-  if (raw.includes('abort'))
-    return ''
-  return t('network.unreachable')
+function markShown(err: any) {
+  try {
+    if (err && typeof err === 'object')
+      err.shown = true
+  }
+  catch {}
+  return err
+}
+
+/** A business error (HTTP 200, code not 0): the message keeps the "Request error [code]: msg" form. */
+function businessError(code: number | string, msg: string) {
+  const err: any = new Error(`Request error [${code}]: ${msg}`)
+  err.code = Number(code)
+  err.serverMsg = msg
+  return err
 }
 
 let lastNetworkToastAt = 0
@@ -103,7 +113,7 @@ const alovaInstance = createAlova({
     if (currentProtocol === 'https:' && requestProtocol === 'http') {
       const errorMessage = t('network.mixedContent')
       toast.error(errorMessage)
-      throw new Error(errorMessage)
+      throw markShown(new Error(errorMessage))
     }
 
     // Set default Content-Type
@@ -151,47 +161,61 @@ const alovaInstance = createAlova({
         return response
       }
 
-      // Handle HTTP status code errors
+      // The session ended (HTTP 401 or code 401): sign in again, then come back to this page
+      const body = (rawData && typeof rawData === 'object' ? rawData : {}) as IResponse
+      if (statusCode === ResultEnum.Unauthorized || (statusCode === 200 && Number(body.code) === ResultEnum.Unauthorized)) {
+        console.warn('[Request] session ended', method.url, body.msg || errMsg)
+        uni.removeStorageSync('token')
+        toast.info(t('request.sessionEnded'))
+        uni.reLaunch({ url: loginWithReturn() })
+        throw markShown(businessError(ResultEnum.Unauthorized, String(body.msg || 'Unauthorized')))
+      }
+
+      // HTTP status errors: a plain line for the status, the raw text to the console only
       if (statusCode !== 200) {
-        const errorMessage = ShowMessage(statusCode) || `HTTP request error [${statusCode}]`
-        console.error('errorMessage===>', errorMessage)
-        toast.error(errorMessage)
-        throw new Error(`${errorMessage}：${errMsg}`)
+        console.error(`[Request] HTTP ${statusCode}`, method.url, errMsg, rawData)
+        const err: any = new Error(`HTTP request error [${statusCode}]`)
+        err.status = statusCode
+        if (config.meta?.toast !== false) {
+          toast.error(t(httpStatusKey(statusCode)))
+          markShown(err)
+        }
+        throw err
       }
 
       // Handle business logic errors
-      const { code, msg, data } = rawData as IResponse
+      const { code, msg, data } = body
       if (code !== ResultEnum.Success) {
-      // Check if token is expired
-        if (code === ResultEnum.Unauthorized) {
-        // Clear token and navigate to login page
-          uni.removeStorageSync('token')
-          uni.reLaunch({ url: loginWithReturn() })
-          throw new Error(`Request error [${code}]: ${msg}`)
-        }
-
         if (config.meta?.isExposeError) {
           return Promise.reject(msg)
         }
 
+        console.warn(`[Request] code ${code}`, method.url, msg)
+        const err = businessError(code, String(msg ?? ''))
         if (config.meta?.toast !== false) {
-          toast.warning(msg)
+          // the server's own words only when they are meant for people, else a plain line
+          const said = requestErrorMessage(err, 'request.failed')
+          toast.warning(said.text || t(said.key || 'request.failed'))
+          markShown(err)
         }
-        throw new Error(`Request error [${code}]: ${msg}`)
+        throw err
       }
       // Successful response, return business data
       return data
     },
     // No HTTP response at all: offline, wrong server address, server down, timeout
     onError: (error, method) => {
-      const message = networkErrorMessage(error)
+      const key = networkErrorKey(error)
       const now = Date.now()
-      // One toast per burst: a page firing several requests at once shows it once
-      if (message && method.config.meta?.toast !== false && now - lastNetworkToastAt > 3000) {
-        lastNetworkToastAt = now
-        toast.error(message)
-      }
       console.error('[Request failed]', method.url, error)
+      if (key && method.config.meta?.toast !== false) {
+        // One toast per burst: a page firing several requests at once shows it once
+        if (now - lastNetworkToastAt > 3000) {
+          lastNetworkToastAt = now
+          toast.error(t(key))
+        }
+        markShown(error)
+      }
       throw error
     },
   }),

@@ -33,7 +33,7 @@
         :select-all-label="$t('devices.selectAll')" :select-row-label="$t('devices.selectRow')" :row-class="rowClass">
         <template #cell-robot="{ row }">
           <div class="dv-bot">
-            <TbFace v-if="row.features.includes('companion')" class="dv-bot__face" :mood="faceMood(row)" :width="72" :alt="$t('devices.faceAlt', { name: nameOf(row) })" />
+            <TbFace v-if="row.features.includes('companion')" class="dv-bot__face" :mood="faceMood(row)" :width="64" :alt="$t('devices.faceAlt', { name: nameOf(row) })" />
             <span v-else class="dv-bot__face dv-bot__device" aria-hidden="true"><TbIcon name="devices" :size="24" /></span>
             <div class="dv-bot__text">
               <TbInput v-if="editing === row.device_id" :ref="setAliasInput" v-model="draft" size="s" :maxlength="64"
@@ -47,8 +47,14 @@
           </div>
         </template>
 
+        <!-- the same connection word as every page (src/shell/robotStatus.js): never "online"
+             before the companion server has heard from the robot -->
         <template #cell-state="{ row }">
-          <span class="dv-state" :class="`is-${row.state}`"><i aria-hidden="true"></i>{{ $t(`devices.state.${row.state}`) }}</span>
+          <div class="dv-state" :class="`is-${statusFor(row).state}`">
+            <TbRobotStatus compact :status="statusFor(row)" />
+            <time class="dv-seen" :datetime="row.lastConnectedRaw ? new Date(row.lastConnectedRaw).toISOString() : null"
+              :title="row.lastConnectedRaw ? fullDate(row.lastConnectedRaw) : null">{{ seenLine(row) }}</time>
+          </div>
         </template>
 
         <template #cell-mac="{ row }">
@@ -62,11 +68,6 @@
             <TbSwitch :model-value="row.autoUpdate" :label="$t('devices.autoUpdate')" :loading="savingOta === row.device_id"
               @update:model-value="setAutoUpdate(row, $event)" />
           </div>
-        </template>
-
-        <template #cell-seen="{ row }">
-          <time class="dv-seen" :datetime="row.lastConnectedRaw ? new Date(row.lastConnectedRaw).toISOString() : null"
-            :title="row.lastConnectedRaw ? fullDate(row.lastConnectedRaw) : null">{{ ago(row.lastConnectedRaw) }}</time>
         </template>
 
         <template #cell-actions="{ row }">
@@ -109,6 +110,7 @@
 </template>
 
 <script setup>
+import { peopleText } from '@/utils/errorText.mjs';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -118,10 +120,10 @@ import { confirm } from '@/kit/confirm';
 import { digits } from '@/kit/calendar';
 import { loadProducts, loadRobots, products, robot, selectRobot } from '@/shell/robot';
 import { distinctProducts, productName, productOf } from '@/shell/products';
+import { checkCompanions, noteMqttMap, statusOf } from '@/shell/robotStatus';
 import { ageOf } from '@/utils/companion.mjs';
-import { robotState } from '@/views/today/todayModel';
 import {
-  PAGE_SIZES, aliasChange, canGenerateLook, filterRows, onlineFrom, pageOf, parseStatusMap, rowState, toRows,
+  PAGE_SIZES, aliasChange, canGenerateLook, filterRows, pageOf, parseStatusMap, toRows,
 } from './devicesModel';
 import MacMask from './MacMask.vue';
 import VolumeSheet from './VolumeSheet.vue';
@@ -140,7 +142,6 @@ const loading = ref(false);
 const failed = ref(false);
 const refreshing = ref(false);
 const statusKnown = ref(false); // the MQTT gateway answered with a status map
-const fine = ref({});           // device_id -> robotState of its companion view
 const firmwareTypes = ref([]);
 const query = ref('');
 const page = ref(1);
@@ -158,10 +159,11 @@ let aliasInput = null;
 
 const columns = computed(() => [
   { key: 'robot', label: t('devices.col.robot') },
-  { key: 'state', label: t('devices.col.state'), width: '124px' },
-  { key: 'mac', label: t('devices.col.mac'), width: '184px' },
-  { key: 'firmware', label: t('devices.col.firmware'), width: '196px' },
-  { key: 'seen', label: t('devices.col.seen'), width: '136px' },
+  // the state column also says when the robot was last connected (one column less, so the table
+  // fits a 1280px screen without scrolling sideways)
+  { key: 'state', label: t('devices.col.state'), width: '150px' },
+  { key: 'mac', label: t('devices.col.mac'), width: '148px' },
+  { key: 'firmware', label: t('devices.col.firmware'), width: '156px' },
   { key: 'actions', label: t('devices.col.actions'), width: '1%' },
 ]);
 // Each robot's product (TinyBot, a generic Nobix device, ...). With more than one product the
@@ -182,7 +184,7 @@ const filtered = computed(() => {
   return list;
 });
 const pageRows = computed(() => pageOf(filtered.value, page.value, pageSize.value));
-const onlineCount = computed(() => rows.value.filter((r) => ['online', 'sleeping', 'updating'].includes(r.state)).length);
+const onlineCount = computed(() => rows.value.filter((r) => statusFor(r).state === 'online').length);
 const title = computed(() => agentName.value || t('devices.titleFallback'));
 const description = computed(() => {
   if (!agentId.value || !rows.value.length) return t('devices.desc');
@@ -196,8 +198,18 @@ watch([query, productFilter], () => { page.value = 1; selected.value = []; });
 watch([page, pageSize], () => { selected.value = []; });
 
 const nameOf = (r) => r.alias || r.macAddress || t('devices.unnamed');
-const rowClass = (r) => (r.state === 'offline' ? 'dv-row is-offline' : 'dv-row');
-const faceMood = (r) => ({ offline: 'offline', sleeping: 'sleepy', unknown: 'awake' }[r.state] || 'awake');
+// Each row's connection status, from the shared status (src/shell/robotStatus.js), as on Robots.
+const deviceOf = (r) => ({ id: r.device_id, macAddress: r.macAddress, board: r.model, features: r.features });
+function statusFor(r) {
+  return statusOf(r.device_id, { item: { features: r.features, lastConnectedAt: r.lastConnectedRaw }, now: clock.value });
+}
+const rowClass = (r) => (statusFor(r).state === 'offline' ? 'dv-row is-offline' : 'dv-row');
+// The face: awake when online, asleep when offline, puzzled when the server side is not right.
+function faceMood(r) {
+  const { state } = statusFor(r);
+  if (state === 'online') return 'awake';
+  return state === 'offline' || state === 'checking' ? 'offline' : 'confused';
+}
 function boardName(key) {
   const hit = firmwareTypes.value.find((f) => f.key === key);
   return hit ? hit.name : key;
@@ -212,6 +224,13 @@ function addedText(r) {
   }
   return r.bindTime && r.bindTime !== '-' ? t('devices.addedOn', { date: r.bindTime }) : '';
 }
+/** The state cell's second line: when the robot was last connected (its last sync when not syncing). */
+function seenLine(r) {
+  const st = statusFor(r);
+  if (st.state === 'not_syncing' && st.lastSync) return t('status.lastSync', { when: ago(st.lastSync) });
+  const at = st.lastSeen || r.lastConnectedRaw;
+  return at ? t('status.lastSeen', { when: ago(at) }) : t('devices.never');
+}
 function ago(ms) {
   if (ms === null || ms === undefined) return t('devices.never');
   const a = ageOf(ms / 1000, clock.value);
@@ -222,39 +241,20 @@ function ago(ms) {
 
 // ---------------------------------------------------------------- loading
 
-function applyStates() {
-  for (const r of rows.value) {
-    const f = fine.value[r.device_id];
-    if (statusKnown.value) r.state = rowState(r.deviceStatus, f);
-    else if (f) r.state = f;
-    else r.state = 'unknown';
-  }
-}
-
+// The gateway's online map, then the companion views of the companion robots it calls online
+// (each at most every 30 s, a few at a time: checkCompanions).
 function fetchStatus() {
   const id = agentId.value;
   if (!id) return;
-  Api.device.getDeviceStatus(id, ({ data }) => {
+  const done = (map) => {
     if (id !== agentId.value) return;
     clock.value = Date.now();
-    const map = parseStatusMap(data);
     statusKnown.value = !!map;
-    for (const r of rows.value) r.deviceStatus = map ? onlineFrom(map, r) : 'offline';
-    applyStates();
-  }, () => { statusKnown.value = false; applyStates(); });
-}
-
-// Sleeping and updating come from each robot's own companion view (the gateway only knows online).
-function fetchFine() {
-  for (const r of rows.value) {
-    const deviceId = r.device_id;
-    if (!r.features.includes('companion')) continue; // a device without the companion view
-    Api.companion.getCompanion(deviceId, (res) => {
-      const view = res && res.data && res.data.data;
-      if (view) fine.value = { ...fine.value, [deviceId]: robotState(view, new Date()) };
-      applyStates();
-    }, () => {});
-  }
+    const devs = rows.value.map(deviceOf);
+    noteMqttMap(map, devs);
+    checkCompanions(devs);
+  };
+  Api.device.getDeviceStatus(id, ({ data }) => done(parseStatusMap(data)), () => done(null));
 }
 
 async function load() {
@@ -273,10 +273,7 @@ async function load() {
       productFilter.value = 'all';
       selected.value = [];
       query.value = '';
-      fine.value = {};
-      applyStates();
       fetchStatus();
-      fetchFine();
     } else {
       failed.value = true;
       toast.error(data.msg || t('devices.loadFailed'));
@@ -303,14 +300,13 @@ async function fetchFirmwareTypes() {
     const res = await Api.dict.getDictDataByType('FIRMWARE_TYPE');
     firmwareTypes.value = Array.isArray(res && res.data) ? res.data : [];
   } catch (e) {
-    toast.error((e && e.message) || t('devices.firmwareTypesFailed'));
+    toast.error(peopleText(e && e.message) || t('devices.firmwareTypesFailed'));
   }
 }
 
 function refreshNow() {
   refreshing.value = true;
   fetchStatus();
-  fetchFine();
   setTimeout(() => { refreshing.value = false; }, 800);
 }
 
@@ -471,7 +467,7 @@ watch(agentId, () => { rows.value = []; start(); });
 /* the robot cell: its face window, its name (tap to rename), board and day it joined */
 .dv-bot { display: flex; align-items: center; gap: var(--tb-s3); min-width: 0; }
 .dv-bot__face { flex: none; }
-.dv-bot__device { display: grid; place-items: center; width: 72px; aspect-ratio: 4 / 3; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); }
+.dv-bot__device { display: grid; place-items: center; width: 64px; aspect-ratio: 4 / 3; border: 1px solid var(--tb-rule); border-radius: 8px; color: var(--tb-ink-2); }
 .dv-bot__product { margin-right: 8px; height: 20px; padding: 0 7px; }
 .dv-bot__text { display: grid; gap: 2px; min-width: 0; }
 .dv-bot__name {
@@ -479,23 +475,19 @@ watch(agentId, () => { rows.value = []; start(); });
   border: 0; background: none; text-align: left; cursor: text;
   font-family: var(--tb-font-display); font-weight: 700; font-size: var(--tb-fs-16); color: var(--tb-ink);
 }
-.dv-bot__name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dv-bot__name span { overflow-wrap: anywhere; } /* a long name wraps instead of widening the table */
 .dv-bot__name .tb-icon { color: var(--tb-ink-3); opacity: 0; transition: opacity var(--tb-t-hover) var(--tb-ease); }
 .dv-bot__name:hover .tb-icon, .dv-bot__name:focus-visible .tb-icon { opacity: 1; }
 .dv-bot__name.is-empty { color: var(--tb-ink-2); font-weight: 600; }
-.dv-bot__meta { font-size: var(--tb-fs-13); color: var(--tb-ink-2); white-space: nowrap; }
+/* the meta line wraps, so the robot column never pushes the firmware switch and actions out of a 1280px screen */
+.dv-bot__meta { font-size: var(--tb-fs-13); color: var(--tb-ink-2); }
+.dv__table td:has(.dv-state) { min-width: 150px; }
 .dv-bot .tb-input { width: min(260px, 100%); }
 
-/* the state word with the name plate's mark: online solid green, offline hollow, sleeping blue,
-   updating ochre; unknown is a dashed ring and always says so */
-.dv-state { display: inline-flex; align-items: center; gap: 7px; font-size: var(--tb-fs-14); font-weight: 600; white-space: nowrap; }
-.dv-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--tb-ok); flex: none; }
-.dv-state.is-offline { color: var(--tb-ink-2); }
-.dv-state.is-offline i { background: transparent; border: 1.5px solid var(--tb-ink-3); }
-.dv-state.is-sleeping i { background: var(--tb-message); }
-.dv-state.is-updating i { background: var(--tb-routine-mark); }
-.dv-state.is-unknown { color: var(--tb-ink-2); font-weight: 500; }
-.dv-state.is-unknown i { background: transparent; border: 1.5px dashed var(--tb-ink-3); }
+/* the state word: the shared compact status (TbRobotStatus); long words wrap inside the column */
+.dv-state { display: grid; gap: 2px; justify-items: start; }
+.dv-state .tb-rstat.is-compact { white-space: normal; align-items: baseline; line-height: 1.35; }
+.dv-state .tb-rstat.is-compact .tb-rstat__dot { align-self: center; }
 
 .dv-row.is-offline .dv-bot__name { color: var(--tb-ink-2); }
 
@@ -503,7 +495,7 @@ watch(agentId, () => { rows.value = []; start(); });
 .dv-fw__ver { font-family: var(--tb-font-display); font-weight: 700; font-size: var(--tb-fs-15); }
 .dv-fw .tb-switch { min-height: 36px; }
 .dv-fw .tb-switch__label { font-size: var(--tb-fs-13); color: var(--tb-ink-2); white-space: nowrap; }
-.dv-seen { font-size: var(--tb-fs-14); color: var(--tb-ink-2); white-space: nowrap; }
+.dv-seen { font-size: var(--tb-fs-12); color: var(--tb-ink-2); }
 .dv-more {
   display: grid; place-items: center; width: 40px; height: 40px; flex: none;
   border: 0; border-radius: var(--tb-radius-pill); background: transparent; color: var(--tb-ink);

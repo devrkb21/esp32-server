@@ -2,7 +2,7 @@
 import type { CareSettings, NightSettings } from '@/api/companion'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { t } from '@/i18n'
-import { clampInt, isHHMM, isMinutes, NIGHT_LIGHT_MAX, NIGHT_LIGHT_PRESETS } from '../../companion/companionUtils.mjs'
+import { clampInt, isHHMM, isMinutes, NIGHT_LIGHT_MAX, NIGHT_LIGHT_PRESETS } from '@/utils/companionUtils.mjs'
 import { useDay } from '../dayContext'
 import { LONELY_LIMITS } from '../dayModel.mjs'
 import DayField from './DayField.vue'

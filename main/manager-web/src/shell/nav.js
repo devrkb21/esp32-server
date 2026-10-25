@@ -3,7 +3,8 @@
 // `feature: <name>` items show only when that feature is on (pub config systemWebMenu.features);
 // `ownerOnly` items show to people who are not admins (admins reach them in the back office).
 // `needs: <feature>` items show only when the chosen robot's product has that feature (a generic
-// Nobix device has no Day or Look); with no robot chosen everything shows.
+// Nobix device has no Day or Look); with no robot chosen everything shows. `unless: <feature>`
+// items hide when the robot has that feature (History lives inside Messages when there is one).
 import { allows } from './products';
 
 export const NAV = [
@@ -13,6 +14,7 @@ export const NAV = [
       { to: '/today', label: 'nav.today', icon: 'today', tab: true },
       { to: '/day', label: 'nav.day', icon: 'day', tab: true, ink: 'alarm', needs: 'day' },
       { to: '/messages', label: 'nav.messages', icon: 'message', tab: true, ink: 'message', needs: 'messages' },
+      { to: '/history', label: 'nav.history', icon: 'history', ink: 'message', needs: 'chat_history', unless: 'messages' },
       { to: '/look', label: 'nav.look', icon: 'look', tab: true, ink: 'look', needs: 'look' },
       { to: '/robot', label: 'nav.robot', icon: 'settings', needs: 'companion' },
     ],
@@ -66,7 +68,13 @@ export function featuresOf(pubConfig) {
 
 /** The phone's tab bar for the chosen robot's features (`null`: no robot, every tab). */
 export function visibleTabs(features) {
-  return TABS.filter((t) => allows(features, t.needs));
+  return TABS.filter((t) => shows(features, t));
+}
+
+/** Does an item show for a robot's features? (`needs` it has; not `unless` it has; null: no robot) */
+export function shows(features, item) {
+  if (!allows(features, item.needs)) return false;
+  return !item.unless || (Array.isArray(features) && !features.includes(item.unless));
 }
 
 /** The groups one person sees (`features`: the chosen robot's, or null when none is chosen). */
@@ -75,7 +83,7 @@ export function visibleNav(isAdmin, pubConfig, features = null) {
   return NAV.filter((g) => !g.admin || isAdmin)
     .map((g) => ({
       ...g,
-      items: g.items.filter((i) => (!i.feature || on(i.feature)) && !(i.ownerOnly && isAdmin) && allows(features, i.needs)),
+      items: g.items.filter((i) => (!i.feature || on(i.feature)) && !(i.ownerOnly && isAdmin) && shows(features, i)),
     }))
     .filter((g) => g.items.length);
 }

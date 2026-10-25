@@ -1,6 +1,6 @@
 // The Robot screen's own rules (pure: tested in robotModel.test.mjs with `node --test`).
-// Field rules (display, proactive, memory, pages) stay in ../companion/companionUtils.mjs and the
-// update flow in ../companion/firmwareUpdate.mjs; this file says how the screen reads a companion
+// Field rules (display, proactive, memory, pages) stay in src/utils/companionUtils.mjs and the
+// update flow in src/utils/firmwareUpdate.mjs; this file says how the screen reads a companion
 // view: jobs, status rows, sync words. Mirrors manager-web/src/views/robot/robotModel.js.
 
 /** Longest robot name and owner name the screen accepts (legacy input maxlength). */
