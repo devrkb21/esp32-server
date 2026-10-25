@@ -394,6 +394,9 @@ defineExpose({ refresh })
         <tb-button icon="wifi" block @click="goSetup">
           {{ t('robots.setup') }}
         </tb-button>
+        <text class="dv__hint">
+          {{ t('robots.add.howto') }}
+        </text>
       </view>
     </block>
 

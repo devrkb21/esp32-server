@@ -340,7 +340,7 @@ function goRobots() {
           </text>
         </view>
 
-        <view class="look__savebar">
+        <view class="look__savebar" :class="{ 'is-pinned': canSave || saving }">
           <tb-sync class="look__sync" :state="sync.state" :text="sync.text" />
           <tb-button variant="primary" icon="check" :disabled="!canSave" :loading="saving" @click="save">
             {{ t('lookPage.save') }}
@@ -579,7 +579,20 @@ function goRobots() {
   flex: none;
   image-rendering: pixelated;
 }
-/* one row of moods that scrolls sideways; each label stays on one line */
+/* one row of moods that scrolls sideways; each label stays on one line. The row bleeds through the
+   20 px gutter to the screen edge so a chip slides out of view instead of being cut at the gutter;
+   the padding sits inside the scrolled content so the first and last chips still line up with it. */
+.look__moods {
+  margin: 0 -20px;
+  width: calc(100% + 40px);
+  scroll-padding: 0 20px;
+}
+.look__moods .uni-scroll-view {
+  scroll-padding: 0 20px;
+}
+.look__moods .tb-choice {
+  padding: 2px 20px;
+}
 .look__moods :deep(.tb-choice__opt) {
   flex: none;
   white-space: nowrap;
@@ -590,10 +603,11 @@ function goRobots() {
   line-height: 1.5;
 }
 
-/* phones: the save bar rides above the bottom tab bar (3 px rule + 52 px tabs + 14 px padding) */
+/* the save bar sits in the flow; only with an unsaved change (or while saving) does it pin itself
+   above the fixed bottom tab bar (3 px rule + 52 px tabs + 14 px padding), under a hairline so the
+   tab bar keeps the only heavy rule */
 .look__savebar {
-  position: sticky;
-  bottom: calc(69px + env(safe-area-inset-bottom));
+  position: static;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -601,7 +615,11 @@ function goRobots() {
   gap: 12px;
   padding: 10px 0;
   background: var(--tb-paper);
-  border-top: 3px solid var(--tb-rule);
+  border-top: 1px solid var(--tb-rule);
+}
+.look__savebar.is-pinned {
+  position: sticky;
+  bottom: calc(69px + env(safe-area-inset-bottom));
 }
 .look__sync {
   flex: 1 1 auto;
@@ -676,45 +694,36 @@ function goRobots() {
   color: var(--tb-ink-2);
 }
 
-/* chat font tiles: the sample sits on the robot's 128 px subtitle strip, shown at 2x */
+/* chat fonts: ruled rows; the sample sits on the robot's 128 px subtitle strip, shown at 2x, with
+   the name and size beside it (below it when the phone is too narrow) and a check on the chosen row */
 .look__fonts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 .look__font {
-  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
   min-width: 0;
   min-height: 44px;
-  padding: 10px;
-  border: 1.5px solid var(--tb-rule-soft);
-  border-radius: var(--tb-radius-m);
-  background: var(--tb-paper);
-  transition:
-    border-color var(--tb-t-hover) var(--tb-ease),
-    background-color var(--tb-t-hover) var(--tb-ease);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--tb-rule-soft);
+  transition: opacity var(--tb-t-hover) var(--tb-ease);
 }
 .look__font.is-press {
-  background: var(--tb-paper-2);
-}
-.look__font.is-on {
-  border-color: var(--tb-ink);
-  background: var(--tb-paper-2);
-  box-shadow: inset 0 3px 0 var(--tb-look);
+  opacity: 0.7;
 }
 .look__font.is-off {
   opacity: 0.5;
 }
 .look__fontcheck {
-  position: absolute;
-  right: 10px;
-  bottom: 12px;
+  flex: none;
   color: var(--tb-look);
 }
 .look__strip {
+  flex: none;
   width: 256px;
   max-width: 100%;
   height: 44px;
@@ -741,14 +750,17 @@ function goRobots() {
   font-family: var(--tb-font-text);
 }
 .look__fonttext {
+  flex: 1 1 7em;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-right: 26px;
 }
 .look__fontname {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
+}
+.look__font.is-on .look__fontname {
+  font-weight: 700;
 }
 .look__fontmeta {
   font-size: 13px;
@@ -779,13 +791,9 @@ function goRobots() {
   .look__controls {
     flex: 1;
   }
-  .look__savebar {
+  .look__savebar,
+  .look__savebar.is-pinned {
     position: static;
-    border-top-width: 1px;
-  }
-  .look__fonts {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
   }
 }
 </style>

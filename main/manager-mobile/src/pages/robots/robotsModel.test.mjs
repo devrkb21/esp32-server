@@ -18,6 +18,7 @@ import {
   parseTime,
   toRobot,
   versionText,
+  voiceName,
 } from './robotsModel.mjs'
 
 test('the bind code keeps six digits, Bangla digits included', () => {
@@ -93,4 +94,14 @@ test('version, volume and alias', () => {
   assert.deepEqual(aliasChange('A', ' A '), { ok: false, text: 'A', reason: 'same' })
   assert.equal(aliasChange('', 'x'.repeat(65)).reason, 'tooLong')
   assert.deepEqual(aliasChange('', 'Desk'), { ok: true, text: 'Desk' })
+})
+
+test('voiceName: Edge voice ids become the speaker, Bangla names in Bangla', () => {
+  assert.equal(voiceName('bn-BD-NabanitaNeural', 'en'), 'Nabanita')
+  assert.equal(voiceName('bn-BD-NabanitaNeural', 'bn'), 'নবনীতা')
+  assert.equal(voiceName('bn-IN-TanishaaNeural', 'bn'), 'তানিশা')
+  assert.equal(voiceName('en-US-AndrewMultilingualNeural', 'bn'), 'Andrew')
+  assert.equal(voiceName('Warm voice', 'bn'), 'Warm voice')
+  assert.equal(voiceName('', 'bn'), '')
+  assert.equal(voiceName(null, 'en'), '')
 })

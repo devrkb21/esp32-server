@@ -17,7 +17,7 @@ import { computed, onMounted, ref } from 'vue'
 import { getChatSessions } from '@/api/chat-history/chat-history'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
-import { dateParts, mergeSessions, refreshFirstPage, SESSIONS_PAGE } from '../messages/messagesModel.mjs'
+import { convPart, dateParts, mergeSessions, refreshFirstPage, SESSIONS_PAGE } from '../messages/messagesModel.mjs'
 
 defineOptions({ name: 'ChatHistory' })
 
@@ -88,11 +88,11 @@ function sessionTitle(s: ChatSession) {
     return t('mmsg.today')
   if (w === 'yesterday')
     return t('mmsg.yesterday')
-  return `${t('mmsg.conv.untitled')} ${s.sessionId.substring(0, 8)}`
+  const part = convPart(s.createdAt)
+  return part ? t(`mmsg.conv.${part}`) : t('mmsg.conv.untitled')
 }
 function sessionSub(s: ChatSession) {
-  const p = parts(s.createdAt)
-  const bits = [p.word === 'older' ? `${p.day} ${p.month}` : '', p.time]
+  const bits = [parts(s.createdAt).time]
   if (s.chatCount)
     bits.push(t('mmsg.conv.lines', { n: num(s.chatCount > 99 ? '99+' : s.chatCount) }))
   return bits.filter(Boolean).join(' · ')

@@ -113,7 +113,7 @@ function name(c: CompanionCommand) {
             {{ r.ago(c.ts) }}
           </text>
         </view>
-        <tb-sync :state="c.status === 'done' ? 'applied' : 'pending'" :text="c.status === 'done' ? t('companion.act.done') : t('companion.act.pending')" />
+        <tb-sync :state="c.status === 'done' ? 'applied' : 'pending'" :text="c.status === 'done' ? t('mrobot.jobs.done') : t('companion.act.pending')" />
       </view>
     </view>
   </tb-section>

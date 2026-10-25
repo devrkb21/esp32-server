@@ -64,7 +64,7 @@ const rows = computed(() => dayRows(view.value, date.value, (k: string, p?: any)
   if (p && p.time)
     p = { ...p, time: timeText(p.time, lang.value, lang.value === 'bn') }
   return t(k, p || {})
-}))
+}, { lang: lang.value, nowMinutes: isToday.value ? nowMinutes.value : -1 }))
 
 const commands = [
   { type: 'story', icon: 'story', label: 'today.cmd.story' },
@@ -169,7 +169,7 @@ watch(() => robot.deviceId, () => {
 
       <view class="today__act">
         <view class="today__say">
-          <tb-input v-model="line" class="today__sayin" size="l" :maxlength="200" confirm-type="send"
+          <tb-input v-model="line" class="today__sayin" size="l" :maxlength="300" confirm-type="send"
             :placeholder="t('today.sayPlaceholder')" :aria-label="t('today.sayLabel')" @confirm="say" />
           <tb-button variant="primary" size="l" :loading="sending" :disabled="!line.trim()" @click="say">{{ t('today.sayButton') }}</tb-button>
         </view>
@@ -221,8 +221,8 @@ watch(() => robot.deviceId, () => {
 .today__say { display: flex; gap: 8px; }
 .today__sayin { flex: 1; }
 .today__note { color: var(--tb-ink-2); font-size: 13px; }
-.today__deckwrap { white-space: nowrap; width: 100%; }
-.today__deck { display: inline-flex; gap: 8px; }
+.today__deckwrap { white-space: nowrap; margin: 0 -20px; width: calc(100% + 40px); }
+.today__deck { display: inline-flex; gap: 8px; padding: 0 20px; scroll-padding: 0 20px; }
 .today__day { padding-top: 12px; }
 .today__dayhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0 8px; }
 .today__dayhint { font-size: 12px; color: var(--tb-ink-2); }

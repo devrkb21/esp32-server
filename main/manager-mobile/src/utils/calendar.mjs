@@ -79,3 +79,27 @@ export function minutesOf(hhmm) {
   const [h, m] = String(hhmm || '0:0').split(':').map(Number);
   return (h || 0) * 60 + (m || 0);
 }
+
+/**
+ * The Bangla day-part word for an "HH:MM" time, so 12-hour Bangla times are not ambiguous:
+ * রাত before 4:00, ভোর to 6:00, সকাল to 12:00, দুপুর to 15:00, বিকেল to 17:00, সন্ধ্যা to 20:00,
+ * then রাত. Empty for other languages (their times stay 24-hour).
+ */
+export function dayPart(hhmm, lang) {
+  if (lang !== 'bn' || !hhmm) return '';
+  const m = minutesOf(hhmm);
+  if (m < 240) return 'রাত';
+  if (m < 360) return 'ভোর';
+  if (m < 720) return 'সকাল';
+  if (m < 900) return 'দুপুর';
+  if (m < 1020) return 'বিকেল';
+  if (m < 1200) return 'সন্ধ্যা';
+  return 'রাত';
+}
+
+/** "রাত ৯:০০" in Bangla, "21:00" otherwise. */
+export function timeWithPart(hhmm, lang) {
+  if (lang !== 'bn') return timeText(hhmm, lang);
+  if (!hhmm) return '';
+  return `${dayPart(hhmm, lang)} ${timeText(hhmm, lang, true)}`;
+}

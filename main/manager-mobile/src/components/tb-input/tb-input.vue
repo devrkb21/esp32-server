@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { t } from '@/i18n'
 
 const props = withDefaults(defineProps<{
   modelValue?: string | number
@@ -13,10 +14,13 @@ const props = withDefaults(defineProps<{
   clearable?: boolean
   confirmType?: 'send' | 'search' | 'next' | 'go' | 'done'
   ariaLabel?: string
-}>(), { modelValue: '', type: 'text', placeholder: '', size: 'm', icon: '', maxlength: 140, disabled: false, invalid: false, clearable: false, confirmType: 'done', ariaLabel: '' })
+  ariaDescribedby?: string
+}>(), { modelValue: '', type: 'text', placeholder: '', size: 'm', icon: '', maxlength: 140, disabled: false, invalid: false, clearable: false, confirmType: 'done', ariaLabel: '', ariaDescribedby: '' })
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void, (e: 'confirm', v: string): void, (e: 'blur'): void }>()
 const reveal = ref(false)
 function onInput(e: any) { emit('update:modelValue', e.detail.value) }
+function clear() { emit('update:modelValue', '') }
+function toggleReveal() { reveal.value = !reveal.value }
 </script>
 
 <template>
@@ -25,11 +29,15 @@ function onInput(e: any) { emit('update:modelValue', e.detail.value) }
     <input class="tb-input__el" :value="String(modelValue ?? '')" :type="type === 'password' ? 'text' : type"
       :password="type === 'password' && !reveal" :placeholder="placeholder" placeholder-class="tb-input__ph"
       :maxlength="maxlength" :disabled="disabled" :confirm-type="confirmType" :aria-label="ariaLabel || undefined"
+      :aria-invalid="invalid ? 'true' : undefined" :aria-describedby="ariaDescribedby || undefined"
       @input="onInput" @confirm="emit('confirm', String(modelValue ?? ''))" @blur="emit('blur')">
-    <view v-if="clearable && modelValue && !disabled" class="tb-input__btn" @click="emit('update:modelValue', '')">
+    <view v-if="clearable && modelValue && !disabled" class="tb-input__btn" role="button" tabindex="0" :aria-label="t('common.clear')"
+      @click="clear" @keydown.enter="clear" @keydown.space.prevent="clear">
       <tb-icon name="close" :size="16" />
     </view>
-    <view v-if="type === 'password'" class="tb-input__btn" @click="reveal = !reveal">
+    <view v-if="type === 'password'" class="tb-input__btn" role="button" tabindex="0"
+      :aria-label="reveal ? t('common.hidePassword') : t('common.showPassword')"
+      @click="toggleReveal" @keydown.enter="toggleReveal" @keydown.space.prevent="toggleReveal">
       <tb-icon :name="reveal ? 'eye-off' : 'eye'" :size="18" />
     </view>
   </view>
@@ -47,5 +55,6 @@ function onInput(e: any) { emit('update:modelValue', e.detail.value) }
 .tb-input__el { flex: 1; min-width: 0; height: calc(var(--h) - 4px); font-size: 16px; color: var(--tb-ink); background: transparent; }
 .tb-input__ph { color: var(--tb-ink-3); }
 .tb-input__icon { color: var(--tb-ink-2); }
-.tb-input__btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: var(--tb-ink-2); }
+.tb-input__btn { display: flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px; margin-right: -6px; border-radius: 8px; color: var(--tb-ink-2); outline: none; }
+.tb-input__btn:focus-visible { outline: 2px solid var(--tb-focus); outline-offset: 2px; }
 </style>

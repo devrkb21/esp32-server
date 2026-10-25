@@ -3,7 +3,7 @@ import type { CommandType, CompanionConfigPatch, CompanionDevice } from '@/api/c
 import { inject, reactive } from 'vue'
 import { getCompanion, sendCompanionCommand, updateCompanionConfig } from '@/api/companion'
 import { getCurrentLanguage, t } from '@/i18n'
-import { digits, timeText } from '@/utils/calendar.mjs'
+import { dayPart, digits, timeText, timeWithPart } from '@/utils/calendar.mjs'
 import { robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 
@@ -28,6 +28,10 @@ export interface DayCtx {
   lang: () => string
   num: (n: unknown) => string
   fmt: (hhmm: string | undefined | null) => string
+  /** the day-part word set small before a big time numeral ('রাত'; '' in English) */
+  part: (hhmm: string | undefined | null) => string
+  /** the time numeral alone: 12-hour in Bangla, 24h otherwise */
+  clock: (hhmm: string | undefined | null) => string
   refresh: (quiet?: boolean) => Promise<void>
   save: (patch: CompanionConfigPatch, area: string, okText?: string) => Promise<boolean>
   command: (type: CommandType, arg?: string | number, okText?: string, busyKey?: string) => Promise<boolean>
@@ -55,8 +59,10 @@ export function createDay(): DayCtx {
     busy: '',
     lang: () => getCurrentLanguage(),
     num: (n: unknown) => digits(n ?? '–', getCurrentLanguage()),
-    // 12-hour figures in Bangla, like the wall calendar
-    fmt: (hhmm: string | undefined | null) => timeText(hhmm || '', getCurrentLanguage(), getCurrentLanguage() === 'bn') || '–',
+    // Bangla: the day part and 12-hour figures, like the wall calendar ('রাত ৯:০০'); 24h otherwise
+    fmt: (hhmm: string | undefined | null) => (getCurrentLanguage() === 'bn' ? timeWithPart(hhmm || '', 'bn') : timeText(hhmm || '', getCurrentLanguage())) || '–',
+    part: (hhmm: string | undefined | null) => dayPart(hhmm || '', getCurrentLanguage()),
+    clock: (hhmm: string | undefined | null) => timeText(hhmm || '', getCurrentLanguage(), getCurrentLanguage() === 'bn') || '–',
     async refresh(quiet = false) {
       if (!robot.deviceId)
         return

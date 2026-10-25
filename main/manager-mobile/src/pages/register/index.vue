@@ -14,10 +14,11 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { register, sendSmsCode } from '@/api/auth'
 import { getCurrentLanguage, initI18n, t } from '@/i18n'
-import { faceMood, filledCount, hasCode, fullPhone, isPhone } from '@/pages/login/authKit.mjs'
+import { faceMood, filledCount, fullPhone, hasCode, isPhone } from '@/pages/login/authKit.mjs'
 import AuthField from '@/pages/login/components/auth-field.vue'
 import AuthFrame from '@/pages/login/components/auth-frame.vue'
 import CaptchaImage from '@/pages/login/components/captcha-image.vue'
+import { CODE_ATTRS, DIGITS_TYPE, PHONE_ATTRS, vFieldAttrs } from '@/pages/login/components/field-attrs'
 import LegalNote from '@/pages/login/components/legal-note.vue'
 import PickSheet from '@/pages/login/components/pick-sheet.vue'
 import { useCaptcha, useCountdown, usePubConfig } from '@/pages/login/useAuth'
@@ -205,7 +206,7 @@ onMounted(async () => {
           </text><tb-icon name="chevron-down" :size="14" />
         </view>
         <tb-input
-          v-model="form.mobile" type="number" :maxlength="15" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
+          v-model="form.mobile" v-field-attrs="PHONE_ATTRS" :type="DIGITS_TYPE" :maxlength="15" :placeholder="t('mauth.mobilePh')" :aria-label="t('mauth.mobile')"
           :invalid="!!errors.mobile" @update:model-value="touch('mobile')"
         />
       </AuthField>
@@ -241,7 +242,7 @@ onMounted(async () => {
 
       <AuthField v-if="mobileEnabled" :label="t('mauth.smsCode')" :error="errors.mobileCaptcha">
         <tb-input
-          v-model="form.mobileCaptcha" type="number" :maxlength="6" :placeholder="t('mauth.smsCodePh')" :aria-label="t('mauth.smsCode')"
+          v-model="form.mobileCaptcha" v-field-attrs="CODE_ATTRS" :type="DIGITS_TYPE" :maxlength="6" :placeholder="t('mauth.smsCodePh')" :aria-label="t('mauth.smsCode')"
           :invalid="!!errors.mobileCaptcha" @update:model-value="touch('mobileCaptcha')"
         />
         <template #aside>

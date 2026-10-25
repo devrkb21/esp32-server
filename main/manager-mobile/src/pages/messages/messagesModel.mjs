@@ -206,3 +206,23 @@ export function refreshFirstPage(list, page, size = SESSIONS_PAGE) {
   const rest = (list || []).slice(size)
   return mergeSessions(page || [], rest)
 }
+
+/**
+ * The time-of-day name of an untitled conversation, from the hour it started:
+ * morning 5-11, noon 12-14, afternoon 15-17, evening 18-19, night otherwise; '' when unreadable.
+ */
+export function convPart(value) {
+  const d = toDate(value)
+  if (Number.isNaN(d.getTime()))
+    return ''
+  const h = d.getHours()
+  if (h >= 5 && h <= 11)
+    return 'morning'
+  if (h >= 12 && h <= 14)
+    return 'noon'
+  if (h >= 15 && h <= 17)
+    return 'afternoon'
+  if (h >= 18 && h <= 19)
+    return 'evening'
+  return 'night'
+}

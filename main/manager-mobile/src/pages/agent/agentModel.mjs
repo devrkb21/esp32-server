@@ -32,6 +32,20 @@ export function splitLanguages(value) {
   return value.split(/[、；;,，]/).map(s => s.trim()).filter(Boolean)
 }
 
+const LOCALE_NAMES = {
+  'bn-BD': 'বাংলা (বাংলাদেশ)',
+  'bn-IN': 'বাংলা (ভারত)',
+  'en-US': 'English (US)',
+  'en-GB': 'English (UK)',
+}
+
+/** A voice language code in plain words ("bn-BD" -> "বাংলা (বাংলাদেশ)"); any other code as is. */
+export function localeName(code) {
+  if (typeof code !== 'string')
+    return ''
+  return LOCALE_NAMES[code] || code
+}
+
 /** Every language offered by a list of voices, in first-seen order. */
 export function languagesOf(voices) {
   const seen = new Set()

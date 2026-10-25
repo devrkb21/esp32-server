@@ -29,6 +29,8 @@ export default defineManifestConfig({
   'transformPx': false,
   'locale': VITE_FALLBACK_LOCALE, // 'zh-Hans'
   'h5': {
+    // The browser tab title before a page sets its own (pages set 'Title · টাইনিবট').
+    title: 'টাইনিবট',
     router: {
       // base: VITE_APP_PUBLIC_BASE,
     },

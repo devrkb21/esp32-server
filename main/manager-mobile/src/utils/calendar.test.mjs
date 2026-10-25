@@ -19,3 +19,16 @@ test('Bangla numerals', () => {
   assert.equal(timeText('15:45', 'bn', true), '৩:৪৫')
   assert.equal(minutesOf('07:30'), 450)
 })
+
+test('Bangla day parts keep 12-hour times unambiguous', async () => {
+  const { dayPart, timeWithPart } = await import('./calendar.mjs')
+  assert.equal(dayPart('04:46', 'bn'), 'ভোর')
+  assert.equal(dayPart('09:00', 'bn'), 'সকাল')
+  assert.equal(dayPart('21:00', 'bn'), 'রাত')
+  assert.equal(dayPart('17:25', 'bn'), 'সন্ধ্যা')
+  assert.equal(dayPart('00:30', 'bn'), 'রাত')
+  assert.equal(dayPart('15:46', 'bn'), 'বিকেল')
+  assert.equal(timeWithPart('21:00', 'bn'), 'রাত ৯:০০')
+  assert.equal(dayPart('21:00', 'en'), '')
+  assert.equal(timeText('15:45', 'bn', true), '৩:৪৫')
+})

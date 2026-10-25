@@ -97,7 +97,7 @@ const messages: Record<string, Record<string, string>> = {
     'mAgent.can.contextHint': 'প্রতিবার জেগে উঠে টাইনিবট এই ঠিকানাগুলো থেকে তথ্য পড়ে নেয়।',
     'mAgent.can.contextCount': '{n}টি সোর্স',
     'mAgent.can.contextNone': 'কোনো সোর্স নেই',
-    'mAgent.can.contextDoc': 'সোর্স যুক্ত করার নির্দেশিকা',
+    'mAgent.sources.help': 'কোন তথ্যের উৎস যুক্ত করবেন, তা জানতে Nobix-এর সঙ্গে যোগাযোগ করুন।',
 
     'mAgent.history.title': 'ইতিহাস',
     'mAgent.history.desc': 'প্রতিবার সংরক্ষণে একটি সংস্করণ থেকে যায়। যেকোনো সময় আগেরটায় ফিরতে পারেন।',
@@ -278,7 +278,7 @@ const messages: Record<string, Record<string, string>> = {
     'mAgent.can.contextHint': 'Each time it wakes up, TinyBot reads information from these addresses.',
     'mAgent.can.contextCount': '{n} sources',
     'mAgent.can.contextNone': 'No sources',
-    'mAgent.can.contextDoc': 'How to connect a source',
+    'mAgent.sources.help': 'Ask Nobix which sources you can connect.',
 
     'mAgent.history.title': 'History',
     'mAgent.history.desc': 'Every save keeps a version. You can go back to an earlier one at any time.',

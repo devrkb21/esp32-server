@@ -186,7 +186,7 @@ function goRobots() {
 .rbf__linktext {
   font-size: 14px;
   font-weight: 600;
-  color: var(--tb-action);
+  color: var(--tb-ink);
   gap: 4px;
 }
 .rbf__note {

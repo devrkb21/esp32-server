@@ -19,8 +19,8 @@ const face = computed(() => {
 </script>
 
 <template>
-  <view class="tb-face" :class="{ 'is-off': mood === 'offline', 'is-pulse': pulse }" :style="width ? { width: `${width}px` } : undefined">
-    <image class="tb-face__img" :src="src || face" mode="aspectFit" :aria-label="alt" />
+  <view class="tb-face" :class="{ 'is-off': mood === 'offline', 'is-pulse': pulse }" :style="width ? { width: `${width}px` } : undefined" role="img" :aria-label="alt">
+    <image class="tb-face__img" :src="src || face" mode="aspectFit" aria-hidden="true" />
   </view>
 </template>
 

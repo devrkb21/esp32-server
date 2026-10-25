@@ -45,6 +45,11 @@ const lines = (b: LegalBlock) => (b.type === 'list' ? b.items : [b])
           </view>
         </block>
       </view>
+      <!-- The maker's logo closes the document (owner decision 3): never recoloured; the dark file on dark ground. -->
+      <view class="legal__brand">
+        <image class="legal__logo legal__logo--light" src="/static/brand/nobix-lockup.png" mode="widthFix" :aria-label="t('brand.nobix')" role="img" />
+        <image class="legal__logo legal__logo--dark" src="/static/brand/nobix-lockup-dark.png" mode="widthFix" :aria-label="t('brand.nobix')" role="img" />
+      </view>
     </view>
   </view>
 </template>
@@ -104,6 +109,26 @@ const lines = (b: LegalBlock) => (b.type === 'list' ? b.items : [b])
   display: flex;
   gap: 10px;
   margin: 0 0 8px;
+}
+.legal__brand {
+  display: flex;
+  justify-content: center;
+  margin-top: 32px;
+  padding: 24px 0 8px;
+  border-top: 1px solid var(--tb-rule);
+}
+.legal__logo {
+  width: 120px;
+  height: auto;
+}
+.legal__logo--dark {
+  display: none;
+}
+.is-dark .legal__logo--light {
+  display: none;
+}
+.is-dark .legal__logo--dark {
+  display: block;
 }
 .legal__mark {
   flex: none;

@@ -20,7 +20,9 @@ function pick(o: any) {
     <view class="tb-choice" :class="{ 'is-wrap': wrap }" role="radiogroup" :aria-label="ariaLabel || undefined">
       <view v-for="o in list" :key="String(o.value)" class="tb-choice__opt" role="radio"
         :class="{ 'is-on': o.value === modelValue, 'is-disabled': disabled || o.disabled }"
-        :aria-checked="o.value === modelValue ? 'true' : 'false'" @click="pick(o)">
+        :tabindex="disabled || o.disabled ? -1 : 0" :aria-disabled="disabled || o.disabled ? 'true' : undefined"
+        :aria-checked="o.value === modelValue ? 'true' : 'false'"
+        @click="pick(o)" @keydown.enter="pick(o)" @keydown.space.prevent="pick(o)">
         <tb-icon v-if="o.icon" :name="o.icon" :size="16" /><text>{{ o.label }}</text>
       </view>
     </view>
@@ -29,11 +31,12 @@ function pick(o: any) {
 
 <style lang="scss">
 .tb-choice-wrap { width: 100%; white-space: nowrap; }
-.tb-choice { display: inline-flex; gap: 6px; padding: 2px; }
+.tb-choice { display: inline-flex; gap: 8px; padding: 2px; }
 .tb-choice.is-wrap { display: flex; flex-wrap: wrap; white-space: normal; }
-.tb-choice__opt { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 1.5px solid var(--tb-rule-soft);
-  border-radius: 999px; background: var(--tb-paper); font-weight: 600; font-size: 14px; color: var(--tb-ink-2);
+.tb-choice__opt { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1.5px solid var(--tb-ink-3);
+  border-radius: 999px; background: var(--tb-paper); font-weight: 600; font-size: 14px; color: var(--tb-ink-2); outline: none;
   transition: background-color var(--tb-t-hover) var(--tb-ease), color var(--tb-t-hover) var(--tb-ease); }
+.tb-choice__opt:focus-visible { outline: 2px solid var(--tb-focus); outline-offset: 2px; }
 .tb-choice__opt.is-on { background: var(--tb-ink); border-color: var(--tb-ink); color: var(--tb-paper); }
 .tb-choice__opt.is-disabled { opacity: .45; }
 </style>

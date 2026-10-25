@@ -9,18 +9,25 @@ const tomorrow = new Date(now.getTime() + 86400000);
 export const DEMO_AGENT = { id: 'demo-agent-1', agentName: 'TinyBot', ttsModelName: 'EdgeTTS', llmModelName: 'Groq', deviceCount: 1, lastConnectedAt: now.toISOString() };
 export const DEMO_DEVICE = { id: 'demo-device-1', alias: 'টাইনিবট', macAddress: '28:84:85:00:00:01', board: 'tinybot', appVersion: '2.5.5', lastConnectedAt: now.toISOString(), autoUpdate: 1 };
 
+// The routine comes first: the name plate's doing-now activity is read from it, so the plate and
+// the day table always agree (empty when no slot covers this minute).
+const ROUTINE_ITEMS = [
+  { start: '08:00', end: '08:15', activity: 'exercise' }, { start: '08:30', end: '09:00', activity: 'breakfast' },
+  { start: '09:00', end: '09:20', activity: 'newspaper' }, { start: '13:00', end: '13:30', activity: 'lunch' },
+  { start: '15:30', end: '16:00', activity: 'tea' }, { start: '19:00', end: '20:00', activity: 'tv' },
+];
+const mins = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+const nowMin = now.getHours() * 60 + now.getMinutes();
+const NOW_ACTIVITY = ROUTINE_ITEMS.find(i => mins(i.start) <= nowMin && nowMin < mins(i.end))?.activity || '';
+
 export const DEMO_COMPANION = {
   id: '28:84:85:00:00:01', name: 'টাইনিবট', online: true, last_seen: Math.floor(now.getTime() / 1000) - 20,
   created: Math.floor(now.getTime() / 1000) - 211 * 86400, rev: 42,
-  stats: { fw: '2.5.5', uptime_s: 86400, volume: 60, activity: 'newspaper', state: 'idle', mood: 'happy', bond_score: 640, bond_level: 3, streak: 12 },
+  stats: { fw: '2.5.5', uptime_s: 86400, volume: 60, activity: NOW_ACTIVITY, state: 'idle', mood: 'happy', bond_score: 640, bond_level: 3, streak: 12 },
   settings: {
     volume: 60, sounds: true, owner_name: '',
     night: { enabled: true, start: '22:30', end: '06:30', dim: true, lullaby: true, light: false, light_minutes: 0 },
-    routine: { enabled: true, items: [
-      { start: '08:00', end: '08:15', activity: 'exercise' }, { start: '08:30', end: '09:00', activity: 'breakfast' },
-      { start: '09:00', end: '09:20', activity: 'newspaper' }, { start: '13:00', end: '13:30', activity: 'lunch' },
-      { start: '15:30', end: '16:00', activity: 'tea' }, { start: '19:00', end: '20:00', activity: 'tv' },
-    ] },
+    routine: { enabled: true, items: ROUTINE_ITEMS },
     proactive: { enabled: true, morning_on: true, morning: '07:30', evening_on: true, evening: '19:30' },
     memory: { enabled: true },
     look: { shape: 'rounded', size: 100, spacing: 0, height: 0, eyes: 'pupil', mouth: 'smile', blush: false, blink: 'normal', energy: 'normal', hands: true, chat_font: 'pixel' },
@@ -28,12 +35,14 @@ export const DEMO_COMPANION = {
   },
   pomodoro: { work_min: 25, short_break_min: 5, long_break_min: 15, rounds: 4 },
   alarms: [
-    { id: 'a1', time: '06:45', days: 62, label: 'Wake up', enabled: true, snooze_min: 5, say: '' },
-    { id: 'a2', time: '21:00', days: 127, label: 'Lights low', enabled: false, snooze_min: 5, say: '' },
+    { id: 'a1', time: '06:45', days: 31, label: 'Wake up', enabled: true, snooze_min: 5, say: 'শুভ সকাল {name}! {weather}' },
+    { id: 'a2', time: '08:30', days: 96, label: 'Weekend', enabled: true, snooze_min: 10, say: '' },
+    { id: 'a3', time: '21:00', days: 127, label: 'Lights low', enabled: false, snooze_min: 5, say: '' },
   ],
   reminders: [
-    { id: 'r1', kind: 'medicine', label: 'Medicine', enabled: true, mode: 'time', time: '11:30', days: 127, say: 'ওষুধ খাওয়ার সময় হয়েছে' },
-    { id: 'water', kind: 'water', label: 'Drink water', enabled: true, mode: 'interval', every_min: 90, from: '09:00', to: '21:00', days: 127, say: '' },
+    { id: 'water', kind: 'water', label: 'Drink water', enabled: true, mode: 'interval', every_min: 90, from: '09:00', to: '21:00', days: 127, say: 'পানি খাওয়ার সময় হয়েছে! এক গ্লাস পানি খেয়ে নাও।' },
+    { id: 'r1', kind: 'medicine', label: 'Medicine', enabled: true, mode: 'time', time: '21:30', days: 127, say: 'ওষুধ খাওয়ার সময় হয়েছে।' },
+    { id: 'r2', kind: 'custom', label: 'Call home', enabled: true, mode: 'time', time: '18:00', days: 32, say: '' },
   ],
   prayer: { enabled: true, remind: true, city: 'Dhaka', lat: 23.81, lon: 90.41, days: [
     { date: iso(now), fajr: '04:46', sunrise: '06:05', dhuhr: '11:43', asr: '15:46', sunset: '17:25', maghrib: '17:25', isha: '18:40' },

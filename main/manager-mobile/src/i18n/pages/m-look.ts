@@ -6,7 +6,7 @@
 // from BACKOFF_DELAY_MS in src/pages/companion/liveScreen.mjs.
 const messages: Record<string, Record<string, string>> = {
   bn: {
-    'lookPage.desc': 'টাইনিবটের চোখ, মুখ আর হাবভাব বদলান। প্রতিটি বদল সঙ্গে সঙ্গে পর্দায় দেখা যায়।',
+    'lookPage.desc': 'টাইনিবটের চোখ, মুখ আর হাবভাব বদলান। প্রতিটি বদল সঙ্গে সঙ্গে নমুনায় দেখা যায়; সংরক্ষণ করলে টাইনিবটে যায়।',
     'lookPage.stageLabel': 'টাইনিবটের পর্দা',
     'lookPage.view': 'কী দেখাবে',
     'lookPage.viewPreview': 'নমুনা',
@@ -123,7 +123,7 @@ const messages: Record<string, Record<string, string>> = {
     'lookPage.live.offlineHint': 'রোবট চালু আর অনলাইনে আছে কি না দেখুন। প্রতি ৫ সেকেন্ডে আবার চেষ্টা হচ্ছে।',
   },
   en: {
-    'lookPage.desc': 'Change TinyBot’s eyes, mouth and manner. Every change shows at once on the screen.',
+    'lookPage.desc': 'Change TinyBot’s eyes, mouth and manner. Every change shows at once in the preview; save to send it to TinyBot.',
     'lookPage.stageLabel': 'TinyBot’s screen',
     'lookPage.view': 'Show',
     'lookPage.viewPreview': 'Preview',

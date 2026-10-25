@@ -26,8 +26,8 @@ export const JOBS = [
   { key: 'lullaby', type: 'lullaby', arg: '', icon: 'lullaby', label: 'companion.act.lullaby' },
   { key: 'breathe', type: 'breathe', arg: '', icon: 'breathe', label: 'companion.act.breathe' },
   { key: 'focus', type: 'pomodoro', arg: '', icon: 'focus', label: 'companion.act.focus', focus: true },
-  { key: 'light-on', type: 'night_light', arg: 'on', icon: 'light', label: 'companion.act.lightOn' },
-  { key: 'light-off', type: 'night_light', arg: 'off', icon: 'moon', label: 'companion.act.lightOff' },
+  { key: 'light-on', type: 'night_light', arg: 'on', icon: 'light', label: 'mrobot.jobs.lightOn' },
+  { key: 'light-off', type: 'night_light', arg: 'off', icon: 'moon', label: 'mrobot.jobs.lightOff' },
   { key: 'ring', type: 'ring', arg: '', icon: 'reminder', label: 'companion.act.ring' },
 ]
 
@@ -51,7 +51,7 @@ export function commandLabel(command) {
   if (c.type === 'game')
     return GAMES.includes(c.arg) ? `companion.game.${c.arg}` : 'companion.cmd.game'
   if (c.type === 'night_light')
-    return c.arg === 'off' ? 'companion.act.lightOff' : 'companion.act.lightOn'
+    return c.arg === 'off' ? 'mrobot.jobs.lightOff' : 'mrobot.jobs.lightOn'
   if (c.type === 'update')
     return 'mrobot.fw.updateCommand'
   const known = ['story', 'pomodoro', 'lullaby', 'ring', 'breathe', 'stop', 'night']

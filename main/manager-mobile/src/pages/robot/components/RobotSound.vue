@@ -192,7 +192,7 @@ function goVoice() {
         </view>
         <slider
           class="rbn-slider__el" :value="volume" :min="0" :max="100" :step="5" :disabled="!fromPhone"
-          active-color="var(--tb-action)" background-color="var(--tb-rule-soft)" block-color="var(--tb-action)" :block-size="22"
+          active-color="var(--tb-ink)" background-color="var(--tb-rule-soft)" block-color="var(--tb-ink)" :block-size="22"
           :aria-label="t('mrobot.sound.volume')" @changing="onVolumeMove" @change="onVolumeEnd"
         />
         <view class="rbn-slider__step" role="button" :aria-label="t('mrobot.sound.up')" @click="step(5)">
