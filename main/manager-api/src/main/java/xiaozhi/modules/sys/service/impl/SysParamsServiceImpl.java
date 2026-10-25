@@ -271,13 +271,14 @@ public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParam
         // Check whether SMS related parameters are empty
         ArrayList<String> list = new ArrayList<String>();
         list.add(Constant.SysMSMParam.SERVER_SMS_MAX_SEND_COUNT.getValue());
-        list.add(Constant.SysMSMParam.ALIYUN_SMS_ACCESS_KEY_ID.getValue());
-        list.add(Constant.SysMSMParam.ALIYUN_SMS_ACCESS_KEY_SECRET.getValue());
-        list.add(Constant.SysMSMParam.ALIYUN_SMS_SIGN_NAME.getValue());
-        list.add(Constant.SysMSMParam.ALIYUN_SMS_SMS_CODE_TEMPLATE_CODE.getValue());
+        list.add(Constant.SysMSMParam.REVE_SMS_BASE_URL.getValue());
+        list.add(Constant.SysMSMParam.REVE_SMS_API_KEY.getValue());
+        list.add(Constant.SysMSMParam.REVE_SMS_SECRET_KEY.getValue());
+        list.add(Constant.SysMSMParam.REVE_SMS_CALLER_ID.getValue());
         StringBuilder str = new StringBuilder();
+        // Check each param's stored value, not its code
         list.forEach(item -> {
-            if (!StringUtils.isNoneBlank(item)) {
+            if (StringUtils.isBlank(getValue(item, false))) {
                 str.append(",").append(item);
             }
         });
