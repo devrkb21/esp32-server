@@ -122,6 +122,16 @@ public interface Constant {
     String SERVER_FRONTED_URL = "server.fronted_url";
 
     /**
+     * Companion API base the robot is told in the OTA reply ('null': derive it from server.vision_explain)
+     */
+    String SERVER_COMPANION_URL = "server.companion_url";
+
+    /**
+     * Vision analysis URL sent to the device (served on xiaozhi-server's HTTP port)
+     */
+    String SERVER_VISION_EXPLAIN = "server.vision_explain";
+
+    /**
      * Path separator
      */
     String FILE_EXTENSION_SEG = ".";

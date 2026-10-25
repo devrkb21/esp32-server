@@ -1,15 +1,19 @@
 // My robots: pure helpers (unit tested in tests/robots.test.mjs). Every rule here comes from the
 // legacy page and dialogs (home.vue, DeviceItem.vue, AddDeviceDialog.vue, ManualAddDeviceDialog.vue,
 // DeviceManagement.vue, MacAddressMask.vue), kept as they were.
+import { codeFromText } from '@/utils/linkCode';
 
 /** Search: a full MAC (aa:bb:cc:dd:ee:ff) searches by MAC, anything else by name (home.vue). */
 export function searchTypeOf(value) {
   return /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(String(value || '').trim()) ? 'mac' : 'name';
 }
 
-/** The 6-digit bind code: digits only, at most six (AddDeviceDialog.vue). */
+/**
+ * The 6-digit bind code: digits only, at most six (AddDeviceDialog.vue). Bangla digits count, and
+ * the robot's whole link (its QR URL) gives its code.
+ */
 export function cleanCode(value) {
-  return String(value || '').replace(/\D/g, '').slice(0, 6);
+  return codeFromText(value);
 }
 export function isValidCode(value) {
   return /^\d{6}$/.test(String(value || ''));

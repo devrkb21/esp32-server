@@ -269,4 +269,9 @@ public interface ErrorCode {
     int PRODUCT_BOARD_TYPES_INVALID = 10209; // Board type patterns are invalid
     int PRODUCT_GENERIC_PROTECTED = 10210; // The generic product cannot be deleted or renamed
     int DEVICE_FEATURE_NOT_SUPPORTED = 10211; // The device's product lacks this feature ({0} = feature key)
+
+    // Robot link (QR / 6-digit code) error codes
+    int DEVICE_LINK_CODE_FORMAT = 10212; // The link code must be 6 digits
+    int DEVICE_LINK_CODE_EXPIRED = 10213; // The link code is unknown or has expired
+    int DEVICE_LINK_CHOOSE_AGENT = 10214; // Several characters: the user must choose one
 }

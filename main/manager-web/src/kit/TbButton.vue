@@ -1,7 +1,7 @@
 <template>
   <component :is="tag" class="tb-btn" :class="[`tb-btn--${variant}`, `tb-btn--${size}`, { 'is-block': block, 'is-loading': loading, 'is-icon-only': iconOnly }]"
     :type="tag === 'button' ? nativeType : null" :disabled="tag === 'button' ? (disabled || loading) : null"
-    :aria-disabled="disabled || loading ? 'true' : null" :aria-busy="loading ? 'true' : null" :to="to || null" :href="href || null">
+    :aria-disabled="disabled || loading ? 'true' : null" :aria-busy="loading ? 'true' : null" v-bind="target">
     <span v-if="loading" class="tb-btn__spin" aria-hidden="true"></span>
     <TbIcon v-else-if="icon" :name="icon" :size="size === 's' ? 16 : 18" />
     <span v-if="$slots.default" class="tb-btn__label"><slot /></span>
@@ -30,6 +30,9 @@ const props = defineProps({
 const slots = useSlots();
 const tag = computed(() => (props.to ? RouterLink : props.href ? 'a' : 'button'));
 const iconOnly = computed(() => !slots.default && (props.icon || props.loading));
+// Only the attribute the element needs: an `href: null` would also wipe the href RouterLink renders
+// (an <a> without href is not focusable from the keyboard).
+const target = computed(() => (props.to ? { to: props.to } : props.href ? { href: props.href } : {}));
 </script>
 
 <style>

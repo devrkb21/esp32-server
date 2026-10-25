@@ -18,6 +18,7 @@ import { createAgent, deleteAgent, getAgentList } from '@/api/agent/agent'
 import { getBindDevices, getDeviceOnlineStatus } from '@/api/device'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { codeFromScan, linkPagePath } from '@/utils/linkCode.mjs'
 import { productName, productOf } from '@/utils/tbProducts.mjs'
 import { clearRobot, loadProducts, products, robot, selectRobot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
@@ -181,6 +182,26 @@ function goSetup() {
   uni.navigateTo({ url: '/pages/device-config/index' })
 }
 
+/* ---------- link a robot by its code or QR (pages/link) ---------- */
+// The link screen looks the code up, then links the robot to the only character, makes a first
+// one, or asks which one. Scanning (native app only) opens it with the code filled in.
+function goLink(code = '') {
+  uni.navigateTo({ url: linkPagePath(code) })
+}
+function scanQr() {
+  // #ifdef APP-PLUS
+  uni.scanCode({
+    scanType: ['qrCode'],
+    success: (res) => {
+      const code = codeFromScan(res.result)
+      if (code)
+        goLink(code)
+      else toast.warning(t('link.scanWrong'))
+    },
+  })
+  // #endif
+}
+
 /* ---------- add a robot ---------- */
 const addOpen = ref(false)
 const addAgentId = ref('')
@@ -313,8 +334,21 @@ onHide(() => clearInterval(poll))
     </view>
 
     <view v-else-if="!groups.length" class="robots__state">
-      <tb-empty face="awake" :title="t('robots.empty.title')" :text="t('robots.empty.text')">
-        <tb-button variant="primary" icon="agent" @click="openCharacter(true)">
+      <tb-empty face="awake" :title="t('robots.empty.title')" :text="t('robots.empty.linkText')">
+        <!-- #ifdef APP-PLUS -->
+        <tb-button variant="primary" icon="qr" @click="scanQr">
+          {{ t('link.scan') }}
+        </tb-button>
+        <tb-button icon="edit" @click="goLink()">
+          {{ t('robots.addByCode') }}
+        </tb-button>
+        <!-- #endif -->
+        <!-- #ifndef APP-PLUS -->
+        <tb-button variant="primary" icon="edit" @click="goLink()">
+          {{ t('robots.addByCode') }}
+        </tb-button>
+        <!-- #endif -->
+        <tb-button icon="agent" @click="openCharacter(true)">
           {{ t('robots.empty.action') }}
         </tb-button>
         <tb-button icon="wifi" @click="goSetup">
@@ -408,9 +442,19 @@ onHide(() => clearInterval(poll))
       </view>
 
       <tb-section class="robots__add" :title="t('robots.addSection')" :description="t('robots.addSectionDesc')">
-        <tb-button variant="primary" size="l" icon="plus" block @click="openAdd()">
-          {{ t('robots.add.submit') }}
+        <!-- #ifdef APP-PLUS -->
+        <tb-button variant="primary" size="l" icon="qr" block @click="scanQr">
+          {{ t('link.scan') }}
         </tb-button>
+        <tb-button size="l" icon="edit" block @click="goLink()">
+          {{ t('robots.addByCode') }}
+        </tb-button>
+        <!-- #endif -->
+        <!-- #ifndef APP-PLUS -->
+        <tb-button variant="primary" size="l" icon="edit" block @click="goLink()">
+          {{ t('robots.addByCode') }}
+        </tb-button>
+        <!-- #endif -->
         <view class="robots__more">
           <tb-button icon="wifi" block @click="goSetup">
             {{ t('robots.setup') }}

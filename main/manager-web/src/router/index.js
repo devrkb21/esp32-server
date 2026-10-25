@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
+import { safeRedirect } from '../utils/linkCode';
 
 // Every page lives in src/views/<owner>/, one owner per folder (see .bunshin/owners.json).
 // `meta.bare` pages render without the app shell (sign-in pages). `meta.admin` pages are for super
@@ -10,6 +11,7 @@ const v = {
   retrieve: () => import('../views/auth/RetrievePassword.vue'),
   account: () => import('../views/auth/Account.vue'),
   legal: () => import('../views/legal/LegalPage.vue'),
+  link: () => import('../views/link/LinkRobot.vue'),
   today: () => import('../views/today/Today.vue'),
   more: () => import('../views/more/More.vue'),
   robots: () => import('../views/robots/Robots.vue'),
@@ -49,6 +51,9 @@ export const routes = [
   { path: '/terms', name: 'Terms', component: v.legal, meta: { bare: true, public: true, doc: 'terms', title: 'legal.terms' } },
   { path: '/privacy', name: 'Privacy', component: v.legal, meta: { bare: true, public: true, doc: 'privacy', title: 'legal.privacy' } },
   { path: '/account', name: 'Account', component: v.account, meta: { title: 'nav.account' } },
+  // The robot's QR opens /#/link?code=123456: bare and public, so a signed-out owner sees what is
+  // being linked and is sent to sign in (with a redirect back here) from the page itself.
+  { path: '/link', name: 'Link', component: v.link, meta: { bare: true, public: true, title: 'link.title' } },
 
   { path: '/today', name: 'Today', component: v.today, meta: { title: 'nav.today' } },
   { path: '/more', name: 'More', component: v.more, meta: { title: 'nav.more' } },
@@ -99,8 +104,13 @@ router.beforeEach((to) => {
   let token = null;
   try { token = localStorage.getItem('token'); } catch (e) { /* private mode */ }
   const isAnon = anonRouteNames.has(to.name);
-  if (isAnon && token) return { path: '/today', replace: true };
-  if (!isAnon && !token) return { name: 'login', replace: true };
+  // Signed in already: go where the sign-in was meant to lead (only a path inside this app).
+  if (isAnon && token) return { path: safeRedirect(to.query && to.query.redirect, '/today'), replace: true };
+  // Signed out: sign in first, then come back to the page that was asked for.
+  if (!isAnon && !token) {
+    const back = safeRedirect(to.fullPath);
+    return { name: 'login', replace: true, query: back && back !== '/' ? { redirect: back } : {} };
+  }
   return true;
 });
 

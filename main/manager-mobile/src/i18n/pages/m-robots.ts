@@ -35,7 +35,7 @@ const messages: Record<string, Record<string, string>> = {
     'robots.empty.text': 'প্রথমে একটা চরিত্র বানান, টাইনিবট এই চরিত্রে কথা বলবে। তারপর টাইনিবট চালু করে Wi-Fi-তে যুক্ত করুন; সে ৬ অঙ্কের একটা কোড বলবে। কোডটা এখানে লিখলেই রোবট যুক্ত হয়ে যাবে।',
     'robots.empty.action': 'চরিত্র বানান',
     'robots.addSection': 'রোবট যোগ করুন',
-    'robots.addSectionDesc': 'টাইনিবট Wi-Fi-তে যুক্ত থাকলে তার বলা কোড দিয়ে যোগ করুন। একদম নতুন রোবট হলে আগে Wi-Fi দিন।',
+    'robots.addSectionDesc': 'টাইনিবট Wi-Fi-তে যুক্ত থাকলে তার স্ক্রিনের QR বা কোড দিয়ে যোগ করুন। একদম নতুন রোবট হলে আগে Wi-Fi দিন।',
     'robots.setup': 'নতুন রোবটে Wi-Fi দিন',
     'robots.newCharacter': 'নতুন চরিত্র',
 
@@ -170,7 +170,7 @@ const messages: Record<string, Record<string, string>> = {
     'robots.empty.text': 'First make a character: TinyBot talks as this character. Then turn TinyBot on and connect it to Wi-Fi; it says a 6-digit code. Type the code here and the robot is added.',
     'robots.empty.action': 'Make a character',
     'robots.addSection': 'Add a robot',
-    'robots.addSectionDesc': 'If TinyBot is on Wi-Fi, add it with the code it says. A brand-new robot needs Wi-Fi first.',
+    'robots.addSectionDesc': 'If TinyBot is on Wi-Fi, add it with the QR or code on its screen. A brand-new robot needs Wi-Fi first.',
     'robots.setup': 'Give a new robot Wi-Fi',
     'robots.newCharacter': 'New character',
 

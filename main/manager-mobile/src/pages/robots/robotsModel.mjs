@@ -1,22 +1,18 @@
 // Robots and their devices: pure helpers (unit tested in robotsModel.test.mjs). The rules come from
 // the legacy screens (legacy/pages/index/index.vue, the old pages/device/index.vue) and match
 // manager-web src/views/robots/robotsModel.js and src/views/devices/devicesModel.js.
+import { codeFromText } from '../../utils/linkCode.mjs'
 
 export const NAME_MAX = 64
 export const ALIAS_MAX = 64
 export const MAC_RE = /^(?:[0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/i
 
-const BN_DIGITS = '০১২৩৪৫৬৭৮৯'
-
-/** The 6-digit code TinyBot says: digits only (Bangla digits become 0-9), at most six. */
+/**
+ * The 6-digit code TinyBot shows: digits only (Bangla digits become 0-9), at most six; the robot's
+ * whole link (its QR URL) gives its code.
+ */
 export function cleanCode(value) {
-  return Array.from(String(value ?? ''), (ch) => {
-    const i = BN_DIGITS.indexOf(ch)
-    return i >= 0 ? String(i) : ch
-  })
-    .join('')
-    .replace(/\D/g, '')
-    .slice(0, 6)
+  return codeFromText(value)
 }
 
 export function isValidCode(value) {

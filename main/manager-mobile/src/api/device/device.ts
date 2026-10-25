@@ -33,6 +33,46 @@ export function bindDevice(agentId: string, code: string) {
   return http.Post(`/device/bind/${agentId}/${code}`, null)
 }
 
+/** A robot waiting to be linked (GET /device/link/{code}): no secrets, no full MAC. */
+export interface LinkInfo {
+  code: string
+  board: string | null
+  productKey: string | null
+  productNameEn: string | null
+  productNameBn: string | null
+  productIconUrl?: string | null
+  macTail?: string | null
+  valid: boolean
+}
+
+/** The result of linking (POST /device/link). */
+export interface LinkResult {
+  deviceId: string
+  agentId: string
+  agentCreated: boolean
+}
+
+/**
+ * Look up the code (or QR) a robot shows. Errors keep the server code in the message
+ * ("Request error [10213]: ..."); the link page explains them itself, so no toast here.
+ */
+export function getLinkInfo(code: string) {
+  return http.Get<LinkInfo>(`/device/link/${encodeURIComponent(code)}`, {
+    meta: { toast: false },
+    cacheFor: { expire: 0 },
+  })
+}
+
+/**
+ * Link the robot behind the code to the signed-in account. Without agentId the server uses the
+ * only character, or makes a first one; with several it answers 10214 (choose one).
+ */
+export function linkDevice(data: { code: string, agentId?: string }) {
+  return http.Post<LinkResult>('/device/link', data, {
+    meta: { toast: false },
+  })
+}
+
 /**
  * Manually add device
  * @param agentId Agent ID

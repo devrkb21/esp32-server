@@ -55,7 +55,7 @@
       </TbButton>
 
       <div class="auth-form__links">
-        <RouterLink class="auth-form__link" to="/login">{{ $t('auth.toLogin') }}</RouterLink>
+        <RouterLink class="auth-form__link" :to="{ path: '/login', query: carry }">{{ $t('auth.toLogin') }}</RouterLink>
       </div>
     </form>
 
@@ -65,7 +65,8 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { redirectQuery } from '@/utils/linkCode';
 import { useI18n } from 'vue-i18n';
 import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
@@ -80,6 +81,9 @@ import { useBusy, useCaptcha, useCountdown, usePubConfig } from './useAuth';
 
 const { t, locale } = useI18n({ useScope: 'global' });
 const router = useRouter();
+const route = useRoute();
+// Keep a sign-in redirect (e.g. back to the robot link page) while moving between the sign-in pages.
+const carry = computed(() => redirectQuery(route.query.redirect));
 const { mobileEnabled, allowRegister, publicKey, areas, firstArea, load } = usePubConfig();
 const captcha = useCaptcha();
 const countdown = useCountdown(60);
@@ -167,7 +171,7 @@ function submit() {
     busyOff();
     outcome.value = 'ok';
     toast.success(t('auth.ok.register'));
-    router.push('/login');
+    router.push({ path: '/login', query: carry.value });
   }, (err) => {
     busyOff();
     const msg = err && err.data && err.data.msg;
@@ -182,7 +186,7 @@ onMounted(() => {
     if (!form.mobile) form.areaCode = firstArea();
     if (!allowRegister.value) {
       closed.value = true;
-      leaveTimer = setTimeout(() => router.push('/login'), 1500);
+      leaveTimer = setTimeout(() => router.push({ path: '/login', query: carry.value }), 1500);
     }
   });
 });

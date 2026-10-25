@@ -3,7 +3,8 @@
     <TbPageHeader :title="$t('nav.robots')" :description="$t('robots.desc')">
       <template #actions>
         <TbButton icon="agent" @click="openAddCharacter(false)">{{ $t('robots.addCharacter') }}</TbButton>
-        <TbButton variant="primary" icon="plus" @click="openAddRobot()">{{ $t('robots.addRobot') }}</TbButton>
+        <!-- The robot's code (or QR link) opens the link flow, which also picks or makes the character -->
+        <TbButton variant="primary" icon="qr" to="/link">{{ $t('robots.addByCode') }}</TbButton>
       </template>
     </TbPageHeader>
 
@@ -50,8 +51,9 @@
       </TbEmpty>
 
       <div v-else-if="!groups.length" class="robots__first">
-        <TbEmpty face="awake" :title="$t('robots.empty.title')" :text="$t('robots.empty.text')">
-          <TbButton variant="primary" icon="agent" @click="openAddCharacter(true)">{{ $t('robots.empty.action') }}</TbButton>
+        <TbEmpty face="awake" :title="$t('robots.empty.title')" :text="$t('robots.empty.linkText')">
+          <TbButton variant="primary" icon="qr" to="/link">{{ $t('robots.addByCode') }}</TbButton>
+          <TbButton icon="agent" @click="openAddCharacter(true)">{{ $t('robots.empty.action') }}</TbButton>
         </TbEmpty>
       </div>
 
@@ -156,9 +158,10 @@
 
         <template v-if="addMode === 'code'">
           <p class="rb-add__help">{{ $t('robots.add.codeHelp') }}</p>
-          <TbField :label="$t('robots.add.code')" :hint="$t('robots.add.codeHint')" :error="codeError" required for-id="rb-add-code">
+          <TbField :label="$t('robots.add.code')" :hint="`${$t('robots.add.codeHint')} ${$t('robots.add.codePaste')}`" :error="codeError" required for-id="rb-add-code">
             <TbInput id="rb-add-code" :model-value="code" class="rb-add__code" inputmode="numeric" :maxlength="6"
-              autocomplete="one-time-code" placeholder="000000" :invalid="!!codeError" @update:model-value="onCode" @enter="submitAdd" />
+              autocomplete="one-time-code" placeholder="000000" :invalid="!!codeError" @update:model-value="onCode" @enter="submitAdd"
+              @paste="onCodePaste" />
           </TbField>
         </template>
 
@@ -518,6 +521,16 @@ function resetAdd() {
   Object.assign(touched, { macAddress: false, board: false, appVersion: false });
 }
 function onCode(v) { code.value = cleanCode(v); codeError.value = ''; }
+// A pasted code, digits with spaces, Bangla digits or the robot's whole link (its QR URL): take the
+// code out of it before the 6-character limit cuts the text.
+function onCodePaste(e) {
+  const text = e.clipboardData && e.clipboardData.getData('text');
+  if (!text) return;
+  e.preventDefault();
+  const next = cleanCode(text);
+  if (e.target && 'value' in e.target) e.target.value = next;
+  onCode(next);
+}
 function touch(k) { touched[k] = true; }
 
 async function onMode(mode) {
