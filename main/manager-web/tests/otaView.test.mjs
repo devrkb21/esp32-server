@@ -46,6 +46,19 @@ describe('Firmware (OTA) page', () => {
     w.unmount();
   });
 
+  it('draws the row actions as icon buttons named by their labels, and the type on one line', async () => {
+    const w = mountPage();
+    await flushPromises();
+    const acts = w.findAll('.ota__acts')[0].findAll('button');
+    expect(acts.map((b) => b.attributes('aria-label'))).toEqual(['Download', 'Edit', 'Delete'].map((k) => i18n.global.t(`ota.${k.toLowerCase()}`)));
+    for (const b of acts) {
+      expect(b.text()).toBe('');
+      expect(b.attributes('title')).toBe(b.attributes('aria-label'));
+    }
+    expect(w.find('.ota__type small').exists()).toBe(false);
+    w.unmount();
+  });
+
   it('searches by name from page one', async () => {
     const w = mountPage();
     await flushPromises();

@@ -382,6 +382,13 @@ describe('Robot: status', () => {
     expect(s).toContain('1 d 1 h');
     expect(s).toContain('Catch 14, Reaction 245 ms');
     expect(w.find('[role="progressbar"]').exists()).toBe(false);
+    expect(s).toContain('State: Idle');
+  });
+
+  it('names only the robot states it has words for', async () => {
+    const w = await mountRobot(deviceView({ stats: { mood: 'Happy', state: 'boot_wait' } }));
+    expect(w.findComponent(RobotStatus).text()).not.toContain('State:');
+    expect(w.findComponent(RobotStatus).text()).not.toContain('boot_wait');
   });
 
   it('loads more events on request', async () => {

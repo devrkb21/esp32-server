@@ -35,8 +35,8 @@ function toggle() {
   position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%;
   background: var(--tb-ink); transition: transform var(--tb-t-fast) var(--tb-ease), background-color var(--tb-t-fast) var(--tb-ease);
 }
-.tb-switch.is-on .tb-switch__track { background: var(--tb-action); border-color: var(--tb-action); }
-.tb-switch.is-on .tb-switch__thumb { transform: translateX(20px); background: var(--tb-on-action); }
+.tb-switch.is-on .tb-switch__track { background: var(--tb-ink); border-color: var(--tb-ink); }
+.tb-switch.is-on .tb-switch__thumb { transform: translateX(20px); background: var(--tb-paper); }
 .tb-switch.is-disabled { opacity: .45; cursor: not-allowed; }
 .tb-switch__label { font-size: var(--tb-fs-15); }
 </style>

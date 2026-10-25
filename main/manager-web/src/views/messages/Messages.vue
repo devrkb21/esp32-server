@@ -20,16 +20,19 @@
             <TbTextarea id="msg-text" ref="textEl" v-model="draft.text" :rows="3" autosize :maxlength="maxMessage" show-count
               :invalid="!!textError" :placeholder="$t('messages.compose.textPlaceholder')" @keydown="onKeys" />
           </TbField>
-          <TbField class="msg-compose__from" :label="$t('messages.compose.from')" :hint="$t('messages.compose.fromHint')" for-id="msg-from">
-            <TbInput id="msg-from" v-model="draft.from" :maxlength="maxName" :placeholder="$t('messages.compose.fromPlaceholder')" autocomplete="nickname" />
-          </TbField>
+          <p v-if="textError" class="msg-compose__error" role="alert">{{ textError }}</p>
+          <p v-if="offline" class="msg-compose__note">{{ $t('messages.compose.offline') }}</p>
+          <!-- Send sits right under the text, so it is in the first screen on a phone -->
           <div class="msg-compose__bar">
-            <TbSwitch v-model="draft.ask" :label="$t('messages.compose.ask')" />
             <span class="msg-compose__keys">{{ $t('messages.compose.keys') }}</span>
             <TbButton variant="primary" size="l" native-type="submit" icon="send" :loading="sending">{{ $t('messages.compose.send') }}</TbButton>
           </div>
-          <p v-if="textError" class="msg-compose__error" role="alert">{{ textError }}</p>
-          <p v-if="offline" class="msg-compose__note">{{ $t('messages.compose.offline') }}</p>
+          <div class="msg-compose__extra">
+            <TbField class="msg-compose__from" :label="$t('messages.compose.from')" :hint="$t('messages.compose.fromHint')" for-id="msg-from">
+              <TbInput id="msg-from" v-model="draft.from" :maxlength="maxName" :placeholder="$t('messages.compose.fromPlaceholder')" autocomplete="nickname" />
+            </TbField>
+            <TbSwitch class="msg-compose__ask" v-model="draft.ask" :label="$t('messages.compose.ask')" />
+          </div>
         </form>
       </TbSection>
 
@@ -437,31 +440,26 @@ watch(agentId, () => { resetSessions(); loadSessions(); });
 .msg__fail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--tb-danger); font-size: var(--tb-fs-14); }
 
 /* ------------------------------------------------------------- composer */
-.msg-compose {
-  display: grid; gap: var(--tb-s4) var(--tb-s6);
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "text" "from" "bar";
-}
-.msg-compose__text { grid-area: text; align-content: start; }
+.msg-compose { display: grid; gap: var(--tb-s4); grid-template-columns: minmax(0, 1fr); }
+.msg-compose__text { align-content: start; }
 .msg-compose__text textarea { font-size: max(16px, var(--tb-fs-18)); color: var(--tb-message); padding-bottom: 26px; }
-.msg-compose__from { grid-area: from; align-content: start; }
-.msg-compose__bar {
-  grid-area: bar; display: flex; align-items: center; gap: var(--tb-s3) var(--tb-s4); flex-wrap: wrap;
-  padding-top: var(--tb-s3); border-top: 1px solid var(--tb-rule-soft);
-}
+.msg-compose__error { margin-top: calc(-1 * var(--tb-s2)); color: var(--tb-danger); font-size: var(--tb-fs-13); font-weight: 500; }
+.msg-compose__note { margin-top: calc(-1 * var(--tb-s2)); color: var(--tb-ink-2); font-size: var(--tb-fs-13); }
+.msg-compose__bar { display: flex; align-items: center; gap: var(--tb-s3) var(--tb-s4); flex-wrap: wrap; }
 .msg-compose__bar .tb-btn--primary { margin-left: auto; min-width: 132px; }
 .msg-compose__keys { color: var(--tb-ink-3); font-size: var(--tb-fs-12); }
-.msg-compose__error { grid-column: 1 / -1; color: var(--tb-danger); font-size: var(--tb-fs-13); font-weight: 500; }
-.msg-compose__note { grid-column: 1 / -1; color: var(--tb-ink-2); font-size: var(--tb-fs-13); }
+.msg-compose__extra {
+  display: grid; gap: var(--tb-s4) var(--tb-s6); grid-template-columns: minmax(0, 1fr);
+  padding-top: var(--tb-s4); border-top: 1px solid var(--tb-rule-soft);
+}
+.msg-compose__from { align-content: start; }
+.msg-compose__ask { justify-self: start; }
 @media (max-width: 640px) {
   .msg-compose__keys { display: none; }
   .msg-compose__bar .tb-btn--primary { flex: 1 1 100%; }
 }
 @media (min-width: 900px) {
-  .msg-compose {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-    grid-template-areas: "text from" "bar bar";
-  }
+  .msg-compose__extra { grid-template-columns: minmax(0, 420px); }
 }
 
 /* ------------------------------------------------------------- sent messages: a ruled list in blue ink */

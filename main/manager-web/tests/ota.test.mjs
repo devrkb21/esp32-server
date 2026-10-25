@@ -43,6 +43,8 @@ describe('labels', () => {
     expect(sizeText(2187264, 'bn')).toBe('২.০৯ MB');
     expect(dateText('', 'bn')).toBe('');
     expect(dateText('2026-10-01T10:00:00', 'bn')).toMatch(/[০-৯]/);
+    expect(dateText('2026-10-01T10:20:00', 'bn')).not.toMatch(/AM|PM/);
+    expect(dateText('2026-10-01T10:20:00', 'en')).toMatch(/am|AM/);
   });
   it('flags a build saved again after its upload', () => {
     expect(wasEdited({ createDate: '2026-10-01T10:00:00', updateDate: '2026-10-01T10:00:20' })).toBe(false);

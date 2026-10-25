@@ -1,6 +1,6 @@
 <template>
   <div class="tb-textarea" :class="{ 'is-invalid': invalid, 'is-disabled': disabled }">
-    <textarea ref="el" :id="id || null" :value="modelValue" :rows="rows" :placeholder="placeholder" :disabled="disabled"
+    <textarea ref="el" :aria-describedby="describedBy || null" :id="id || null" :value="modelValue" :rows="rows" :placeholder="placeholder" :disabled="disabled"
       :readonly="readonly" :maxlength="maxlength || null" :aria-invalid="invalid ? 'true' : null" :aria-label="ariaLabel || null"
       @input="onInput" @blur="$emit('blur', $event)"></textarea>
     <span v-if="maxlength && showCount" class="tb-textarea__count tb-num">{{ n(String(modelValue || '').length) }}/{{ n(maxlength) }}</span>
@@ -8,6 +8,7 @@
 </template>
 
 <script setup>
+import { inject as injectField } from 'vue';
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { useLocale } from './locale';
 import { digits } from './calendar';
@@ -26,6 +27,8 @@ const props = defineProps({
   ariaLabel: { type: String, default: '' },
 });
 const emit = defineEmits(['update:modelValue', 'blur']);
+// Set by an enclosing TbField: the id of its error or hint.
+const describedBy = injectField('tbFieldDescribedBy', null);
 const locale = useLocale();
 const n = (v) => digits(v, locale.value);
 const el = ref(null);

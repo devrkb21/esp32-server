@@ -8,7 +8,7 @@ import store from './store';
 import i18n from './i18n';
 import kit from './kit';
 import { initTheme } from './utils/theme';
-import { DEMO, DEMO_TOKEN, DEMO_USER } from './apis/demo/index';
+import { DEMO, DEMO_TOKEN, DEMO_USER } from '@/apis/demo/index';
 
 initTheme();
 
@@ -17,6 +17,11 @@ if (DEMO) {
   try {
     // The sign-in pages stay reachable: no token is seeded while one of them is open.
     const authPage = /^#\/(login|register|retrieve-password)(\?|$)/.test(location.hash);
+    // A token seeded by an earlier page would make the router bounce the sign-in pages to Today.
+    if (authPage) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userInfo');
+    }
     if (!authPage && !localStorage.getItem('token')) localStorage.setItem('token', DEMO_TOKEN);
     if (!authPage) localStorage.setItem('userInfo', JSON.stringify(DEMO_USER));
   } catch (e) { /* private mode */ }

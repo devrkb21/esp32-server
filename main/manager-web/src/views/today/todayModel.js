@@ -36,8 +36,8 @@ export function dayRows(view, date, t) {
   const routine = view.settings && view.settings.routine;
   if (routine && routine.enabled !== false) {
     for (const it of routine.items || []) {
-      rows.push({ key: `l-${it.start}-${it.activity}`, time: it.start, title: t(`today.activity.${it.activity}`),
-        note: it.end ? t('today.until', { time: it.end }) : '', ink: 'routine', stateText: t('today.routine') });
+      rows.push({ key: `l-${it.start}-${it.activity}`, time: it.start, title: t(`day.activity.${it.activity}`),
+        note: it.end ? t('today.until', { time: it.end }) : '', ink: 'routine', stateText: t('day.row.routine') });
     }
   }
   const night = view.settings && view.settings.night;

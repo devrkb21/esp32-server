@@ -16,7 +16,7 @@ export default {
     'kb.col.name': 'নাম',
     'kb.col.docs': 'নথি',
     'kb.col.status': 'অবস্থা',
-    'kb.col.updated': 'হালনাগাদ',
+    'kb.col.updated': 'শেষ বদল',
     'kb.col.actions': 'কাজ',
     'kb.enabled': 'চালু',
     'kb.disabled': 'বন্ধ',

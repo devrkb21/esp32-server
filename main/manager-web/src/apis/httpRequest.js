@@ -4,7 +4,7 @@ import Constant from '../utils/constant';
 import { getServiceUrl } from '../apis/api';
 import { goToPage, isNotNull, showDanger, showWarning } from '../utils/index';
 import i18n from '../i18n/index';
-import { DEMO, demoReply } from './demo/index';
+import { DEMO, demoReply } from '@/apis/demo/index';
 
 const fly = new Fly()
 // Set timeout

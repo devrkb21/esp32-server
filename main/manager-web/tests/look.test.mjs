@@ -142,6 +142,16 @@ describe('Look controls', () => {
     expect(vm.moodOptions.map((o) => o.value)).toEqual(face.MOODS);
   });
 
+  it('the save bar rides over the editor only while there is something to save', async () => {
+    const { vm, wrapper } = await mountLook();
+    expect(wrapper.find('.look__savebar').classes()).toContain('is-idle');
+    expect(wrapper.find('.look').classes()).not.toContain('is-dirty');
+    vm.form.blush = true;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('.look__savebar').classes()).not.toContain('is-idle');
+    expect(wrapper.find('.look').classes()).toContain('is-dirty');
+  });
+
   it('a pill click changes the look at once', async () => {
     const { vm, wrapper } = await mountLook();
     const cat = wrapper.findAll('button[role="radio"]').find((b) => b.text() === 'lookPage.mouth.cat');

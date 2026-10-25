@@ -9,9 +9,9 @@ const DAY = 86400;
 // in the demo shows up in the list.
 const t0 = nowS();
 const sent = [
-  { id: 'dm-6', from: 'Ammu', text: 'রাতের খাবার খেয়েছো?', ask: true, ts: t0 - 2 * MIN, status: 'pending', answer: null },
-  { id: 'dm-5', from: 'Abbu', text: 'বিকেলে ছাদে হাঁটতে যাব, তৈরি থেকো।', ask: false, ts: t0 - 70 * MIN, status: 'delivered', delivered_ts: t0 - 69 * MIN, answer: null },
-  { id: 'dm-4', from: 'Ammu', text: 'দুপুরের ওষুধটা খেয়েছো?', ask: true, ts: t0 - 4 * HOUR, status: 'delivered', delivered_ts: t0 - 4 * HOUR + 30, answer: 'yes', answer_ts: t0 - 4 * HOUR + 90 },
+  { id: 'dm-6', from: 'Ammu', text: 'পানি খেয়েছো?', ask: true, ts: t0 - 2 * MIN, status: 'pending', answer: null },
+  { id: 'dm-5', from: 'Abbu', text: 'একটু পরে ছাদে হাঁটতে যাব, তৈরি থেকো।', ask: false, ts: t0 - 70 * MIN, status: 'delivered', delivered_ts: t0 - 69 * MIN, answer: null },
+  { id: 'dm-4', from: 'Ammu', text: 'আজ কেমন লাগছে?', ask: true, ts: t0 - 4 * HOUR, status: 'delivered', delivered_ts: t0 - 4 * HOUR + 30, answer: 'yes', answer_ts: t0 - 4 * HOUR + 90 },
   { id: 'dm-3', from: 'Apu', text: 'ছাতা নিয়ে বের হয়েছো?', ask: true, ts: t0 - DAY - 3 * HOUR, status: 'delivered', delivered_ts: t0 - DAY - 3 * HOUR + 20, answer: 'no', answer_ts: t0 - DAY - 3 * HOUR + 60 },
   { id: 'dm-2', from: '', text: 'শুভ সকাল! আজকের দিনটা ভালো কাটুক।', ask: false, ts: t0 - 3 * DAY, status: 'delivered', delivered_ts: t0 - 3 * DAY + 15, answer: 'seen', answer_ts: t0 - 3 * DAY + 40 },
 ];

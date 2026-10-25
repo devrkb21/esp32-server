@@ -82,7 +82,7 @@ export function dateText(value, lang) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value);
   return new Intl.DateTimeFormat(lang === 'bn' ? 'bn-BD' : 'en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: lang !== 'bn',
   }).format(d);
 }
 

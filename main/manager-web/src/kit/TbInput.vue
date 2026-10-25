@@ -1,9 +1,9 @@
 <template>
   <div class="tb-input" :class="[`tb-input--${size}`, { 'is-invalid': invalid, 'is-disabled': disabled }]">
     <TbIcon v-if="icon" class="tb-input__icon" :name="icon" :size="18" />
-    <input ref="el" class="tb-input__el" :id="id || null" :type="shownType" :value="modelValue" :placeholder="placeholder"
+    <input ref="el" class="tb-input__el" :aria-describedby="describedBy || null" :id="id || null" :type="shownType" :value="modelValue" :placeholder="placeholder"
       :disabled="disabled" :readonly="readonly" :maxlength="maxlength || null" :autocomplete="autocomplete"
-      :inputmode="inputmode || null" :aria-invalid="invalid ? 'true' : null" :aria-label="ariaLabel || null"
+      :inputmode="inputmode || null" :enterkeyhint="enterkeyhint || null" :aria-invalid="invalid ? 'true' : null" :aria-label="ariaLabel || null"
       @input="onInput" @change="$emit('change', $event.target.value)" @keydown.enter="$emit('enter', $event)"
       @blur="$emit('blur', $event)" @focus="$emit('focus', $event)" />
     <span v-if="$slots.suffix" class="tb-input__suffix"><slot name="suffix" /></span>
@@ -15,6 +15,7 @@
 </template>
 
 <script setup>
+import { inject as injectField } from 'vue';
 import { computed, ref } from 'vue';
 import TbIcon from './TbIcon.vue';
 
@@ -31,6 +32,7 @@ const props = defineProps({
   maxlength: { type: [Number, String], default: null },
   autocomplete: { type: String, default: 'off' },
   inputmode: { type: String, default: '' },
+  enterkeyhint: { type: String, default: '' },
   id: { type: String, default: '' },
   ariaLabel: { type: String, default: '' },
   clearLabel: { type: String, default: 'Clear' },
@@ -39,6 +41,8 @@ const props = defineProps({
   number: Boolean,
 });
 const emit = defineEmits(['update:modelValue', 'change', 'enter', 'blur', 'focus', 'clear']);
+// Set by an enclosing TbField: the id of its error or hint.
+const describedBy = injectField('tbFieldDescribedBy', null);
 const el = ref(null);
 const reveal = ref(false);
 const shownType = computed(() => (props.type === 'password' && reveal.value ? 'text' : props.type));

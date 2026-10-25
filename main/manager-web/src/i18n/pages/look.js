@@ -5,7 +5,7 @@
 // nothing here states a figure that file does not.
 export default {
   bn: {
-    'lookPage.desc': 'টাইনিবটের চোখ, মুখ আর হাবভাব বদলান। প্রতিটি বদল সঙ্গে সঙ্গে পর্দায় দেখা যায়।',
+    'lookPage.desc': 'টাইনিবটের চোখ, মুখ আর হাবভাব বদলান। প্রতিটি বদল সঙ্গে সঙ্গে নমুনায় দেখা যায়; সংরক্ষণ করলে টাইনিবটের পর্দায় যায়।',
     'lookPage.stageLabel': 'টাইনিবটের পর্দা',
     'lookPage.view': 'কী দেখাবে',
     'lookPage.viewPreview': 'নমুনা',
@@ -73,7 +73,7 @@ export default {
     'lookPage.handsHint': 'কিছু মেজাজে ছোট্ট থাবা দেখা যায়: হাই তোলা, পছন্দ, হাত নাড়া, ভাবা, অবাক হওয়া, লজ্জা।',
 
     'lookPage.fontTitle': 'কথার লেখা',
-    'lookPage.fontDesc': 'মুখের নিচে কথার যে লেখা ভাসে, তার ফন্ট। বড় ফন্টে লেখার পট্টি উঁচু হয়। পর্দা বাংলা লিখতে পারে না: শুধু ইংরেজি অক্ষর, সংখ্যা আর যতিচিহ্ন।',
+    'lookPage.fontDesc': 'মুখের নিচে কথার যে লেখা ভাসে, তার ফন্ট। বড় ফন্টে লেখার পট্টি উঁচু হয়। এই ফন্ট শুধু ইংরেজি অক্ষর, সংখ্যা আর যতিচিহ্নে খাটে; বাংলা লেখা সার্ভার এঁকে পাঠায়, তাই ফন্ট বদলালেও সেটি একই থাকে।',
     'lookPage.font.pixel': 'পিক্সেল',
     'lookPage.font.pixel_large': 'বড় পিক্সেল',
     'lookPage.font.clean_small': 'মসৃণ ছোট',
@@ -122,7 +122,7 @@ export default {
     'lookPage.live.offlineHint': 'রোবট চালু আর অনলাইনে আছে কি না দেখুন। প্রতি ৫ সেকেন্ডে আবার চেষ্টা হচ্ছে।',
   },
   en: {
-    'lookPage.desc': 'Change TinyBot’s eyes, mouth and manner. Every change shows at once on the screen.',
+    'lookPage.desc': 'Change TinyBot’s eyes, mouth and manner. Every change shows at once in the preview; Save sends it to TinyBot.',
     'lookPage.stageLabel': 'TinyBot’s screen',
     'lookPage.view': 'Show',
     'lookPage.viewPreview': 'Preview',
@@ -190,7 +190,7 @@ export default {
     'lookPage.handsHint': 'Little paws in some expressions: yawning, like, waving, thinking, surprised, shy.',
 
     'lookPage.fontTitle': 'Chat font',
-    'lookPage.fontDesc': 'The subtitle strip under TinyBot’s face. Bigger fonts make the strip taller. Latin letters, numbers and punctuation only: the screen cannot draw Bangla text.',
+    'lookPage.fontDesc': 'The subtitle strip under TinyBot’s face. Bigger fonts make the strip taller. This font applies to Latin letters, numbers and punctuation; Bangla text is drawn by the server, so it stays the same.',
     'lookPage.font.pixel': 'Pixel',
     'lookPage.font.pixel_large': 'Big pixel',
     'lookPage.font.clean_small': 'Clean small',

@@ -4,7 +4,7 @@ import { createMemoryHistory, createRouter } from 'vue-router';
 
 const NOW = new Date().toISOString();
 const AGENTS = [
-  { id: 'a1', agentName: 'TinyBot', llmModelName: 'Groq', ttsModelName: 'EdgeTTS', deviceCount: 2, lastConnectedAt: NOW },
+  { id: 'a1', agentName: 'TinyBot', llmModelName: 'Groq', ttsModelName: 'EdgeTTS', ttsVoiceName: 'Nabanita', deviceCount: 2, lastConnectedAt: NOW },
   { id: 'a2', agentName: 'Empty one', deviceCount: 0, lastConnectedAt: null },
 ];
 const DEVICES = {
@@ -67,6 +67,13 @@ describe('My robots page', () => {
     expect(text).toContain('No robot runs this character yet.');
     expect(w.findAll('.rb-row:not(.rb-row--note)')).toHaveLength(2);
     expect(w.find('.rb-mac__mask').text()).toBe(':85:00:');
+    // masked bytes are drawn as dots, the real bytes swap in on hover or focus (CSS)
+    expect(w.find('.rb-mac__dots').text()).toBe(':••:••:');
+    // the voice by its display name, no provider or model IDs
+    expect(w.find('.rb-group__models').text()).toBe('Voice: Nabanita');
+    expect(text).not.toContain('EdgeTTS');
+    expect(text).not.toContain('Groq');
+    expect(w.find('.rb-row__acts').exists()).toBe(true);
     expect(w.find('.rb-row__state.is-online').exists()).toBe(true);
     // the shell's robot falls back to the first one, marked as current
     expect(robot.deviceId).toBe('d1');

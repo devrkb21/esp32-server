@@ -1,6 +1,6 @@
 <template>
   <div class="tb-select" :class="[`tb-select--${size}`, { 'is-invalid': invalid, 'is-disabled': disabled }]">
-    <select :id="id || null" :value="current" :disabled="disabled" :aria-invalid="invalid ? 'true' : null"
+    <select :aria-describedby="describedBy || null" :id="id || null" :value="current" :disabled="disabled" :aria-invalid="invalid ? 'true' : null"
       :aria-label="ariaLabel || null" @change="onChange">
       <option v-if="placeholder" value="" disabled :selected="current === ''">{{ placeholder }}</option>
       <template v-for="(o, i) in normalized" :key="i">
@@ -15,6 +15,7 @@
 </template>
 
 <script setup>
+import { inject as injectField } from 'vue';
 import { computed } from 'vue';
 import TbIcon from './TbIcon.vue';
 
@@ -31,6 +32,8 @@ const props = defineProps({
   ariaLabel: { type: String, default: '' },
 });
 const emit = defineEmits(['update:modelValue', 'change']);
+// Set by an enclosing TbField: the id of its error or hint.
+const describedBy = injectField('tbFieldDescribedBy', null);
 const flat = [];
 const normalized = computed(() => props.options.map((o) => (
   typeof o === 'object' && o !== null ? (o.group ? { group: o.group, options: o.options.map(n) } : n(o)) : n(o)

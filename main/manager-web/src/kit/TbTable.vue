@@ -1,6 +1,6 @@
 <template>
-  <div class="tb-table" :class="{ 'is-dense': dense, 'is-loading': loading }">
-    <div v-if="selectable && rows.length" class="tb-table__selall">
+  <div class="tb-table" :class="{ 'is-dense': dense, 'is-loading': loading, 'is-selectable': selectable }">
+    <div v-if="selectable && phoneSelectAll && rows.length" class="tb-table__selall">
       <TbCheckbox :model-value="allChecked" :indeterminate="someChecked" :label="selectAllLabel" @update:model-value="toggleAll" />
     </div>
     <div class="tb-table__scroll">
@@ -28,7 +28,7 @@
             <td v-if="selectable" class="tb-table__sel" @click.stop>
               <TbCheckbox :model-value="isChecked(row)" :aria-label="selectRowLabel" @update:model-value="toggleRow(row, $event)" />
             </td>
-            <td v-for="c in columns" :key="c.key" :class="{ 'is-full': c.full }" :style="{ textAlign: c.align || null }" :data-label="c.label">
+            <td v-for="c in columns" :key="c.key" :class="{ 'is-full': c.full }" :style="{ textAlign: c.align || null }" :data-label="c.label" :data-key="c.key">
               <slot :name="`cell-${c.key}`" :row="row" :value="row[c.key]" :index="i">{{ format(c, row) }}</slot>
             </td>
           </tr>
@@ -65,6 +65,8 @@ const props = defineProps({
   loadingText: { type: String, default: '' },
   selectAllLabel: { type: String, default: 'Select all' },
   selectRowLabel: { type: String, default: 'Select row' },
+  // false when the page draws its own select-all above a phone list
+  phoneSelectAll: { type: Boolean, default: true },
 });
 const emit = defineEmits(['update:selected', 'sort', 'row-click']);
 const sort = reactive({ key: '', dir: 'asc' });
@@ -97,7 +99,14 @@ function format(c, row) { const v = row[c.key]; return c.format ? c.format(v, ro
 .tb-table.is-dense td { padding: 8px 12px; font-size: var(--tb-fs-14); }
 .tb-table.is-dense th { padding: 8px 12px; }
 .tb-table tbody tr { transition: background-color var(--tb-t-hover) var(--tb-ease); }
-@media (hover: hover) and (pointer: fine) { .tb-table tbody tr:hover { background: var(--tb-paper-2); } }
+/* Desktop: a row darkens its rule and shows its actions on hover or keyboard focus. */
+@media (hover: hover) and (pointer: fine) {
+  .tb-table tbody tr:hover { background: var(--tb-paper-2); }
+  .tb-table tbody tr:hover td { border-bottom-color: var(--tb-rule); }
+  .tb-table td[data-key=actions] > * { opacity: 0; transition: opacity var(--tb-t-hover) var(--tb-ease); }
+  .tb-table tbody tr:hover td[data-key=actions] > *,
+  .tb-table tbody tr:focus-within td[data-key=actions] > * { opacity: 1; }
+}
 .tb-table__sel { width: 44px; }
 .tb-table__sort { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; font: inherit; color: inherit; }
 .tb-table__sort .tb-icon { opacity: .35; } .tb-table__sort .tb-icon.is-on { opacity: 1; }
@@ -112,7 +121,10 @@ function format(c, row) { const v = row[c.key]; return c.format ? c.format(v, ro
   .tb-table tr { border-bottom: 1px solid var(--tb-rule); padding: 8px 0; }
   .tb-table td { border: 0; padding: 4px 4px; display: grid; grid-template-columns: 38% 1fr; gap: 8px; text-align: left !important; }
   .tb-table td::before { content: attr(data-label); color: var(--tb-ink-2); font-size: var(--tb-fs-13); }
-  .tb-table td.tb-table__sel { display: block; }
+  /* the row checkbox sits at the top right of its block, beside the first labelled line */
+  .tb-table.is-selectable tbody tr { position: relative; }
+  .tb-table td.tb-table__sel { position: absolute; top: 6px; right: 0; width: auto; padding: 0; display: block; }
+  .tb-table td.tb-table__sel + td { padding-right: 48px; }
   .tb-table td.is-full { display: block; }
   .tb-table td.is-full::before { content: none; }
   .tb-table__selall { display: block; padding: 6px 4px; border-bottom: 1px solid var(--tb-rule); }

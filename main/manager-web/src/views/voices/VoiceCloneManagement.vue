@@ -45,7 +45,7 @@
         </span>
       </template>
       <template #cell-voiceId="{ value }"><code class="vc-id" :title="value">{{ value || dash }}</code></template>
-      <template #cell-languages="{ value }"><span class="vc-cut" :title="value">{{ value || dash }}</span></template>
+      <template #cell-languages="{ value }"><span class="vc-cut" :title="langs(value)">{{ langs(value) || dash }}</span></template>
       <template #cell-createDate="{ value }"><time class="vc-date tb-num">{{ when(value) || dash }}</time></template>
       <template #cell-actions="{ row }">
         <span class="vc-acts">
@@ -78,7 +78,7 @@
 import Api from '@/apis/api';
 import { digits } from '@/kit/calendar';
 import VoiceCloneSheet from './VoiceCloneSheet.vue';
-import { STATE_INK, STATE_KEY, dateText, trainState } from './voiceModel';
+import { STATE_INK, STATE_KEY, dateText, languagesText, trainState } from './voiceModel';
 
 // While a voice is training the list refreshes itself quietly, so its state stays honest.
 const TRAINING_POLL_MS = 15000;
@@ -139,6 +139,7 @@ export default {
   methods: {
     num(n) { return digits(n ?? 0, this.lang); },
     when(v) { return dateText(v, this.lang); },
+    langs(v) { return languagesText(v, this.$t); },
     state: trainState,
     ink(row) { return STATE_INK[trainState(row)]; },
     stateKey(row) { return STATE_KEY[trainState(row)]; },

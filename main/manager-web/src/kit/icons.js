@@ -37,7 +37,7 @@ export const ICONS = {
   book: 'M5.5 4.5h11a2 2 0 0 1 2 2v13h-11a2 2 0 0 1-2-2zM5.5 17.5a2 2 0 0 1 2-2h11',
   dict: 'M5 4.5h14v15H5zM9 9h6M9 12.5h6M9 16h3',
   params: 'M5 4.5v15M12 4.5v15M19 4.5v15M3 8h4M10 15h4M17 10.5h4',
-  provider: 'M12 3.5l8 4.5v8L12 20.5 4 16V8zM4 8l8 4.5L20 8M12 12.5v8',
+  provider: 'M9 3.5v5M15 3.5v5M6.5 8.5h11v3a5.5 5.5 0 0 1-11 0zM12 17v3.5', // a plug: distinct from model's cube
   model: 'M4 7l8-3.5L20 7v10l-8 3.5L4 17zM12 10.5v10M4 7l8 3.5L20 7',
   template: 'M4.5 4.5h15v15h-15zM4.5 9.5h15M9.5 9.5v10',
   feature: 'M4 7h4M4 17h4M12 4.5v5M12 14.5v5M16 7h4M16 17h4M8 7a2 2 0 1 0 4 0 2 2 0 1 0-4 0M12 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0',

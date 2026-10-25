@@ -93,8 +93,10 @@ export default {
       const wifi = wifiQuality(s.rssi);
       const up = uptimeParts(s.uptime_s);
       const scores = highScores(s.high_scores);
+      // only a state we have words for is shown; a raw firmware enum never reaches the page
+      const state = s.state ? r.tOr(`robot.state.${s.state}`, '') : '';
       return [
-        { key: 'mood', label: t('companion.status.mood'), value: mk ? t(mk) : (s.mood || dash), note: s.state ? t('robot.status.stateIs', { state: s.state }) : '' },
+        { key: 'mood', label: t('companion.status.mood'), value: mk ? t(mk) : (s.mood || dash), note: state ? t('robot.status.stateIs', { state }) : '' },
         { key: 'bond', label: t('companion.status.bond'), value: has(s.bond_score) ? r.num(s.bond_score) : dash,
           note: has(s.bond_level) ? t('companion.status.bondLevel', { level: r.num(s.bond_level) }) : '' },
         { key: 'streak', label: t('companion.status.streak'), value: t('companion.event.days', { n: r.num(s.streak || 0) }) },

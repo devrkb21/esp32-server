@@ -5,9 +5,9 @@ const now = Date.now();
 const ago = (min) => new Date(now - min * 60000).toISOString();
 
 const agents = [
-  { id: 'demo-agent-1', agentName: 'TinyBot', llmModelName: 'Groq', ttsModelName: 'EdgeTTS', ttsVoiceName: 'bn-BD-NabanitaNeural',
+  { id: 'demo-agent-1', agentName: 'TinyBot', llmModelName: 'Groq', ttsModelName: 'EdgeTTS', ttsVoiceName: 'Nabanita',
     memModelId: 'Memory_mem_local_short', deviceCount: 2, lastConnectedAt: ago(0) },
-  { id: 'demo-agent-2', agentName: 'পড়ার সাথী', llmModelName: 'Groq', ttsModelName: 'EdgeTTS', ttsVoiceName: 'bn-BD-PradeepNeural',
+  { id: 'demo-agent-2', agentName: 'পড়ার সাথী', llmModelName: 'Groq', ttsModelName: 'EdgeTTS', ttsVoiceName: 'Pradeep',
     memModelId: 'Memory_nomem', deviceCount: 1, lastConnectedAt: ago(60 * 26) },
   { id: 'demo-agent-3', agentName: 'অফিসের সঙ্গী', llmModelName: '', ttsModelName: '', ttsVoiceName: '',
     memModelId: 'Memory_nomem', deviceCount: 0, lastConnectedAt: null },

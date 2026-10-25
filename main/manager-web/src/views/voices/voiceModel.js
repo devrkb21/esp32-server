@@ -113,7 +113,8 @@ export function dateText(value, lang) {
   if (!d) return '';
   const locale = lang === 'bn' ? 'bn-BD' : 'en-GB';
   try {
-    return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
+    // 24-hour clock in Bangla, where Intl would print a Latin "AM/PM".
+    return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: lang !== 'bn' }).format(d);
   } catch (e) {
     return d.toISOString().slice(0, 16).replace('T', ' ');
   }
@@ -123,4 +124,23 @@ export function dateText(value, lang) {
 export function clockText(seconds) {
   const s = Math.max(0, Math.round(seconds || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// The i18n key for a language name the server stores as free text ("Bangla, English"); null
+// when the name is not one we translate, so the raw value is shown.
+const LANG_KEY = {
+  bangla: 'voices.lang.bangla', bengali: 'voices.lang.bangla', 'বাংলা': 'voices.lang.bangla', bn: 'voices.lang.bangla',
+  english: 'voices.lang.english', 'ইংরেজি': 'voices.lang.english', en: 'voices.lang.english',
+};
+export function languageKey(name) {
+  return LANG_KEY[String(name || '').trim().toLowerCase()] || null;
+}
+
+// The languages field in the reader's language: each comma-separated name translated through
+// `t` when known, else kept as the server sent it.
+export function languagesText(value, t) {
+  if (!value) return '';
+  return String(value).split(',').map((s) => s.trim()).filter(Boolean)
+    .map((name) => { const key = languageKey(name); return key ? t(key) : name; })
+    .join(', ');
 }

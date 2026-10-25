@@ -34,7 +34,7 @@
       </template>
       <template #cell-userName="{ value }"><span class="vr-cut" :title="value">{{ value || dash }}</span></template>
       <template #cell-modelName="{ value }"><span class="vr-cut" :title="value">{{ value || dash }}</span></template>
-      <template #cell-languages="{ value }"><span class="vr-cut" :title="value">{{ value || dash }}</span></template>
+      <template #cell-languages="{ value }"><span class="vr-cut" :title="langs(value)">{{ langs(value) || dash }}</span></template>
       <template #cell-trainStatus="{ row }">
         <span class="vr-state">
           <TbTag :ink="ink(row)" mark>{{ $t(stateKey(row)) }}</TbTag>
@@ -77,7 +77,7 @@
 import Api from '@/apis/api';
 import { digits } from '@/kit/calendar';
 import VoiceResourceSheet from './VoiceResourceSheet.vue';
-import { STATE_INK, STATE_KEY, dateText, sampleUrl, trainState } from './voiceModel';
+import { STATE_INK, STATE_KEY, dateText, languagesText, sampleUrl, trainState } from './voiceModel';
 
 export default {
   name: 'VoiceResourceManagement',
@@ -125,6 +125,7 @@ export default {
   methods: {
     num(n) { return digits(n ?? 0, this.lang); },
     when(v) { return dateText(v, this.lang); },
+    langs(v) { return languagesText(v, this.$t); },
     state: trainState,
     ink(row) { return STATE_INK[trainState(row)]; },
     stateKey(row) { return STATE_KEY[trainState(row)]; },

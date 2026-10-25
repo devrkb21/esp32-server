@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import smCrypto from 'sm-crypto';
 import {
-  areaOptions, defaultAreaCode, encryptPassword, faceMood, filledCount, legalUrl, mentionsCaptcha, NoPublicKeyError, versionParts,
+  areaOptions, defaultAreaCode, encryptPassword, faceMood, filledCount, LEGAL_READY, legalUrl, mentionsCaptcha, NoPublicKeyError, versionParts,
 } from '../src/views/auth/authKit.js';
 
 const { sm2 } = smCrypto;
@@ -24,9 +24,13 @@ describe('authKit', () => {
     expect(defaultAreaCode(undefined)).toBe('+880');
     expect(areaOptions([{ key: '+91', name: 'India' }])).toEqual([{ value: '+91', label: '+91 India' }]);
   });
-  it('links the legal pages like before: Chinese bare, others -en', () => {
-    expect(legalUrl('privacy-policy', 'zh_CN', '/')).toBe('/privacy-policy.html');
-    expect(legalUrl('user-agreement', 'bn', '/app')).toBe('/app/user-agreement-en.html');
+  it('links the future Nobix legal pages: -bn for Bangla, -en for every other language', () => {
+    expect(legalUrl('user-agreement', 'bn', '/app')).toBe('/app/user-agreement-bn.html');
+    expect(legalUrl('privacy-policy', 'en', '/')).toBe('/privacy-policy-en.html');
+    expect(legalUrl('privacy-policy', 'zh_CN', '/')).toBe('/privacy-policy-en.html');
+  });
+  it('keeps the legal note hidden until Nobix publishes its own terms', () => {
+    expect(LEGAL_READY).toBe(false);
   });
   it('spots server messages about the picture code', () => {
     expect(mentionsCaptcha('Invalid captcha')).toBe(true);
@@ -101,6 +105,12 @@ describe('Login', { timeout: 60000 }, () => {
     expect(text).toContain('Enter your password');
     expect(text).toContain('Type the picture code');
     expect(api.calls.some(([k]) => k === 'login')).toBe(false);
+  });
+
+  it('shows no terms or privacy note until Nobix has its own', async () => {
+    const { w } = await mountLogin();
+    expect(w.find('.auth-form__note').exists()).toBe(false);
+    expect(w.find('a[href$="-en.html"]').exists()).toBe(false);
   });
 
   it('signs in with the SM2 password, keeps the token and user, and opens Today', async () => {

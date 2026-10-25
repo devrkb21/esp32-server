@@ -43,11 +43,16 @@ defineProps({
 </script>
 
 <style>
-.tb-face { margin: 0; background: var(--tb-face); border-radius: var(--tb-radius-s); padding: 6%; aspect-ratio: 2 / 1;
-  display: grid; place-items: center; overflow: hidden; }
-.tb-face svg, .tb-face__img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.tb-face { position: relative; margin: 0; background: var(--tb-face); border-radius: var(--tb-radius-s); padding: 6%; aspect-ratio: 2 / 1;
+  display: grid; place-items: stretch; align-content: center; overflow: hidden; }
+.tb-face svg, .tb-face__img { width: 100%; height: auto; aspect-ratio: 2 / 1; display: block; image-rendering: pixelated; }
 .tb-face.is-off { opacity: .55; }
-.tb-face.is-pulse { animation: tb-face-pulse 200ms var(--tb-ease); }
-@keyframes tb-face-pulse { 50% { box-shadow: 0 0 0 4px var(--tb-orange); } }
+/* The one "heard you" pulse: an orange ring that fades in and out (opacity only). */
+.tb-face::after {
+  content: ''; position: absolute; inset: 0; border: 4px solid var(--tb-orange); border-radius: inherit;
+  opacity: 0; pointer-events: none;
+}
+.tb-face.is-pulse::after { animation: tb-face-pulse 200ms var(--tb-ease); }
+@keyframes tb-face-pulse { 50% { opacity: 1; } }
 .tb-face__cap { display: none; }
 </style>
