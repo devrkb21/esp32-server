@@ -63,6 +63,8 @@ import xiaozhi.modules.device.service.DeviceAddressBookService;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.device.service.OtaService;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
+import xiaozhi.modules.product.service.ProductService;
+import xiaozhi.modules.product.vo.ProductVO;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserUtilService;
@@ -78,6 +80,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     private final RedisUtils redisUtils;
     private final OtaService otaService;
     private final DeviceAddressBookService deviceAddressBookService;
+    private final ProductService productService;
 
     @Async
     public void updateDeviceConnectionInfo(String agentId, String deviceId, String appVersion) {
@@ -321,6 +324,11 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         UserShowDeviceListVO vo = ConvertUtils.sourceToTarget(device, UserShowDeviceListVO.class);
         vo.setDeviceType(device.getBoard());
         vo.setBoard(device.getBoard());
+        ProductVO product = productService.resolve(device.getBoard());
+        vo.setProductKey(product.getProductKey());
+        vo.setProductName(product.getNameEn());
+        vo.setProductNameBn(product.getNameBn());
+        vo.setFeatures(product.getFeatures());
         vo.setAutoUpdate(device.getAutoUpdate());
         vo.setCreateDateTimestamp(toTimestamp(device.getCreateDate()));
         vo.setLastConnectedAtTimestamp(toTimestamp(device.getLastConnectedAt()));

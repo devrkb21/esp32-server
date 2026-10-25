@@ -59,7 +59,8 @@ class DeviceControllerTest {
                 deviceService,
                 mock(DeviceAddressBookService.class),
                 mock(RedisUtils.class),
-                mock(SysParamsService.class));
+                mock(SysParamsService.class),
+                mock(CompanionController.class));
     }
 
     private DeviceEntity ownedDevice() {

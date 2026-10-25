@@ -1,6 +1,7 @@
 package xiaozhi.modules.device.vo;
 
 import java.util.Date;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -22,6 +23,18 @@ public class UserShowDeviceListVO {
 
     @Schema(description = "DeviceModel(board)")
     private String board;
+
+    @Schema(description = "Product key resolved from board", example = "tinybot")
+    private String productKey;
+
+    @Schema(description = "Product name (English)", example = "TinyBot")
+    private String productName;
+
+    @Schema(description = "Product name (Bangla)", example = "টাইনিবট")
+    private String productNameBn;
+
+    @Schema(description = "Feature keys of the device's product")
+    private List<String> features;
 
     @Schema(description = "DeviceUnique identifierchar")
     private String id;

@@ -32,6 +32,7 @@ import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
+import xiaozhi.modules.product.service.ProductService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 
@@ -49,12 +50,14 @@ public class CompanionController {
     private final DeviceService deviceService;
     private final SysParamsService sysParamsService;
     private final RestTemplate restTemplate;
+    private final ProductService productService;
 
     public CompanionController(DeviceService deviceService, SysParamsService sysParamsService,
-            RestTemplate restTemplate) {
+            RestTemplate restTemplate, ProductService productService) {
         this.deviceService = deviceService;
         this.sysParamsService = sysParamsService;
         this.restTemplate = restTemplate;
+        this.productService = productService;
     }
 
     @GetMapping("/{deviceId}")
@@ -119,6 +122,8 @@ public class CompanionController {
                 || StringUtils.isBlank(device.getMacAddress())) {
             return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
         }
+        // Only products with the companion module (TinyBot) have day/alarms/prayer/look/messages/...
+        productService.requireFeature(device.getBoard(), ProductService.FEATURE_COMPANION);
         String base = companionBaseUrl();
         if (base == null) {
             return new Result<Object>().error("Companion server address is not configured");
