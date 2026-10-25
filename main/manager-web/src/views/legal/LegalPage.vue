@@ -4,7 +4,7 @@
       <header class="legal__top">
         <p class="legal__brand">
           <img :src="markSrc" alt="" width="32" height="32" />
-          <span><b>{{ $t('nav.brand') }}</b><small>{{ $t('nav.by') }}</small></span>
+          <span><b>{{ $t('nav.brand') }}</b></span>
         </p>
         <div class="legal__lang">
           <TbIcon name="language" :size="18" aria-hidden="true" />
@@ -30,6 +30,7 @@
           <h2>{{ s.heading }}</h2>
           <LegalBlock v-for="(b, bi) in s.blocks" :key="bi" :block="b" />
         </section>
+        <TbMaker class="legal__maker" :width="120" />
       </article>
 
       <footer class="legal__foot">
@@ -119,6 +120,7 @@ LegalBlock.props = ['block'];
 .legal__list li { padding-left: 2px; }
 .legal__list li::marker { color: var(--tb-ink-3); }
 
+.legal__maker { padding: 36px 0 8px; }
 .legal__foot { margin-top: 28px; padding: 6px 0 12px; border-top: 1px solid var(--tb-rule-soft); }
 
 @media (min-width: 960px) {

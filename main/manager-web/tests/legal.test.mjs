@@ -82,6 +82,18 @@ describe('LegalPage', { timeout: 60000 }, () => {
     expect(w.text()).toContain('contact Nobix Industries, Bangladesh.');
   });
 
+  it('closes the document with the Nobix maker lockup, light and dark files, not a text credit', async () => {
+    const w = await mountAt('/terms', 'en');
+    const imgs = w.findAll('.legal__doc .tb-maker img');
+    expect(imgs.map((i) => i.attributes('src'))).toEqual(['/brand/nobix-lockup.png', '/brand/nobix-lockup-dark.png']);
+    for (const i of imgs) {
+      expect(i.attributes('alt')).toBe('Nobix Industries');
+      expect(i.attributes('width')).toBe('120');
+      expect(i.attributes('height')).toBe('27');
+    }
+    expect(w.find('.legal__brand').text()).toBe('TinyBot');
+  });
+
   it('shows the Bangla privacy policy in Bangla mode with its bold lead-ins', async () => {
     const w = await mountAt('/privacy', 'bn');
     expect(w.find('h1').text()).toBe('টাইনিবট গোপনীয়তা নীতি');
