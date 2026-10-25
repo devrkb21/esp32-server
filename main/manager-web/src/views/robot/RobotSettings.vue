@@ -2,7 +2,7 @@
   <div class="rb">
     <TbPageHeader :title="$t('nav.robot')" :description="$t('robot.lede')">
       <template v-if="view" #actions>
-        <TbTag :ink="view.online ? 'ok' : 'ink-2'" mark>{{ view.online ? $t('common.online') : $t('common.offline') }}</TbTag>
+        <TbRobotStatus compact :status="status" />
         <TbButton size="s" variant="quiet" icon="refresh" :loading="loading" @click="refresh(false)">{{ $t('robot.refresh') }}</TbButton>
       </template>
     </TbPageHeader>
@@ -15,15 +15,13 @@
 
     <div v-else-if="!view" class="rb__state">
       <TbLoading v-if="loading || !loadError" :label="$t('common.loading')" show-label />
-      <TbEmpty v-else face="confused" :title="$t('common.loadFailed')" :text="loadError">
-        <TbButton icon="refresh" @click="refresh(false)">{{ $t('common.retry') }}</TbButton>
-      </TbEmpty>
+      <TbRobotStatus v-else class="rb__status" :status="status" :loading="loading" :hint="$t('status.pageWaits')"
+        @refresh="recheck" />
     </div>
 
     <template v-else>
-      <p v-if="loadError" class="rb__fail" role="alert">{{ loadError }}
-        <TbButton size="s" variant="quiet" icon="refresh" @click="refresh(false)">{{ $t('common.retry') }}</TbButton></p>
-      <p v-if="!view.online" class="rb__offline" role="status">{{ $t('robot.offlineNote') }}</p>
+      <TbRobotStatus v-if="showStatus" class="rb__status" :status="status" :loading="loading" @refresh="recheck" />
+      <p v-if="status.state === 'offline'" class="rb__offline" role="status">{{ $t('robot.offlineNote') }}</p>
 
       <nav class="rb__index" :aria-label="$t('robot.indexLabel')">
         <a v-for="s in index" :key="s" :href="`#rb-${s}`" class="rb__indexlink" :aria-current="current === s ? 'true' : null" @click.prevent="jump(s)">{{ $t(`robot.sec.${s}`) }}</a>
@@ -43,6 +41,9 @@
 import Api from '@/apis/api';
 import { digits, timeText } from '@/kit/calendar';
 import { deviceIdFrom, loadRobots, robot } from '@/shell/robot';
+import {
+  ensureMqtt, friendlyError, noteCompanionError, noteCompanionView, refreshRobotStatus, statusOf,
+} from '@/shell/robotStatus';
 import { ageOf, isLastPageOn, memoryList, robotPages } from '@/utils/companion.mjs';
 import { createUpdateFlow, initialUpdateState } from '@/utils/firmwareUpdate.mjs';
 import {
@@ -98,7 +99,11 @@ export default {
     deviceId() { return deviceIdFrom(this.$route); },
     agentId() { return (this.$route && this.$route.query && this.$route.query.agentId) || robot.agentId || ''; },
     lang() { return this.$i18n.locale; },
-    online() { return !!(this.view && this.view.online !== false); },
+    // The robot's connection, the same on every page (src/shell/robotStatus.js): it follows what
+    // this page, any other page or the sidebar learns.
+    status() { return statusOf(this.deviceId, { now: this.now }); },
+    showStatus() { return !['online', 'checking'].includes(this.status.state); },
+    online() { return !!this.view && this.status.state === 'online'; },
     stats() { return (this.view && this.view.stats) || {}; },
     pages() { return robotPages(this.view && this.view.settings && this.view.settings.pages); },
     memories() { return memoryList(this.view && this.view.memories); },
@@ -130,6 +135,7 @@ export default {
         onChange: (state) => { this.fwUpdate = state; },
       });
       this.refresh(false);
+      ensureMqtt(this.deviceId);
       this.loadDevice();
       this.loadLatest();
     }
@@ -162,7 +168,9 @@ export default {
       return this.$t(`companion.ago.${age.unit}`, { n: this.num(age.value) });
     },
     onVisible() { if (!document.hidden && this.deviceId) this.refresh(true); },
-    errorText(err) { return (err && err.data && err.data.msg) || this.$t('robot.requestFailed'); },
+    errorText(err) { return friendlyError(err, this.$t('robot.requestFailed')); },
+    /** "Check again" on the status panel: the view and the gateway both. */
+    recheck() { refreshRobotStatus(this.deviceId, { force: true, companion: false }); this.refresh(false); },
     jump(key) {
       const el = document.getElementById(`rb-${key}`);
       if (!el || !el.scrollIntoView) return;
@@ -196,17 +204,22 @@ export default {
       if (!this.deviceId || this.inflight) return;
       this.inflight = true;
       if (!silent) this.loading = true;
-      Api.companion.getCompanion(this.deviceId, (res) => {
+      const id = this.deviceId;
+      Api.companion.getCompanion(id, (res) => {
         this.inflight = false; this.loading = false; this.loadError = '';
         this.apply(res.data.data);
       }, (err) => {
-        this.inflight = false; this.loading = false;
-        // keep showing the last good data on a failed background refresh
-        if (!silent || !this.view) this.loadError = this.errorText(err);
+        this.inflight = false; this.loading = false; this.now = Date.now();
+        const kind = noteCompanionError(id, err);
+        // the robot is not known to the companion server (any more): its old data is gone too
+        if (kind === 'not_registered') this.view = null;
+        // keep showing the last good data on a failed background refresh; the status panel says why
+        if (!silent || !this.view) this.loadError = kind;
       });
     },
     apply(view) {
       if (!view || typeof view !== 'object') return;
+      noteCompanionView(this.deviceId, view);
       this.view = view;
       this.now = Date.now();
       this.syncForms(false);
@@ -250,7 +263,7 @@ export default {
     syncOf(area) {
       if (this.saving[area]) return { state: 'pending', text: this.$t('common.sync.pending') };
       if (this.failed[area]) return { state: 'error', text: this.$t('common.sync.error') };
-      if (this.view && this.view.online === false) return { state: 'pending', text: this.$t('robot.sync.offline') };
+      if (this.view && !this.online) return { state: 'pending', text: this.$t('robot.sync.offline') };
       return { state: 'applied', text: this.$t('common.sync.applied') };
     },
     saveSection(section) {
@@ -416,6 +429,8 @@ export default {
 .rb { padding-bottom: var(--tb-s10); }
 .rb__state { padding: var(--tb-s10) 0; display: grid; justify-items: center; }
 .rb__fail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--tb-danger); font-size: var(--tb-fs-14); padding-top: var(--tb-s3); }
+.rb__state .rb__status { justify-self: stretch; }
+.rb__status { margin-top: var(--tb-s3); }
 .rb__offline { padding: var(--tb-s3) 0; color: var(--tb-ink-2); font-size: var(--tb-fs-14); border-bottom: 1px solid var(--tb-rule-soft); }
 .rb__index {
   position: sticky; top: 0; z-index: 4; background: var(--tb-paper);

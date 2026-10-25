@@ -13,6 +13,9 @@
     </div>
 
     <template v-else>
+      <!-- The robot's connection, when it is not simply online -->
+      <TbRobotStatus v-if="showStatus" class="msg__status" :status="status" :loading="refreshing" @refresh="refreshAll" />
+
       <!-- What you tell TinyBot -->
       <TbSection :title="$t('messages.compose.title')" :description="$t('messages.compose.desc')" ink="message">
         <form class="msg-compose" novalidate @submit.prevent="send">
@@ -43,6 +46,7 @@
         </template>
 
         <div v-if="msgLoading && !messages.length" class="msg__wait"><TbLoading :label="$t('common.loading')" show-label /></div>
+        <p v-else-if="msgFailed && !messages.length && showStatus" class="msg__muted">{{ $t('status.pageWaits') }}</p>
         <p v-else-if="msgFailed && !messages.length" class="msg__fail" role="alert">{{ $t('common.loadFailed') }}
           <TbButton size="s" variant="quiet" icon="refresh" @click="loadMessages()">{{ $t('common.retry') }}</TbButton></p>
         <TbEmpty v-else-if="!messages.length" face="awake" :title="$t('messages.list.none')" :text="$t('messages.list.noneText')" />
@@ -163,9 +167,12 @@ import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
 import { digits } from '@/kit/calendar';
 import { loadRobots, robot, deviceIdFrom } from '@/shell/robot';
+import {
+  ensureMqtt, friendlyError, noteCompanionError, noteCompanionView, refreshRobotStatus, statusOf as linkStatusOf,
+} from '@/shell/robotStatus';
 import { MAX_MESSAGE, MAX_NAME } from '@/utils/companion.mjs';
 import {
-  SESSIONS_PAGE, TOOL_FOLD, dateParts, errorText, firstLine, lineContent, macParts, mergeSessions,
+  SESSIONS_PAGE, TOOL_FOLD, dateParts, firstLine, lineContent, macParts, mergeSessions,
   messageList, messageTs, messageWhen, sortMessages, speakerOf, stampText, statusOf, syncOf, withTimeMarks,
 } from './messagesModel';
 
@@ -184,13 +191,27 @@ const toolFold = TOOL_FOLD;
 const deviceId = computed(() => deviceIdFrom(route));
 const agentId = computed(() => (route.query && route.query.agentId) || robot.agentId || '');
 
-// ---------------------------------------------------------------- robot state (online or not)
+// ---------------------------------------------------------------- robot state (its connection)
+// The same status every page shows (src/shell/robotStatus.js); the raw server text of a failed
+// call goes to the console only.
 const view = ref(null);
-const offline = computed(() => !!view.value && view.value.online === false);
+const checkedAt = ref(Date.now());
+const status = computed(() => linkStatusOf(deviceId.value, { now: checkedAt.value }));
+const showStatus = computed(() => !!deviceId.value && !['online', 'checking'].includes(status.value.state));
+const offline = computed(() => !!deviceId.value && status.value.state === 'offline');
 function loadView() {
   if (!deviceId.value) return;
   const want = deviceId.value;
-  Api.companion.getCompanion(want, (res) => { if (want === deviceId.value) view.value = res.data.data || null; }, () => {});
+  ensureMqtt(want);
+  Api.companion.getCompanion(want, (res) => {
+    noteCompanionView(want, res.data.data);
+    checkedAt.value = Date.now();
+    if (want === deviceId.value) view.value = res.data.data || null;
+  }, (err) => {
+    const kind = noteCompanionError(want, err);
+    checkedAt.value = Date.now();
+    if (kind === 'not_registered' && want === deviceId.value) view.value = null;
+  });
 }
 
 // ---------------------------------------------------------------- composer
@@ -225,7 +246,7 @@ function send() {
     loadMessages(true);
   }, (err) => {
     sending.value = false;
-    toast.error(errorText(err, t('messages.failed')));
+    toast.error(friendlyError(err, t('messages.failed')));
   });
 }
 
@@ -258,6 +279,7 @@ const dayLabel = (w) => (w === 'today' ? t('messages.today') : w === 'yesterday'
 const refreshing = ref(false);
 function refreshAll() {
   refreshing.value = true;
+  refreshRobotStatus(deviceId.value, { force: true, companion: false });
   loadView();
   loadMessages(true);
   restartSessions();
@@ -436,6 +458,7 @@ watch(agentId, () => { resetSessions(); loadSessions(); });
 <style>
 .msg__none { padding: var(--tb-s10) 0; }
 .msg__wait { padding: var(--tb-s4) 0; }
+.msg__status { margin-top: var(--tb-s3); }
 .msg__muted { color: var(--tb-ink-2); font-size: var(--tb-fs-14); }
 .msg__fail { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--tb-danger); font-size: var(--tb-fs-14); }
 

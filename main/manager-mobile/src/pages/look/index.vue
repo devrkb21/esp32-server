@@ -15,12 +15,13 @@
 // screen through the device tool self.screen.preview (components/LookLive.vue).
 import type { CompanionDevice, FaceLook } from '@/api/companion'
 import { onHide, onShow } from '@dcloudio/uni-app'
-import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { getCompanion, updateCompanionConfig } from '@/api/companion/companion'
+import { updateCompanionConfig } from '@/api/companion/companion'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
 import { robot } from '@/utils/tbRobot'
+import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import {
   CHAT_FONT_SAMPLE,
@@ -56,8 +57,13 @@ const num = (n: number) => digits(n, lang.value)
 // ------------------------------------------------------------------ data
 const serverLook = ref<FaceLook>(defaultLook() as FaceLook)
 const form = ref<FaceLook>(defaultLook() as FaceLook)
-const online = ref<boolean | null>(null)
 const loading = ref(false)
+const checkedAt = ref(Date.now())
+// The connection, said the same way on every screen (src/utils/robotConnection.mjs). The live
+// screen goes through the MQTT gateway, so only a robot that is plainly offline loses it.
+const status = computed(() => statusOf(robot.deviceId, checkedAt.value))
+const online = computed<boolean | null>(() => (status.value.state === 'online' ? true : status.value.state === 'offline' ? false : null))
+const showStatus = computed(() => !!robot.deviceId && status.value.state !== 'online' && status.value.state !== 'checking')
 const loadError = ref(false)
 const saving = ref(false)
 
@@ -90,7 +96,6 @@ const sync = computed<{ state: 'applied' | 'pending' | 'off' | 'error', text: st
 function applyView(view: CompanionDevice | null | undefined, force = false) {
   const look = normalizeLook(view?.settings?.look) as FaceLook
   const clean = sameLook(form.value, serverLook.value)
-  online.value = view && typeof view.online === 'boolean' ? view.online : null
   serverLook.value = look
   if (force || clean)
     form.value = { ...look }
@@ -102,16 +107,16 @@ async function load(force = false, quiet = false) {
     return
   if (!quiet)
     loading.value = true
-  try {
-    const view = await getCompanion(id, true)
-    if (id === deviceId.value) {
-      applyView(view, force)
+  const [res] = await Promise.all([refreshCompanion(id), robot.agentId ? refreshMqtt(robot.agentId) : Promise.resolve()])
+  if (id === deviceId.value) {
+    checkedAt.value = Date.now()
+    if (res.view) {
+      applyView(res.view, force)
       loadError.value = false
     }
-  }
-  catch {
-    if (!quiet)
+    else if (!quiet || res.kind === 'not_registered') {
       loadError.value = true
+    }
   }
   loading.value = false
 }
@@ -245,7 +250,6 @@ watch(online, (v) => {
 watch(deviceId, (id) => {
   if (!id && view.value === 'live')
     view.value = 'preview'
-  online.value = null
   loadError.value = false
   if (notHere.value)
     return
@@ -297,7 +301,7 @@ function goRobots() {
 </script>
 
 <template>
-  <view class="look tb-wrap">
+  <view class="tb-wrap look">
     <tb-page-header :title="t('nav.look')" :description="t('lookPage.desc')" />
 
     <tb-not-here v-if="notHere" />
@@ -309,19 +313,7 @@ function goRobots() {
         </tb-button>
       </tb-empty>
     </view>
-    <view v-else-if="loadError" class="is-error look__note" role="alert">
-      <tb-icon name="warning" :size="18" /><text class="look__notetext">
-        {{ t('lookPage.loadFailed') }}
-      </text>
-      <tb-button size="s" variant="quiet" icon="refresh" @click="load(true)">
-        {{ t('common.retry') }}
-      </tb-button>
-    </view>
-    <view v-else-if="online === false" class="look__note" role="status">
-      <tb-icon name="warning" :size="18" /><text class="look__notetext">
-        {{ t('lookPage.offline') }}
-      </text>
-    </view>
+    <tb-robot-status v-else-if="showStatus" class="look__status" :status="status" :loading="loading" @refresh="load(true)" />
 
     <view class="look__grid">
       <view class="look__left">
@@ -524,25 +516,8 @@ function goRobots() {
   padding: 8px 0 4px;
   border-bottom: 1px solid var(--tb-rule-soft);
 }
-.look__note {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--tb-rule-soft);
-  font-size: 14px;
-}
-.look__note .tb-icon {
-  color: var(--tb-look);
-}
-.look__note.is-error,
-.look__note.is-error .tb-icon {
-  color: var(--tb-danger);
-}
-.look__notetext {
-  flex: 1 1 24ch;
-  min-width: 0;
+.look__status {
+  margin-bottom: 12px;
 }
 
 .look__grid {

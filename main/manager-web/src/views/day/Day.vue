@@ -2,7 +2,7 @@
   <div class="day">
     <TbPageHeader :title="$t('nav.day')" :description="$t('day.lede')">
       <template v-if="view" #actions>
-        <TbTag :ink="view.online ? 'ok' : 'ink-2'" mark>{{ view.online ? $t('common.online') : $t('common.offline') }}</TbTag>
+        <TbRobotStatus compact :status="status" />
       </template>
     </TbPageHeader>
 
@@ -14,15 +14,13 @@
 
     <div v-else-if="!view" class="day__state">
       <TbLoading v-if="loading || !loadError" :label="$t('common.loading')" show-label />
-      <template v-else>
-        <TbEmpty face="confused" :title="$t('common.loadFailed')" :text="loadError">
-          <TbButton icon="refresh" @click="refresh(false)">{{ $t('common.retry') }}</TbButton>
-        </TbEmpty>
-      </template>
+      <TbRobotStatus v-else class="day__status" :status="status" :loading="loading" :hint="$t('status.pageWaits')"
+        @refresh="recheck" />
     </div>
 
     <template v-else>
-      <p v-if="!view.online" class="day__offline" role="status">{{ $t('day.offlineNote') }}</p>
+      <TbRobotStatus v-if="showStatus" class="day__status" :status="status" :loading="loading" @refresh="recheck" />
+      <p v-if="status.state === 'offline'" class="day__offline" role="status">{{ $t('day.offlineNote') }}</p>
 
       <div class="day__top">
         <section class="day__almanac" aria-labelledby="day-today-h">
@@ -32,14 +30,12 @@
           </header>
           <TbDayTable :rows="rows" :lang="lang" :now-minutes="minute" :now-label="$t('common.now')"
             :caption="$t('day.todayTitle')" :empty-text="$t('day.todayEmpty')" clickable @select="(r) => openKey(r.key)" />
-          <p v-if="loadError" class="day__fail" role="alert">{{ loadError }}
-            <TbButton size="s" variant="quiet" icon="refresh" @click="refresh(false)">{{ $t('common.retry') }}</TbButton></p>
         </section>
 
         <aside class="day__nowbox" :aria-label="$t('day.nowLabel')">
           <DayScreen v-if="nowActivity" class="day__screen" :activity="nowActivity" :look="look"
             :alt="$t('day.screenAlt', { activity: $t(`day.activity.${nowActivity}`) })" />
-          <TbFace v-else class="day__screen" :mood="view.online ? 'awake' : 'offline'" :alt="$t('day.screenIdle')" />
+          <TbFace v-else class="day__screen" :mood="live ? 'awake' : 'offline'" :alt="$t('day.screenIdle')" />
           <dl class="day__nowlist">
             <div><dt>{{ $t('common.now') }}</dt><dd>{{ nowActivity ? $t(`day.activity.${nowActivity}`) : $t('day.nothingNow') }}</dd></div>
             <div v-if="next"><dt>{{ $t('day.next') }}</dt><dd><span class="tb-num">{{ fmt(next.time) }}</span> {{ next.title }}</dd></div>
@@ -71,6 +67,9 @@ import { markRaw } from 'vue';
 import Api from '@/apis/api';
 import { digits, timeText } from '@/kit/calendar';
 import { deviceIdFrom, loadRobots } from '@/shell/robot';
+import {
+  ensureMqtt, friendlyError, noteCompanionError, noteCompanionView, refreshRobotStatus, statusOf,
+} from '@/shell/robotStatus';
 import { ACTIVITIES, scheduledActivity, normalizeRoutine } from '@/utils/companion.mjs';
 import { TABS, TAB_INK, dayTimeline, nextRow, tabOfKey } from './dayModel';
 import DayScreen from './DayScreen.vue';
@@ -111,6 +110,10 @@ export default {
   computed: {
     deviceId() { return deviceIdFrom(this.$route); },
     lang() { return this.$i18n.locale; },
+    // The robot's connection, the same on every page (src/shell/robotStatus.js)
+    status() { return statusOf(this.deviceId, { now: this.now }); },
+    showStatus() { return !['online', 'checking'].includes(this.status.state); },
+    live() { return this.status.state === 'online'; },
     minute() { const d = new Date(this.now); return d.getHours() * 60 + d.getMinutes(); },
     look() { return (this.view && this.view.settings && this.view.settings.look) || null; },
     routine() { return normalizeRoutine(this.view && this.view.settings && this.view.settings.routine); },
@@ -186,25 +189,31 @@ export default {
     /** "HH:MM" in the reader's numerals (12-hour figures in Bangla, like the wall calendar). */
     fmt(hhmm) { return timeText(hhmm, this.lang, this.lang === 'bn'); },
     onVisible() { if (!document.hidden && this.deviceId) { this.now = Date.now(); this.refresh(true); } },
-    errorText(err) { return (err && err.data && err.data.msg) || this.$t('day.requestFailed'); },
+    errorText(err) { return friendlyError(err, this.$t('day.requestFailed')); },
+    recheck() { refreshRobotStatus(this.deviceId, { force: true, companion: false }); this.refresh(false); },
 
     refresh(silent) {
       if (!this.deviceId || this.inflight) return;
       this.inflight = true;
       if (!silent) this.loading = true;
       const first = !this.view;
-      Api.companion.getCompanion(this.deviceId, (res) => {
+      const id = this.deviceId;
+      ensureMqtt(id);
+      Api.companion.getCompanion(id, (res) => {
         this.inflight = false; this.loading = false; this.loadError = '';
         this.apply(res.data.data);
         if (first && this.$route.query.focus) this.openKey(this.$route.query.focus);
       }, (err) => {
-        this.inflight = false; this.loading = false;
-        // keep showing the last good data on a failed background refresh
-        if (!silent || !this.view) this.loadError = this.errorText(err);
+        this.inflight = false; this.loading = false; this.now = Date.now();
+        const kind = noteCompanionError(id, err);
+        if (kind === 'not_registered') this.view = null;
+        // keep showing the last good data on a failed background refresh; the status panel says why
+        if (!silent || !this.view) this.loadError = kind;
       });
     },
     apply(view) {
       if (!view || typeof view !== 'object') return;
+      noteCompanionView(this.deviceId, view);
       this.view = view;
       this.now = Date.now();
     },
@@ -220,7 +229,7 @@ export default {
         Api.companion.updateCompanionConfig(this.deviceId, patch, (res) => {
           this.saving = { ...this.saving, [area]: false };
           this.apply(res.data.data);
-          const online = !this.view || this.view.online !== false;
+          const online = !this.view || this.live;
           this.$message.success(online ? (okText || this.$t('day.saved')) : this.$t('day.savedOffline'));
           resolve(this.view);
         }, (err) => {
@@ -235,7 +244,7 @@ export default {
     syncOf(area) {
       if (this.saving[area]) return { state: 'pending', text: this.$t('common.sync.pending') };
       if (this.failed[area]) return { state: 'error', text: this.$t('common.sync.error') };
-      if (this.view && this.view.online === false) return { state: 'pending', text: this.$t('day.sync.offline') };
+      if (this.view && !this.live) return { state: 'pending', text: this.$t('day.sync.offline') };
       return { state: 'applied', text: this.$t('common.sync.applied') };
     },
     command(type, arg, okText, busyKey) {
@@ -243,7 +252,7 @@ export default {
       this.busy = busyKey || type;
       Api.companion.sendCompanionCommand(this.deviceId, type, arg, () => {
         this.busy = '';
-        const online = !this.view || this.view.online !== false;
+        const online = !this.view || this.live;
         this.$message.success(online ? (okText || this.$t('day.sent')) : this.$t('day.sentOffline'));
       }, (err) => {
         this.busy = '';
@@ -292,7 +301,7 @@ export default {
 .day__almanachead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 0 8px; }
 .day__almanachead h2 { font-size: var(--tb-fs-20); }
 .day__date { font-size: var(--tb-fs-13); color: var(--tb-ink-2); }
-.day__fail { display: flex; align-items: center; gap: 8px; color: var(--tb-danger); font-size: var(--tb-fs-14); padding-top: 8px; }
+.day__status { margin-top: var(--tb-s3); justify-self: stretch; }
 .day__nowbox { order: 1; display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; padding: 10px 0 12px; border-bottom: 1px solid var(--tb-rule); }
 .day__screen { width: 100%; }
 .day__nowlist { margin: 0; display: grid; gap: 4px; min-width: 0; }

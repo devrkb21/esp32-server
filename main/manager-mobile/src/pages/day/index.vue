@@ -11,10 +11,11 @@
 
 <script lang="ts" setup>
 import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
-import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { computed, nextTick, provide, ref, watch } from 'vue'
+import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
 import { robot } from '@/utils/tbRobot'
+import { statusOf } from '@/utils/tbRobotStatus'
 import DayAlarms from './components/DayAlarms.vue'
 import DayFocus from './components/DayFocus.vue'
 import DayNight from './components/DayNight.vue'
@@ -47,6 +48,10 @@ function setPanel(key: string, el: any) {
 }
 
 const view = computed(() => day.view)
+// The connection, said the same way on every screen (src/utils/robotConnection.mjs)
+const status = computed(() => statusOf(robot.deviceId, clock.value.getTime()))
+const online = computed(() => status.value.state === 'online')
+const showStatus = computed(() => status.value.state !== 'online' && status.value.state !== 'checking')
 const rows = computed(() => dayTimeline(day.view, clock.value, (k: string, p?: any) => t(k, nums(p)), day.fmt, day.saving))
 const next = computed(() => nextRow(rows.value, day.minute) as any)
 const doing = computed(() => nowActivity(day.view, day.minute) as string)
@@ -109,7 +114,6 @@ function takeFocus() {
 }
 function goRobots() { uni.navigateTo({ url: '/pages/robots/index' }) }
 
-
 // This page is about one product feature; a robot whose product lacks it sees <tb-not-here />.
 const { missing: notHere, allowed: featureAllowed } = useFeatureGate('day')
 
@@ -143,12 +147,10 @@ watch(() => robot.deviceId, () => {
 </script>
 
 <template>
-  <view class="dpage tb-wrap">
+  <view class="tb-wrap dpage">
     <tb-page-header :title="t('nav.day')" :description="t('day.lede')">
       <template v-if="view" #actions>
-        <tb-tag :ink="view.online ? 'ok' : 'ink-2'" mark>
-          {{ view.online ? t('common.online') : t('common.offline') }}
-        </tb-tag>
+        <tb-robot-status compact :status="status" />
       </template>
     </tb-page-header>
 
@@ -163,16 +165,18 @@ watch(() => robot.deviceId, () => {
     </view>
 
     <view v-else-if="!view" class="dpage__state">
-      <tb-empty v-if="day.failed && !day.loading" face="confused" :title="t('common.loadFailed')">
-        <tb-button icon="refresh" @click="day.refresh()">
-          {{ t('common.retry') }}
-        </tb-button>
-      </tb-empty>
+      <view v-if="day.failed && showStatus" class="dpage__wait">
+        <tb-robot-status :status="status" :loading="day.loading" @refresh="day.refresh()" />
+        <text class="dpage__waits">
+          {{ t('status.pageWaits') }}
+        </text>
+      </view>
       <tb-loading v-else :label="t('common.loading')" />
     </view>
 
     <block v-else>
-      <text v-if="!view.online" class="dpage__offline" role="status">
+      <tb-robot-status v-if="showStatus" class="dpage__status" :status="status" :loading="day.loading" @refresh="day.refresh()" />
+      <text v-if="status.state === 'offline'" class="dpage__offline" role="status">
         {{ t('day.offlineNote') }}
       </text>
 
@@ -181,7 +185,7 @@ watch(() => robot.deviceId, () => {
           v-if="doing" class="dnow__screen" :activity="doing" :look="view.settings?.look"
           :alt="t('day.screenAlt', { activity: t(`day.activity.${doing}`) })"
         />
-        <tb-face v-else class="dnow__screen" :mood="view.online ? 'awake' : 'offline'" :alt="t('day.screenIdle')" />
+        <tb-face v-else class="dnow__screen" :mood="online ? 'awake' : 'offline'" :alt="t('day.screenIdle')" />
         <view class="dnow__list">
           <view class="dnow__line">
             <text class="dnow__k is-now">
@@ -220,12 +224,6 @@ watch(() => robot.deviceId, () => {
         <text class="dtoday__hint">
           {{ t('day.tableHint') }}
         </text>
-        <view v-if="day.failed" class="dpage__fail" role="alert">
-          <text>{{ t('common.loadFailed') }}</text>
-          <tb-button size="s" variant="quiet" icon="refresh" @click="day.refresh()">
-            {{ t('common.retry') }}
-          </tb-button>
-        </view>
       </view>
 
       <view id="day-areas" class="dareas">
@@ -261,13 +259,18 @@ watch(() => robot.deviceId, () => {
   color: var(--tb-ink-2);
   font-size: 14px;
 }
-.dpage__fail {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--tb-danger);
-  font-size: 14px;
-  padding-top: 8px;
+.dpage__wait {
+  width: 100%;
+  align-self: flex-start;
+}
+.dpage__waits {
+  display: block;
+  padding-top: 12px;
+  font-size: 13px;
+  color: var(--tb-ink-2);
+}
+.dpage__status {
+  margin-top: 12px;
 }
 
 .dnow {

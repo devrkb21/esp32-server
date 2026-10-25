@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
+import { resetRobotStatus } from '@/shell/robotStatus';
 
 const NOW = new Date().toISOString();
 const AGENTS = [
@@ -19,6 +20,7 @@ const api = vi.hoisted(() => ({
   agent: { getAgentList: vi.fn(), searchAgent: vi.fn(), addAgent: vi.fn(), deleteAgent: vi.fn() },
   device: { getAgentBindDevices: vi.fn(), getDeviceStatus: vi.fn(), bindDevice: vi.fn(), manualAddDevice: vi.fn() },
   dict: { getDictDataByType: vi.fn() },
+  companion: { getCompanion: vi.fn() },
 }));
 vi.mock('@/apis/api', () => ({ default: api, getServiceUrl: () => '' }));
 vi.mock('@/utils/featureManager', () => ({
@@ -36,6 +38,7 @@ function wire({ agents = AGENTS } = {}) {
   api.device.getDeviceStatus.mockImplementation((id, cb) => cb({ data: { code: 0, data: JSON.stringify({
     'tinybot@@@28_84_85_00_00_01@@@28_84_85_00_00_01': { isAlive: true },
   }) } }));
+  api.companion.getCompanion.mockImplementation((id, cb) => cb({ data: { code: 0, data: { online: true, last_seen: Math.floor(Date.now() / 1000) - 10 } } }));
 }
 
 async function mountPage() {
@@ -49,6 +52,7 @@ async function mountPage() {
 
 describe('My robots page', () => {
   beforeEach(() => {
+  resetRobotStatus();
     i18n.global.locale = 'en';
     localStorage.clear();
     Object.assign(robot, { deviceId: '', agentId: '', name: '', list: [], loaded: false, loading: false });
@@ -82,6 +86,23 @@ describe('My robots page', () => {
     await pick.trigger('click');
     expect(robot.deviceId).toBe('d2');
     expect(robot.agentId).toBe('a1');
+  });
+
+  it('never says online when the robot is on MQTT but the companion server does not know it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    wire();
+    api.companion.getCompanion.mockImplementation((id, ok, fail) => fail({ status: 200, data: { code: 500, msg: 'device not found' } }));
+    const { w } = await mountPage();
+    // only the robot the gateway calls online is asked about
+    expect(api.companion.getCompanion).toHaveBeenCalledTimes(1);
+    expect(api.companion.getCompanion.mock.calls[0][0]).toBe('d1');
+    const row = w.findAll('.rb-row')[0];
+    expect(row.find('.rb-row__state.is-online').exists()).toBe(false);
+    expect(row.find('.rb-row__state').text()).toContain('Joining the server');
+    expect(row.find('.rb-row__state').text()).not.toContain('Online');
+    expect(w.text()).not.toContain('device not found');
+    expect(w.findAll('.rb-row')[1].find('.rb-row__state').text()).toContain('Offline');
+    warn.mockRestore();
   });
 
   it('shows the first-run path when the account has no character', async () => {

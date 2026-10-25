@@ -25,6 +25,8 @@ export interface RobotContext {
   agentId: ComputedRef<string>
   view: Ref<CompanionDevice | null>
   online: ComputedRef<boolean>
+  /** the connection status (src/utils/robotConnection.mjs) */
+  status: ComputedRef<{ state: string, lastSeen: number | null, reason: string }>
   lang: ComputedRef<string>
   /** ms, moved on with every fresh view */
   now: Ref<number>

@@ -147,10 +147,7 @@ async function saveNames() {
         <text v-if="owner" class="rbs-plate__owner">
           {{ t('mrobot.status.ownerIs', { name: owner }) }}
         </text>
-        <view class="rbs-plate__state" :class="{ 'is-off': !r.online.value }">
-          <view class="rbs-plate__dot" />
-          <text>{{ r.online.value ? t('common.online') : t('common.offline') }}</text>
-        </view>
+        <tb-robot-status class="rbs-plate__state" compact :status="r.status.value" />
         <text class="rbs-plate__seen">
           {{ t('mrobot.status.seen', { when: r.ago(v?.last_seen) }) }}
         </text>
@@ -270,25 +267,7 @@ async function saveNames() {
   overflow-wrap: anywhere;
 }
 .rbs-plate__state {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   margin-top: 4px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.rbs-plate__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--tb-ok);
-}
-.rbs-plate__state.is-off {
-  color: var(--tb-ink-2);
-}
-.rbs-plate__state.is-off .rbs-plate__dot {
-  background: transparent;
-  border: 1.5px solid var(--tb-ink-3);
 }
 .rbs-plate__seen {
   font-size: 13px;

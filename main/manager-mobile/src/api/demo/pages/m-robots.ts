@@ -1,7 +1,7 @@
 import type { DemoHandler, DemoRequest } from '../index'
 import { onPage } from '../index'
 import { PRODUCT_FIELDS } from './m-products'
-import { DEMO_AGENT, DEMO_DEVICE, DEMO_GENERIC_DEVICE } from './zz-base'
+import { DEMO_AGENT, DEMO_DEVICE, DEMO_GENERIC_DEVICE, DEMO_STALE_DEVICE, DEMO_WAITING_DEVICE, demoStatusMap } from './zz-base'
 
 // Robots and the device list of one character (owner: m-robots). Synthetic sample data: the base
 // account's robot plus a second robot on the same character and an empty second character. Every
@@ -19,11 +19,13 @@ const devices: Record<string, any[]> = {
     { ...DEMO_DEVICE, agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 60 * 1000), createDate: '' },
     { id: 'demo-device-2', alias: 'অফিসের টাইনিবট', macAddress: '28:84:85:00:00:02', board: 'tinybot', appVersion: '2.5.3', agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 2 * 86400000 - 3 * 3600000), autoUpdate: 0, createDate: '', ...PRODUCT_FIELDS.tinybot },
     { ...DEMO_GENERIC_DEVICE, agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 26 * 3600000), createDate: '' },
+    { ...DEMO_WAITING_DEVICE, agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 30 * 1000), createDate: '' },
+    { ...DEMO_STALE_DEVICE, agentId: 'demo-agent-1', lastConnectedAtTimestamp: String(now - 25 * 60000), createDate: '' },
   ],
   'demo-agent-2': [],
 }
 const FIRMWARE_TYPES = [{ key: 'tinybot', name: 'TinyBot (ESP32-S3)' }]
-let seq = 3
+let seq = 6
 
 function idFrom(path: string, re: RegExp) {
   const m = path.match(re)
@@ -33,12 +35,7 @@ function both(re: RegExp) {
   return [onPage(ROBOTS, re), onPage(DEVICES, re)]
 }
 function statusMap(agentId: string) {
-  const map: Record<string, any> = {}
-  for (const d of devices[agentId] || []) {
-    const mac = d.macAddress.replace(/:/g, '_')
-    map[`${d.board}@@@${mac}@@@${mac}`] = { isAlive: d.id === 'demo-device-1', exists: true }
-  }
-  return JSON.stringify(map)
+  return demoStatusMap(devices[agentId] || [])
 }
 function findDevice(id: string) {
   for (const list of Object.values(devices)) {

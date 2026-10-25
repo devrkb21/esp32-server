@@ -3,8 +3,8 @@
 // tests/legacy/companionContract.test.mjs (API routes, route, polling), ported to the new page,
 // plus the firmware card (src/legacy/components/TinyBotFirmwareCard.vue) and the page's own rules.
 import { readFileSync } from 'node:fs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 
 const api = vi.hoisted(() => ({
   companion: {
@@ -33,6 +33,11 @@ import {
   sectionProblem, serverForm, soundSavedNote, uptimeParts, wifiQuality,
 } from '@/views/robot/robotModel';
 import { PHASE } from '@/utils/firmwareUpdate.mjs';
+import { resetRobotStatus } from '@/shell/robotStatus';
+
+// pages poll every 10 s: a page left mounted by one test must not answer in the next
+enableAutoUnmount(afterEach);
+import { robot } from '@/shell/robot';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 
@@ -83,6 +88,7 @@ async function mountRobot(view, { query = {}, user = { superAdmin: 0 }, devices 
 }
 
 beforeEach(() => {
+  resetRobotStatus();
   vi.clearAllMocks();
   api.companion.updateCompanionConfig.mockReset();
   api.companion.sendCompanionCommand.mockReset();
@@ -418,7 +424,8 @@ describe('Robot: status', () => {
     expect(w.text()).toContain('No robot connected yet');
   });
 
-  it('shows the load error with a retry and keeps the last view on a failed background poll', async () => {
+  it('shows the status panel (never the raw server text) and keeps the last view on a failed background poll', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     api.companion.getCompanion.mockImplementation((id, ok, fail) => fail({ data: { msg: 'down' } }));
     api.device.getAgentBindDevices.mockImplementation(() => {});
     const w = mount(RobotSettings, {
@@ -429,7 +436,10 @@ describe('Robot: status', () => {
       },
     });
     await flushPromises();
-    expect(w.text()).toContain('down');
+    expect(w.find('.tb-rstat').exists()).toBe(true);
+    expect(w.text()).toContain('Server problem');
+    expect(w.text()).toContain('Check again');
+    expect(w.text()).not.toContain('down');
     api.companion.getCompanion.mockImplementation((id, ok) => ok({ data: { data: deviceView() } }));
     w.vm.refresh(false);
     await flushPromises();
@@ -438,6 +448,45 @@ describe('Robot: status', () => {
     w.vm.refresh(true);
     expect(w.vm.loadError).toBe('');
     expect(w.vm.view).toBeTruthy();
+    warn.mockRestore();
+  });
+
+  it('a robot on MQTT but unknown to the companion server: waiting panel, auto refresh, no raw text', async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    api.companion.getCompanion.mockImplementation((id, ok, fail) => fail({ status: 200, data: { code: 500, msg: 'device not found' } }));
+    api.device.getAgentBindDevices.mockImplementation(() => {});
+    robot.list = [{ deviceId: 'dev1', agentId: 'ag1', macAddress: 'aa:bb:cc:dd:ee:ff', board: 'tinybot', features: ['companion'] }];
+    api.device.getDeviceStatus = vi.fn((id, cb) => cb({ data: { code: 0, data: JSON.stringify({
+      'tinybot@@@aa_bb_cc_dd_ee_ff@@@aa_bb_cc_dd_ee_ff': { isAlive: true },
+    }) } }));
+    const w = mount(RobotSettings, {
+      global: {
+        plugins: [Kit, i18n],
+        stubs: { teleport: true, RouterLink: true },
+        mocks: { $route: { query: { deviceId: 'dev1' } }, $router: { push: vi.fn() }, $message: message },
+      },
+    });
+    await flushPromises();
+    expect(w.vm.status.state).toBe('waiting_companion');
+    expect(w.text()).toContain('Joining the server');
+    expect(w.text()).toContain('switch the robot off and on again');
+    expect(w.text()).not.toContain('device not found');
+    const calls = api.companion.getCompanion.mock.calls.length;
+    vi.advanceTimersByTime(15000);
+    await flushPromises();
+    expect(api.companion.getCompanion.mock.calls.length).toBeGreaterThan(calls);
+    // the robot reaches the server: the page fills in
+    api.companion.getCompanion.mockImplementation((id, ok) => ok({ data: { data: deviceView() } }));
+    await w.find('.tb-rstat button').trigger('click');
+    await flushPromises();
+    expect(w.vm.status.state).toBe('online');
+    expect(w.vm.view).toBeTruthy();
+    w.unmount();
+    robot.list = [];
+    delete api.device.getDeviceStatus;
+    warn.mockRestore();
+    vi.useRealTimers();
   });
 
   it('shows pending while saving, applied after, and says an offline robot gets it later', async () => {
