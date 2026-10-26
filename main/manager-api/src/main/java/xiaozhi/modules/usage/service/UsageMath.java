@@ -176,7 +176,12 @@ public final class UsageMath {
         Map<String, Object> out = new LinkedHashMap<>(acc);
         for (String k : SUM_KEYS) {
             BigDecimal v = num(out.get(k));
-            out.put(k, "asrSeconds".equals(k) ? v.setScale(1, RoundingMode.HALF_UP).doubleValue() : v.longValue());
+            // (an if, not ?: : a conditional of double and long would turn every count into a double)
+            if ("asrSeconds".equals(k)) {
+                out.put(k, v.setScale(1, RoundingMode.HALF_UP).doubleValue());
+            } else {
+                out.put(k, v.longValue());
+            }
         }
         out.put("tokens", num(out.get("tokens")).longValue());
         if (out.get("cost") != null) {
