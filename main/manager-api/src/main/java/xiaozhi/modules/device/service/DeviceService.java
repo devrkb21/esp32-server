@@ -20,6 +20,12 @@ public interface DeviceService extends BaseService<DeviceEntity> {
     String getDeviceOnlineData(String agentId);
 
     /**
+     * Whether the MQTT gateway sees each device connected (device id -> true/false). Empty when
+     * the gateway is not configured or did not answer. No user check: for server jobs.
+     */
+    Map<String, Boolean> gatewayOnline(List<DeviceEntity> devices);
+
+    /**
      * Check whether device is activated
      */
     DeviceReportRespDTO checkDeviceActive(String macAddress, String clientId,

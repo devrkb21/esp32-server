@@ -64,6 +64,8 @@ import xiaozhi.modules.device.service.DeviceLinkService;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.device.service.OtaService;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
+import xiaozhi.modules.family.service.DeviceAccess;
+import xiaozhi.modules.family.service.FamilyRole.Action;
 import xiaozhi.modules.product.service.ProductService;
 import xiaozhi.modules.product.vo.ProductVO;
 import xiaozhi.modules.security.user.SecurityUser;
@@ -182,9 +184,17 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             return "";
         }
 
-        // Get device list for current user
+        // Get device list for current user, plus the robots of this character shared with them
         UserDetail user = SecurityUser.getUser();
-        List<DeviceEntity> devices = getUserDevices(user.getId(), agentId);
+        List<DeviceEntity> devices = new ArrayList<>(getUserDevices(user.getId(), agentId));
+        List<String> shared = DeviceAccess.sharedDeviceIds(user.getId());
+        if (!shared.isEmpty()) {
+            for (DeviceEntity d : baseDao.selectByIds(shared)) {
+                if (agentId != null && agentId.equals(d.getAgentId()) && DeviceAccess.can(d, user.getId(), Action.VIEW)) {
+                    devices.add(d);
+                }
+            }
+        }
 
         // BuilddeviceIdsArray
         Set<String> deviceIds = devices.stream().map(o -> {
@@ -208,6 +218,38 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         }
         // ReturnResponse
         return "";
+    }
+
+    @Override
+    public Map<String, Boolean> gatewayOnline(List<DeviceEntity> devices) {
+        Map<String, Boolean> out = new HashMap<>();
+        String url = formatMqttGatewayUrl("/api/devices/status");
+        if (url == null || devices == null || devices.isEmpty()) {
+            return out;
+        }
+        Map<String, String> clientOf = new HashMap<>();
+        for (DeviceEntity o : devices) {
+            String macAddress = Optional.ofNullable(o.getMacAddress()).orElse("unknown").replace(":", "_");
+            String groupId = Optional.ofNullable(o.getBoard()).orElse("GID_default").replace(":", "_");
+            clientOf.put(o.getId(), StrUtil.format("{}@@@{}@@@{}", groupId, macAddress, macAddress));
+        }
+        try {
+            String body = postToMqttGateway(url, Collections.singletonMap("clientIds", clientOf.values()));
+            Map<String, Object> status = JsonUtils.parseMap(body);
+            for (Map.Entry<String, String> e : clientOf.entrySet()) {
+                Object info = status == null ? null : status.get(e.getValue());
+                if (info instanceof Map<?, ?> m) {
+                    Object alive = m.get("isAlive");
+                    out.put(e.getKey(), Boolean.TRUE.equals(alive)
+                            || (alive == null && Boolean.TRUE.equals(m.get("exists"))));
+                } else if (status != null) {
+                    out.put(e.getKey(), false);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Gateway status failed: {}", e.getMessage());
+        }
+        return out;
     }
 
     @Override
@@ -366,7 +408,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         UpdateWrapper<DeviceEntity> wrapper = new UpdateWrapper<>();
         wrapper.eq("user_id", userId);
         wrapper.eq("id", deviceId);
-        baseDao.delete(wrapper);
+        if (baseDao.delete(wrapper) > 0) {
+            // Only the owner unbinds; the robot's family loses it too
+            DeviceAccess.forgetDevice(deviceId);
+        }
 
         // Delete contact permission records related to devices
         deviceAddressBookService.deleteByMacAddresses(Collections.singletonList(macAddress));
@@ -802,9 +847,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             return null;
         }
 
-        // Check whether device belongs to current user
+        // The owner and the robot's family may use its tools (volume, restart)
         UserDetail user = SecurityUser.getUser();
-        if (!device.getUserId().equals(user.getId())) {
+        if (!DeviceAccess.can(device, user.getId(), Action.USE)) {
             return null;
         }
 
@@ -905,9 +950,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             return null;
         }
 
-        // Check whether device belongs to current user
+        // The owner and the robot's family may use its tools (volume, restart)
         UserDetail user = SecurityUser.getUser();
-        if (!device.getUserId().equals(user.getId())) {
+        if (!DeviceAccess.can(device, user.getId(), Action.USE)) {
             return null;
         }
 

@@ -164,7 +164,8 @@ Field notes:
 `answer` is `yes`, `no` or `seen`. Event types: `alarm_dismissed`, `alarm_snoozed`,
 `alarm_missed`, `reminder_done`, `reminder_missed`, `prayer_reminded`, `pomodoro_done`
 (value = rounds), `game_score` (id = game, value = score), `streak` (value = days),
-`dropped`, `lonely`. Response: `{"ok": true}`.
+`dropped`, `lonely`, `fall` (the robot was dropped or knocked hard; a care alert for the family,
+see docs/family-and-notifications.md). Response: `{"ok": true}`.
 
 Both device endpoints answer 400 `{"ok": false, "error": ...}` when `Device-Id` is missing.
 An ack marks a message `delivered` (a reply does too) and a command `done`; a later `seen`
@@ -202,6 +203,8 @@ input, 401 without a valid token, 404 for an unknown robot, 502 when geocoding i
   `say_audio`), `prayer` (`enabled, remind, city, lat, lon, days, audio`), `weather` (snapshot
   weather plus `lat, lon`), `stats`, `events` (newest first, 30), `messages` (newest first, 30),
   `commands` (newest first, 20, with `status` `pending`/`done`).
+* `settings.care` also holds the family care alerts read by manager-api: `no_activity_hours`
+  (0-12, 0 = off), `fall_alert`, `missed_medicine_alert` (booleans); the robot ignores them.
 * `PUT .../config`: `settings.night`, `settings.care`, `pomodoro`, `prayer` and `weather` are merged
   key by key; `alarms` and `reminders` replace the whole list (items keep their `id`; new items
   get one). Validation: times `HH:MM`, `days` 0-127, `label` reduced to 24 printable ASCII

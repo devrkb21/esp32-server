@@ -38,6 +38,7 @@ EVENT_TYPES = (
     "streak",
     "dropped",
     "lonely",
+    "fall",
 )
 
 
@@ -398,6 +399,12 @@ def settings(old: Dict, patch: Any) -> Dict:
             {
                 "enabled": boolean,
                 "lonely_after_min": lambda v, f: integer(v, 10, 1440, f),
+                # Care alerts to the owner's family (manager-api RobotWatchTask): no touch or talk
+                # for this many hours during the day (0 = off), a fall event, a missed medicine
+                # reminder. The robot itself ignores these keys.
+                "no_activity_hours": lambda v, f: integer(v, 0, 12, f),
+                "fall_alert": boolean,
+                "missed_medicine_alert": boolean,
             },
         )
     return out

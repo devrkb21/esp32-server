@@ -36,6 +36,8 @@ import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceAddressBookService;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
+import xiaozhi.modules.family.service.DeviceAccess;
+import xiaozhi.modules.family.service.FamilyRole.Action;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 
@@ -63,6 +65,10 @@ public class DeviceController {
     @Operation(summary = "BindDevice")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> bindDevice(@PathVariable String agentId, @PathVariable String deviceCode) {
+        // Only someone who may manage the character (its owner or a co-owner) binds robots to it
+        if (!DeviceAccess.canAgent(agentId, DeviceAccess.agentOwner(agentId), SecurityUser.getUserId(), Action.MANAGE)) {
+            return new Result<Void>().error(ErrorCode.NO_PERMISSION);
+        }
         deviceService.deviceActivation(agentId, deviceCode);
         return new Result<>();
     }
@@ -126,7 +132,8 @@ public class DeviceController {
             return new Result<Void>().error("Device does not exist");
         }
         UserDetail user = SecurityUser.getUser();
-        if (!entity.getUserId().equals(user.getId())) {
+        // Owner and co-owners rename the robot and change its settings; members cannot
+        if (!DeviceAccess.can(entity, user.getId(), Action.MANAGE)) {
             return new Result<Void>().error("Device does not exist");
         }
         BeanUtils.copyProperties(deviceUpdateDTO, entity);
@@ -260,7 +267,7 @@ public class DeviceController {
     public Result<Void> updateAlias(@Valid @RequestBody DeviceAddressBookAliasDTO dto) {
         UserDetail user = SecurityUser.getUser();
         DeviceEntity callerDevice = deviceService.getDeviceByMacAddress(dto.getMacAddress());
-        if (callerDevice == null || !callerDevice.getUserId().equals(user.getId())) {
+        if (callerDevice == null || !DeviceAccess.can(callerDevice, user.getId(), Action.MANAGE)) {
             return new Result<Void>().error("No permission to operate this device");
         }
         deviceAddressBookService.saveOrUpdate(dto.getMacAddress(), dto.getTargetMac(), dto.getAlias(), null);
@@ -273,7 +280,7 @@ public class DeviceController {
     public Result<Void> updatePermission(@Valid @RequestBody DeviceAddressBookPermissionDTO dto) {
         UserDetail user = SecurityUser.getUser();
         DeviceEntity callerDevice = deviceService.getDeviceByMacAddress(dto.getMacAddress());
-        if (callerDevice == null || !callerDevice.getUserId().equals(user.getId())) {
+        if (callerDevice == null || !DeviceAccess.can(callerDevice, user.getId(), Action.MANAGE)) {
             return new Result<Void>().error("No permission to operate this device");
         }
         deviceAddressBookService.saveOrUpdate(dto.getMacAddress(), dto.getTargetMac(), null, dto.getHasPermission());
