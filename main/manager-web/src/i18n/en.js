@@ -1769,6 +1769,8 @@ export default {
   'companion.status.streak': 'Day streak',
   'companion.status.pomodorosToday': 'Focus sessions today',
   'companion.status.volume': 'Volume',
+  'companion.status.battery': 'Battery',
+  'companion.status.charging': 'Charging',
   'companion.status.lastTouch': 'Last touched',
   'companion.status.highScores': 'High scores',
   'companion.status.firmware': 'Firmware',
@@ -1968,6 +1970,9 @@ export default {
   'companion.game.simon': 'Simon',
   'companion.game.dice': 'Dice',
   'companion.game.reaction': 'Reaction',
+  'companion.game.math': 'Quick math',
+  'companion.game.maze': 'Tilt maze',
+  'companion.game.memory': 'Memory',
 
   // Nobix Console redesign
   'roleConfig.backToAgents': 'Agents',

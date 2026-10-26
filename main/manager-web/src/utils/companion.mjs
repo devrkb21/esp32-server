@@ -20,7 +20,7 @@ export const DAY_PRESETS = [
 export const PRAYER_KEYS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 export const PRAYER_ROWS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 export const REMINDER_KINDS = ['water', 'medicine', 'custom'];
-export const GAMES = ['catch', 'simon', 'dice', 'reaction'];
+export const GAMES = ['catch', 'simon', 'dice', 'reaction', 'math', 'maze', 'memory'];
 
 export function hasDay(mask, day) {
   return ((Number(mask) || 0) >> day & 1) === 1;

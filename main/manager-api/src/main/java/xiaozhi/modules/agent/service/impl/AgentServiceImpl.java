@@ -693,9 +693,9 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
 
         // SetDefaultPlugin
         List<AgentPluginMapping> toInsert = new ArrayList<>();
-        // Play music、queryWeather、queryNewnews
+        // Play music、queryWeather、queryNewnews, and TinyBot's own voice tools (companion, smart home)
         String[] pluginIds = new String[] { "SYSTEM_PLUGIN_MUSIC", "SYSTEM_PLUGIN_WEATHER",
-                "SYSTEM_PLUGIN_NEWS_NEWSNOW" };
+                "SYSTEM_PLUGIN_NEWS_NEWSNOW", "SYSTEM_PLUGIN_COMPANION", "SYSTEM_PLUGIN_TINYBOT_HOME" };
         for (String pluginId : pluginIds) {
             ModelProviderDTO provider = modelProviderService.getById(pluginId);
             if (provider == null) {

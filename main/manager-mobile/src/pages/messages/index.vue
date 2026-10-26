@@ -150,7 +150,7 @@ const actions = computed(() => [
   { type: 'pomodoro' as CommandType, arg: String(focusMin.value), icon: 'focus', label: t('mmsg.cmd.focus', { n: num(focusMin.value) }), aria: t('mmsg.cmd.focusLabel', { n: num(focusMin.value) }), ok: t('mmsg.cmd.focusStarted') },
   { type: 'stop' as CommandType, arg: '', icon: 'stop', label: t('mmsg.cmd.stop') },
 ])
-const games: GameName[] = ['catch', 'simon', 'dice', 'reaction']
+const games: GameName[] = ['catch', 'simon', 'dice', 'reaction', 'math', 'maze', 'memory']
 const topic = ref('')
 const busy = ref('')
 
