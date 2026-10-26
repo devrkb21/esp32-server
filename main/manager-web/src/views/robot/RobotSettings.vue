@@ -33,6 +33,8 @@
         <RobotMemory v-show="tab === 'memory'" id="rb-memory" />
         <RobotGestures v-if="gesturesOn" v-show="tab === 'gestures'" id="rb-gestures" />
         <RobotJobs v-show="tab === 'jobs'" id="rb-jobs" />
+        <RobotCare v-if="careOn" v-show="tab === 'care'" id="rb-care" />
+        <RobotFamily v-if="familyOn" v-show="tab === 'family'" id="rb-family" :device-id="deviceId" :bot-name="botName" />
         <RobotFirmware v-show="tab === 'firmware'" id="rb-firmware" />
       </div>
     </template>
@@ -58,6 +60,8 @@ import RobotMemory from './RobotMemory.vue';
 import RobotGestures from './RobotGestures.vue';
 import RobotJobs from './RobotJobs.vue';
 import RobotFirmware from './RobotFirmware.vue';
+import RobotCare from './RobotCare.vue';
+import RobotFamily from './RobotFamily.vue';
 
 const REFRESH_MS = 10000;
 
@@ -67,7 +71,7 @@ const REFRESH_MS = 10000;
 // a poll brings new data), saves as partial config patches, commands and the sync states.
 export default {
   name: 'RobotSettings',
-  components: { RobotStatus, RobotSound, RobotTalk, RobotMemory, RobotGestures, RobotJobs, RobotFirmware },
+  components: { RobotStatus, RobotSound, RobotTalk, RobotMemory, RobotGestures, RobotJobs, RobotFirmware, RobotCare, RobotFamily },
   provide() { return { robot: this }; },
   data() {
     return {
@@ -90,7 +94,7 @@ export default {
       fwLatest: null,
       fwUpdate: initialUpdateState(),
       savingAuto: false,
-      index: ['status', 'sound', 'talk', 'memory', 'gestures', 'jobs', 'firmware'],
+      index: ['status', 'sound', 'talk', 'memory', 'gestures', 'jobs', 'care', 'family', 'firmware'],
       spy: null,
       timer: null,
       later: null,
@@ -112,7 +116,13 @@ export default {
     events() { return this.moreEvents || (this.view && this.view.events) || []; },
     // Tap shortcuts are a companion setting: only for products with the companion module
     gesturesOn() { return hasFeature('companion', this.deviceId); },
-    sections() { return this.index.filter((s) => s !== 'gestures' || this.gesturesOn); },
+    // Care alerts and family sharing follow their product features (family, care)
+    careOn() { return hasFeature('care', this.deviceId); },
+    familyOn() { return hasFeature('family', this.deviceId); },
+    sections() {
+      const on = { gestures: this.gesturesOn, care: this.careOn, family: this.familyOn };
+      return this.index.filter((s) => on[s] !== false);
+    },
     /** The open tab: ?tab= in the address (so a reload or a shared link keeps it), else the first. */
     tab() {
       const q = this.$route && this.$route.query ? String(this.$route.query.tab || '') : '';
@@ -120,7 +130,7 @@ export default {
     },
     /** Tabs of the sections; one with unsaved edits is marked with a dot. */
     tabItems() {
-      const dirty = { sound: 'sound', talk: 'talk', memory: 'memory', gestures: 'gestures', jobs: 'jobs' };
+      const dirty = { sound: 'sound', talk: 'talk', memory: 'memory', gestures: 'gestures', jobs: 'jobs', care: 'care' };
       return this.sections.map((key) => ({
         key,
         label: this.$t(`robot.sec.${key}`) + (dirty[key] && this.forms && this.forms[key] !== undefined && this.isDirty(key) ? ' ●' : ''),
