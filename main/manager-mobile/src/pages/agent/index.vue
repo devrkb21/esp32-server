@@ -19,6 +19,7 @@ import { t } from '@/i18n'
 import ChatHistory from '@/pages/chat-history/index.vue'
 import DeviceManagement from '@/pages/device/index.vue'
 import VoiceprintManagement from '@/pages/voiceprint/index.vue'
+import { roleOfAgent } from '@/utils/familyModel.mjs'
 import { loadRobots, robot } from '@/utils/tbRobot'
 import AgentEdit from './edit.vue'
 
@@ -44,6 +45,8 @@ const tabList = computed(() => [
   { value: 'voiceprint-management', label: t('mAgent.tab.voiceprints') },
 ])
 
+// A family member sees a shared robot's character read-only (only owner or co-owner change it)
+const readOnly = computed(() => roleOfAgent(robot.list, currentAgentId.value) === 'member')
 const agentName = computed(() => robot.list.find(r => r.agentId === currentAgentId.value)?.agentName || '')
 const description = computed(() => (agentName.value ? t('mAgent.indexLead', { name: agentName.value }) : t('mAgent.lead')))
 
@@ -116,7 +119,10 @@ onShow(() => { featureAllowed() })
       </view>
 
       <view class="agx__body">
-        <AgentEdit v-if="currentTab === 'agent-config'" :agent-id="currentAgentId" embedded />
+        <text v-if="readOnly && currentTab === 'agent-config'" class="agx__ro" role="note">
+          {{ t('family.characterReadOnly') }}
+        </text>
+        <AgentEdit v-if="currentTab === 'agent-config'" :agent-id="currentAgentId" embedded :readonly="readOnly" />
         <DeviceManagement v-else-if="currentTab === 'device-management'" ref="deviceRef" :agent-id="currentAgentId" embedded />
         <ChatHistory v-else-if="currentTab === 'chat-history'" ref="chatRef" :agent-id="currentAgentId" />
         <VoiceprintManagement v-else-if="currentTab === 'voiceprint-management'" ref="voiceprintRef" :agent-id="currentAgentId" />
@@ -129,4 +135,5 @@ onShow(() => { featureAllowed() })
 .agx__state { display: flex; justify-content: center; padding: 56px 0; }
 .agx__tabs { padding: 12px 0; border-bottom: 1px solid var(--tb-rule); }
 .agx__body { min-height: 50vh; }
+.agx__ro { display: block; padding: 12px 0; border-bottom: 1px solid var(--tb-rule-soft); font-size: 14px; line-height: 1.55; color: var(--tb-ink-2); }
 </style>

@@ -21,6 +21,7 @@ import PickSheet from '@/pages/login/components/pick-sheet.vue'
 import { useConfigStore, useThemeStore, useUserStore } from '@/store'
 import { clearServerBaseUrlOverride, getEnvBaseUrl, getServerBaseUrlOverride, setServerBaseUrlOverride } from '@/utils'
 import { digits } from '@/utils/calendar.mjs'
+import { badges, refreshInvites, refreshUnread } from '@/utils/tbBadges'
 import { tbConfirm } from '@/utils/tbConfirm'
 import { visiblePlaces } from '@/utils/tbProducts.mjs'
 import { loadRobots, robotFeatures } from '@/utils/tbRobot'
@@ -46,6 +47,15 @@ const places = computed(() => visiblePlaces([
       { url: '/pages/messages/index', icon: 'message', label: t('nav.messages'), ink: 'message' },
       { url: '/pages/chat-history/index', icon: 'history', label: t('nav.history'), ink: 'message', unless: 'messages' },
       { url: '/pages/robot/index', icon: 'robot', label: t('mauth.more.robotSettings') },
+      { url: '/pages/summary/index', icon: 'day', label: t('summary.title') },
+    ],
+  },
+  {
+    // notifications and family invitations (FAMILY): for the account, not one robot
+    group: t('more.news'),
+    items: [
+      { url: '/pages/notifications/index', icon: 'bell', label: t('notify.title'), value: badges.unread ? t('invites.count', { n: num(badges.unread) }) : '' },
+      { url: '/pages/invitations/index', icon: 'users', label: t('invites.title'), value: badges.invites ? t('invites.count', { n: num(badges.invites) }) : '' },
     ],
   },
   {
@@ -308,8 +318,11 @@ function openLegal(page: 'terms' | 'privacy') {
 onShow(() => {
   getCacheInfo()
   loadAccount()
-  if (uni.getStorageSync('token'))
+  if (uni.getStorageSync('token')) {
     loadRobots() // keeps the places in step with the chosen robot's product
+    refreshUnread()
+    refreshInvites()
+  }
   currentServerUrl.value = getEnvBaseUrl()
   isCustomServer.value = Boolean(getServerBaseUrlOverride())
 })
@@ -355,6 +368,9 @@ onShow(() => {
         <tb-icon :name="it.icon" />
         <text class="more__label">
           {{ it.label }}
+        </text>
+        <text v-if="(it as any).value" class="more__value more__count tb-num">
+          {{ (it as any).value }}
         </text>
         <tb-icon name="chevron-right" :size="16" />
       </view>
@@ -585,6 +601,10 @@ onShow(() => {
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+.more__value.more__count {
+  font-weight: 700;
+  color: var(--tb-ink);
 }
 .more__value {
   flex: none;

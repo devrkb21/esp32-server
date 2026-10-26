@@ -175,6 +175,15 @@
       }
     },
     {
+      "path": "pages/invitations/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Nobix"
+      }
+    },
+    {
       "path": "pages/legal/privacy",
       "type": "page",
       "layout": "default",
@@ -229,6 +238,15 @@
       }
     },
     {
+      "path": "pages/notifications/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Nobix"
+      }
+    },
+    {
       "path": "pages/register/index",
       "type": "page",
       "layout": "default",
@@ -262,6 +280,15 @@
       "style": {
         "navigationBarTitleText": "More",
         "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/summary/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Nobix"
       }
     },
     {

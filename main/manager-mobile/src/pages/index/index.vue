@@ -18,7 +18,9 @@ import { lastSeen } from '@/pages/robots/robotsModel.mjs'
 import { useUserStore } from '@/store'
 import { digits, timeText } from '@/utils/calendar.mjs'
 import { focusMinutes } from '@/utils/companionUtils.mjs'
+import { badgeCount } from '@/utils/notifyModel.mjs'
 import { notifyRequestError } from '@/utils/requestError'
+import { badges, refreshUnread } from '@/utils/tbBadges'
 import { allows, productName } from '@/utils/tbProducts.mjs'
 import { loadRobots, robot, robotFeatures } from '@/utils/tbRobot'
 import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
@@ -176,6 +178,7 @@ let tick: any = null
 let poll: any = null
 onShow(async () => {
   clock.value = new Date()
+  refreshUnread()
   await loadRobots()
   refresh(Boolean(view.value))
   tick = setInterval(() => { clock.value = new Date() }, 30000)
@@ -198,6 +201,19 @@ watch(companion, (on, was) => {
 <template>
   <view class="tb-wrap today">
     <view class="today__top" />
+    <!-- the notification bell (FAMILY): unread count from GET /notify/unread-count -->
+    <view class="today__bar">
+      <view
+        class="today__bell" role="button" tabindex="0" hover-class="is-press"
+        :aria-label="badges.unread ? t('notify.bellCount', { n: num(badges.unread) }) : t('notify.bell')"
+        @click="go('/pages/notifications/index')" @keydown.enter="go('/pages/notifications/index')"
+      >
+        <tb-icon name="bell" :size="22" />
+        <text v-if="badgeCount(badges.unread)" class="today__badge tb-num" aria-hidden="true">
+          {{ num(badgeCount(badges.unread)) }}
+        </text>
+      </view>
+    </view>
     <tb-month-band :date="date" :lang="lang" sticky />
 
     <view v-if="!robot.deviceId && robot.loaded" class="today__none">
@@ -297,6 +313,9 @@ watch(companion, (on, was) => {
         <view v-if="can('messages')" class="today__link" style="--ink: var(--tb-message)" @click="go('/pages/messages/index')">
           <tb-icon name="message" /><text>{{ t('today.linkMessages') }}</text><tb-icon name="chevron-right" :size="16" />
         </view>
+        <view v-if="can('summary')" class="today__link" @click="go('/pages/summary/index')">
+          <tb-icon name="day" /><text>{{ t('summary.link') }}</text><tb-icon name="chevron-right" :size="16" />
+        </view>
         <view v-if="can('character')" class="today__link" @click="go('/pages/agent/index')">
           <tb-icon name="agent" /><text>{{ t('today.linkCharacter') }}</text><tb-icon name="chevron-right" :size="16" />
         </view>
@@ -308,6 +327,39 @@ watch(companion, (on, was) => {
 <style lang="scss">
 .today__top {
   height: env(safe-area-inset-top);
+}
+.today__bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -6px;
+}
+.today__bell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 4px;
+  margin-right: -4px;
+  border-radius: 8px;
+  color: var(--tb-ink);
+}
+.today__bell.is-press {
+  background: var(--tb-paper-2);
+}
+.today__badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--tb-ink);
+  color: var(--tb-paper);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  box-sizing: border-box;
 }
 .today__none {
   padding: 40px 0;

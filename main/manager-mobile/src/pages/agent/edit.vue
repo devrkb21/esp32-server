@@ -51,12 +51,15 @@ defineOptions({
 const props = withDefaults(defineProps<Props>(), {
   agentId: '',
   embedded: false,
+  readonly: false,
 })
 
 // Component props
 interface Props {
   agentId?: string
   embedded?: boolean
+  /** a family member sees the character but cannot change it (FAMILY wave) */
+  readonly?: boolean
 }
 
 // As a page the id comes from ?agentId=, else it is this robot's character.
@@ -922,7 +925,7 @@ function getModelDisplayName(modelType: string, modelId?: string) {
 
 // Save agent
 async function saveAgent() {
-  if (saving.value) {
+  if (saving.value || props.readonly) {
     return
   }
   if (snapshotReloadBlocked.value) {
@@ -1367,7 +1370,7 @@ onUnmounted(stopAudio)
 </script>
 
 <template>
-  <view class="ag" :class="{ 'tb-wrap': !embedded, 'is-embedded': embedded, 'has-bar': showActionBar }">
+  <view class="ag" :class="{ 'tb-wrap': !embedded, 'is-embedded': embedded, 'has-bar': showActionBar && !readonly, 'is-readonly': readonly }">
     <tb-page-header v-if="!embedded" :title="t('nav.character')" :description="t('mAgent.lead')" back />
 
     <!-- No robot yet -->
@@ -1543,7 +1546,7 @@ onUnmounted(stopAudio)
     </block>
 
     <!-- Save: pinned when there is something to save -->
-    <view v-if="showActionBar" class="ag-bar" :class="{ 'is-embedded': embedded }" role="region" :aria-label="t('mAgent.state.unsaved')">
+    <view v-if="showActionBar && !readonly" class="ag-bar" :class="{ 'is-embedded': embedded }" role="region" :aria-label="t('mAgent.state.unsaved')">
       <view class="ag-bar__text">
         <text class="ag-bar__title">
           {{ snapshotReloadBlocked ? t('mAgent.save.waiting') : t('mAgent.state.unsaved') }}
@@ -1675,6 +1678,10 @@ onUnmounted(stopAudio)
 }
 .ag.has-bar {
   padding-bottom: calc(132px + env(safe-area-inset-bottom));
+}
+/* a member's view: the form is shown but takes no input */
+.ag.is-readonly > view {
+  pointer-events: none;
 }
 .ag.is-embedded {
   padding-bottom: 24px;

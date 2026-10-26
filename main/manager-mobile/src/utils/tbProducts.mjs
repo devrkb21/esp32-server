@@ -19,6 +19,10 @@ export const KNOWN_FEATURES = [
   'proactive',
   'firmware',
   'pairing_pattern',
+  // family sharing, care alerts and the day summary (FAMILY wave)
+  'family',
+  'care',
+  'summary',
 ]
 
 /** TinyBot's features as seeded on the server: the fallback when nothing else is known. */
@@ -37,6 +41,7 @@ export const PAGE_NEEDS = {
   '/pages/robot/index': 'companion',
   '/pages/agent/index': 'character',
   '/pages/voiceprint/index': 'voiceprint',
+  '/pages/summary/index': 'summary',
 }
 
 /**

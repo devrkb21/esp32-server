@@ -16,13 +16,16 @@ import { onHide, onShow } from '@dcloudio/uni-app'
 import { computed, reactive, ref } from 'vue'
 import { createAgent, deleteAgent, getAgentList } from '@/api/agent/agent'
 import { getBindDevices, getDeviceOnlineStatus } from '@/api/device'
+import { removeFamilyShare } from '@/api/family/family'
 import { getCurrentLanguage, t } from '@/i18n'
 import { digits } from '@/utils/calendar.mjs'
+import { mergeRobots } from '@/utils/familyModel.mjs'
 import { codeFromScan, linkPagePath } from '@/utils/linkCode.mjs'
 import { notifyRequestError } from '@/utils/requestError'
+import { tbConfirm } from '@/utils/tbConfirm'
 import { productName, productOf } from '@/utils/tbProducts.mjs'
-import { clearRobot, loadProducts, products, robot, selectRobot } from '@/utils/tbRobot'
-import { checkCompanions, noteMqttMap, robotStatuses, statusOf } from '@/utils/tbRobotStatus'
+import { clearRobot, loadProducts, loadShared, products, robot, selectRobot } from '@/utils/tbRobot'
+import { checkCompanions, noteMqttMap, refreshMqtt, robotStatuses, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import AddRobotSheet from './components/AddRobotSheet.vue'
 import { characterNameError, keepSelection, NAME_MAX, nameMatches, parseStatus, toRobot, voiceName } from './robotsModel.mjs'
@@ -79,8 +82,51 @@ const groups = computed(() => agents.value.map((agent) => {
   }
   return { agent, robots, count: raw ? robots.length : (Number(agent.deviceCount) || 0), failed: Boolean(failedAgents[agent.id]) }
 }))
-const robotCount = computed(() => groups.value.reduce((n, g) => n + g.count, 0))
-const onlineCount = computed(() => groups.value.reduce((n, g) => n + g.robots.filter(r => r.online).length, 0))
+// Robots other accounts shared with this one (GET /family/robots): their own group, tagged with
+// who shared them; "leave" instead of the character's tools (FAMILY wave)
+const shared = ref<any[]>([])
+const sharedRows = computed(() => shared.value.map((r) => {
+  const st = statusOf(r.deviceId, clock.value)
+  return {
+    ...r,
+    online: st.state === 'online',
+    state: st.state,
+    stateText: st.state === 'checking' && !robotStatuses[r.deviceId] ? t('robots.stateUnknown') : t(`status.${st.state}.label`),
+    seen: r.lastConnectedAt ? t('robots.seen', { when: whenText(r.lastConnectedAt, lang.value, clock.value) }) : t('robots.never'),
+  }
+}))
+function fetchSharedStatus() {
+  for (const r of shared.value)
+    refreshMqtt(r.agentId, [r])
+  checkCompanions(shared.value.map(r => ({ id: r.deviceId, features: r.features }))).done.then(() => {
+    clock.value = Date.now()
+  })
+}
+const leaving = ref('')
+async function leave(r: any) {
+  const ok = await tbConfirm({
+    title: t('family.leaveTitle'),
+    message: t('family.leaveText', { name: r.name || r.agentName || t('nav.robotFallback') }),
+    confirmText: t('family.leaveConfirm'),
+    danger: true,
+  })
+  if (!ok || !r.shareId)
+    return
+  leaving.value = r.deviceId
+  try {
+    await removeFamilyShare(r.shareId)
+    shared.value = shared.value.filter(x => x.deviceId !== r.deviceId)
+    syncShell()
+    toast.success(t('family.left'))
+  }
+  catch (e: any) {
+    notifyRequestError(e, 'family.loadFailed')
+  }
+  leaving.value = ''
+}
+
+const robotCount = computed(() => groups.value.reduce((n, g) => n + g.count, 0) + sharedRows.value.length)
+const onlineCount = computed(() => groups.value.reduce((n, g) => n + g.robots.filter(r => r.online).length, 0) + sharedRows.value.filter(r => r.online).length)
 const summary = computed(() => [
   countText('robots.count.characters', groups.value.length, lang.value),
   countText('robots.count.robots', robotCount.value, lang.value),
@@ -132,7 +178,8 @@ async function loadDevices(id: string) {
 
 /** Keep the app's "this robot" in step with the list (same rule as loadRobots). */
 function syncShell() {
-  const list = agents.value.flatMap(a => (devicesByAgent[a.id] || []).map(d => ({ ...toRobot(a, d), board: d.board || '', ...productOf(d, products.list) })))
+  const own = agents.value.flatMap(a => (devicesByAgent[a.id] || []).map(d => ({ ...toRobot(a, d), board: d.board || '', ...productOf(d, products.list) })))
+  const list = mergeRobots(own, shared.value)
   robot.list = list as any
   robot.loaded = true
   const keep = keepSelection(list, robot.deviceId)
@@ -152,10 +199,12 @@ async function load(quiet = false) {
     const list = (agentList || []) as Agent[]
     await Promise.all(list.map(a => fetchDevices(a.id)))
     agents.value = list
+    shared.value = await loadShared()
     list.forEach((a) => {
       if (!failedAgents[a.id])
         fetchStatus(a.id)
     })
+    fetchSharedStatus()
     syncShell()
   }
   catch {
@@ -174,6 +223,7 @@ function refreshStatus() {
     if (devicesByAgent[a.id]?.length)
       fetchStatus(a.id)
   })
+  fetchSharedStatus()
 }
 
 /* ---------- this robot ---------- */
@@ -345,7 +395,7 @@ onHide(() => clearInterval(poll))
       </tb-empty>
     </view>
 
-    <view v-else-if="!groups.length" class="robots__state">
+    <view v-else-if="!groups.length && !sharedRows.length" class="robots__state">
       <tb-empty face="awake" :title="t('robots.empty.title')" :text="t('robots.empty.linkText')">
         <!-- #ifdef APP-PLUS -->
         <tb-button variant="primary" icon="qr" @click="scanQr">
@@ -452,6 +502,48 @@ onHide(() => clearInterval(poll))
 
         <view class="rb-addrow" role="button" hover-class="is-press" @click="openAdd(g.agent.id)">
           <tb-icon name="plus" :size="18" /><text>{{ t('robots.addHere') }}</text>
+        </view>
+      </view>
+
+      <view v-if="sharedRows.length" class="rb-group">
+        <view class="rb-group__head">
+          <text class="rb-group__name">
+            {{ t('family.sharedGroup') }}
+          </text>
+          <text class="rb-group__models">
+            {{ t('family.sharedGroupText') }}
+          </text>
+        </view>
+        <view v-for="r in sharedRows" :key="r.deviceId" class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
+          <view
+            class="rb-row__main" role="button" :aria-label="t('robots.pickFor', { name: r.name || r.agentName })"
+            hover-class="is-press" @click="choose(r)"
+          >
+            <tb-face v-if="(r.features || []).includes('companion')" class="rb-row__face" :mood="r.online ? 'awake' : 'offline'" :width="72" :alt="t('robots.faceAlt', { name: r.name || r.agentName })" />
+            <view v-else class="rb-row__face rb-row__device" aria-hidden="true">
+              <tb-icon name="devices" :size="24" />
+            </view>
+            <view class="rb-row__plate">
+              <tb-name-plate :name="r.name || t('robots.unnamed')" :detail="r.seen" :state="r.state" :state-text="r.stateText" />
+              <view class="rb-row__tags">
+                <tb-tag ink="ink" mark>
+                  {{ t('family.sharedBy', { name: r.sharedBy }) }}
+                </tb-tag>
+                <tb-tag>{{ t(`family.role.${r.role}`) }}</tb-tag>
+              </view>
+            </view>
+          </view>
+          <view class="rb-row__act">
+            <view v-if="r.deviceId === robot.deviceId" class="rb-now" role="status">
+              <view class="rb-now__rule" /><text>{{ t('robots.current') }}</text>
+            </view>
+            <tb-button v-else size="s" icon="check" @click="choose(r)">
+              {{ t('robots.pick') }}
+            </tb-button>
+            <tb-button size="s" variant="quiet" :loading="leaving === r.deviceId" @click="leave(r)">
+              {{ t('family.leaveConfirm') }}
+            </tb-button>
+          </view>
         </view>
       </view>
 
@@ -663,6 +755,11 @@ onHide(() => clearInterval(poll))
 .rb-row__plate {
   flex: 1;
   overflow-wrap: anywhere;
+}
+.rb-row__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .rb-row__plate {
   display: flex;
