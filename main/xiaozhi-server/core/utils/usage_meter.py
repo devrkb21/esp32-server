@@ -7,7 +7,7 @@ synthesis. The counts are kept in one process-wide meter and sent to manager-api
 a connection closes. A failed send keeps the rows for the next one.
 
 Quota: manager-api sends the robot owner's daily LLM request limit with the agent config
-(`usage: {user_id, llm_daily_limit, llm_used_today}`; limit 0 = unlimited). The meter counts on
+(`usage_quota: {user_id, llm_daily_limit, llm_used_today}`; limit 0 = unlimited). The meter counts on
 from the day's total it was told about and from what it reported itself, so several robots of one
 owner on this server share the count. When the limit is reached the robot says QUOTA_LINE instead
 of asking the LLM, and the refusal is counted (`quotaBlocked`) so the app can show it.
@@ -201,8 +201,8 @@ def get_meter(config: Optional[Dict] = None) -> UsageMeter:
 
 
 def usage_info(config: Dict) -> Dict:
-    """The `usage` block manager-api sends with the agent config, normalized."""
-    raw = (config or {}).get("usage") or {}
+    """The `usage_quota` block manager-api sends with the agent config, normalized."""
+    raw = (config or {}).get("usage_quota") or {}
     if not isinstance(raw, dict):
         raw = {}
 
