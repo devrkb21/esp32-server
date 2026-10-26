@@ -44,6 +44,7 @@ import xiaozhi.modules.sys.dto.SysParamsDTO;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.timbre.service.TimbreService;
 import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
+import xiaozhi.modules.usage.service.AgentRuntimeExtras;
 import xiaozhi.modules.voiceclone.entity.VoiceCloneEntity;
 import xiaozhi.modules.voiceclone.service.VoiceCloneService;
 
@@ -219,6 +220,9 @@ public class ConfigServiceImpl implements ConfigService {
 
         // Get voiceprintInformation
         buildVoiceprintConfig(agent.getId(), result);
+
+        // Fallback models, kids mode and the owner's daily quota (modules usage and kids)
+        AgentRuntimeExtras.apply(agent, device, result);
 
         // Construct module configuration
         buildModuleConfig(

@@ -969,7 +969,7 @@ class ConnectionHandler:
         if private_config.get("context_providers", None) is not None:
             self.config["context_providers"] = private_config["context_providers"]
         # Fallback models, kids mode and usage/quota (manager-api modules usage and kids)
-        for key in ("fallback", "kids", "usage"):
+        for key in ("fallback", "kids", "usage_quota"):
             if private_config.get(key, None) is not None:
                 self.config[key] = private_config[key]
 

@@ -99,7 +99,7 @@ def test_due_after_a_minute():
 
 def test_usage_info_normalizes():
     assert usage_info({}) == {"user_id": None, "llm_daily_limit": 0, "llm_used_today": 0}
-    assert usage_info({"usage": {"user_id": 5, "llm_daily_limit": "100", "llm_used_today": -3}}) == {
+    assert usage_info({"usage_quota": {"user_id": 5, "llm_daily_limit": "100", "llm_used_today": -3}}) == {
         "user_id": "5", "llm_daily_limit": 100, "llm_used_today": 0}
 
 
