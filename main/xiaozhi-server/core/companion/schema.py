@@ -24,7 +24,7 @@ MAX_PLAY_ARG = 300
 # "demo": the robot shows these face animations one after another, with their names
 DEMO_SETS = ("all", "life", "emotions", "hands")
 PAGES = ("clock", "weather", "prayer", "focus", "games", "breathe", "story", "night", "status", "bond")
-GAMES = ("catch", "simon", "dice", "reaction")
+GAMES = ("catch", "simon", "dice", "reaction", "math", "maze", "memory")
 ANSWERS = ("yes", "no", "seen")
 EVENT_TYPES = (
     "alarm_dismissed",

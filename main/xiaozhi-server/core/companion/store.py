@@ -117,6 +117,12 @@ def _clean_stats(raw: Dict) -> Dict:
             except (TypeError, ValueError):
                 pass
         out["high_scores"] = clean
+    bat = raw.get("battery")              # firmware 2.6.1+: only when a cell is connected
+    if isinstance(bat, dict):
+        try:
+            out["battery"] = {"level": max(0, min(100, int(bat.get("level")))), "charging": bool(bat.get("charging"))}
+        except (TypeError, ValueError):
+            pass
     return out
 
 

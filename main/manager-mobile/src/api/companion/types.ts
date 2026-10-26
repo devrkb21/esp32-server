@@ -302,6 +302,8 @@ export interface CompanionStats {
   high_scores?: Record<string, number>
   /** TinyBot's day: the activity it shows right now ('' = not busy) */
   activity?: RoutineActivity | ''
+  /** Firmware 2.6.1+, only while a cell is connected */
+  battery?: { level: number, charging: boolean }
 }
 
 export type CompanionEventType
@@ -347,7 +349,7 @@ export interface CompanionMessage {
 /** `stop` closes whatever the robot shows; `night` takes 'on' | 'off' */
 /** update: restart now so TinyBot checks for new firmware (installs it when Auto update is on) */
 export type CommandType = 'story' | 'pomodoro' | 'lullaby' | 'ring' | 'breathe' | 'night_light' | 'game' | 'stop' | 'night' | 'update' | 'play' | 'routine'
-export type GameName = 'catch' | 'simon' | 'dice' | 'reaction'
+export type GameName = 'catch' | 'simon' | 'dice' | 'reaction' | 'math' | 'maze' | 'memory'
 
 export interface CompanionCommand {
   id: string

@@ -81,7 +81,7 @@ describe('navigation by features', () => {
   it('marks the robot pages with the feature they need', () => {
     const needs = Object.fromEntries(NAV.flatMap((g) => g.items).filter((i) => i.needs).map((i) => [i.to, i.needs]));
     expect(needs).toEqual({ '/day': 'day', '/messages': 'messages', '/history': 'chat_history', '/look': 'look', '/robot': 'companion',
-      '/role-config': 'character', '/voice-print': 'voiceprint', '/summary': 'summary' });
+      '/role-config': 'character', '/voice-print': 'voiceprint', '/summary': 'summary', '/smart-home': 'smart_home' });
   });
   it('shows chat history on its own page only for products without messages', () => {
     expect(paths(visibleNav(false, {}, null))).not.toContain('/history');
@@ -128,7 +128,7 @@ describe('route guard', () => {
   it('routes name the feature they need', () => {
     const need = Object.fromEntries(routes.filter((r) => r.meta && r.meta.needs).map((r) => [r.path, r.meta.needs]));
     expect(need).toEqual({ '/day': 'day', '/messages': 'messages', '/history': 'chat_history', '/look': 'look', '/robot': 'companion',
-      '/role-config': 'character', '/voice-print': 'voiceprint', '/summary': 'summary' });
+      '/role-config': 'character', '/voice-print': 'voiceprint', '/summary': 'summary', '/smart-home': 'smart_home' });
   });
 
   it('shows a calm empty state with a way to Today when the robot lacks the feature', async () => {

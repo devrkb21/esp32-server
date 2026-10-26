@@ -10,7 +10,7 @@ export const MAX_NAME = 32
 export const MAX_TOPIC = 64
 
 /** The games TinyBot can start (companion command {type: 'game', arg}). */
-export const GAMES = ['catch', 'simon', 'dice', 'reaction']
+export const GAMES = ['catch', 'simon', 'dice', 'reaction', 'math', 'maze', 'memory']
 
 /** Volume the screen shows before the robot has reported one (legacy default). */
 export const DEFAULT_VOLUME = 70

@@ -101,6 +101,9 @@ export default {
           note: has(s.bond_level) ? t('companion.status.bondLevel', { level: r.num(s.bond_level) }) : '' },
         { key: 'streak', label: t('companion.status.streak'), value: t('companion.event.days', { n: r.num(s.streak || 0) }) },
         { key: 'focus', label: t('companion.status.pomodorosToday'), value: r.num(s.pomodoros_today || 0) },
+        // firmware 2.6.1+ reports a battery only when a cell is connected
+        ...(s.battery ? [{ key: 'battery', label: t('companion.status.battery'), value: `${r.num(s.battery.level)}%`,
+          note: s.battery.charging ? t('companion.status.charging') : '' }] : []),
         { key: 'volume', label: t('companion.status.volume'), value: vol === null ? dash : `${r.num(vol)}%`,
           note: manual ? t('companion.status.volumeManual') : t('companion.status.volumeAuto') },
         { key: 'wifi', label: t('companion.status.wifi'), value: has(s.rssi) && s.rssi ? `${r.num(s.rssi)} dBm` : dash,

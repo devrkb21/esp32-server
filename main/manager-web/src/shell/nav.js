@@ -18,7 +18,7 @@ export const NAV = [
       { to: '/look', label: 'nav.look', icon: 'look', tab: true, ink: 'look', needs: 'look' },
       { to: '/robot', label: 'nav.robot', icon: 'settings', needs: 'companion' },
       { to: '/summary', label: 'nav.summary', icon: 'chart', needs: 'summary' },
-      { to: '/smart-home', label: 'nav.smartHome', icon: 'light' },
+      { to: '/smart-home', label: 'nav.smartHome', icon: 'light', needs: 'smart_home' },
     ],
   },
   {

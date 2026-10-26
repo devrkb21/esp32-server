@@ -112,9 +112,18 @@ async def test_run_on_robot_queues_speech_play_and_commands(svc):
 async def test_run_from_voice_returns_the_words(svc):
     await svc.sync(DEV)
     await svc.update_config(DEV, {"settings": {"owner_name": "রনি", "routines": [BEDTIME]}})
-    text = await voice_tools.run_routine(_conn(), "ঘুমের রুটিন চালাও")
+
+    async def not_set_up(user, action):  # HOME's answer shape when nothing is connected
+        return {"ok": False, "code": "not_configured", "say": hooks.NOT_CONNECTED_BN}
+
+    old = hooks.smart_home
+    hooks.smart_home = not_set_up
+    try:
+        text = await voice_tools.run_routine(_conn(), "ঘুমের রুটিন চালাও")
+    finally:
+        hooks.smart_home = old
     assert "শুভ রাত্রি রনি!" in text and "কোনো অ্যালার্ম" in text
-    assert "স্মার্ট হোম এখনো যুক্ত করা হয়নি" in text  # the no-op hook
+    assert "স্মার্ট হোম এখনো যুক্ত করা হয়নি" in text  # the hook's sentence, read from its dict
     assert "night_light" in text
     types = [c["type"] for c in svc.store.get(DEV)["commands"] if c["status"] == "pending"]
     assert types == ["play", "night_light"]  # only the rhyme and the command go to the robot

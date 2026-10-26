@@ -23,6 +23,14 @@ export const KNOWN_FEATURES = [
   'family',
   'care',
   'summary',
+  // voice timers, routines, library, special days, kids mode, smart home, robot messages
+  'voice_timers',
+  'routines',
+  'library',
+  'special_days',
+  'kids_mode',
+  'smart_home',
+  'robot_messages',
 ]
 
 /** TinyBot's features as seeded on the server: the fallback when nothing else is known. */
@@ -42,6 +50,7 @@ export const PAGE_NEEDS = {
   '/pages/agent/index': 'character',
   '/pages/voiceprint/index': 'voiceprint',
   '/pages/summary/index': 'summary',
+  '/pages/smart-home/index': 'smart_home',
 }
 
 /**

@@ -7,6 +7,7 @@ export const KNOWN_FEATURES = [
   'chat', 'character', 'voiceprint', 'chat_history', 'memory', 'companion', 'day', 'prayer', 'look',
   'screen', 'messages', 'commands', 'proactive', 'firmware', 'pairing_pattern',
   'family', 'care', 'summary',
+  'voice_timers', 'routines', 'library', 'special_days', 'kids_mode', 'smart_home', 'robot_messages',
 ];
 
 /** TinyBot's features as seeded on the server: the fallback when nothing else is known. */

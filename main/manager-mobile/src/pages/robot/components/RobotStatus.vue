@@ -34,6 +34,8 @@ const rows = computed(() => {
     { key: 'wifi', label: t('mrobot.status.wifi'), value: wifi ? t(`mrobot.status.wifi.${wifi}`) : dash, note: has(st.rssi) && st.rssi ? `${r.num(st.rssi)} dBm` : '' },
     { key: 'fw', label: t('mrobot.status.firmware'), value: st.fw || dash, note: '' },
     { key: 'uptime', label: t('mrobot.status.uptime'), value: up ? (up.d ? t('mrobot.status.uptimeDays', { d: r.num(up.d), h: r.num(up.h) }) : t('mrobot.status.uptimeHours', { h: r.num(up.h), m: r.num(up.m) })) : dash, note: '' },
+    // firmware 2.6.1+ reports a battery only when a cell is connected
+    ...(st.battery ? [{ key: 'battery', label: t('mrobot.status.battery'), value: `${r.num(st.battery.level)}%`, note: st.battery.charging ? t('mrobot.status.charging') : '' }] : []),
     { key: 'volume', label: t('mrobot.status.volume'), value: vol === null ? dash : `${r.num(vol)}%`, note: volumeFromPhone(v.value) ? t('mrobot.status.volumeManual') : t('mrobot.status.volumeAuto') },
     { key: 'bond', label: t('mrobot.status.bond'), value: has(st.bond_score) ? r.num(st.bond_score) : dash, note: has(st.bond_level) ? t('mrobot.status.bondLevel', { level: r.num(st.bond_level) }) : '' },
     { key: 'streak', label: t('mrobot.status.streak'), value: t('mrobot.status.days', { n: r.num(st.streak || 0) }), note: '' },
