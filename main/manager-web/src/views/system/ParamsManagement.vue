@@ -8,20 +8,6 @@
       </template>
     </TbPageHeader>
 
-    <section v-if="allParams.length" class="params__robot" aria-labelledby="params-robot-title">
-      <h2 id="params-robot-title" class="params__rtitle">{{ $t('system.params.robot.title') }}</h2>
-      <p class="params__rdesc">{{ $t('system.params.robot.desc') }}</p>
-      <ul class="params__rlist">
-        <li v-for="r in robotRows" :key="r.code" class="params__ritem">
-          <span class="params__rname">{{ $t(`system.params.robot.${r.key}`) }}
-            <span class="params__rcode">{{ r.code }}</span></span>
-          <span class="params__rval" :class="{ 'is-empty': !r.value }" :title="r.value || null">{{ r.value || $t('system.params.robot.notSet') }}</span>
-          <TbButton size="s" variant="quiet" icon="edit" :aria-label="`${$t('common.edit')} ${r.code}`" @click="editRobot(r)">
-            {{ r.row ? $t('common.edit') : $t('system.params.robot.set') }}</TbButton>
-        </li>
-      </ul>
-    </section>
-
     <div class="sys-filter">
       <form class="sys-filter__search" role="search" @submit.prevent>
         <TbInput v-model="query" icon="search" clearable :placeholder="$t('system.params.searchPlaceholder')"
@@ -117,11 +103,6 @@ import {
 const TOP_LABEL = { all: 'system.params.group.all', server: 'system.params.group.server', plugins: 'system.params.group.plugins',
   log: 'system.params.group.log', session_state: 'system.params.group.session', general: 'system.params.group.general' };
 const SUB_KNOWN = ['auth', 'connection', 'registry', 'resilience', 'metrics', 'tracing'];
-// The addresses a robot is sent in its OTA reply, kept at hand at the top of the page
-const ROBOT_PARAMS = [
-  ['ota', 'server.ota'], ['websocket', 'server.websocket'], ['mqtt', 'server.mqtt_gateway'], ['udp', 'server.udp_gateway'],
-  ['companion', 'server.companion_url'], ['vision', 'server.vision_explain'], ['mcp', 'server.mcp_endpoint'],
-];
 
 export default {
   name: 'ParamsManagement',
@@ -149,11 +130,12 @@ export default {
     keyword() { return this.query.trim(); },
     columns() {
       return [
-        { key: 'paramCode', label: this.$t('system.params.code'), width: '28%' },
-        { key: 'valueType', label: this.$t('system.params.type'), width: '92px' },
-        { key: 'paramValue', label: this.$t('system.params.value'), width: '30%' },
+        { key: 'paramCode', label: this.$t('system.params.code'), width: '24%' },
+        { key: 'valueType', label: this.$t('system.params.type'), width: '88px' },
+        { key: 'paramValue', label: this.$t('system.params.value'), width: '26%' },
         { key: 'remark', label: this.$t('system.params.remark') },
-        { key: 'actions', label: this.$t('system.actions'), align: 'right', width: '1%' },
+        // The table is fixed-layout and cells clip: Edit + Delete need their own room
+        { key: 'actions', label: this.$t('system.actions'), align: 'right', width: '200px' },
       ];
     },
     topTabs() { return topCounts(this.allParams, this.keyword); },
@@ -168,13 +150,6 @@ export default {
       return filterParams(this.allParams, { top: this.activeTop, sub: this.activeSub, keyword: this.keyword });
     },
     sections() { return buildSections(this.filtered); },
-    robotRows() {
-      return ROBOT_PARAMS.map(([key, code]) => {
-        const row = this.allParams.find((p) => p.paramCode === code) || null;
-        const value = row && row.paramValue != null && String(row.paramValue) !== 'null' ? String(row.paramValue) : '';
-        return { key, code, row, value };
-      });
-    },
     selectedRows() { return this.filtered.filter((p) => this.selected.includes(p.paramCode)); },
     allSelected() { return this.filtered.length > 0 && this.selectedRows.length === this.filtered.length; },
   },
@@ -278,11 +253,6 @@ export default {
       this.editing = emptyParam();
       this.sheetOpen = true;
     },
-    editRobot(r) {
-      if (r.row) { this.openEdit(r.row); return; }
-      this.editing = { ...emptyParam(), paramCode: r.code };
-      this.sheetOpen = true;
-    },
     openEdit(row) {
       this.editing = { id: row.id, paramCode: row.paramCode, paramValue: row.paramValue, valueType: row.valueType || 'string', remark: row.remark };
       this.sheetOpen = true;
@@ -354,21 +324,6 @@ export default {
 .params { padding-bottom: var(--tb-s8); }
 .params__groups .tb-choice__opt { font-variant-numeric: tabular-nums; }
 .params__groups--sub { font-size: var(--tb-fs-14); }
-
-.params__robot { margin-bottom: var(--tb-s5); padding: var(--tb-s4); border: 1px solid var(--tb-rule); border-radius: var(--tb-radius-m); background: var(--tb-paper); }
-.params__rtitle { font-size: var(--tb-fs-16); font-weight: 700; }
-.params__rdesc { margin-top: var(--tb-s1); color: var(--tb-ink-2); font-size: var(--tb-fs-13); }
-.params__rlist { list-style: none; margin: var(--tb-s3) 0 0; padding: 0; }
-.params__ritem { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 2fr) auto; align-items: center; gap: var(--tb-s3);
-  min-height: var(--tb-target); border-top: 1px solid var(--tb-rule); }
-.params__rname { font-weight: 600; min-width: 0; }
-.params__rcode { display: block; color: var(--tb-ink-2); font: 400 var(--tb-fs-12)/1.3 var(--tb-font-text); overflow-wrap: anywhere; }
-.params__rval { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tb-ink); }
-.params__rval.is-empty { color: var(--tb-ink-3); }
-@media (max-width: 640px) {
-  .params__ritem { grid-template-columns: minmax(0, 1fr) auto; padding: var(--tb-s2) 0; }
-  .params__rval { grid-column: 1 / -1; grid-row: 2; white-space: normal; overflow-wrap: anywhere; }
-}
 
 .params__group { border-top: 1px solid var(--tb-rule); }
 .params__group:last-of-type { border-bottom: 1px solid var(--tb-rule); }

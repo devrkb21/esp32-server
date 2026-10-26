@@ -99,13 +99,11 @@ function format(c, row) { const v = row[c.key]; return c.format ? c.format(v, ro
 .tb-table.is-dense td { padding: 8px 12px; font-size: var(--tb-fs-14); }
 .tb-table.is-dense th { padding: 8px 12px; }
 .tb-table tbody tr { transition: background-color var(--tb-t-hover) var(--tb-ease); }
-/* Desktop: a row darkens its rule and shows its actions on hover or keyboard focus. */
+/* Desktop: a row darkens its rule on hover. Its actions (Edit, Delete) always show: hidden until
+   hover, a whole column looked empty and admins could not find how to edit a row. */
 @media (hover: hover) and (pointer: fine) {
   .tb-table tbody tr:hover { background: var(--tb-paper-2); }
   .tb-table tbody tr:hover td { border-bottom-color: var(--tb-rule); }
-  .tb-table td[data-key=actions] > * { opacity: 0; transition: opacity var(--tb-t-hover) var(--tb-ease); }
-  .tb-table tbody tr:hover td[data-key=actions] > *,
-  .tb-table tbody tr:focus-within td[data-key=actions] > * { opacity: 1; }
 }
 .tb-table__sel { width: 44px; }
 .tb-table__sort { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; font: inherit; color: inherit; }
