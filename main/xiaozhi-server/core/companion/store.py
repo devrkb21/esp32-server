@@ -263,7 +263,7 @@ class CompanionStore:
 
     # --- messages / commands ---------------------------------------------------------------
     async def add_message(self, device_id: str, sender: str, text: str, ask: bool, say: str,
-                          sender_ascii: str = None, text_ascii: str = None) -> Dict:
+                          sender_ascii: str = None, text_ascii: str = None, extra: Dict = None) -> Dict:
         msg = {
             "id": schema.new_id("m"),
             "from": sender,
@@ -282,6 +282,8 @@ class CompanionStore:
             "answer": None,
             "answer_ts": None,
         }
+        if extra:  # e.g. not_before / via of a robot-to-robot message (HOME)
+            msg.update(extra)
 
         def fn(dev):
             dev["messages"].append(msg)
