@@ -7,13 +7,13 @@ import { EVERY_DAY, FOCUS_PRESETS, FRI_SAT, isHHMM, parseMinutes, PRAYER_KEYS, p
 import { ACTIVITIES, minuteOfDay, normalizeRoutine, scheduledActivity } from '../../utils/faceLook.mjs'
 
 /** The parts of the day, in the order of the area tabs. */
-export const TABS = ['alarms', 'reminders', 'prayer', 'routine', 'focus', 'night', 'talk']
+export const TABS = ['alarms', 'reminders', 'prayer', 'routine', 'focus', 'night', 'talk', 'routines', 'library', 'days']
 
 /** The ink of each area (one ink per area; focus has none). */
-export const TAB_INK = { alarms: 'alarm', reminders: 'alarm', prayer: 'prayer', routine: 'routine', focus: '', night: 'message', talk: 'message' }
+export const TAB_INK = { alarms: 'alarm', reminders: 'alarm', prayer: 'prayer', routine: 'routine', focus: '', night: 'message', talk: 'message', routines: 'routine', library: 'message', days: 'look' }
 
 /** The icon of each area (src/utils/tbIcons.mjs). */
-export const TAB_ICON = { alarms: 'alarm', reminders: 'reminder', prayer: 'prayer', routine: 'day', focus: 'focus', night: 'night', talk: 'chat' }
+export const TAB_ICON = { alarms: 'alarm', reminders: 'reminder', prayer: 'prayer', routine: 'day', focus: 'focus', night: 'night', talk: 'chat', routines: 'sparkle', library: 'book', days: 'heart' }
 
 /** The five prayers that get a row (sunrise is a time, not a prayer). */
 export const PRAYERS = PRAYER_KEYS.filter(k => k !== 'sunrise')
