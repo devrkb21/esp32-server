@@ -20,7 +20,7 @@ import { usePluginStore, useProvider, useSpeedPitch } from '@/store'
 import { getEnvBaseUrl } from '@/utils'
 import { digits } from '@/utils/calendar.mjs'
 import { notifyRequestError } from '@/utils/requestError'
-import { loadRobots, robot } from '@/utils/tbRobot'
+import { hasFeature, loadRobots, robot } from '@/utils/tbRobot'
 import { toast } from '@/utils/toast'
 import {
   applyMemoryChoice,
@@ -40,6 +40,8 @@ import {
 import AgentRow from './components/AgentRow.vue'
 import AgentSnapshotPanel from './components/AgentSnapshotPanel.vue'
 import { filterTtsVoicesByLanguage, hasUsableTtsVoiceMetadata } from './components/agentSnapshotUtils.mjs'
+import KidsSection from './components/KidsSection.vue'
+import QuotaNote from './components/QuotaNote.vue'
 import { createVoicePreviewRequestGate, hasVoicePreview, resolveVoicePreviewUrl } from './components/voicePreviewUtils.mjs'
 
 defineOptions({
@@ -67,6 +69,8 @@ const agentId = computed(() => props.agentId || queryAgentId.value || robot.agen
 
 const lang = computed(() => getCurrentLanguage())
 const num = (n: any) => digits(n ?? '', lang.value)
+// Kids mode needs the product feature kids_mode (TinyBot has it)
+const kidsAllowed = computed(() => Boolean(agentId.value) && hasFeature('kids_mode'))
 
 // Form data
 const formData = ref<Partial<AgentDetail>>({
@@ -1406,6 +1410,9 @@ onUnmounted(stopAudio)
         </view>
       </view>
 
+      <!-- The owner's daily LLM limit, when one is set (module usage) -->
+      <QuotaNote :lang="lang" />
+
       <!-- Who it is -->
       <tb-section :title="t('mAgent.who.title')" :description="t('mAgent.who.desc')">
         <view class="ag-field">
@@ -1518,6 +1525,9 @@ onUnmounted(stopAudio)
           {{ t('mAgent.sources.help') }}
         </text>
       </tb-section>
+
+      <!-- Kids mode (module kids; saved on its own) -->
+      <KidsSection v-if="kidsAllowed" id="ag-kids" :agent-id="agentId" :lang="lang" />
 
       <!-- History -->
       <tb-section :title="t('mAgent.history.title')" :description="t('mAgent.history.desc')">

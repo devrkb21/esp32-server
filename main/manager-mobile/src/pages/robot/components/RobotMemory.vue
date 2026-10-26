@@ -5,14 +5,23 @@ import { t } from '@/i18n'
 import { memoryDay, memoryKindKey, memoryList, memorySettings } from '@/utils/companionUtils.mjs'
 import { tbConfirm } from '@/utils/tbConfirm'
 import { useRobot } from './context'
+import { groupByPerson, hasPeople } from './memoryGroups.mjs'
 
 // What TinyBot remembers: after each voice chat it notes a few lasting things about the family and
 // uses them in later chats. The switch is a draft saved with the button (as before); deleting a
 // note or forgetting everything saves at once and the screen takes the robot from the answer.
+// Notes the robot filed under a person it knew by voice are grouped by that person.
 defineOptions({ name: 'RobotMemory' })
 
 const r = useRobot()
 const notes = computed<MemoryNote[]>(() => memoryList(r.view.value?.memories))
+// Per-person memory: `person` is set on notes when the voiceprint check knew the speaker
+const grouped = computed(() => hasPeople(notes.value))
+const groups = computed<{ person: string, notes: MemoryNote[] }[]>(() =>
+  grouped.value ? groupByPerson(notes.value) : [{ person: '', notes: notes.value }])
+function initial(name: string) {
+  return name ? Array.from(name.trim())[0] : '·'
+}
 
 const enabled = ref(true)
 const baseline = ref(true)
@@ -110,24 +119,45 @@ function dateText(ymd: string) {
 
       <tb-empty v-if="!notes.length" :title="t('companion.memory.empty')" :text="t('companion.memory.emptyText')" />
       <view v-else class="rbm-mem__list" :class="{ 'is-off': !enabled }">
-        <view v-for="m in notes" :key="m.id" class="rbm-mem__item">
-          <view class="rbm-mem__body">
-            <text class="rbm-mem__text">
-              {{ m.text }}
+        <text v-if="grouped" class="rbm-mem__people-hint">
+          {{ t('memory.peopleHint') }}
+        </text>
+        <view v-for="g in groups" :key="g.person || '-'" class="rbm-mem__group">
+          <view v-if="grouped" class="rbm-mem__person">
+            <text class="rbm-mem__initial" :class="{ 'is-everyone': !g.person }">
+              {{ initial(g.person) }}
             </text>
-            <view class="rbm-mem__meta">
-              <tb-tag :mark="m.kind === 'event'">
-                {{ t(memoryKindKey(m.kind)) }}
-              </tb-tag>
-              <text v-if="memoryDay(m)">
-                {{ t('companion.memory.noted', { date: dateText(memoryDay(m)) }) }}
+            <view class="rbm-mem__who">
+              <text class="rbm-mem__name">
+                {{ g.person || t('memory.everyone') }}
               </text>
-              <text v-if="m.until">
-                {{ t('companion.memory.until', { date: dateText(m.until) }) }}
+              <text class="rbm-mem__whohint">
+                {{ g.person ? t('memory.byVoice') : t('memory.everyoneHint') }}
               </text>
             </view>
+            <text class="tb-num rbm-mem__count">
+              {{ t('memory.personCount', { n: r.num(g.notes.length) }) }}
+            </text>
           </view>
-          <tb-button variant="quiet" size="s" icon="trash" :disabled="busy" :aria-label="t('companion.memory.deleteNote')" @click="deleteNote(m)" />
+          <view v-for="m in g.notes" :key="m.id" class="rbm-mem__item">
+            <view class="rbm-mem__body">
+              <text class="rbm-mem__text">
+                {{ m.text }}
+              </text>
+              <view class="rbm-mem__meta">
+                <tb-tag :mark="m.kind === 'event'">
+                  {{ t(memoryKindKey(m.kind)) }}
+                </tb-tag>
+                <text v-if="memoryDay(m)">
+                  {{ t('companion.memory.noted', { date: dateText(memoryDay(m)) }) }}
+                </text>
+                <text v-if="m.until">
+                  {{ t('companion.memory.until', { date: dateText(m.until) }) }}
+                </text>
+              </view>
+            </view>
+            <tb-button variant="quiet" size="s" icon="trash" :disabled="busy" :aria-label="t('companion.memory.deleteNote')" @click="deleteNote(m)" />
+          </view>
         </view>
       </view>
 
@@ -165,6 +195,56 @@ function dateText(ymd: string) {
 }
 .rbm-mem__list.is-off {
   opacity: 0.6;
+}
+.rbm-mem__people-hint {
+  font-size: 13px;
+  color: var(--tb-ink-2);
+  line-height: 1.55;
+  padding-bottom: 6px;
+}
+.rbm-mem__group {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 10px;
+}
+.rbm-mem__person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--tb-rule);
+}
+.rbm-mem__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--tb-ink);
+  font-family: var(--tb-font-display);
+  font-weight: 800;
+  font-size: 16px;
+}
+.rbm-mem__initial.is-everyone {
+  border-style: dashed;
+  border-color: var(--tb-ink-3);
+  color: var(--tb-ink-3);
+}
+.rbm-mem__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.rbm-mem__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rbm-mem__whohint {
+  font-size: 12px;
+  color: var(--tb-ink-3);
 }
 .rbm-mem__item {
   display: flex;
