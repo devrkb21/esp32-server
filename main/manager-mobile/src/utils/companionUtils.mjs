@@ -358,7 +358,7 @@ const MEMORY_DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 const MEMORY_STAMP_RE = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?)?$/
 
 /** @typedef {'person' | 'like' | 'dislike' | 'event' | 'fact' | 'routine'} MemoryKind */
-/** @typedef {{ id: string, text: string, kind: MemoryKind, created: string, updated: string, until?: string }} MemoryNote */
+/** @typedef {{ id: string, text: string, kind: MemoryKind, created: string, updated: string, until?: string, person?: string }} MemoryNote */
 
 /**
  * The memory settings with the default for a missing or invalid value.
@@ -412,6 +412,9 @@ export function memoryList(list) {
     }
     if (typeof m.until === 'string' && MEMORY_DAY_RE.test(m.until))
       note.until = m.until
+    // per-person memory: the family member the voiceprint check recognised (absent on older notes)
+    if (typeof m.person === 'string' && m.person.trim())
+      note.person = m.person.trim().slice(0, 40)
     out.push(note)
   }
   return out

@@ -43,10 +43,11 @@ view.stats_updated = nowS() - 20
 view.settings.gestures = { double_tap: 'focus', triple_tap: 'talk' }
 view.settings.pages = { clock: true, weather: true, prayer: true, focus: true, games: true, breathe: true, story: true, night: true, status: false, bond: true }
 view.memories = [
-  { id: 'n1', text: 'বৃহস্পতিবার ডাক্তারের কাছে যাবেন', kind: 'event', created: `${day(-2)}T19:40`, updated: `${day(-2)}T19:40`, until: day(3) },
-  { id: 'n2', text: 'সন্ধ্যায় আদা দেওয়া চা পছন্দ করে', kind: 'like', created: `${day(-9)}T18:05`, updated: `${day(-4)}T20:12` },
+  // `person`: per-person memory (the voiceprint check knew who was talking; owner ai)
+  { id: 'n1', text: 'বৃহস্পতিবার ডাক্তারের কাছে যাবেন', kind: 'event', person: 'বাবা', created: `${day(-2)}T19:40`, updated: `${day(-2)}T19:40`, until: day(3) },
+  { id: 'n2', text: 'সন্ধ্যায় আদা দেওয়া চা পছন্দ করে', kind: 'like', person: 'বাবা', created: `${day(-9)}T18:05`, updated: `${day(-4)}T20:12` },
   { id: 'n3', text: 'বোনের নাম নীলা', kind: 'person', created: `${day(-20)}T21:30`, updated: `${day(-20)}T21:30` },
-  { id: 'n4', text: 'জোরে অ্যালার্ম পছন্দ করে না', kind: 'dislike', created: `${day(-31)}T07:02`, updated: `${day(-31)}T07:02` },
+  { id: 'n4', text: 'জোরে অ্যালার্ম পছন্দ করে না', kind: 'dislike', person: 'নীলা', created: `${day(-31)}T07:02`, updated: `${day(-31)}T07:02` },
   { id: 'n5', text: 'বেশিরভাগ দিন ফজরের পর হাঁটে', kind: 'routine', created: `${day(-40)}T06:15`, updated: `${day(-12)}T06:20` },
 ]
 // Times follow the shared schedules (alarm a1 06:45, reminder r1 Medicine 21:30, dhuhr 11:43),

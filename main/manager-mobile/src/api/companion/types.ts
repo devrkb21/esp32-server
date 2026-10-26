@@ -109,6 +109,8 @@ export interface MemoryNote {
   updated: string
   /** "YYYY-MM-DD": events disappear by themselves after this day */
   until?: string
+  /** who the note is about, when the robot knew the speaker by voice (per-person memory) */
+  person?: string
 }
 
 export interface CareSettings {
