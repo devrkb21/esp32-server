@@ -8,9 +8,10 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
-from core.companion import schema
+from core.companion import calendar_days, routines, schema
 from loguru import logger
 from core.companion.audio import AudioRenderer
+from core.companion.library import LibraryStore
 from core.companion.mqtt_push import MqttPush
 from core.companion.prayer import PrayTimes
 from core.companion.memory import MemoryBook
@@ -114,10 +115,18 @@ class CompanionService:
         self.proactive = ProactiveScheduler(self, data_dir)
         # What TinyBot remembers about its family between chats (see memory.py)
         self.memory = MemoryBook(data_dir, today=lambda: self.local_now().date())
+        # Stories, rhymes, music and recitations the robot can play (see library.py)
+        self.library = LibraryStore(data_dir)
+        # Routines (scenes) and their time triggers; one-time timers expire there too (routines.py)
+        self.routines = routines.RoutineRunner(self, data_dir)
+        # Eid and other dated days from the admin's list in manager-api (calendar_days.py)
+        self.special_days = calendar_days.SpecialDays(config, self.cfg, data_dir)
 
     def start_background(self):
         """Start the background loops; call once the event loop runs (HTTP server start)."""
         self.proactive.start()
+        self.routines.start()
+        self.special_days.start()
 
     # --- helpers ---------------------------------------------------------------------------
     @property
@@ -255,6 +264,8 @@ class CompanionService:
             "reminders": sched["reminders"],
             "prayer": sched["prayer"],
             "weather": self._weather_block(dev, weather),
+            # What today is (Eid, a national day, a birthday) or None: see calendar_days.py
+            "today_special": self.today_special(dev),
             "messages": [
                 {
                     "id": m["id"], "from": m["from"], "from_ascii": m.get("from_ascii", ""),
@@ -330,8 +341,12 @@ class CompanionService:
                     proactive=dict(schema.default_proactive(), **(dev["settings"].get("proactive") or {})),
                     memory=dict(schema.default_memory(), **(dev["settings"].get("memory") or {})),
                     gestures=dict(schema.default_gestures(), **(dev["settings"].get("gestures") or {})),
+                    routines=routines.routines_of(dev["settings"]),
+                    calendar=dict(calendar_days.default_calendar(), **(dev["settings"].get("calendar") or {})),
                 ),
                 "memories": list(reversed(self.memory.items(dev["id"]))),
+                "library": self.library.items(dev["id"]),
+                "today_special": self.today_special(dev),
                 "pomodoro": dev["pomodoro"],
                 "alarms": alarms,
                 "reminders": reminders,
@@ -345,9 +360,14 @@ class CompanionService:
         return out
 
     async def update_config(self, device_id: str, patch: Dict) -> Dict:
-        if isinstance(patch, dict) and "memories" in patch:
+        if isinstance(patch, dict) and ("memories" in patch or "library" in patch):
             patch = dict(patch)
-            self._edit_memories(device_id, patch.pop("memories"))
+            if "memories" in patch:
+                self._edit_memories(device_id, patch.pop("memories"))
+            if "library" in patch:
+                if self.store.get(device_id) is None:
+                    raise KeyError(device_id)
+                self.library.edit(device_id, patch.pop("library"))
             if not patch:
                 dev = self.store.get(device_id)
                 if dev is None:
@@ -418,9 +438,68 @@ class CompanionService:
         cmd = schema.command(body)
         if self.store.get(device_id) is None:
             raise KeyError(device_id)
+        if cmd["type"] == "routine":
+            # Routines run on the server; the robot gets what to play or do (routines.py)
+            dev = self.store.get(device_id)
+            if not any(r["id"] == cmd["arg"] for r in routines.routines_of(dev.get("settings") or {})):
+                raise schema.ValidationError("routine not found")
+            started = self.routines.run_soon(device_id, cmd["arg"])
+            return {"id": schema.new_id("c"), "type": "routine", "arg": cmd["arg"], "ts": int(time.time()),
+                    "status": "running" if started else "busy", "done_ts": None}
+        if cmd["type"] == "play" and not _is_audio_url(cmd["arg"]):
+            # A library item id: play its audio link, or its text spoken by TinyBot
+            cmd = {"type": "play", "arg": await self.library_url(device_id, cmd["arg"])}
         out = await self.store.add_command(device_id, cmd)
         self.notify(device_id)
         return out
+
+    # --- library, routines and special days ------------------------------------------------
+    async def library_url(self, device_id: str, item_id: str) -> str:
+        item = self.library.get(device_id, item_id)
+        if item is None:
+            raise schema.ValidationError("library item not found")
+        if item.get("audio_url"):
+            return item["audio_url"]
+        url = await self.audio.render_now(item.get("text", ""))
+        if not url:
+            raise schema.ValidationError("the text could not be turned into speech right now")
+        return url
+
+    async def play_library(self, device_id: str, item_id: str) -> Optional[Dict]:
+        """Queue a library item on the robot; the item, or None when there is no such item."""
+        item = self.library.get(device_id, item_id)
+        if item is None:
+            return None
+        await self.send_command(device_id, {"type": "play", "arg": await self.library_url(device_id, item_id)})
+        return item
+
+    def today_special(self, dev: Dict) -> Optional[Dict]:
+        cal = (dev.get("settings") or {}).get("calendar")
+        return calendar_days.today_special(self.local_now().date(), cal, self.special_days.days)
+
+    async def expire_once(self, device_id: str, now: Optional[datetime] = None) -> int:
+        """Remove one-time alarms and reminders (voice timers) 2 minutes after their time."""
+        dev = self.store.get(device_id)
+        if dev is None:
+            return 0
+        now = now or self.local_now()
+        cutoff = (now - timedelta(minutes=2)).strftime("%Y-%m-%d %H:%M")
+
+        def gone(item):
+            once = item.get("once")
+            return bool(once) and f"{once} {item.get('time', '00:00')}" <= cutoff
+
+        alarms = [a for a in dev.get("alarms", []) if not gone(a)]
+        reminders = [r for r in dev.get("reminders", []) if not gone(r)]
+        removed = len(dev.get("alarms", [])) - len(alarms) + len(dev.get("reminders", [])) - len(reminders)
+        patch = {}
+        if len(alarms) != len(dev.get("alarms", [])):
+            patch["alarms"] = alarms
+        if len(reminders) != len(dev.get("reminders", [])):
+            patch["reminders"] = reminders
+        if patch:
+            await self.update_config(device_id, patch)
+        return removed
 
     # --- long-poll -------------------------------------------------------------------------
     def _message_ready(self, msg: Dict) -> bool:
@@ -459,10 +538,18 @@ class CompanionService:
     def ai_context(self, device_id: str) -> str:
         """TinyBot's day and what it remembers about its family, for the voice chat's system prompt."""
         device_id = (device_id or "").strip().lower()
-        blocks = [self._day_context(device_id)]
+        blocks = [self._day_context(device_id), self._special_day_context(device_id)]
         if self.memory_enabled(device_id):
             blocks.append(self.memory.context(device_id))
         return "\n".join(b for b in blocks if b)
+
+    def _special_day_context(self, device_id: str) -> str:
+        dev = self.store.get(device_id)
+        special = self.today_special(dev) if dev is not None else None
+        if not special:
+            return ""
+        return ("<special_day>" + calendar_days.greeting_hint(special)
+                + " Bring it up once, briefly, when it fits.</special_day>")
 
     def _day_context(self, device_id: str) -> str:
         """What TinyBot is busy with today (its routine), so "what are you doing?" or "what did you
@@ -596,12 +683,12 @@ class CompanionService:
 
     # --- voice tool helpers ----------------------------------------------------------------
     async def add_alarm(self, device_id: str, time_str: str, days: int = 127, label: str = "",
-                        say: str = "") -> Dict:
+                        say: str = "", once: str = "") -> Dict:
         dev = self.store.get(device_id)
         if dev is None:
             raise KeyError(device_id)
         alarms = [dict(a) for a in dev["alarms"]] + [
-            {"time": time_str, "days": days, "label": label, "say": say, "enabled": True}
+            {"time": time_str, "days": days, "label": label, "say": say, "enabled": True, "once": once}
         ]
         dev = await self.update_config(device_id, {"alarms": alarms})
         return dev["alarms"][-1]
@@ -629,3 +716,7 @@ class CompanionService:
         items = [dict(r) for r in dev["reminders"]] + [reminder]
         dev = await self.update_config(device_id, {"reminders": items})
         return dev["reminders"][-1]
+
+
+def _is_audio_url(arg: str) -> bool:
+    return arg.startswith(("http://", "https://", "/companion/"))

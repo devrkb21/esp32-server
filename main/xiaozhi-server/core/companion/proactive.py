@@ -107,6 +107,12 @@ def build_prompt(service, config: Dict, device_id: str, kind: str) -> str:
                 facts.append("Alarms later today: " + ", ".join(f"{t} {l}" for t, l in alarms[:3]) + ".")
             if reminders:
                 facts.append("Reminders later today: " + ", ".join(f"{t} {l}" for t, l in reminders[:3]) + ".")
+        # Eid, a national day or a family birthday today (calendar_days.py): greet for it
+        special = service.today_special(dev) if hasattr(service, "today_special") else None
+        if special:
+            from core.companion.calendar_days import greeting_hint
+
+            facts.append(greeting_hint(special) + " Start the greeting with it.")
     who = f"your friend {name}" if name else "your friend"
     if kind == "morning":
         task = (
