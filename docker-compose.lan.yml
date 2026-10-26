@@ -19,6 +19,8 @@ services:
       - MQTT_ENABLED=true
       - MQTT_PUBLIC_IP=${LAN_IP:-192.168.0.123}
       - VOICEPRINT_KEY=
+      # no reverse proxy on the LAN: robots use the PC's IP and ports directly
+      - PUBLIC_URL=off
 
   xiaozhi-esp32-server-mqtt:
     environment:
