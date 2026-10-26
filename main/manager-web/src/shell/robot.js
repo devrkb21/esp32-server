@@ -1,6 +1,7 @@
 import { reactive } from 'vue';
 import Api from '@/apis/api';
 import { allows, productOf } from './products';
+import { mergeRobots, sharedRobot } from '@/utils/family.mjs';
 
 // The robot the owner screens are about ("this robot"). Chosen on the robots page, remembered,
 // and filled in automatically when the account has exactly one. A `?deviceId=` query wins.
@@ -8,6 +9,7 @@ import { allows, productOf } from './products';
 //   robot.agentId     the agent (character) the robot runs
 //   robot.productKey  the Nobix product it is ('tinybot', 'generic', ...)
 //   robot.features    what that product can do; screens a product lacks are hidden
+//   robot.role        owner, or co_owner / member for a robot another account shared (family)
 const KEY = 'tb.robot';
 
 function saved() {
@@ -26,6 +28,7 @@ export const robot = reactive({
   productName: '',
   productNameBn: '',
   features: [],
+  role: 'owner',
   list: [],      // [{ deviceId, agentId, agentName, name, macAddress, lastConnectedAt, productKey, features, ... }]
   loading: false,
   loaded: false,
@@ -50,17 +53,18 @@ export function selectRobot(r) {
   robot.productName = p.productName;
   robot.productNameBn = p.productNameBn;
   robot.features = p.features;
+  robot.role = r.role || (known && known.role) || 'owner';
   try {
     localStorage.setItem(KEY, JSON.stringify({
       deviceId: r.deviceId, agentId: r.agentId, name: robot.name, productKey: p.productKey,
-      productName: p.productName, productNameBn: p.productNameBn, features: p.features,
+      productName: p.productName, productNameBn: p.productNameBn, features: p.features, role: robot.role,
     }));
   } catch (e) { /* private mode */ }
 }
 
 export function clearRobot() {
   robot.deviceId = ''; robot.agentId = ''; robot.name = '';
-  robot.productKey = ''; robot.productName = ''; robot.productNameBn = ''; robot.features = [];
+  robot.productKey = ''; robot.productName = ''; robot.productNameBn = ''; robot.features = []; robot.role = 'owner';
   try { localStorage.removeItem(KEY); } catch (e) { /* private mode */ }
 }
 
@@ -94,12 +98,17 @@ export function robotFrom(agent, d, list = products.list) {
 export async function loadRobots(force = false) {
   if (robot.loading || (robot.loaded && !force)) return robot.list;
   robot.loading = true;
-  const [agents] = await Promise.all([call(Api.agent.getAgentList).then((a) => a || []), loadProducts()]);
+  const [agents, shared] = await Promise.all([
+    call(Api.agent.getAgentList).then((a) => a || []),
+    loadShared(),
+    loadProducts(),
+  ]);
   const lists = await Promise.all(agents.map(async (a) => {
     const devs = (await call(Api.device.getAgentBindDevices, a.id)) || [];
     return devs.map((d) => robotFrom(a, d));
   }));
-  robot.list = lists.flat();
+  // robots other accounts shared with this one (family) come after the account's own
+  robot.list = mergeRobots(lists.flat(), shared.map((s) => ({ ...sharedRobot(s), ...productOf(s, products.list) })));
   robot.loading = false;
   robot.loaded = true;
   const still = robot.list.find((r) => r.deviceId === robot.deviceId);
@@ -107,6 +116,29 @@ export async function loadRobots(force = false) {
   else if (robot.list.length) selectRobot(robot.list[0]);
   if (!robot.list.length) clearRobot();
   return robot.list;
+}
+
+/** Robots other accounts shared with this one (GET /family/robots); [] when unknown. */
+export async function loadShared() {
+  const fn = Api.family && Api.family.getSharedRobots;
+  if (!fn) return [];
+  const list = await call(fn.bind(Api.family));
+  return Array.isArray(list) ? list : [];
+}
+
+/** This account's role on a robot: owner, co_owner or member (owner when unknown). */
+export function roleOf(deviceId) {
+  const id = deviceId || robot.deviceId;
+  const hit = robot.list.find((r) => r.deviceId === id);
+  if (hit) return hit.role || 'owner';
+  return id === robot.deviceId ? robot.role || 'owner' : 'owner';
+}
+
+/** The role on a character: owner when one of the account's own robots runs it (or none is known), else the shared role. */
+export function agentRole(agentId) {
+  const robots = robot.list.filter((r) => r.agentId === agentId);
+  if (!robots.length || robots.some((r) => !r.role || r.role === 'owner')) return 'owner';
+  return robots.some((r) => r.role === 'co_owner') ? 'co_owner' : 'member';
 }
 
 /** The device id a page should use: the query first, then the chosen robot. */

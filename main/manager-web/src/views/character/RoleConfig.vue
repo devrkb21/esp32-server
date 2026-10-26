@@ -7,6 +7,8 @@
       </template>
     </TbPageHeader>
 
+    <p v-if="agentId && readOnly" class="ch__readonly" role="status">{{ $t('family.characterReadOnly') }}</p>
+
     <div v-if="!agentId && robot.loaded" class="ch__state">
       <TbEmpty face="confused" :title="$t('common.noRobot')" :text="$t('common.noRobotText')">
         <TbButton variant="primary" to="/robots" icon="robots">{{ $t('common.goRobots') }}</TbButton>
@@ -256,7 +258,7 @@ import RequestService from '@/apis/httpRequest';
 import correctWord from '@/apis/module/correctWord';
 import featureManager from '@/utils/featureManager';
 import { digits } from '@/kit/calendar';
-import { hasFeature, loadRobots, robot } from '@/shell/robot';
+import { agentRole, hasFeature, loadRobots, robot } from '@/shell/robot';
 import ToolsSheet from './ToolsSheet.vue';
 import ContextSheet from './ContextSheet.vue';
 import KidsSection from './KidsSection.vue';
@@ -338,8 +340,10 @@ export default {
   computed: {
     lang() { return this.$i18n.locale; },
     agentId() { return String(this.$route.query.agentId || robot.agentId || ''); },
+    // A family member may look at the character of a shared robot but not change it
+    readOnly() { return agentRole(this.agentId) === 'member'; },
     configInteractionBlocked() {
-      return this.agentReloading || this.voiceOptionsLoading || !this.agentConfigLoaded || !this.agentFunctionsLoaded || !this.agentTagsLoaded;
+      return this.readOnly || this.agentReloading || this.voiceOptionsLoading || !this.agentConfigLoaded || !this.agentFunctionsLoaded || !this.agentTagsLoaded;
     },
     sections() {
       return [
@@ -1020,6 +1024,7 @@ export default {
 <style>
 .ch { --ch-index: 196px; padding-bottom: var(--tb-s8); }
 .ch__state { padding: var(--tb-s10) 0; display: grid; place-items: center; }
+.ch__readonly { padding: var(--tb-s3) 0; border-bottom: 1px solid var(--tb-rule); color: var(--tb-ink-2); font-size: var(--tb-fs-14); }
 .ch__layout { display: grid; grid-template-columns: minmax(0, 1fr); }
 .ch__index { display: none; }
 .ch__sections { min-width: 0; transition: opacity var(--tb-t-fast) var(--tb-ease); }

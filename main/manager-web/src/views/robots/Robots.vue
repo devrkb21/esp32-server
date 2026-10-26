@@ -50,7 +50,7 @@
         <TbButton @click="clearSearch">{{ $t('robots.showAll') }}</TbButton>
       </TbEmpty>
 
-      <div v-else-if="!groups.length" class="robots__first">
+      <div v-else-if="!groups.length && !sharedRows.length" class="robots__first">
         <TbEmpty face="awake" :title="$t('robots.empty.title')" :text="$t('robots.empty.linkText')">
           <TbButton variant="primary" icon="qr" to="/link">{{ $t('robots.addByCode') }}</TbButton>
           <TbButton icon="agent" @click="openAddCharacter(true)">{{ $t('robots.empty.action') }}</TbButton>
@@ -123,6 +123,43 @@
             <li v-else-if="!g.robots.length" class="rb-row rb-row--note">
               <p>{{ $t('robots.noneHere') }}</p>
               <TbButton size="s" variant="quiet" icon="agent" :to="{ path: '/role-config', query: { agentId: g.agent.id } }">{{ $t('robots.character') }}</TbButton>
+            </li>
+          </ul>
+        </article>
+
+        <!-- robots other accounts shared with this one (family): no character or unbind here, only leave -->
+        <article v-if="sharedRows.length" class="rb-group rb-group--shared" aria-labelledby="rb-g-shared">
+          <header class="rb-group__head">
+            <div class="rb-group__id">
+              <h2 id="rb-g-shared" class="rb-group__name">{{ $t('family.sharedTitle') }}</h2>
+              <p class="rb-group__meta"><span>{{ $t('family.sharedLine') }}</span></p>
+            </div>
+          </header>
+          <ul class="rb-rows">
+            <li v-for="r in sharedRows" :key="r.deviceId" class="rb-row" :class="{ 'is-current': r.deviceId === robot.deviceId }">
+              <TbFace v-if="r.features.includes('companion')" class="rb-row__face" :mood="rowMood(r)" :width="76"
+                :alt="$t('robots.faceAlt', { name: r.name || r.agentName })" />
+              <span v-else class="rb-row__face rb-row__device" aria-hidden="true"><TbIcon name="devices" :size="26" /></span>
+              <div class="rb-row__id">
+                <p class="rb-row__name">
+                  <span v-if="r.name">{{ r.name }}</span>
+                  <span v-else class="rb-row__unnamed">{{ $t('robots.unnamed') }}</span>
+                  <TbTag class="rb-row__product">{{ productName(r, lang) }}</TbTag>
+                </p>
+                <p class="rb-row__shared">
+                  <TbTag ink="message">{{ $t('family.sharedBy', { name: r.sharedBy || $t('family.someone') }) }}</TbTag>
+                  <TbTag>{{ $t(`family.role.${r.role}`) }}</TbTag>
+                </p>
+              </div>
+              <p class="rb-row__state" :class="[`is-${r.status.state}`, { 'is-online': r.online }]">
+                <TbRobotStatus v-if="r.status.state !== 'checking'" compact :status="r.status" />
+              </p>
+              <div class="rb-row__act rb-row__acts">
+                <span v-if="r.deviceId === robot.deviceId" class="rb-now" role="status"><i aria-hidden="true"></i>{{ $t('robots.current') }}</span>
+                <TbButton v-else size="s" icon="check" @click="makeMine(r)">{{ $t('robots.makeMine') }}</TbButton>
+                <TbButton size="s" variant="quiet" icon="today" @click="goToday(r)">{{ $t('robots.today') }}</TbButton>
+                <TbButton size="s" variant="quiet" icon="logout" :loading="leaving === r.deviceId" @click="leaveShared(r)">{{ $t('family.leave') }}</TbButton>
+              </div>
             </li>
           </ul>
         </article>
@@ -218,9 +255,11 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import Api from '@/apis/api';
 import { toast } from '@/kit/toast';
+import { confirm } from '@/kit/confirm';
 import { digits } from '@/kit/calendar';
-import { clearRobot, loadProducts, products, robot, selectRobot } from '@/shell/robot';
-import { checkCompanions, noteMqttMap, statusOf } from '@/shell/robotStatus';
+import { clearRobot, loadProducts, loadShared, products, robot, selectRobot } from '@/shell/robot';
+import { mergeRobots, sharedRobot } from '@/utils/family.mjs';
+import { checkCompanions, noteMqttMap, refreshMqtt, statusOf } from '@/shell/robotStatus';
 import { productName, productOf } from '@/shell/products';
 import featureManager from '@/utils/featureManager';
 import {
@@ -245,6 +284,35 @@ const clock = ref(Date.now());
 const voiceprint = ref(false);
 
 const hasAgents = computed(() => allAgents.value.length > 0);
+
+/* ---------- robots shared with this account (GET /family/robots) ---------- */
+const shared = ref([]);
+const leaving = ref('');
+const sharedRows = computed(() => (isSearching.value ? [] : shared.value).map((s) => {
+  const item = { ...sharedRobot(s), ...productOf(s, products.list) };
+  const status = statusOf(item.deviceId, { item, now: clock.value });
+  return { ...item, status, online: status.state === 'online' };
+}));
+async function fetchShared() {
+  shared.value = await loadShared();
+  const items = shared.value.map((s) => ({ ...sharedRobot(s), ...productOf(s, products.list) }));
+  [...new Set(items.map((r) => r.agentId))].forEach((agentId) => {
+    refreshMqtt(agentId, items.filter((r) => r.agentId === agentId)).then(() => checkCompanions(items));
+  });
+}
+function leaveShared(r) {
+  confirm(t('family.leaveText', { robot: r.name || r.agentName || t('nav.robotFallback') }), t('family.leaveTitle'),
+    { confirmText: t('family.leave'), cancelText: t('common.cancel'), danger: true })
+    .then(() => {
+      leaving.value = r.deviceId;
+      Api.family.removeShare(r.shareId, () => {
+        leaving.value = '';
+        shared.value = shared.value.filter((s) => s.deviceId !== r.deviceId);
+        syncShell();
+        toast.success(t('family.left', { robot: r.name || r.agentName || t('nav.robotFallback') }));
+      }, () => { leaving.value = ''; toast.error(t('family.err.failed')); });
+    }).catch(() => {});
+}
 
 // More than one product among the account's devices: rows are grouped by product inside each
 // character (with a small product heading); with one product the tag on each row is enough.
@@ -341,7 +409,8 @@ async function fillAgents(list) {
 
 /** Mirror the account's robots into the shell's "this robot" (same rule as loadRobots). */
 function syncShell() {
-  const list = allAgents.value.flatMap((a) => (devicesByAgent[a.id] || []).map((d) => ({ ...toRobot(a, d), ...productOf(d, products.list) })));
+  const own = allAgents.value.flatMap((a) => (devicesByAgent[a.id] || []).map((d) => ({ ...toRobot(a, d), ...productOf(d, products.list) })));
+  const list = mergeRobots(own, shared.value.map((s) => ({ ...sharedRobot(s), ...productOf(s, products.list) })));
   robot.list = list;
   robot.loaded = true;
   const still = list.find((r) => r.deviceId === robot.deviceId);
@@ -360,7 +429,7 @@ function load() {
         loading.value = false; failed.value = true; resolve(); return;
       }
       allAgents.value = data.data || [];
-      await fillAgents(allAgents.value);
+      await Promise.all([fillAgents(allAgents.value), fetchShared()]);
       if (isSearching.value) await runSearch(searchedFor.value, true);
       else shownAgents.value = allAgents.value;
       syncShell();
@@ -723,6 +792,7 @@ onBeforeUnmount(() => { clearInterval(poll); document.removeEventListener('visib
 .rb-row__name { font-weight: 700; font-size: var(--tb-fs-16); overflow-wrap: anywhere; }
 .rb-row__unnamed { color: var(--tb-ink-2); font-weight: 500; }
 .rb-row__mac { font-size: var(--tb-fs-13); color: var(--tb-ink-2); }
+.rb-row__shared { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .rb-row__state { grid-area: state; display: grid; gap: 0; font-size: var(--tb-fs-14); font-weight: 600; }
 .rb-row__state .tb-rstat.is-compact { font-size: var(--tb-fs-14); white-space: normal; }
 .rb-row__state small { font-size: var(--tb-fs-13); font-weight: 400; color: var(--tb-ink-2); max-width: 28ch; }

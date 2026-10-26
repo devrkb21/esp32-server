@@ -17,6 +17,14 @@ export const NAV = [
       { to: '/history', label: 'nav.history', icon: 'history', ink: 'message', needs: 'chat_history', unless: 'messages' },
       { to: '/look', label: 'nav.look', icon: 'look', tab: true, ink: 'look', needs: 'look' },
       { to: '/robot', label: 'nav.robot', icon: 'settings', needs: 'companion' },
+      { to: '/summary', label: 'nav.summary', icon: 'chart', needs: 'summary' },
+    ],
+  },
+  {
+    group: 'nav.group.inbox',
+    items: [
+      { to: '/notifications', label: 'nav.notifications', icon: 'bell', count: 'unread' },
+      { to: '/invitations', label: 'nav.invitations', icon: 'family', count: 'invites' },
     ],
   },
   {

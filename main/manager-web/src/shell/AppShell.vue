@@ -5,6 +5,9 @@
       <div class="tb-side__brand">
         <img class="tb-side__mark" :src="markSrc" width="56" height="32" alt="" />
         <span class="tb-side__name">{{ $t('nav.brand') }}</span>
+        <RouterLink to="/notifications" class="tb-bell" :aria-label="bellLabel">
+          <TbIcon name="bell" :size="20" /><span v-if="bellCount" class="tb-bell__n tb-num" aria-hidden="true">{{ bellCount }}</span>
+        </RouterLink>
       </div>
       <RouterLink v-if="robot.deviceId" to="/robots" class="tb-side__robot">
         <TbFace v-if="robot.features.includes('companion')" :width="96" :mood="sideMood" />
@@ -16,6 +19,7 @@
           <p class="tb-side__group">{{ $t(g.group) }}</p>
           <RouterLink v-for="it in g.items" :key="it.to" :to="it.to" class="tb-side__link" :style="it.ink ? { '--ink': `var(--tb-${it.ink})` } : null">
             <TbIcon :name="it.icon" :size="19" /><span>{{ $t(it.label) }}</span>
+            <span v-if="it.count && inbox[it.count]" class="tb-side__count tb-num">{{ badgeText(inbox[it.count], (n) => digits(n, lang)) }}</span>
           </RouterLink>
         </template>
       </nav>
@@ -29,6 +33,15 @@
         </TbMenu>
       </div>
     </aside>
+
+    <!-- under 900px: the brand and the bell above the page (the sidebar is hidden) -->
+    <header class="tb-top">
+      <img class="tb-top__mark" :src="markSrc" width="42" height="24" alt="" />
+      <span class="tb-top__name">{{ $t('nav.brand') }}</span>
+      <RouterLink to="/notifications" class="tb-bell" :aria-label="bellLabel">
+        <TbIcon name="bell" :size="22" /><span v-if="bellCount" class="tb-bell__n tb-num" aria-hidden="true">{{ bellCount }}</span>
+      </RouterLink>
+    </header>
 
     <main id="tb-main" class="tb-main" tabindex="-1">
       <FeatureGate><slot /></FeatureGate>
@@ -55,6 +68,8 @@ import { visibleNav, visibleTabs } from './nav';
 import { loadRobots, robot, robotFeatures } from './robot';
 import { refreshRobotStatus, statusOf } from './robotStatus';
 import FeatureGate from './FeatureGate.vue';
+import { badgeText, inbox, refreshInbox } from './inbox';
+import { digits } from '@/kit/calendar';
 import { LANGUAGES, changeLanguage } from '@/i18n';
 import { applyTheme, getTheme } from '@/utils/theme';
 import { goToPage } from '@/utils';
@@ -77,14 +92,26 @@ const sideStatus = computed(() => statusOf(robot.deviceId));
 const sideMood = computed(() => ({ online: 'awake', offline: 'offline', checking: 'awake' }[sideStatus.value.state] || 'confused'));
 let statusTimer = null;
 function checkStatus() { if (robot.deviceId && !document.hidden) refreshRobotStatus(robot.deviceId); }
+// The bell: unread notifications (src/shell/inbox.js), refreshed with the status check
+const bellCount = computed(() => badgeText(inbox.unread, (n) => digits(n, locale.value)));
+const bellLabel = computed(() => (inbox.unread ? t('notify.bellUnread', { n: digits(inbox.unread, locale.value) }) : t('notify.title')));
+let inboxTimer = null;
+function checkInbox() { if (!document.hidden) refreshInbox(); }
 onMounted(async () => {
   store.dispatch('fetchPubConfig');
   await loadRobots();
   checkStatus();
   statusTimer = setInterval(checkStatus, 30000);
   document.addEventListener('visibilitychange', checkStatus);
+  checkInbox();
+  inboxTimer = setInterval(checkInbox, 60000);
+  document.addEventListener('visibilitychange', checkInbox);
 });
-onBeforeUnmount(() => { clearInterval(statusTimer); document.removeEventListener('visibilitychange', checkStatus); });
+onBeforeUnmount(() => {
+  clearInterval(statusTimer); clearInterval(inboxTimer);
+  document.removeEventListener('visibilitychange', checkStatus);
+  document.removeEventListener('visibilitychange', checkInbox);
+});
 watch(() => robot.deviceId, checkStatus);
 const userName = computed(() => store.getters.getUserInfo?.username || '');
 const accountItems = computed(() => [
@@ -136,6 +163,8 @@ function onAccount(key) {
 .tb-side__link.router-link-active { color: var(--tb-ink); background: none; }
 .tb-side__link.router-link-active::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--tb-orange); border-radius: 2px; }
 .tb-side__link.router-link-active .tb-icon { color: var(--ink); }
+.tb-side__count { margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--tb-ink);
+  color: var(--tb-paper); font: 700 var(--tb-fs-12)/20px var(--tb-font-text); text-align: center; }
 .tb-side__foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--tb-rule); }
 .tb-side__account { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 0 8px; border: 0; border-radius: 8px; background: none; text-align: left; }
 .tb-side__account:hover { background: var(--tb-paper-2); }
@@ -145,10 +174,24 @@ function onAccount(key) {
 .tb-main > * { max-width: var(--tb-content-max); margin-inline: auto; }
 
 .tb-tabbar { display: none; }
+.tb-top { display: none; }
+
+/* the bell: unread notifications */
+.tb-bell { position: relative; display: grid; place-items: center; width: 40px; height: 40px; margin-left: auto; flex: none;
+  border-radius: 8px; color: var(--tb-ink); text-decoration: none; }
+.tb-bell:hover { background: var(--tb-paper-2); }
+.tb-bell.router-link-active { box-shadow: inset 0 -2px 0 var(--tb-orange); border-radius: 0; }
+.tb-bell__n { position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  background: var(--tb-ink); color: var(--tb-paper); font: 700 11px/18px var(--tb-font-text); text-align: center; }
 
 @media (max-width: 899px) {
   .tb-shell { display: block; }
   .tb-side { display: none; }
+  .tb-top { display: flex; align-items: center; gap: 8px; padding: calc(4px + env(safe-area-inset-top)) var(--tb-gutter) 4px;
+    border-bottom: 1px solid var(--tb-rule); }
+  .tb-top__mark { display: block; width: auto; height: 24px; }
+  .tb-top__name { font-family: var(--tb-font-display); font-weight: 800; font-size: var(--tb-fs-16); }
+  .tb-top .tb-bell { width: 44px; height: 44px; }
   .tb-main { padding: 0 var(--tb-gutter) calc(96px + env(safe-area-inset-bottom)); }
   .tb-tabbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);

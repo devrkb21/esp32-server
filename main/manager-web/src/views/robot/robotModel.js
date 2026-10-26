@@ -21,7 +21,23 @@ import {
 } from '@/utils/companion.mjs';
 
 /** The editable sections of the page, each saved on its own. */
-export const FORM_SECTIONS = ['sound', 'display', 'proactive', 'memory', 'gestures', 'robot'];
+export const FORM_SECTIONS = ['sound', 'display', 'proactive', 'memory', 'gestures', 'robot', 'care'];
+
+/** Hours without touch or talk before a care alert (0 = off; server allows 0..12). */
+export const NO_ACTIVITY_CHOICES = [0, 2, 3, 4, 6, 8];
+
+/** The care settings with their defaults (settings.care; the alert keys belong to family care alerts). */
+export function careSettings(raw) {
+  const c = raw || {};
+  const hours = Number(c.no_activity_hours);
+  return {
+    enabled: c.enabled !== false,
+    lonely_after_min: Number.isFinite(Number(c.lonely_after_min)) && c.lonely_after_min !== null && c.lonely_after_min !== undefined ? Number(c.lonely_after_min) : 180,
+    no_activity_hours: Number.isFinite(hours) && hours >= 0 && hours <= 12 ? Math.round(hours) : 0,
+    fall_alert: c.fall_alert !== false,
+    missed_medicine_alert: c.missed_medicine_alert !== false,
+  };
+}
 
 export { GESTURE_KEYS, focusMinutes };
 
@@ -110,6 +126,8 @@ export function serverForm(view, section) {
       return gestureSettings(settings.gestures);
     case 'robot':
       return { name: v.name || '', owner_name: settings.owner_name || '' };
+    case 'care':
+      return careSettings(settings.care);
     default:
       return {};
   }
@@ -144,6 +162,11 @@ export function sectionPatch(section, form) {
         name: String(f.name || '').trim().slice(0, MAX_NAME) || 'TinyBot',
         settings: { owner_name: String(f.owner_name || '').trim().slice(0, MAX_NAME) },
       };
+    case 'care': {
+      const c = careSettings(f);
+      // only the alert keys: `enabled` and `lonely_after_min` are edited on the Day page
+      return { settings: { care: { no_activity_hours: c.no_activity_hours, fall_alert: c.fall_alert, missed_medicine_alert: c.missed_medicine_alert } } };
+    }
     default:
       return {};
   }

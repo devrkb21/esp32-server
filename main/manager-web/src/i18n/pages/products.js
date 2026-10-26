@@ -98,6 +98,9 @@ export default {
     'products.feature.proactive': 'নিজে থেকে কথা',
     'products.feature.firmware': 'ফার্মওয়্যার',
     'products.feature.pairing_pattern': 'যুক্ত করার নকশা',
+    'products.feature.family': 'পরিবারে শেয়ার',
+    'products.feature.care': 'যত্নের সতর্কতা',
+    'products.feature.summary': 'দিনের সারাংশ',
   },
   en: {
     'nav.products': 'Products',
@@ -196,5 +199,8 @@ export default {
     'products.feature.proactive': 'Speaks first',
     'products.feature.firmware': 'Firmware',
     'products.feature.pairing_pattern': 'Pairing pattern',
+    'products.feature.family': 'Family sharing',
+    'products.feature.care': 'Care alerts',
+    'products.feature.summary': 'Daily summary',
   },
 };

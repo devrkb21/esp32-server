@@ -6,8 +6,8 @@ const day = 86400000;
 const stamp = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 19);
 
 export const TINYBOT_FEATURES = ['chat', 'character', 'voiceprint', 'chat_history', 'memory', 'companion', 'day', 'prayer', 'look',
-  'screen', 'messages', 'commands', 'proactive', 'firmware', 'pairing_pattern'];
-export const GENERIC_FEATURES = ['chat', 'character', 'voiceprint', 'chat_history', 'firmware'];
+  'screen', 'messages', 'commands', 'proactive', 'firmware', 'pairing_pattern', 'family', 'care', 'summary'];
+export const GENERIC_FEATURES = ['chat', 'character', 'voiceprint', 'chat_history', 'firmware', 'family'];
 export const PRODUCT_FIELDS = {
   tinybot: { productKey: 'tinybot', productName: 'TinyBot', productNameBn: 'টাইনিবট', features: TINYBOT_FEATURES },
   generic: { productKey: 'generic', productName: 'Nobix device', productNameBn: 'নোবিক্স ডিভাইস', features: GENERIC_FEATURES },

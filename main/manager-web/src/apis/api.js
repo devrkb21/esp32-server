@@ -16,6 +16,9 @@ import stats from './module/stats.js'
 import companion from './module/companion.js'
 import product from './module/product.js'
 import calendar from './module/calendar.js'
+import family from './module/family.js'
+import notify from './module/notify.js'
+import summary from './module/summary.js'
 
 
 
@@ -53,5 +56,8 @@ export default {
     stats,
     product,
     calendar,
+    family,
+    notify,
+    summary,
     companion
   }
