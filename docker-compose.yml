@@ -90,8 +90,10 @@ services:
     depends_on:
       - xiaozhi-esp32-server-db
       - xiaozhi-esp32-server-web
+    # Only the companion / vision API (8003) is published: robots sync with it directly. Voice goes
+    # through the MQTT gateway, which reaches the WebSocket (8000) inside the Docker network, so 8000
+    # stays internal. A device on the plain WebSocket protocol would need "${WS_PORT:-18000}:8000".
     ports:
-      - "${WS_PORT:-18000}:8000"
       - "${VISION_PORT:-18003}:8003"
     environment:
       - TZ=Asia/Dhaka
