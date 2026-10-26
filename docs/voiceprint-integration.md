@@ -125,7 +125,7 @@ cd voiceprint-api
 docker compose -f docker-compose.yml down
 docker stop voiceprint-api
 docker rm voiceprint-api
-docker rmi ghcr.nju.edu.cn/xinnan-tech/voiceprint-api:latest
+docker rmi ghcr.io/xinnan-tech/voiceprint-api:latest
 
 # Start the Docker container
 docker compose -f docker-compose.yml up -d
