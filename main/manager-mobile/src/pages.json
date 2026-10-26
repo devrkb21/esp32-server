@@ -292,6 +292,15 @@
       }
     },
     {
+      "path": "pages/smart-home/index",
+      "type": "page",
+      "layout": "default",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "Nobix"
+      }
+    },
+    {
       "path": "pages/voiceprint/index",
       "type": "page",
       "layout": "default",

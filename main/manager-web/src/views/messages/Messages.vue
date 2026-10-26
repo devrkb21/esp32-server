@@ -68,6 +68,9 @@
         </TransitionGroup>
       </TbSection>
 
+      <!-- Robot-to-robot messages and contacts (owner HOME) -->
+      <RobotMessages :device-id="deviceId" />
+
       <!-- What you and TinyBot said (the chat history, also its own page for products without messages) -->
       <ChatHistory v-if="hasHistory" ref="history" :agent-id="agentId" />
     </template>
@@ -88,6 +91,7 @@ import {
 import { MAX_MESSAGE, MAX_NAME } from '@/utils/companion.mjs';
 import { messageList, messageTs, messageWhen, sortMessages, statusOf, syncOf } from './messagesModel';
 import ChatHistory from './ChatHistory.vue';
+import RobotMessages from '../home/RobotMessages.vue';
 
 const FROM_KEY = 'companion_message_from'; // the legacy key: the last "from" name is remembered
 const REFRESH_MS = 10000;                   // the legacy poll

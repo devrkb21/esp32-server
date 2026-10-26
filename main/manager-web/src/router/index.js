@@ -20,6 +20,7 @@ const v = {
   messages: () => import('../views/messages/Messages.vue'),
   history: () => import('../views/messages/History.vue'),
   look: () => import('../views/look/Look.vue'),
+  smartHome: () => import('../views/home/SmartHome.vue'),
   robot: () => import('../views/robot/RobotSettings.vue'),
   notifications: () => import('../views/notify/Notifications.vue'),
   invitations: () => import('../views/family/Invitations.vue'),
@@ -70,6 +71,7 @@ export const routes = [
   // the chat history alone, for products without messages (TinyBot shows it inside Messages)
   { path: '/history', name: 'History', component: v.history, meta: { title: 'nav.history', needs: 'chat_history' } },
   { path: '/look', name: 'Look', component: v.look, meta: { title: 'nav.look', needs: 'look' } },
+  { path: '/smart-home', name: 'SmartHome', component: v.smartHome, meta: { title: 'nav.smartHome' } },
   { path: '/robot', name: 'RobotSettings', component: v.robot, meta: { title: 'nav.robot', needs: 'companion' } },
   { path: '/notifications', name: 'Notifications', component: v.notifications, meta: { title: 'nav.notifications' } },
   { path: '/invitations', name: 'Invitations', component: v.invitations, meta: { title: 'nav.invitations' } },
