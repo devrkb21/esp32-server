@@ -180,7 +180,7 @@ services:
 
   # Voiceprint Recognition Service (3D-Speaker API)
   xiaozhi-esp32-server-voiceprint:
-    image: ${VOICEPRINT_IMAGE:-ghcr.nju.edu.cn/xinnan-tech/voiceprint-api:latest}
+    image: ${VOICEPRINT_IMAGE:-ghcr.io/xinnan-tech/voiceprint-api:latest}
     container_name: xiaozhi-esp32-server-voiceprint
     restart: always
     depends_on:
