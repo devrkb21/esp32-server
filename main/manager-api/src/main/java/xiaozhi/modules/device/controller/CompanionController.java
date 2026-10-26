@@ -32,6 +32,8 @@ import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
+import xiaozhi.modules.family.service.DeviceAccess;
+import xiaozhi.modules.family.service.FamilyRole.Action;
 import xiaozhi.modules.product.service.ProductService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
@@ -39,8 +41,8 @@ import xiaozhi.modules.sys.service.SysParamsService;
 /**
  * TinyBot companion settings (alarms, reminders, focus timer, prayer times, night mode, phone
  * messages and commands). The data lives in xiaozhi-server's companion API (see
- * docs/companion-api.md); this controller checks that the device belongs to the logged-in user
- * and forwards the request, authenticated with the shared server secret.
+ * docs/companion-api.md); this controller checks that the logged-in user may use the device (its
+ * owner or family, see DeviceAccess) and forwards the request, authenticated with the shared server secret.
  */
 @Slf4j
 @Tag(name = "Companion")
@@ -118,7 +120,8 @@ public class CompanionController {
     private Result<Object> forward(String deviceId, HttpMethod method, String path, Object body) {
         DeviceEntity device = deviceService.selectById(deviceId);
         UserDetail user = SecurityUser.getUser();
-        if (device == null || user == null || !user.getId().equals(device.getUserId())
+        // The owner and the robot's family (members and co-owners) use the companion screens
+        if (device == null || user == null || !DeviceAccess.can(device, user.getId(), Action.USE)
                 || StringUtils.isBlank(device.getMacAddress())) {
             return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
         }

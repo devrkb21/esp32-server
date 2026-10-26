@@ -34,6 +34,8 @@ import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.DateUtils;
 import xiaozhi.common.utils.MessageUtils;
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.family.service.DeviceAccess;
+import xiaozhi.modules.family.service.FamilyRole.Action;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatHistoryReportDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
@@ -81,7 +83,9 @@ public class AgentChatHistoryController {
         // GetCurrentUser
         UserDetail user = SecurityUser.getUser();
         // CheckPermission
-        if (!agentService.checkAgentPermission(agentId, user.getId())) {
+        // The owner, a co-owner or a family member of a robot running this character
+        if (!agentService.checkAgentPermission(agentId, user.getId())
+                && !DeviceAccess.canAgent(agentId, DeviceAccess.agentOwner(agentId), user.getId(), Action.VIEW)) {
             throw new RenException(ErrorCode.CHAT_HISTORY_NO_PERMISSION);
         }
 

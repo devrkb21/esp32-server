@@ -35,6 +35,8 @@ import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.common.utils.Result;
 import xiaozhi.common.utils.ResultUtils;
+import xiaozhi.modules.family.service.DeviceAccess;
+import xiaozhi.modules.family.service.FamilyRole.Action;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
@@ -73,6 +75,21 @@ public class AgentController {
         }
     }
 
+    /**
+     * Reading chat history: the character's owner, a co-owner, or a family member of a robot
+     * running it (DeviceAccess); changes still need {@link #requireAgentPermission}.
+     */
+    private boolean canReadAgent(String agentId, Long userId) {
+        return agentService.checkAgentPermission(agentId, userId)
+                || DeviceAccess.canAgent(agentId, DeviceAccess.agentOwner(agentId), userId, Action.VIEW);
+    }
+
+    private void requireAgentRead(String agentId) {
+        if (!canReadAgent(agentId, SecurityUser.getUserId())) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
+    }
+
     private String requireSessionAgent(String sessionId) {
         String agentId = agentChatHistoryService.getAgentIdBySessionId(sessionId);
         if (StringUtils.isBlank(agentId)) {
@@ -87,7 +104,7 @@ public class AgentController {
         if (StringUtils.isBlank(agentId)) {
             throw new RenException(ErrorCode.NO_PERMISSION);
         }
-        requireAgentPermission(agentId);
+        requireAgentRead(agentId);
         return agentId;
     }
 
@@ -197,7 +214,7 @@ public class AgentController {
     public Result<PageData<AgentChatSessionDTO>> getAgentSessions(
             @PathVariable("id") String id,
             @Parameter(hidden = true) @RequestParam Map<String, Object> params) {
-        requireAgentPermission(id);
+        requireAgentRead(id);
         params.put("agentId", id);
         PageData<AgentChatSessionDTO> page = agentChatHistoryService.getSessionListByAgentId(params);
         return new Result<PageData<AgentChatSessionDTO>>().ok(page);
@@ -213,7 +230,7 @@ public class AgentController {
         UserDetail user = SecurityUser.getUser();
 
         // CheckPermission
-        if (!agentService.checkAgentPermission(id, user.getId())) {
+        if (!canReadAgent(id, user.getId())) {
             return new Result<List<AgentChatHistoryDTO>>().error("No permission to view chat history for this agent");
         }
 
@@ -231,7 +248,7 @@ public class AgentController {
         UserDetail user = SecurityUser.getUser();
 
         // CheckPermission
-        if (!agentService.checkAgentPermission(id, user.getId())) {
+        if (!canReadAgent(id, user.getId())) {
             return new Result<List<AgentChatHistoryUserVO>>().error("No permission to view chat history for this agent");
         }
 

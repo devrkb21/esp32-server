@@ -19,7 +19,14 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+
+import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.agent.dao.AgentVoicePrintDao;
+import xiaozhi.modules.agent.entity.AgentVoicePrintEntity;
+import xiaozhi.modules.family.service.DeviceAccess;
+import xiaozhi.modules.family.service.FamilyRole.Action;
 import xiaozhi.modules.agent.dto.AgentVoicePrintSaveDTO;
 import xiaozhi.modules.agent.dto.AgentVoicePrintUpdateDTO;
 import xiaozhi.modules.agent.dto.VoiceprintSecurityDTO;
@@ -35,11 +42,33 @@ import xiaozhi.modules.sys.service.SysParamsService;
 public class AgentVoicePrintController {
     private final AgentVoicePrintService agentVoicePrintService;
     private final SysParamsService sysParamsService;
+    private final AgentVoicePrintDao agentVoicePrintDao;
+
+    /**
+     * Voiceprints follow the character's family roles (DeviceAccess): the owner and co-owners
+     * manage them, family members only see the list.
+     */
+    private boolean canAgent(String agentId, Action action) {
+        return DeviceAccess.canAgent(agentId, DeviceAccess.agentOwner(agentId), SecurityUser.getUserId(), action);
+    }
+
+    /** Whose voiceprint the service should touch: the caller's own, or any when they manage the character. */
+    private Long actingCreator(String voicePrintId, Long userId) {
+        AgentVoicePrintEntity vp = StringUtils.isBlank(voicePrintId) ? null : agentVoicePrintDao.selectById(voicePrintId);
+        if (vp != null && vp.getCreator() != null && !vp.getCreator().equals(userId)
+                && canAgent(vp.getAgentId(), Action.MANAGE)) {
+            return vp.getCreator();
+        }
+        return userId;
+    }
 
     @PostMapping
     @Operation(summary = "CreateAgentVoiceprint")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> save(@RequestBody @Valid AgentVoicePrintSaveDTO dto) {
+        if (!canAgent(dto.getAgentId(), Action.MANAGE)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
         boolean b = agentVoicePrintService.insert(dto);
         if (b) {
             return new Result<>();
@@ -51,7 +80,7 @@ public class AgentVoicePrintController {
     @Operation(summary = "UpdateAgentforshouldVoiceprint")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> update(@RequestBody @Valid AgentVoicePrintUpdateDTO dto) {
-        Long userId = SecurityUser.getUserId();
+        Long userId = actingCreator(dto.getId(), SecurityUser.getUserId());
         boolean b = agentVoicePrintService.update(userId, dto);
         if (b) {
             return new Result<>();
@@ -63,7 +92,7 @@ public class AgentVoicePrintController {
     @Operation(summary = "DeleteAgentforshouldVoiceprint")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> delete(@PathVariable String id) {
-        Long userId = SecurityUser.getUserId();
+        Long userId = actingCreator(id, SecurityUser.getUserId());
         // firstDeleteAssociateDevice
         boolean delete = agentVoicePrintService.delete(userId, id);
         if (delete) {
@@ -80,8 +109,13 @@ public class AgentVoicePrintController {
         if (StringUtils.isBlank(voiceprintUrl) || "null".equals(voiceprintUrl)) {
             throw new RenException(ErrorCode.VOICEPRINT_API_NOT_CONFIGURED);
         }
-        Long userId = SecurityUser.getUserId();
-        List<AgentVoicePrintVO> list = agentVoicePrintService.list(userId, id);
+        if (!canAgent(id, Action.VIEW)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
+        // Every voiceprint of the character, whoever in the family added it
+        List<AgentVoicePrintVO> list = agentVoicePrintDao.selectList(new LambdaQueryWrapper<AgentVoicePrintEntity>()
+                .eq(AgentVoicePrintEntity::getAgentId, id)).stream()
+                .map(e -> ConvertUtils.sourceToTarget(e, AgentVoicePrintVO.class)).toList();
         return new Result<List<AgentVoicePrintVO>>().ok(list);
     }
 

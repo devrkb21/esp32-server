@@ -30,6 +30,8 @@ import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.JsonUtils;
+import xiaozhi.modules.family.service.DeviceAccess;
+import xiaozhi.modules.family.service.FamilyRole.Action;
 import xiaozhi.modules.agent.dao.AgentDao;
 import xiaozhi.modules.agent.dao.AgentTagDao;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
@@ -95,7 +97,8 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         if (agent == null) {
             throw new RenException(ErrorCode.AGENT_NOT_FOUND);
         }
-        requireCurrentUserPermissionIfPresent(agent);
+        // Reading a character: its owner, a co-owner or a family member of a robot running it
+        requireCurrentUserReadPermissionIfPresent(agent);
 
         if (agent.getMemModelId() != null && agent.getMemModelId().equals(Constant.MEMORY_NO_MEM)) {
             agent.setChatHistoryConf(Constant.ChatHistoryConfEnum.IGNORE.getCode());
@@ -122,7 +125,9 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
     @Override
     public AgentInfoVO getAgentById(String id, Long userId) {
         AgentInfoVO agent = getAgentById(id);
-        requireAgentPermission(agent, userId);
+        if (!hasAgentReadPermission(agent, userId)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
         return agent;
     }
 
@@ -146,6 +151,7 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         }
     }
 
+    /** Changing a character: its owner or a co-owner of a robot running it (DeviceAccess). */
     private boolean hasAgentPermission(AgentEntity agent, Long userId) {
         if (agent == null) {
             return false;
@@ -153,7 +159,25 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         if (isCurrentUserSuperAdmin()) {
             return true;
         }
-        return userId != null && userId.equals(agent.getUserId());
+        return userId != null && DeviceAccess.canAgent(agent.getId(), agent.getUserId(), userId, Action.MANAGE);
+    }
+
+    /** Reading a character: also family members of a robot running it. */
+    private boolean hasAgentReadPermission(AgentEntity agent, Long userId) {
+        if (agent == null) {
+            return false;
+        }
+        if (isCurrentUserSuperAdmin()) {
+            return true;
+        }
+        return userId != null && DeviceAccess.canAgent(agent.getId(), agent.getUserId(), userId, Action.VIEW);
+    }
+
+    private void requireCurrentUserReadPermissionIfPresent(AgentEntity agent) {
+        Long userId = SecurityUser.getUserId();
+        if (userId != null && !hasAgentReadPermission(agent, userId)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
     }
 
     private void requireAgentPermission(AgentEntity agent, Long userId) {
@@ -169,7 +193,7 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         if (isCurrentUserSuperAdmin()) {
             return true;
         }
-        return userId != null && userId.equals(device.getUserId());
+        return userId != null && DeviceAccess.can(device, userId, Action.MANAGE);
     }
 
     private void requireDevicePermission(DeviceEntity device, Long userId) {
@@ -563,6 +587,10 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
     public void deleteAgentById(String agentId, Long userId) {
         AgentEntity agent = getAgentEntityOrThrow(agentId);
         requireAgentPermission(agent, userId);
+        // Co-owners may change a character but only its owner deletes it
+        if (!isCurrentUserSuperAdmin() && !DeviceAccess.canAgent(agentId, agent.getUserId(), userId, Action.DELETE)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
         deleteAgent(agentId);
     }
 

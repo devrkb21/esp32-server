@@ -967,3 +967,11 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202611010200.sql
+
+  - changeSet:
+      id: 202611010300
+      author: tinybot
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202611010300.sql
