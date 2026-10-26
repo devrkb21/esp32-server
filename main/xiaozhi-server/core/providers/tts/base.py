@@ -122,10 +122,23 @@ class TTSProviderBase(ABC):
     def handle_audio_file(self, file_audio: bytes, text):
         self.before_stop_play_files.append((file_audio, text))
 
+    def _meter_chars(self, text):
+        """Usage metering: characters sent to speech synthesis (core/utils/usage_meter.py)."""
+        conn = getattr(self, "conn", None)
+        meter = getattr(conn, "usage_meter", None)
+        if meter is None or not text:
+            return
+        try:
+            model = (conn.config.get("selected_module") or {}).get("TTS") or "TTS"
+            meter.record_tts(conn.device_id, model, len(text.strip()))
+        except Exception as e:
+            logger.bind(tag=TAG).debug(f"TTS metering failed: {e}")
+
     def to_tts_stream(self, text, opus_handler: Callable[[bytes], None] = None) -> None:
         # Keep original text for display/reporting
         original_text = text
         text = MarkdownCleaner.clean_markdown(text)
+        self._meter_chars(text)
         # Use regex for one-time replacement, avoiding repeated iterations and partial match issues
         if self._correct_words_pattern:
             text = self._correct_words_pattern.sub(lambda m: self.correct_words[m.group(0)], text)
@@ -212,6 +225,7 @@ class TTSProviderBase(ABC):
         # Keep original text for log/display
         original_text = text
         text = MarkdownCleaner.clean_markdown(text)
+        self._meter_chars(text)
         if self._correct_words_pattern:
             text = self._correct_words_pattern.sub(lambda m: self.correct_words[m.group(0)], text)
         max_repeat_time = 5

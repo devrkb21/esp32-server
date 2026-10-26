@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from config.logger import setup_logging
 from core.utils import tts, llm, intent, memory, vad, asr
+from core.providers.llm.fallback import FallbackLLM, fallback_entries, redact
+from core.providers.asr.fallback import wrap_asr
 
 TAG = __name__
 logger = setup_logging()
@@ -41,10 +43,11 @@ def initialize_modules(
             if "type" not in config["LLM"][select_llm_module]
             else config["LLM"][select_llm_module]["type"]
         )
-        modules["llm"] = llm.create_instance(
+        primary_llm = llm.create_instance(
             llm_type,
             config["LLM"][select_llm_module],
         )
+        modules["llm"] = initialize_llm_fallback(config, select_llm_module, primary_llm)
         logger.bind(tag=TAG).info(f"Component initialized: llm succeeded {select_llm_module}")
 
     # Initialize Intent module
@@ -122,13 +125,45 @@ def initialize_asr(config):
         if "type" not in config["ASR"][select_asr_module]
         else config["ASR"][select_asr_module]["type"]
     )
+    delete_audio = str(config.get("delete_audio", True)).lower() in ("true", "1", "yes")
     new_asr = asr.create_instance(
         asr_type,
         config["ASR"][select_asr_module],
-        str(config.get("delete_audio", True)).lower() in ("true", "1", "yes"),
+        delete_audio,
     )
     logger.bind(tag=TAG).info("ASR module initialization complete")
-    return new_asr
+    return initialize_asr_fallback(config, select_asr_module, new_asr, delete_audio)
+
+
+def initialize_llm_fallback(config, primary_id, primary):
+    """The agent's LLM wrapped with its fallbacks (manager-api `fallback.LLM`, from the sys param
+    llm.fallback_chain). A fallback that cannot be built is skipped; keys are never logged."""
+    entries = [(primary_id, primary)]
+    for model_id, model_cfg in fallback_entries(config, "LLM"):
+        try:
+            entries.append((model_id, llm.create_instance(model_cfg.get("type", model_id), model_cfg)))
+        except Exception as e:
+            logger.bind(tag=TAG).warning(f"LLM fallback {model_id} skipped: {redact(e)}")
+    if len(entries) > 1:
+        logger.bind(tag=TAG).info(f"LLM fallback chain: {' -> '.join(m for m, _ in entries)}")
+    return FallbackLLM(entries)
+
+
+def initialize_asr_fallback(config, primary_id, primary, delete_audio=True):
+    """The agent's ASR wrapped with its fallbacks (manager-api `fallback.ASR`, from the sys param
+    asr.fallback_chain), for whole-utterance recognizers."""
+    fallbacks = []
+    for model_id, model_cfg in fallback_entries(config, "ASR"):
+        model_cfg = dict(model_cfg)
+        model_cfg.setdefault("output_dir", "tmp/")
+        try:
+            fallbacks.append((model_id, asr.create_instance(model_cfg.get("type", model_id), model_cfg, delete_audio)))
+        except Exception as e:
+            logger.bind(tag=TAG).warning(f"ASR fallback {model_id} skipped: {redact(e)}")
+    wrapped = wrap_asr(primary_id, primary, fallbacks)
+    if wrapped is not primary:
+        logger.bind(tag=TAG).info(f"ASR fallback chain: {' -> '.join(wrapped.model_ids)}")
+    return wrapped
 
 
 def initialize_voiceprint(asr_instance, config):

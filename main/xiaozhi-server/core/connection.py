@@ -45,6 +45,9 @@ from core.utils.prompt_manager import PromptManager
 from core.utils.voiceprint_provider import VoiceprintProvider
 from core.utils.util import get_system_error_response
 from core.utils import textUtils
+from core.utils import kids_mode
+from core.utils.usage_meter import get_meter, usage_info
+from core.providers.llm.fallback import FallbackLLM
 
 
 TAG = __name__
@@ -161,6 +164,15 @@ class ConnectionHandler:
         self.current_speaker = None  # Store current speaker
         self.last_audio_pcm = None  # Store last utterance PCM bytes for live voiceprint verification
         self.introduced_speakers = set()  # Set of introduced speakers, ensures speaker name is only introduced on first turn
+        # Who the voiceprint check recognised per user message (uniq_id -> name), for per-person memory
+        self.turn_speakers = {}
+        # Usage metering and the owner's daily LLM quota (core/utils/usage_meter.py); set once
+        # the agent config arrived from manager-api
+        self.usage_meter = None
+        self.usage_user_id = None
+        self.usage_limit = 0
+        # Kids mode of the character (core/utils/kids_mode.py): None when off
+        self.kids = None
         self.system_introduced_speakers = set()  # Set of speakers injected into system prompt, ensures injection occurs only once
 
         # LLM related variables
@@ -306,6 +318,8 @@ class ConnectionHandler:
             # TinyBot's own notes about its family (core/companion/memory.py)
             if self.llm is not None and self.device_id:
                 dialogue = list(self.dialogue.dialogue)
+                speakers = {i: self.turn_speakers[m.uniq_id] for i, m in enumerate(dialogue)
+                            if getattr(m, "uniq_id", None) in self.turn_speakers}
 
                 def companion_memory_task():
                     try:
@@ -313,7 +327,7 @@ class ConnectionHandler:
 
                         service = get_service(self.config)
                         if service is not None:
-                            service.learn(self.device_id, dialogue, self.llm)
+                            service.learn(self.device_id, dialogue, self.llm, speakers=speakers)
                     except Exception as e:
                         self.logger.bind(tag=TAG).warning(f"TinyBot memory update failed: {e}")
 
@@ -625,15 +639,20 @@ class ConnectionHandler:
             )
 
     def _companion_context(self) -> str:
-        """TinyBot's day for the system prompt (empty when the companion API is off)."""
+        """TinyBot's day for the system prompt (empty when the companion API is off), what it
+        remembers (the recognised speaker's own notes first) and the kids mode guard."""
+        blocks = []
         try:
             from core.companion import get_service
 
             service = get_service(self.config)
-            return service.ai_context(self.device_id or "") if service else ""
+            speaker = (self.current_speaker or "").strip() or None
+            if service:
+                blocks.append(service.ai_context(self.device_id or "", speaker=speaker))
         except Exception as e:
             self.logger.bind(tag=TAG).debug(f"Companion context unavailable: {e}")
-            return ""
+        blocks.append(kids_mode.system_prompt(self.kids))
+        return "\n".join(b for b in blocks if b)
 
     def _initialize_components(self):
         try:
@@ -949,6 +968,10 @@ class ConnectionHandler:
             self.config["mcp_endpoint"] = private_config["mcp_endpoint"]
         if private_config.get("context_providers", None) is not None:
             self.config["context_providers"] = private_config["context_providers"]
+        # Fallback models, kids mode and usage/quota (manager-api modules usage and kids)
+        for key in ("fallback", "kids", "usage"):
+            if private_config.get(key, None) is not None:
+                self.config[key] = private_config[key]
 
         # Inject replacement words into TTS module configuration
         if private_config.get("correct_words", None) is not None:
@@ -986,6 +1009,50 @@ class ConnectionHandler:
             self.intent = modules["intent"]
         if modules.get("memory", None) is not None:
             self.memory = modules["memory"]
+        self._setup_usage_and_kids()
+
+    def _setup_usage_and_kids(self):
+        """Kids mode from the agent config; usage metering and the daily quota for robots whose
+        config comes from manager-api (the LLM is wrapped so every request is counted)."""
+        self.kids = kids_mode.normalize(self.config.get("kids"))
+        if self.kids:
+            self.logger.bind(tag=TAG).info(f"Kids mode on (age {self.kids['age']}, {len(self.kids['blocked_topics'])} blocked topics)")
+        if not self.read_config_from_api or self.need_bind:
+            return
+        try:
+            info = usage_info(self.config)
+            self.usage_meter = get_meter(self.config)
+            self.usage_user_id = info["user_id"]
+            self.usage_limit = info["llm_daily_limit"]
+            self.usage_meter.set_used_today(self.usage_user_id, info["llm_used_today"])
+            if self.llm is not None and not isinstance(self.llm, FallbackLLM):
+                model_id = (self.config.get("selected_module") or {}).get("LLM") or "LLM"
+                self.llm = FallbackLLM([(model_id, self.llm)])
+            if isinstance(self.llm, FallbackLLM):
+                self.llm.usage_sink = self._on_llm_usage
+        except Exception as e:
+            self.logger.bind(tag=TAG).warning(f"Usage metering not set up: {e}")
+
+    def _on_llm_usage(self, model_id, usage):
+        meter = self.usage_meter
+        if meter is None:
+            return
+        meter.record_llm(self.device_id, model_id, usage, user_id=self.usage_user_id)
+        meter.maybe_flush(self.loop)
+
+    def _kids_refuse(self, sentence_id, said: str = ""):
+        """Kids mode: TinyBot's gentle refusal instead of (or after) a reply about a blocked topic."""
+        self.tts.tts_text_queue.put(
+            TTSMessageDTO(
+                sentence_id=sentence_id,
+                sentence_type=SentenceType.MIDDLE,
+                content_type=ContentType.TEXT,
+                content_detail=kids_mode.REFUSAL,
+            )
+        )
+        text = (said + " " + kids_mode.REFUSAL).strip()
+        self.tts.store_tts_text(sentence_id, text)
+        self.dialogue.put(Message(role="assistant", content=text))
 
     def _initialize_memory(self):
         if self.memory is None:
@@ -1094,7 +1161,10 @@ class ConnectionHandler:
         if depth == 0:
             current_sentence_id = str(uuid.uuid4().hex)
             self.sentence_id = current_sentence_id  # Update shared property
-            self.dialogue.put(Message(role="user", content=query))
+            user_message = Message(role="user", content=query)
+            self.dialogue.put(user_message)
+            if (self.current_speaker or "").strip() not in ("", "unknown_speaker", "unknown"):
+                self.turn_speakers[user_message.uniq_id] = self.current_speaker.strip()
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
                     sentence_id=current_sentence_id,
@@ -1102,6 +1172,19 @@ class ConnectionHandler:
                     content_type=ContentType.ACTION,
                 )
             )
+            # Kids mode: a question about a blocked topic gets the gentle refusal, no LLM call
+            blocked = kids_mode.find_blocked(query, self.kids) if query else None
+            if blocked is not None:
+                self.logger.bind(tag=TAG).info(f"Kids mode: question touches a blocked topic ({blocked})")
+                self._kids_refuse(current_sentence_id)
+                self.tts.tts_text_queue.put(
+                    TTSMessageDTO(
+                        sentence_id=current_sentence_id,
+                        sentence_type=SentenceType.LAST,
+                        content_type=ContentType.ACTION,
+                    )
+                )
+                return True
         else:
             # In recursive calls, use current sentence_id
             current_sentence_id = self.sentence_id
@@ -1180,6 +1263,7 @@ class ConnectionHandler:
             return None
 
         # Process streaming response
+        kids_guard = kids_mode.ReplyGuard(self.kids)
         tool_call_flag = False
         # Support multiple parallel tool calls - store in list
         tool_calls_list = []  # format: [{"id": "", "name": "", "arguments": ""}]
@@ -1218,6 +1302,8 @@ class ConnectionHandler:
                                     new_part = da_text[sent_len:safe_end]
                                     # Clean trailing JSON artifacts that may leak in delta
                                     new_part = self._clean_response_garbage(new_part)
+                                    if new_part and self.kids:
+                                        new_part = kids_guard.feed(new_part)
                                     if new_part:
                                         tc["_da_sent"] = safe_end
                                         self.tts.tts_text_queue.put(
@@ -1239,6 +1325,11 @@ class ConnectionHandler:
                             self.loop,
                         )
                     emotion_flag = False
+
+                if content is not None and len(content) > 0 and not tool_call_flag and self.kids:
+                    content = kids_guard.feed(content)
+                if kids_guard.blocked is not None:
+                    break
 
                 if content is not None and len(content) > 0:
                     if not tool_call_flag:
@@ -1270,6 +1361,20 @@ class ConnectionHandler:
                     )
                 )
             return
+        # Kids mode: the reply reached a blocked topic; end it with the gentle refusal
+        if kids_guard.blocked is not None:
+            self.logger.bind(tag=TAG).info(f"Kids mode: reply cut at a blocked topic ({kids_guard.blocked})")
+            self._kids_refuse(current_sentence_id, "".join(response_message))
+            if depth == 0:
+                self.tts.tts_text_queue.put(
+                    TTSMessageDTO(
+                        sentence_id=current_sentence_id,
+                        sentence_type=SentenceType.LAST,
+                        content_type=ContentType.ACTION,
+                    )
+                )
+            return True
+
         # Process function calls
         if tool_call_flag:
             bHasError = False
@@ -1576,6 +1681,9 @@ class ConnectionHandler:
     async def close(self, ws=None):
         """Resource cleanup method"""
         try:
+            # Send this robot's usage counts now rather than at the next minute
+            if self.usage_meter is not None:
+                self.usage_meter.maybe_flush(self.loop, force=True)
             # Clean up VAD connection resources
             if (
                     hasattr(self, "vad")

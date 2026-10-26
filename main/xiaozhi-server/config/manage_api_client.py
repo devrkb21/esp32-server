@@ -320,6 +320,14 @@ async def lookup_address_book(instance, caller_mac: str, nickname: str) -> Optio
     )
 
 
+@api_guard("Usage report failed")
+async def report_usage(instance, rows) -> Optional[Dict]:
+    """Send a batch of daily usage rows (core/utils/usage_meter.py); answers {"users": {id: used today}}."""
+    return await instance._execute_async_request(
+        "POST", "/config/usage/report", json={"rows": rows}
+    )
+
+
 def init_service(config):
     ManageApiClient(config)
 
