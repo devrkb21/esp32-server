@@ -41,6 +41,7 @@ const v = {
   server: () => import('../views/system/ServerSideManager.vue'),
   theme: () => import('../views/theme/ThemeGenerator.vue'),
   products: () => import('../views/products/ProductManagement.vue'),
+  calendar: () => import('../views/calendar/CalendarDays.vue'),
 };
 
 export const routes = [
@@ -85,6 +86,7 @@ export const routes = [
   { path: '/dict-management', name: 'DictManagement', component: v.dict, meta: { admin: true, title: 'nav.dict' } },
   { path: '/feature-management', name: 'FeatureManagement', component: v.features, meta: { admin: true, title: 'nav.features' } },
   { path: '/product-management', name: 'ProductManagement', component: v.products, meta: { admin: true, title: 'nav.products' } },
+  { path: '/calendar-days', name: 'CalendarDays', component: v.calendar, meta: { admin: true, title: 'nav.calendar' } },
   { path: '/server-side-management', name: 'ServerSideManager', component: v.server, meta: { admin: true, title: 'nav.server' } },
   { path: '/theme-generator', name: 'ThemeGenerator', component: v.theme, meta: { title: 'nav.themeGenerator' } },
 

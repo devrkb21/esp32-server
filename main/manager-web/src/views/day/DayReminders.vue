@@ -80,6 +80,7 @@ import {
 } from '@/utils/companion.mjs';
 import { EVERY_LIMITS, reminderProblem } from './dayModel';
 import { reminderWhen } from './dayText';
+import { shortDate } from './dayVoiceModel';
 import DayDays from './DayDays.vue';
 
 function clone(v) { return JSON.parse(JSON.stringify(v === undefined ? null : v)); }
@@ -111,7 +112,7 @@ export default {
   methods: {
     asciiLabel,
     num(n) { return this.day.num(n); },
-    when(r) { return reminderWhen(r, (k, p) => this.$t(k, p || {}), this.day.fmt, this.num); },
+    when(r) { return reminderWhen(r, (k, p) => this.$t(k, p || {}), this.day.fmt, this.num, (d) => shortDate(d, this.day.lang)); },
     openReminder(reminder, kind) {
       if (!reminder && this.reminders.length >= MAX_REMINDERS) return;
       // keep defaults for the fields of the other mode so switching modes in the sheet works

@@ -9,11 +9,16 @@ export function daysText(mask, t) {
 }
 
 /** "every 90 min, 9:00 to 21:00" or "11:30", then the days. */
-export function reminderWhen(r, t, fmt = (x) => x, num = (x) => x) {
+/** A one-time item (a voice timer): "Once, 27 Oct" (dateFmt writes the YYYY-MM-DD date). */
+export function onceText(once, t, dateFmt = (x) => x) {
+  return t("dayVoice.once", { date: dateFmt(once) });
+}
+
+export function reminderWhen(r, t, fmt = (x) => x, num = (x) => x, dateFmt = (x) => x) {
   const when = r.mode === 'interval'
     ? t('day.reminder.whenInterval', { every: num(r.every_min), from: fmt(r.from), to: fmt(r.to) })
     : fmt(r.time);
-  return `${when}, ${daysText(r.days, t)}`;
+  return `${when}, ${r.once ? onceText(r.once, t, dateFmt) : daysText(r.days, t)}`;
 }
 
 /** "45 min", "1 h 30 min", "2 h", plus "to the next day" when it crosses midnight. */

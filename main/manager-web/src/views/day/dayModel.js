@@ -18,10 +18,10 @@ import {
   parseMinutes,
 } from '@/utils/companion.mjs';
 
-export const TABS = ['alarms', 'reminders', 'prayer', 'routine', 'focus', 'night'];
+export const TABS = ['alarms', 'reminders', 'prayer', 'routine', 'focus', 'night', 'routines', 'library', 'days'];
 
 // The area ink of each tab (one ink per area).
-export const TAB_INK = { alarms: 'alarm', reminders: 'alarm', prayer: 'prayer', routine: 'routine', focus: '', night: 'message' };
+export const TAB_INK = { alarms: 'alarm', reminders: 'alarm', prayer: 'prayer', routine: 'routine', focus: '', night: 'message', routines: 'routine', library: 'message', days: 'prayer' };
 
 // Focus timer limits (the legacy number inputs' min/max).
 export const FOCUS_LIMITS = {
@@ -195,12 +195,12 @@ export function dayTimeline(view, date, t, fmt = (x) => x, pending = {}) {
     }
   }
   for (const a of view.alarms || []) {
-    if (!isTime(a.time) || !firesOn(a.days, date)) continue;
+    if (!isTime(a.time) || !firesOn(a.days, date) || (a.once && a.once !== isoDate(date))) continue;
     rows.push({ key: `a-${a.id}`, area: 'alarms', time: a.time, title: a.label || t('day.alarm.defaultLabel'), ink: 'alarm',
       stateText: a.enabled ? t('day.row.alarm') : t('day.row.off'), sync: a.enabled ? sync('alarms') : 'off' });
   }
   for (const r of view.reminders || []) {
-    if (!firesOn(r.days, date)) continue;
+    if (!firesOn(r.days, date) || (r.once && r.once !== isoDate(date))) continue;
     const time = r.mode === 'interval' ? r.from : r.time;
     if (!isTime(time)) continue;
     rows.push({ key: `r-${r.id}`, area: 'reminders', time, title: r.label || t(`day.reminder.kind.${r.kind}`), ink: 'alarm',
@@ -230,6 +230,7 @@ export function tabOfKey(key) {
   if (k.startsWith('p-')) return 'prayer';
   if (k.startsWith('l-')) return 'routine';
   if (k === 'night') return 'night';
+  if (['routines', 'library', 'days'].includes(k)) return k;
   return '';
 }
 

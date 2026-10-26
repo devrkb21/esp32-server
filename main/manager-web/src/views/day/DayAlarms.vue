@@ -12,7 +12,7 @@
           <span class="day-row__time tb-num">{{ day.fmt(a.time) }}</span>
           <span class="day-row__body">
             <span class="day-row__title">{{ a.label || $t('day.alarm.defaultLabel') }}</span>
-            <span class="day-row__meta">{{ daysText(a.days) }}<template v-if="a.snooze_min">, {{ $t('day.alarm.snoozeShort', { min: num(a.snooze_min) }) }}</template></span>
+            <span class="day-row__meta">{{ a.once ? onceText(a.once) : daysText(a.days) }}<template v-if="a.snooze_min">, {{ $t('day.alarm.snoozeShort', { min: num(a.snooze_min) }) }}</template></span>
             <span v-if="a.say" class="day-row__say">{{ a.say }}</span>
           </span>
         </button>
@@ -57,7 +57,8 @@
 <script>
 import { MAX_ALARMS, MAX_LABEL, MAX_SAY, alarmPayload, asciiLabel, newAlarm, removeById, setEnabled, upsertById } from '@/utils/companion.mjs';
 import { alarmProblem, sortByTime } from './dayModel';
-import { daysText } from './dayText';
+import { daysText, onceText } from './dayText';
+import { shortDate } from './dayVoiceModel';
 import DayDays from './DayDays.vue';
 
 // Alarms: the whole list goes to the server on every change (legacy rule), without
@@ -83,6 +84,7 @@ export default {
     asciiLabel,
     num(n) { return this.day.num(n); },
     daysText(mask) { return daysText(mask, (k) => this.$t(k)); },
+    onceText(once) { return onceText(once, (k, p) => this.$t(k, p), (d) => shortDate(d, this.day.lang)); },
     openAlarm(alarm) {
       this.sheet = {
         open: true,
