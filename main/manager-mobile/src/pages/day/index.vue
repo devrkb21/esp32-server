@@ -18,11 +18,14 @@ import { robot } from '@/utils/tbRobot'
 import { statusOf } from '@/utils/tbRobotStatus'
 import DayAlarms from './components/DayAlarms.vue'
 import DayFocus from './components/DayFocus.vue'
+import DayLibrary from './components/DayLibrary.vue'
 import DayNight from './components/DayNight.vue'
 import DayPrayer from './components/DayPrayer.vue'
 import DayReminders from './components/DayReminders.vue'
 import DayRoutine from './components/DayRoutine.vue'
+import DayRoutines from './components/DayRoutines.vue'
 import DayScreen from './components/DayScreen.vue'
+import DaySpecial from './components/DaySpecial.vue'
 import DayTalk from './components/DayTalk.vue'
 import { createDay, dayKey } from './dayContext'
 import { dayTimeline, nextRow, nowActivity, TAB_ICON, tabOfKey, TABS } from './dayModel.mjs'
@@ -120,6 +123,8 @@ const { missing: notHere, allowed: featureAllowed } = useFeatureGate('day')
 let ticker: ReturnType<typeof setInterval> | undefined
 let poll: ReturnType<typeof setInterval> | undefined
 onLoad((q: any) => {
+  if (q?.tab && (TABS as string[]).includes(String(q.tab)))
+    tab.value = String(q.tab)
   if (q?.focus)
     pendingFocus.value = decodeURIComponent(String(q.focus))
 })
@@ -238,6 +243,9 @@ watch(() => robot.deviceId, () => {
         <DayFocus v-show="tab === 'focus'" :ref="(el: any) => setPanel('focus', el)" />
         <DayNight v-show="tab === 'night'" :ref="(el: any) => setPanel('night', el)" />
         <DayTalk v-show="tab === 'talk'" :ref="(el: any) => setPanel('talk', el)" />
+        <DayRoutines v-show="tab === 'routines'" :ref="(el: any) => setPanel('routines', el)" />
+        <DayLibrary v-show="tab === 'library'" :ref="(el: any) => setPanel('library', el)" />
+        <DaySpecial v-show="tab === 'days'" :ref="(el: any) => setPanel('days', el)" />
       </view>
     </block>
   </view>

@@ -17,6 +17,8 @@ export interface CompanionAlarm {
   /** Spoken text (max 300), may contain {weather}, {date}, {name} */
   say?: string
   say_audio?: string | null
+  /** One-time item (a voice timer): the date it rings, YYYY-MM-DD; the server removes it after */
+  once?: string
 }
 
 export type ReminderKind = 'water' | 'medicine' | 'custom'
@@ -24,6 +26,8 @@ export type ReminderMode = 'interval' | 'time'
 
 export interface CompanionReminder {
   id?: string
+  /** One-time item (a voice timer): the date it rings, YYYY-MM-DD; the server removes it after */
+  once?: string
   kind: ReminderKind
   label: string
   enabled: boolean
@@ -195,7 +199,35 @@ export interface CompanionSettings {
   gestures?: Partial<GestureSettings>
   /** missing on older robots: the default day */
   routine?: Partial<RoutineSettings>
+  /** Routines (scenes); missing on older servers */
+  routines?: Routine[]
+  /** Special days; missing on older servers */
+  calendar?: Partial<CalendarSettings>
 }
+
+export type RoutineTriggerType = 'voice' | 'time' | 'tap'
+export type RoutineStepType = 'say' | 'weather' | 'prayer_times' | 'day_summary' | 'alarm_list' | 'play' | 'command' | 'smart_home'
+export interface RoutineStep { type: RoutineStepType, arg: string }
+export interface Routine {
+  id?: string
+  name: string
+  enabled: boolean
+  trigger: { type: RoutineTriggerType, phrase?: string, time?: string, days?: DaysMask }
+  steps: RoutineStep[]
+}
+export type LibraryKind = 'story' | 'rhyme' | 'music' | 'recitation'
+export interface LibraryItem {
+  id: string
+  kind: LibraryKind
+  title: string
+  audio_url?: string
+  text?: string
+  source: 'default' | 'owner'
+}
+export type RememberKind = 'birthday' | 'anniversary' | 'custom'
+export interface RememberDay { id?: string, date: string, name: string, kind: RememberKind }
+export interface CalendarSettings { special_days: boolean, remember: RememberDay[] }
+export interface TodaySpecial { key: string, name_bn: string, name_en: string }
 
 export interface PomodoroConfig {
   work_min: number
@@ -306,7 +338,7 @@ export interface CompanionMessage {
 
 /** `stop` closes whatever the robot shows; `night` takes 'on' | 'off' */
 /** update: restart now so TinyBot checks for new firmware (installs it when Auto update is on) */
-export type CommandType = 'story' | 'pomodoro' | 'lullaby' | 'ring' | 'breathe' | 'night_light' | 'game' | 'stop' | 'night' | 'update'
+export type CommandType = 'story' | 'pomodoro' | 'lullaby' | 'ring' | 'breathe' | 'night_light' | 'game' | 'stop' | 'night' | 'update' | 'play' | 'routine'
 export type GameName = 'catch' | 'simon' | 'dice' | 'reaction'
 
 export interface CompanionCommand {
@@ -343,6 +375,10 @@ export interface CompanionDevice {
   commands: CompanionCommand[]
   /** What TinyBot remembers about the family, newest first (missing on older servers) */
   memories?: MemoryNote[]
+  /** The robot's library: own items then the shared defaults (missing on older servers) */
+  library?: LibraryItem[]
+  /** What today is (Eid, a national day, a birthday) or null */
+  today_special?: TodaySpecial | null
 }
 
 export interface LocationPatch {
@@ -368,6 +404,9 @@ export interface CompanionConfigPatch {
     gestures?: Partial<GestureSettings>
     /** `items` replaces the whole list */
     routine?: Partial<RoutineSettings>
+    /** Replaces the whole list */
+    routines?: Routine[]
+    calendar?: Partial<CalendarSettings>
   }
   pomodoro?: Partial<PomodoroConfig>
   /** Replaces the whole list */
@@ -378,6 +417,8 @@ export interface CompanionConfigPatch {
   weather?: LocationPatch
   /** Delete some notes by id, or all of them with `clear` */
   memories?: { delete?: string[], clear?: boolean }
+  /** Add one library item, or delete own items by id */
+  library?: { add?: { kind: LibraryKind, title: string, audio_url?: string, text?: string }, delete?: string[] }
 }
 
 export interface SendMessageBody {

@@ -7,6 +7,7 @@ import { tbConfirm } from '@/utils/tbConfirm'
 import { toast } from '@/utils/toast'
 import { useDay } from '../dayContext'
 import { daysText, EVERY_LIMITS, MAX_REMINDERS, reminderProblem } from '../dayModel.mjs'
+import { onceDate } from '../dayVoiceModel.mjs'
 import DayField from './DayField.vue'
 import DayNumber from './DayNumber.vue'
 import DayTime from './DayTime.vue'
@@ -39,7 +40,9 @@ function whenText(r: CompanionReminder) {
   const when = r.mode === 'interval'
     ? t('day.reminder.whenInterval', { every: day.num(r.every_min ?? 60), from: day.fmt(r.from), to: day.fmt(r.to) })
     : day.fmt(r.time)
-  return `${when}, ${daysText(r.days, (k: string) => t(k))}`
+  // a one-time reminder (a voice timer) rings on its date only
+  const days = onceDate(r) ? t('dayVoice.once', { date: day.num(onceDate(r)) }) : daysText(r.days, (k: string) => t(k))
+  return `${when}, ${days}`
 }
 function currentList(): CompanionReminder[] {
   return reminders.value.map(r => stripReminder(r) as CompanionReminder)

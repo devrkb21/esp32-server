@@ -7,6 +7,7 @@ import { tbConfirm } from '@/utils/tbConfirm'
 import { toast } from '@/utils/toast'
 import { useDay } from '../dayContext'
 import { daysText, MAX_ALARMS, SNOOZE_LIMITS } from '../dayModel.mjs'
+import { onceDate } from '../dayVoiceModel.mjs'
 import DayField from './DayField.vue'
 import DayNumber from './DayNumber.vue'
 import DayTime from './DayTime.vue'
@@ -29,7 +30,9 @@ function days(mask: number) {
   return daysText(mask, (k: string) => t(k))
 }
 function meta(a: CompanionAlarm) {
-  return a.snooze_min ? `${days(a.days)}, ${t('day.alarm.snoozeShort', { min: day.num(a.snooze_min) })}` : days(a.days)
+  // a one-time alarm (set by voice) rings on its date only
+  const when = onceDate(a) ? t('dayVoice.once', { date: day.num(onceDate(a)) }) : days(a.days)
+  return a.snooze_min ? `${when}, ${t('day.alarm.snoozeShort', { min: day.num(a.snooze_min) })}` : when
 }
 
 function openAlarm(a?: CompanionAlarm) {
