@@ -48,6 +48,7 @@ const places = computed(() => visiblePlaces([
       { url: '/pages/chat-history/index', icon: 'history', label: t('nav.history'), ink: 'message', unless: 'messages' },
       { url: '/pages/robot/index', icon: 'robot', label: t('mauth.more.robotSettings') },
       { url: '/pages/summary/index', icon: 'day', label: t('summary.title') },
+      { url: '/pages/smart-home/index', icon: 'light', label: t('nav.smartHome') },
     ],
   },
   {

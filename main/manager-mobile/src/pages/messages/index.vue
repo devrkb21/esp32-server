@@ -18,6 +18,7 @@ import { getChatSessions } from '@/api/chat-history/chat-history'
 import { sendCompanionCommand, sendCompanionMessage } from '@/api/companion/companion'
 import { useFeatureGate } from '@/hooks/useFeatureGate'
 import { getCurrentLanguage, t } from '@/i18n'
+import RobotMessages from '@/pages/smart-home/components/robot-messages.vue'
 import { digits } from '@/utils/calendar.mjs'
 import { notifyRequestError } from '@/utils/requestError'
 import { robot } from '@/utils/tbRobot'
@@ -441,6 +442,9 @@ watch(() => robot.agentId, () => {
           </view>
         </view>
       </tb-section>
+
+      <!-- Robot-to-robot messages and contacts (owner HOME) -->
+      <RobotMessages :device-id="robot.deviceId" />
 
       <!-- Conversations -->
       <tb-section :title="t('mmsg.conv.title')" :description="t('mmsg.conv.desc')" ink="message">
