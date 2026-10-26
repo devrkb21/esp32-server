@@ -274,6 +274,41 @@ The voice chat can manage the robot too (`companion_robot` in `Intent.function_c
 `companion_prayer_times`. They act on the talking robot's `Device-Id` and do nothing for a
 robot that has never synced.
 
+## Voice timers, routines, library and special days
+
+Voice tools (same `companion_robot` module): `companion_set_timer` (`after` "১০ মিনিট",
+"আধা ঘণ্টা"; `what`, `kind`), `companion_cancel_reminder` (`time` | `what` | `all`,
+`timers_only`), `companion_run_routine` (`name`) and `companion_play_library` (`kind`, `title`).
+Times and durations may be passed as the user said them in Bangla (`core/companion/bn_parse.py`:
+Bangla digits, number words, সাড়ে / পৌনে / সোয়া / দেড় / আড়াই, ভোর / সকাল / দুপুর / বিকেল /
+সন্ধ্যা / রাত). Each tool result carries a Bangla confirmation line for the LLM to say.
+
+* **One-time alarms and reminders** (timers, "once", "tomorrow") are ordinary items with an extra
+  `once: "YYYY-MM-DD"` and `days` = that weekday's bit; the server removes them 2 minutes after
+  their time. Repeating items have no `once` key.
+* **Routines**: `settings.routines` = `[{id, name, enabled, trigger: {type: voice|time|tap,
+  phrase, time, days}, steps: [{type, arg}]}]` (at most 10 routines, 12 steps; `PUT .../config`
+  with the whole list). Step types `say` (text), `weather`, `prayer_times`, `day_summary`,
+  `alarm_list`, `play` (library item id), `command` (`type` or `type:arg`, e.g.
+  `night_light:on`), `smart_home` (free text for `core/companion/hooks.smart_home`). Time
+  routines run from the server's background loop while the robot is online; `POST .../commands
+  {type: "routine", arg: <id>}` runs one now (answer `status: "running"`, nothing is queued for
+  the robot). Run on the robot, spoken parts are rendered and queued as `play` commands in order
+  with the other commands. Robots without the key get the switched-off example "সকালের রুটিন".
+* **Library**: `GET /devices/{id}` carries `library` = the robot's own items (newest first) and
+  the shared default set (`source: "default"`, ids `d-...`): `{id, kind: story|rhyme|music|recitation,
+  title, audio_url | text, source}`. `PUT .../config {"library": {"add": {kind, title,
+  audio_url | text}}}` or `{"library": {"delete": [ids]}}` (defaults cannot be deleted; text at
+  most 500 characters, links http(s)). `POST .../commands {type: "play", arg: <item id | URL>}`
+  queues `play` with the item's link or its text rendered to `/companion/v1/audio/<sha1>.ogg`.
+* **Special days**: `settings.calendar = {special_days, remember: [{id, date: "MM-DD", name,
+  kind: birthday|anniversary|custom}]}`; the snapshot and `GET /devices/{id}` carry
+  `today_special: {key, name_bn, name_en} | null` (keys `pohela_boishakh`, `ekushey`,
+  `independence_day`, `victory_day`, `eid_ul_fitr`, `eid_ul_adha`, `birthday`, `custom`). Eid
+  and custom dated days come only from the admin list in manager-api (`GET /config/calendar-days`,
+  server secret; cached in `<data_dir>/calendar_days.json`) or `companion.calendar_days` in a
+  standalone config. The morning greeting and the chat prompt mention the day.
+
 ## LAN setup with manager-api (one PC)
 
 1. `docker compose -f docker-compose.yml -f docker-compose.lan.yml up -d --build xiaozhi-esp32-server-db xiaozhi-esp32-server-redis xiaozhi-esp32-server-web`

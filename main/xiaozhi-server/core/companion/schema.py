@@ -16,7 +16,10 @@ MAX_ARG = 64
 
 REMINDER_KINDS = ("water", "medicine", "custom")
 REMINDER_MODES = ("interval", "time")
-COMMAND_TYPES = ("story", "pomodoro", "lullaby", "ring", "breathe", "night_light", "game", "stop", "night", "demo", "update")
+COMMAND_TYPES = ("story", "pomodoro", "lullaby", "ring", "breathe", "night_light", "game", "stop", "night", "demo", "update",
+                 "play", "routine")
+# play: an audio URL (or a library item id, resolved by the service); routine: run by the server
+MAX_PLAY_ARG = 300
 # Info pages on the robot (hold the head 3 s); each can be switched off from the app
 # "demo": the robot shows these face animations one after another, with their names
 DEMO_SETS = ("all", "life", "emotions", "hands")
@@ -126,7 +129,7 @@ def alarm(raw: Dict, old: Optional[Dict] = None) -> Dict:
         raise ValidationError("alarm must be an object")
     base = dict(old or {})
     base.update(raw)
-    return {
+    out = {
         "id": clean_id(base.get("id"), "a"),
         "time": hhmm(base.get("time"), "alarm.time"),
         "days": days(base.get("days", 127), "alarm.days"),
@@ -135,6 +138,25 @@ def alarm(raw: Dict, old: Optional[Dict] = None) -> Dict:
         "snooze_min": integer(base.get("snooze_min", 5), 0, 60, "alarm.snooze_min"),
         "say": text(base.get("say", ""), MAX_SAY, "alarm.say"),
     }
+    return _with_once(out, base, "alarm.once")
+
+
+def once_date(value: Any, field: str) -> str:
+    """A one-time item's date (YYYY-MM-DD; "" = it repeats on its days)."""
+    if value in (None, ""):
+        return ""
+    if isinstance(value, str) and re.match(r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$", value.strip()):
+        return value.strip()
+    raise ValidationError(f"{field} must be YYYY-MM-DD")
+
+
+def _with_once(out: Dict, base: Dict, field: str) -> Dict:
+    # Set by voice timers ("in 10 minutes", "tomorrow at 7"): the server removes the item once
+    # its time has passed. Only stored when set, so repeating items keep their old shape.
+    once = once_date(base.get("once"), field)
+    if once:
+        out["once"] = once
+    return out
 
 
 def reminder(raw: Dict, old: Optional[Dict] = None) -> Dict:
@@ -164,6 +186,7 @@ def reminder(raw: Dict, old: Optional[Dict] = None) -> Dict:
         out["to"] = hhmm(base.get("to", "21:00"), "reminder.to")
     else:
         out["time"] = hhmm(base.get("time"), "reminder.time")
+        _with_once(out, base, "reminder.once")
     return out
 
 
@@ -358,6 +381,15 @@ def settings(old: Dict, patch: Any) -> Dict:
             "settings.gestures",
             {key: _choice(GESTURE_ACTIONS) for key in GESTURE_KEYS},
         )
+    if "routines" in patch:
+        from core.companion import routines  # routines imports this module
+
+        out["routines"] = routines.routine_list(patch["routines"], old.get("routines") or [])
+    if "calendar" in patch:
+        from core.companion import calendar_days  # calendar_days imports this module
+
+        out["calendar"] = calendar_days.calendar_settings(
+            dict(calendar_days.default_calendar(), **(old.get("calendar") or {})), patch["calendar"])
     if "care" in patch:
         out["care"] = _merge_section(
             old.get("care", {}),
@@ -441,7 +473,9 @@ def command(raw: Any) -> Dict:
         arg = ""
     if isinstance(arg, (int, float)) and not isinstance(arg, bool):
         arg = str(int(arg))
-    arg = text(arg, MAX_ARG, "arg")
+    arg = text(arg, MAX_PLAY_ARG if ctype == "play" else MAX_ARG, "arg")
+    if ctype in ("play", "routine") and not arg:
+        raise ValidationError("arg is required")
     if ctype == "pomodoro" and arg:
         arg = str(integer(arg, 1, 120, "arg"))
     elif ctype in ("night_light", "night"):

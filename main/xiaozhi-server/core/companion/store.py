@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from loguru import logger
 
-from core.companion import schema
+from core.companion import calendar_days, routines, schema
 
 TAG = __name__
 
@@ -70,6 +70,8 @@ def default_device(device_id: str, defaults: Optional[Dict] = None) -> Dict:
             "proactive": schema.default_proactive(),
             "memory": schema.default_memory(),
             "gestures": schema.default_gestures(),
+            "routines": routines.default_routines(),
+            "calendar": calendar_days.default_calendar(),
         },
         "pomodoro": {"work_min": 25, "short_break_min": 5, "long_break_min": 15, "rounds": 4},
         "alarms": [],
