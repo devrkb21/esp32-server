@@ -73,6 +73,8 @@ services:
       - VOICEPRINT_KEY=${VOICEPRINT_KEY:?Set VOICEPRINT_KEY in .env}
       - WS_PORT=${WS_PORT:-18000}
       - VISION_PORT=${VISION_PORT:-18003}
+      # Robots reach WebSocket, companion and vision through this URL (reverse proxy); off = IP:port
+      - PUBLIC_URL=${PUBLIC_URL:-auto}
     volumes:
       - ./uploadfile:/uploadfile
     networks:

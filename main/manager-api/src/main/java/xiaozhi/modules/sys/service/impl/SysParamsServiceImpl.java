@@ -209,7 +209,8 @@ public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParam
             SysParamsEntity entity = new SysParamsEntity();
             entity.setParamCode(paramCode);
             entity.setParamValue(paramValue);
-            entity.setParamType(0);
+            // Type 1 is what the Parameters page lists; only a generated private key stays hidden (0)
+            entity.setParamType(paramCode.endsWith("private_key") ? 0 : 1);
             entity.setValueType("string");
             entity.setRemark(remark != null ? remark : paramCode);
             baseDao.insert(entity);

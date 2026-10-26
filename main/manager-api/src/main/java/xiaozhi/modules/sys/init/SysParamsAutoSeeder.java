@@ -9,7 +9,10 @@ import xiaozhi.modules.sys.service.SysParamsService;
 
 /**
  * Automatically seeds and repairs system parameters on application startup.
- * Uses domain for web/OTA, and direct public IP for hardware ports (MQTT, UDP, WS, Vision).
+ * Web and OTA use the domain. With PUBLIC_URL (default: https://SERVER_DOMAIN, behind a reverse
+ * proxy) the robot's WebSocket, companion and vision/MCP addresses use it too; PUBLIC_URL=off keeps
+ * them on the direct public IP and ports (a LAN setup without a proxy). MQTT and UDP always use the
+ * direct IP: a proxy such as Cloudflare does not carry them.
  */
 @Component
 @Slf4j
@@ -52,6 +55,10 @@ public class SysParamsAutoSeeder {
     @Value("${VISION_PORT:18003}")
     private String visionPort;
 
+    // auto: https://SERVER_DOMAIN; off (or empty): direct IP and ports; anything else: that base URL
+    @Value("${PUBLIC_URL:auto}")
+    private String publicUrl;
+
     public void seedParams() {
         String cleanHost = cleanDomain(serverDomain);
         log.info("Checking and auto-seeding system parameters (Domain: {}, Public IP: {})...", cleanHost, mqttPublicIp);
@@ -63,9 +70,20 @@ public class SysParamsAutoSeeder {
         // 2. OTA Address (Web UI domain)
         checkAndSet("server.ota", domainUrl, "OTA Server Address", false);
 
-        // 3. WebSocket Address (Direct Public IP with Port 18000 + WSS Domain fallback)
-        String wsUrl = "ws://" + mqttPublicIp + ":" + wsPort + "/xiaozhi/v1/;wss://" + cleanHost + "/ws";
-        checkAndSet("server.websocket", wsUrl, "WebSocket addresses, separated by semicolon", false);
+        // Addresses the robot reaches over HTTP(S) / WebSocket: through the public URL when there is one
+        String base = publicBase(cleanHost);
+        String directWs = "ws://" + mqttPublicIp + ":" + wsPort + "/xiaozhi/v1/;wss://" + cleanHost + "/ws";
+        String directVision = "http://" + mqttPublicIp + ":" + visionPort + "/mcp/vision/explain";
+        String directMcp = "http://" + mqttPublicIp + ":" + visionPort + "/mcp/";
+        String directCompanion = "http://" + mqttPublicIp + ":" + visionPort;
+
+        // 3. WebSocket Address
+        if (base != null) {
+            String wsBase = base.replaceFirst("^https://", "wss://").replaceFirst("^http://", "ws://");
+            seedUrl("server.websocket", wsBase + "/ws", "WebSocket addresses, separated by semicolon", directWs);
+        } else {
+            checkAndSet("server.websocket", directWs, "WebSocket addresses, separated by semicolon", false);
+        }
 
         if (mqttEnabled) {
             // 4. MQTT Gateway (Direct Public IP with Port 1883 for ESP32 devices)
@@ -105,13 +123,15 @@ public class SysParamsAutoSeeder {
         // 10. Voiceprint Similarity Threshold
         checkAndSet("server.voiceprint_similarity_threshold", "0.4", "Voiceprint similarity threshold", false);
 
-        // 11. Vision Explain URL (Direct Public IP with Port 18003)
-        String visionExplainUrl = "http://" + mqttPublicIp + ":" + visionPort + "/mcp/vision/explain";
-        checkAndSet("server.vision_explain", visionExplainUrl, "Vision analysis interface URL sent to device", true);
-
-        // 12. MCP Endpoint (Direct Public IP with Port 18003)
-        String mcpEndpointUrl = "http://" + mqttPublicIp + ":" + visionPort + "/mcp/";
-        checkAndSet("server.mcp_endpoint", mcpEndpointUrl, "MCP Endpoint Address", true);
+        // 11. Vision Explain URL / 12. MCP Endpoint / 12b. Companion API base (robots sync with it)
+        if (base != null) {
+            seedUrl("server.vision_explain", base + "/mcp/vision/explain", "Vision analysis interface URL sent to device", directVision);
+            seedUrl("server.mcp_endpoint", base + "/mcp/", "MCP Endpoint Address", directMcp);
+            seedUrl("server.companion_url", base, "Companion API base URL sent to the robot in the OTA reply (no trailing slash)", directCompanion);
+        } else {
+            checkAndSet("server.vision_explain", directVision, "Vision analysis interface URL sent to device", true);
+            checkAndSet("server.mcp_endpoint", directMcp, "MCP Endpoint Address", true);
+        }
 
         // 13. Server Name
         checkAndSet("server.name", "Xiaozhi AI Server", "System Name", false);
@@ -169,6 +189,39 @@ public class SysParamsAutoSeeder {
             }
 
             if (shouldUpdate) {
+                log.info("Auto-seeding sys_params [{}] -> {}", code, targetValue);
+                sysParamsService.setParam(code, targetValue, remark);
+            }
+        } catch (Exception e) {
+            log.error("Failed to auto-seed parameter [{}]: {}", code, e.getMessage());
+        }
+    }
+
+    /** The public base URL without a trailing slash, or null when the robot uses the direct IP and ports. */
+    private String publicBase(String cleanHost) {
+        String v = publicUrl == null ? "" : publicUrl.trim();
+        if (v.isEmpty() || "off".equalsIgnoreCase(v) || "none".equalsIgnoreCase(v)) {
+            return null;
+        }
+        if ("auto".equalsIgnoreCase(v)) {
+            return "https://" + cleanHost;
+        }
+        return v.replaceAll("/+$", "");
+    }
+
+    /**
+     * Seeds an address unless an admin has set it: it is replaced only while it is empty, a
+     * placeholder, local, or still one of the values this seeder used to write (the direct IP form).
+     */
+    private void seedUrl(String code, String targetValue, String remark, String... autoValues) {
+        try {
+            String current = sysParamsService.getValue(code, false);
+            boolean auto = StringUtils.isBlank(current) || "null".equalsIgnoreCase(current)
+                    || current.contains("xiaozhi.server.com") || current.contains("127.0.0.1") || current.contains("localhost");
+            for (String a : autoValues) {
+                auto = auto || a.equals(current);
+            }
+            if (auto && !targetValue.equals(current)) {
                 log.info("Auto-seeding sys_params [{}] -> {}", code, targetValue);
                 sysParamsService.setParam(code, targetValue, remark);
             }
