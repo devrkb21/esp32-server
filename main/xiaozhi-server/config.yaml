@@ -308,6 +308,8 @@ Intent:
       - play_music
       # TinyBot companion: alarms, reminders, focus timer, prayer times
       - companion_robot
+      # TinyBot smart home (Home Assistant / MQTT via manager-api) and robot-to-robot messages
+      - tinybot_home
       #- hass_state
       #- hass_play_music
 

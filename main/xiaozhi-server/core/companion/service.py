@@ -428,7 +428,12 @@ class CompanionService:
             device_id, sender, text, ask, say,
             sender_ascii=body.get("from_ascii") if isinstance(body.get("from_ascii"), str) else None,
             text_ascii=body.get("text_ascii") if isinstance(body.get("text_ascii"), str) else None,
+            extra=self._quiet_extra(dev, body),
         )
+        if msg.get("not_before"):
+            # Wake the robot when the night ends (its regular sync would also find it)
+            delay = max(1.0, float(msg["not_before"]) - time.time() + 1)
+            asyncio.get_running_loop().call_later(delay, self.notify, device_id)
         task = self.audio.schedule(say)
         if task is not None:
             task.add_done_callback(lambda _t: self.notify(device_id))
@@ -502,10 +507,46 @@ class CompanionService:
             await self.update_config(device_id, patch)
         return removed
 
+    def night_end(self, dev: Dict, now: Optional[datetime] = None) -> Optional[int]:
+        """Epoch seconds when the robot's night mode ends, when it is night there now (else None)."""
+        night = (dev.get("settings") or {}).get("night") or {}
+        if not night.get("enabled"):
+            return None
+        start, end = night.get("start") or "", night.get("end") or ""
+        try:
+            sh, sm = (int(x) for x in start.split(":"))
+            eh, em = (int(x) for x in end.split(":"))
+        except (ValueError, AttributeError):
+            return None
+        now = now or self.local_now()
+        cur, s_min, e_min = now.hour * 60 + now.minute, sh * 60 + sm, eh * 60 + em
+        if s_min == e_min:
+            return None
+        inside = (s_min <= cur < e_min) if s_min < e_min else (cur >= s_min or cur < e_min)
+        if not inside:
+            return None
+        end_at = now.replace(hour=eh, minute=em, second=0, microsecond=0)
+        if end_at <= now:
+            end_at += timedelta(days=1)
+        return int(end_at.timestamp())
+
+    def _quiet_extra(self, dev: Dict, body: Dict) -> Optional[Dict]:
+        """Robot-to-robot messages (HOME) ask with quiet="later" to wait out the night mode."""
+        extra = {}
+        if body.get("via") == "robot":
+            extra["via"] = "robot"
+        if body.get("quiet") == "later":
+            until = self.night_end(dev)
+            if until:
+                extra["not_before"] = until
+        return extra or None
+
     # --- long-poll -------------------------------------------------------------------------
     def _message_ready(self, msg: Dict) -> bool:
         """Deliver a message once its spoken audio is ready (or rendering takes too long): sent
-        earlier, the robot would only show text."""
+        earlier, the robot would only show text. A message held for the night waits for its time."""
+        if msg.get("not_before") and time.time() < float(msg["not_before"]):
+            return False
         if self.audio.url(msg.get("say") or msg["text"], render=False):
             return True
         return time.time() - float(msg.get("ts") or 0) > MESSAGE_AUDIO_WAIT_S
