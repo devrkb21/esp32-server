@@ -1,5 +1,6 @@
 import time
 import json
+import uuid
 import asyncio
 from typing import TYPE_CHECKING
 
@@ -92,6 +93,11 @@ async def startToChat(conn: "ConnectionHandler", text, display_text=None):
             await max_out_size(conn)
             return
 
+    # The owner's daily LLM request limit (core/utils/usage_meter.py): TinyBot says so kindly
+    if quota_reached(conn):
+        await quota_exceeded(conn)
+        return
+
     # In manual mode, do not interrupt currently playing content
     if conn.client_is_speaking and conn.client_listen_mode != "manual":
         await handleAbortMessage(conn)
@@ -137,6 +143,30 @@ async def no_voice_close_connect(conn: "ConnectionHandler", have_voice):
             if not prompt:
                 prompt = "Please end this conversation warmly and affectionately, beginning with ```Time really flies```."
             await startToChat(conn, prompt)
+
+
+def quota_reached(conn) -> bool:
+    from core.utils.usage_meter import UsageMeter
+
+    meter = getattr(conn, "usage_meter", None)
+    if not isinstance(meter, UsageMeter):
+        return False
+    return meter.over_quota(getattr(conn, "usage_user_id", None), getattr(conn, "usage_limit", 0))
+
+
+async def quota_exceeded(conn: "ConnectionHandler"):
+    """Today's LLM requests are used up: say the polite Bangla line instead of asking the LLM."""
+    from core.utils.usage_meter import QUOTA_LINE
+    from core.handle.intentHandler import speak_txt
+
+    conn.logger.bind(tag=TAG).info("Daily LLM request limit reached: answering with the quota line")
+    if conn.client_is_speaking and conn.client_listen_mode != "manual":
+        await handleAbortMessage(conn)
+    conn.client_abort = False
+    conn.sentence_id = uuid.uuid4().hex
+    speak_txt(conn, QUOTA_LINE)
+    conn.usage_meter.record_quota_block(conn.device_id)
+    conn.usage_meter.maybe_flush(conn.loop)
 
 
 async def max_out_size(conn: "ConnectionHandler"):

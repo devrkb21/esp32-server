@@ -4,6 +4,12 @@ After a voice session ends, the session's LLM reads the chat together with the c
 says what to add, change or drop (learn()). The notes go into the next chats' system prompt
 (context()), so TinyBot can ask how the exam went or remember a favourite colour. The app lists
 them and can delete one or all; settings.memory.enabled switches the whole thing off.
+
+Per person: when the voiceprint check recognised who was talking, the transcript names them and
+a note may carry `person` (one of the recognised names; a chat with a single recognised speaker
+files its notes under that person unless the model says otherwise). context(speaker=...) puts
+the speaker's own notes first and asks TinyBot to greet them by name. Notes without `person`
+(all notes from before this) work as before.
 """
 
 import json
@@ -22,6 +28,7 @@ TAG = __name__
 KINDS = ("person", "like", "dislike", "event", "fact", "routine")
 MAX_ITEMS = 60
 MAX_TEXT = 200
+MAX_PERSON = 40
 # Chats shorter than this (user words) teach nothing worth keeping
 MIN_USER_CHARS = 12
 
@@ -40,9 +47,11 @@ update the note instead of adding a second one. Do not add a note that repeats a
 
 Write each note as one short sentence in the language the user spoke, naming the person when
 known. For events give "until" as the last date (YYYY-MM-DD) the note matters, from today's date.
+When the chat names who was speaking ("User (Name): ..."), set "person" to the name of the family
+member the note is about, but only one of the recognised names listed; otherwise leave it empty.
 
 Answer with JSON only, no other text:
-{"add": [{"text": "...", "kind": "person|like|dislike|event|fact|routine", "until": "YYYY-MM-DD or empty"}],
+{"add": [{"text": "...", "kind": "person|like|dislike|event|fact|routine", "until": "YYYY-MM-DD or empty", "person": "name or empty"}],
  "update": [{"id": "...", "text": "..."}],
  "remove": ["id", ...]}
 Use empty lists when nothing changes (most short chats change nothing)."""
@@ -67,16 +76,22 @@ def _parse_json(raw: str) -> Optional[Dict]:
     return data if isinstance(data, dict) else None
 
 
-def transcript(messages) -> str:
+def clean_person(value) -> str:
+    return " ".join(str(value or "").split())[:MAX_PERSON]
+
+
+def transcript(messages, speakers: Optional[Dict[int, str]] = None) -> str:
     """The user / assistant turns of a session as plain lines (system prompts and the robot's
-    own start-of-chat instructions left out)."""
+    own start-of-chat instructions left out). With `speakers` (message index -> name the
+    voiceprint check recognised), those user turns read "User (Name): ..."."""
     lines = []
-    for m in messages:
+    for index, m in enumerate(messages):
         role = getattr(m, "role", None)
         content = getattr(m, "content", None)
         if role not in ("user", "assistant") or not isinstance(content, str) or not content.strip():
             continue
         text = content.strip()
+        who = clean_person((speakers or {}).get(index)) if role == "user" else ""
         if text.startswith("{") and text.endswith("}"):
             try:
                 data = json.loads(text)
@@ -89,7 +104,10 @@ def transcript(messages) -> str:
         if role == "user" and text.startswith("Please tell me a short bedtime-style children's story"):
             lines.append("User: (asked for a story)")
             continue
-        lines.append(("User: " if role == "user" else "TinyBot: ") + text[:600])
+        if role == "user":
+            lines.append((f"User ({who}): " if who else "User: ") + text[:600])
+        else:
+            lines.append("TinyBot: " + text[:600])
     return "\n".join(lines[-40:])
 
 
@@ -125,21 +143,42 @@ class MemoryBook:
         with self._lock:
             return [dict(m) for m in self._expire(self._data.get(device_id, []))]
 
-    def context(self, device_id: str) -> str:
-        """The notes as a system prompt block ('' when there are none)."""
+    def context(self, device_id: str, speaker: Optional[str] = None) -> str:
+        """The notes as a system prompt block ('' when there are none). With `speaker` (the name
+        the voiceprint check recognised), that person's notes come first and TinyBot greets them."""
         items = self.items(device_id)
-        if not items:
+        speaker = clean_person(speaker)
+        if speaker.casefold() in ("unknown", "unknown_speaker"):
+            speaker = ""
+        if not items and not speaker:
             return ""
-        lines = [
-            "<tinybot_memory>",
-            "Things you remember about your family from earlier chats (date noted in brackets):",
-        ]
-        lines += [f"- {m['text']} [{m['created'][:10]}]" for m in items]
-        lines.append(
-            "Use these naturally when they fit (ask how the exam went, use their names), never read "
-            "the list out, and do not pretend to remember anything that is not here. If asked what "
-            "you remember, tell a few things briefly. If asked to forget something, say you will."
-        )
+
+        def line(m):
+            who = m.get("person") or ""
+            about = f" (about {who})" if who and who.casefold() != speaker.casefold() else ""
+            return f"- {m['text']}{about} [{m['created'][:10]}]"
+
+        lines = ["<tinybot_memory>"]
+        if speaker:
+            own = [m for m in items if (m.get("person") or "").casefold() == speaker.casefold()]
+            rest = [m for m in items if m not in own]
+            lines.append(f"You are talking with {speaker} right now (recognised by voice). Greet {speaker} "
+                         "by name once at the start of the chat, warmly and naturally, not in every reply.")
+            if own:
+                lines.append(f"What you remember about {speaker} from earlier chats (date noted in brackets):")
+                lines += [line(m) for m in own]
+            if rest:
+                lines.append("Other things you remember about the family:")
+                lines += [line(m) for m in rest]
+        else:
+            lines.append("Things you remember about your family from earlier chats (date noted in brackets):")
+            lines += [line(m) for m in items]
+        if items:
+            lines.append(
+                "Use these naturally when they fit (ask how the exam went, use their names), never read "
+                "the list out, and do not pretend to remember anything that is not here. If asked what "
+                "you remember, tell a few things briefly. If asked to forget something, say you will."
+            )
         lines.append("</tinybot_memory>")
         return "\n".join(lines)
 
@@ -157,8 +196,17 @@ class MemoryBook:
             self._data.pop(device_id, None)
             self._save()
 
-    def apply(self, device_id: str, ops: Dict) -> Dict[str, int]:
-        """Apply the LLM's add / update / remove answer; returns how many of each were done."""
+    def apply(self, device_id: str, ops: Dict, people: Optional[List[str]] = None,
+              default_person: str = "") -> Dict[str, int]:
+        """Apply the LLM's add / update / remove answer; returns how many of each were done.
+        `people`: the names a note's person may be (recognised speakers); others are dropped.
+        `default_person`: the person of a new note that names none (the chat's only speaker)."""
+        allowed = {clean_person(p).casefold(): clean_person(p) for p in (people or []) if clean_person(p)}
+
+        def person_of(value) -> str:
+            name = clean_person(value)
+            return allowed.get(name.casefold(), "") if name else ""
+
         now = time.strftime("%Y-%m-%dT%H:%M:%S")
         done = {"add": 0, "update": 0, "remove": 0}
         with self._lock:
@@ -190,6 +238,9 @@ class MemoryBook:
                 item = {"id": schema.new_id("m"), "text": text, "kind": kind, "created": now, "updated": now}
                 if until:
                     item["until"] = until
+                person = person_of(add.get("person")) or person_of(default_person)
+                if person:
+                    item["person"] = person
                 by_id[item["id"]] = item
                 known.add(text.casefold())
                 done["add"] += 1
@@ -199,20 +250,29 @@ class MemoryBook:
             self._save()
         return done
 
-    def learn(self, device_id: str, messages, llm) -> Optional[Dict[str, int]]:
-        """Read a finished chat and update the notes (blocking: run it in a worker thread)."""
-        text = transcript(messages)
-        user_chars = sum(len(l) - 6 for l in text.splitlines() if l.startswith("User: "))
+    def learn(self, device_id: str, messages, llm,
+              speakers: Optional[Dict[int, str]] = None) -> Optional[Dict[str, int]]:
+        """Read a finished chat and update the notes (blocking: run it in a worker thread).
+        `speakers`: message index -> name the voiceprint check recognised for that user turn."""
+        text = transcript(messages, speakers)
+        user_chars = sum(len(l.split(": ", 1)[-1]) for l in text.splitlines() if l.startswith("User"))
         if llm is None or user_chars < MIN_USER_CHARS:
             return None
-        notes = "\n".join(f"{m['id']}: {m['text']}" for m in self.items(device_id)) or "(none yet)"
-        prompt = (f"Today is {self.today().isoformat()}.\n\nCurrent notes:\n{notes}\n\n"
+        people = sorted({clean_person(n) for n in (speakers or {}).values() if clean_person(n)})
+        notes = "\n".join(
+            f"{m['id']}: {m['text']}" + (f" (person: {m['person']})" if m.get("person") else "")
+            for m in self.items(device_id)) or "(none yet)"
+        if people:
+            who = "Recognised by voice in this chat: " + ", ".join(people)
+        else:
+            who = "Nobody was recognised by voice in this chat: leave person empty."
+        prompt = (f"Today is {self.today().isoformat()}.\n\nCurrent notes:\n{notes}\n\n{who}\n\n"
                   f"Chat that just ended:\n{text}")
         raw = llm.response_no_stream(LEARN_PROMPT, prompt, max_tokens=800, temperature=0.2)
         ops = _parse_json(raw)
         if ops is None:
             logger.bind(tag=TAG).warning(f"Memory answer was not JSON: {str(raw)[:120]}")
             return None
-        done = self.apply(device_id, ops)
+        done = self.apply(device_id, ops, people=people, default_person=people[0] if len(people) == 1 else "")
         logger.bind(tag=TAG).info(f"TinyBot memory for {device_id}: {done}")
         return done

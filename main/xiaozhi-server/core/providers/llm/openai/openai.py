@@ -18,6 +18,10 @@ THINKING_DISABLED_DOMAINS = {
     "volces.com": {"thinking": {"type": "disabled"}},
 }
 
+# APIs that answer stream_options.include_usage with token counts at the end of a stream
+USAGE_STREAM_HOSTS = ("api.openai.com", "groq.com", "deepseek.com", "aliyuncs.com", "openrouter.ai",
+                      "api.x.ai", "mistral.ai", "together.xyz", "volces.com", "bigmodel.cn", "moonshot.cn")
+
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
@@ -71,6 +75,17 @@ class LLMProvider(LLMProviderBase):
         extra_body = config.get("extra_body")
         self.extra_body = dict(extra_body) if isinstance(extra_body, dict) else None
 
+        # Ask for token counts at the end of the stream (usage metering). On by default for APIs
+        # known to accept stream_options; "stream_usage": true/false in the model config decides
+        # for any other. The counts of the last request land in self.last_usage.
+        stream_usage = config.get("stream_usage")
+        if stream_usage in (None, ""):
+            host = urlparse(str(self.base_url or "")).netloc.lower()
+            self.stream_usage = any(h in host for h in USAGE_STREAM_HOSTS)
+        else:
+            self.stream_usage = str(stream_usage).lower() not in ("false", "0", "no")
+        self.last_usage = None
+
         model_key_msg = check_model_key("LLM", self.api_key)
         if model_key_msg:
             logger.bind(tag=TAG).error(model_key_msg)
@@ -83,6 +98,19 @@ class LLMProvider(LLMProviderBase):
             if "role" in msg and "content" not in msg:
                 msg["content"] = ""
         return dialogue
+
+    def _remember_usage(self, chunk):
+        """Keep the token counts a stream chunk carries (OpenAI `usage`, Groq `x_groq.usage`)."""
+        usage = getattr(chunk, "usage", None)
+        if usage is None:
+            x_groq = getattr(chunk, "x_groq", None)
+            usage = x_groq.get("usage") if isinstance(x_groq, dict) else getattr(x_groq, "usage", None)
+        if usage is None:
+            return
+        get = usage.get if isinstance(usage, dict) else (lambda k: getattr(usage, k, None))
+        prompt, completion = get("prompt_tokens"), get("completion_tokens")
+        if isinstance(prompt, int) or isinstance(completion, int):
+            self.last_usage = {"prompt_tokens": int(prompt or 0), "completion_tokens": int(completion or 0)}
 
     def _apply_thinking_disabled(self, request_params: dict):
         """Automatically disable thinking mode based on domain, then add configured extra_body"""
@@ -119,12 +147,16 @@ class LLMProvider(LLMProviderBase):
 
         # Disable thinking mode
         self._apply_thinking_disabled(request_params)
+        if self.stream_usage:
+            request_params["stream_options"] = {"include_usage": True}
 
+        self.last_usage = None
         responses = self.client.chat.completions.create(**request_params)
 
         is_active = True
         try:            
             for chunk in responses:
+                self._remember_usage(chunk)
                 try:
                     delta = chunk.choices[0].delta if getattr(chunk, "choices", None) else None
                     content = getattr(delta, "content", "") if delta else ""
@@ -165,11 +197,15 @@ class LLMProvider(LLMProviderBase):
 
         # Disable thinking mode
         self._apply_thinking_disabled(request_params)
+        if self.stream_usage:
+            request_params["stream_options"] = {"include_usage": True}
 
+        self.last_usage = None
         stream = self.client.chat.completions.create(**request_params)
 
         try:
             for chunk in stream:
+                self._remember_usage(chunk)
                 if getattr(chunk, "choices", None):
                     delta = chunk.choices[0].delta
                     content = getattr(delta, "content", "")

@@ -28,6 +28,17 @@ TAG = __name__
 logger = setup_logging()
 
 
+def _meter_asr(conn, asr, seconds: float):
+    meter = getattr(conn, "usage_meter", None)
+    if meter is None or seconds <= 0:
+        return
+    try:
+        model = getattr(asr, "last_model", None) or (conn.config.get("selected_module") or {}).get("ASR") or "ASR"
+        meter.record_asr(conn.device_id, model, seconds, user_id=getattr(conn, "usage_user_id", None))
+    except Exception as e:
+        logger.bind(tag=TAG).debug(f"ASR metering failed: {e}")
+
+
 class ASRProviderBase(ABC):
     def __init__(self):
         pass
@@ -90,6 +101,8 @@ class ASRProviderBase(ABC):
             pcm_data = asr_audio_task
             combined_pcm_data = b"".join(pcm_data)
             conn.last_audio_pcm = combined_pcm_data
+            # Usage metering: seconds of audio sent to recognition (16 kHz, 16-bit mono)
+            _meter_asr(conn, self, len(combined_pcm_data) / 32000.0)
 
             # Prepare WAV data in advance
             wav_data = None
@@ -274,6 +287,8 @@ class ASRProviderBase(ABC):
     ) -> Tuple[Optional[str], Optional[str]]:
         file_path = None
         temp_path = None
+        # Set when recognition failed (read by FallbackASR to move on to the next recognizer)
+        self.last_error = None
         try:
             combined_pcm_data = b"".join(pcm_data)
 
@@ -305,9 +320,11 @@ class ASRProviderBase(ABC):
             return text, file_path
         except OSError as e:
             logger.bind(tag=TAG).error(f"File operation error: {e}")
+            self.last_error = e
             return None, None
         except Exception as e:
             logger.bind(tag=TAG).error(f"Speech recognition failed: {e}")
+            self.last_error = e
             return None, None
         finally:
             try:

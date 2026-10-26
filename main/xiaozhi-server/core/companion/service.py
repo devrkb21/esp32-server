@@ -398,12 +398,13 @@ class CompanionService:
             return False
         return bool(dict(schema.default_memory(), **((dev.get("settings") or {}).get("memory") or {}))["enabled"])
 
-    def learn(self, device_id: str, messages, llm):
-        """Update TinyBot's notes from a finished chat (blocking; call from a worker thread)."""
+    def learn(self, device_id: str, messages, llm, speakers=None):
+        """Update TinyBot's notes from a finished chat (blocking; call from a worker thread).
+        `speakers`: message index -> name the voiceprint check recognised (per-person notes)."""
         device_id = (device_id or "").strip().lower()
         if not self.memory_enabled(device_id):
             return None
-        return self.memory.learn(device_id, messages, llm)
+        return self.memory.learn(device_id, messages, llm, speakers=speakers)
 
     def prerender(self, dev: Dict):
         """Start rendering every spoken line of the device's config in the background."""
@@ -535,12 +536,13 @@ class CompanionService:
         self._push_tasks[device_id] = loop.create_task(self._push(device_id))
 
     # --- TinyBot's day, for the voice chat ---------------------------------------------------
-    def ai_context(self, device_id: str) -> str:
-        """TinyBot's day and what it remembers about its family, for the voice chat's system prompt."""
+    def ai_context(self, device_id: str, speaker: str = None) -> str:
+        """TinyBot's day and what it remembers about its family, for the voice chat's system prompt
+        (`speaker`: who the voiceprint check recognised; their notes come first)."""
         device_id = (device_id or "").strip().lower()
         blocks = [self._day_context(device_id), self._special_day_context(device_id)]
         if self.memory_enabled(device_id):
-            blocks.append(self.memory.context(device_id))
+            blocks.append(self.memory.context(device_id, speaker=speaker))
         return "\n".join(b for b in blocks if b)
 
     def _special_day_context(self, device_id: str) -> str:
