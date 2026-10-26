@@ -24,7 +24,7 @@ public class SysParamsAutoSeeder {
     @Value("${SERVER_DOMAIN:esp.czbd.app}")
     private String serverDomain;
 
-    @Value("${MQTT_PUBLIC_IP:13.201.26.73}")
+    @Value("${MQTT_PUBLIC_IP:138.252.31.246}")
     private String mqttPublicIp;
 
     // false: no MQTT gateway (e.g. a LAN setup): devices get only the WebSocket address
@@ -82,17 +82,17 @@ public class SysParamsAutoSeeder {
             String wsBase = base.replaceFirst("^https://", "wss://").replaceFirst("^http://", "ws://");
             seedUrl("server.websocket", wsBase + "/ws", "WebSocket addresses, separated by semicolon", directWs);
         } else {
-            checkAndSet("server.websocket", directWs, "WebSocket addresses, separated by semicolon", false);
+            seedUrl("server.websocket", directWs, "WebSocket addresses, separated by semicolon");
         }
 
         if (mqttEnabled) {
             // 4. MQTT Gateway (Direct Public IP with Port 1883 for ESP32 devices)
             String mqttGateway = mqttPublicIp + ":" + mqttPort;
-            checkAndSet("server.mqtt_gateway", mqttGateway, "MQTT gateway configuration", true);
+            seedUrl("server.mqtt_gateway", mqttGateway, "MQTT gateway configuration");
 
             // 5. UDP Gateway (Direct Public IP with Port 8884 for ESP32 devices)
             String udpGateway = mqttPublicIp + ":" + udpPort;
-            checkAndSet("server.udp_gateway", udpGateway, "UDP gateway configuration", true);
+            seedUrl("server.udp_gateway", udpGateway, "UDP gateway configuration");
         } else {
             // A configured gateway would make devices use MQTT, which has nothing listening
             disable("server.mqtt_gateway", "MQTT gateway configuration");
@@ -129,8 +129,8 @@ public class SysParamsAutoSeeder {
             seedUrl("server.mcp_endpoint", base + "/mcp/", "MCP Endpoint Address", directMcp);
             seedUrl("server.companion_url", base, "Companion API base URL sent to the robot in the OTA reply (no trailing slash)", directCompanion);
         } else {
-            checkAndSet("server.vision_explain", directVision, "Vision analysis interface URL sent to device", true);
-            checkAndSet("server.mcp_endpoint", directMcp, "MCP Endpoint Address", true);
+            seedUrl("server.vision_explain", directVision, "Vision analysis interface URL sent to device");
+            seedUrl("server.mcp_endpoint", directMcp, "MCP Endpoint Address");
         }
 
         // 13. Server Name
@@ -209,9 +209,15 @@ public class SysParamsAutoSeeder {
         return v.replaceAll("/+$", "");
     }
 
+    // A value in the direct-IP form this seeder writes ("1.2.3.4:1883", "http://1.2.3.4:18003/...",
+    // "ws://1.2.3.4:18000/...;wss://..."): it follows MQTT_PUBLIC_IP when the server's IP changes
+    private static final java.util.regex.Pattern DIRECT_IP =
+            java.util.regex.Pattern.compile("^(?:[a-z]+://)?\\d{1,3}(?:\\.\\d{1,3}){3}:\\d+(?:[/;].*)?$");
+
     /**
      * Seeds an address unless an admin has set it: it is replaced only while it is empty, a
-     * placeholder, local, or still one of the values this seeder used to write (the direct IP form).
+     * placeholder, local, one of the given values, or in the direct-IP form (so a new public IP
+     * reaches it). An address with a hostname that an admin typed is kept.
      */
     private void seedUrl(String code, String targetValue, String remark, String... autoValues) {
         try {
@@ -221,6 +227,7 @@ public class SysParamsAutoSeeder {
             for (String a : autoValues) {
                 auto = auto || a.equals(current);
             }
+            auto = auto || DIRECT_IP.matcher(current.trim()).matches();
             if (auto && !targetValue.equals(current)) {
                 log.info("Auto-seeding sys_params [{}] -> {}", code, targetValue);
                 sysParamsService.setParam(code, targetValue, remark);
