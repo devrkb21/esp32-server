@@ -35,6 +35,7 @@ export const NAV = [
       { to: '/user-management', label: 'nav.users', icon: 'users' },
       { to: '/ota-management', label: 'nav.ota', icon: 'firmware' },
       { to: '/model-config', label: 'nav.models', icon: 'model' },
+      { to: '/usage', label: 'nav.usage', icon: 'history' },
       { to: '/provider-management', label: 'nav.providers', icon: 'provider' },
       { to: '/agent-template-management', label: 'nav.templates', icon: 'template' },
       { to: '/knowledge-base-management', label: 'nav.knowledge', icon: 'book', feature: 'knowledgeBase' },

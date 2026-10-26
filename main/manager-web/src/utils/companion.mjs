@@ -306,6 +306,8 @@ export function memoryList(list) {
       updated: typeof m.updated === 'string' && STAMP_RE.test(m.updated) ? m.updated : '',
     };
     if (typeof m.until === 'string' && DAY_RE.test(m.until)) note.until = m.until;
+    // per-person memory: the family member the voiceprint check recognised (absent on older notes)
+    if (typeof m.person === 'string' && m.person.trim()) note.person = m.person.trim().slice(0, 40);
     out.push(note);
   });
   return out;

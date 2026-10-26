@@ -29,6 +29,9 @@
       </nav>
 
       <div class="ch__sections" :class="{ 'is-busy': agentReloading }">
+        <!-- The owner's daily LLM limit, when one is set (module usage) -->
+        <QuotaNote />
+
         <!-- Who it is -->
         <TbSection id="ch-who" ink="ink" :title="$t('character.who.title')" :description="$t('character.who.desc')">
           <div class="ch-who">
@@ -205,6 +208,9 @@
           </div>
         </TbSection>
 
+        <!-- Kids mode (module kids; saved on its own) -->
+        <KidsSection v-if="kidsAllowed" :agent-id="agentId" />
+
         <!-- History -->
         <TbSection id="ch-history" ink="ink" :title="$t('character.history.title')" :description="$t('character.history.desc')">
           <ul class="ch-rows">
@@ -250,9 +256,11 @@ import RequestService from '@/apis/httpRequest';
 import correctWord from '@/apis/module/correctWord';
 import featureManager from '@/utils/featureManager';
 import { digits } from '@/kit/calendar';
-import { loadRobots, robot } from '@/shell/robot';
+import { hasFeature, loadRobots, robot } from '@/shell/robot';
 import ToolsSheet from './ToolsSheet.vue';
 import ContextSheet from './ContextSheet.vue';
+import KidsSection from './KidsSection.vue';
+import QuotaNote from './QuotaNote.vue';
 import {
   LOCAL_SHORT_MEMORY, MODEL_TYPES, NO_INTENT, NO_MEMORY, PROMPT_MAX, PROMPT_NEAR,
   applyMemoryChange, buildCurrentFunctions, buildSaveData, buildTtsDraft, clone, configSignature, emptyForm,
@@ -265,7 +273,7 @@ import {
 export default {
   name: 'RoleConfig',
   // The version history carries the code-diff viewer: it loads the first time it is opened.
-  components: { ToolsSheet, ContextSheet, SnapshotSheet: defineAsyncComponent(() => import('./SnapshotSheet.vue')) },
+  components: { ToolsSheet, ContextSheet, KidsSection, QuotaNote, SnapshotSheet: defineAsyncComponent(() => import('./SnapshotSheet.vue')) },
   data() {
     return {
       robot,
@@ -339,9 +347,12 @@ export default {
         { id: 'voice', icon: 'voice', label: this.$t('character.voice.title') },
         { id: 'think', icon: 'model', label: this.$t('character.think.title') },
         { id: 'can', icon: 'sparkle', label: this.$t('character.can.title'), count: this.toolsEnabled && this.currentFunctions.length ? this.num(this.currentFunctions.length) : '' },
+        ...(this.kidsAllowed ? [{ id: 'kids', icon: 'user', label: this.$t('kids.title') }] : []),
         { id: 'history', icon: 'history', label: this.$t('character.history.title') },
       ];
     },
+    // Kids mode needs the product feature kids_mode (TinyBot has it)
+    kidsAllowed() { return Boolean(this.agentId) && hasFeature('kids_mode'); },
     modelFields() {
       const f = [];
       if (this.featureStatus.vad) f.push({ type: 'VAD', key: 'vadModelId', optionsType: 'VAD', onChange: true });
