@@ -23,10 +23,12 @@ import { useUserStore } from '@/store'
 import { digits, timeText, timeWithPart } from '@/utils/calendar.mjs'
 import { agoParts } from '@/utils/companionUtils.mjs'
 import { createUpdateFlow, initialUpdateState, latestFirmware } from '@/utils/firmwareUpdate.mjs'
-import { robot } from '@/utils/tbRobot'
+import { hasFeature, robot } from '@/utils/tbRobot'
 import { refreshCompanion, refreshMqtt, statusOf } from '@/utils/tbRobotStatus'
 import { toast } from '@/utils/toast'
 import { notifyError, robotKey } from './components/context'
+import RobotCare from './components/RobotCare.vue'
+import RobotFamily from './components/RobotFamily.vue'
 import RobotFirmware from './components/RobotFirmware.vue'
 import RobotGestures from './components/RobotGestures.vue'
 import RobotJobs from './components/RobotJobs.vue'
@@ -55,7 +57,9 @@ const status = computed(() => statusOf(deviceId.value, now.value))
 const online = computed(() => status.value.state === 'online')
 const botName = computed(() => view.value?.name || robot.name || t('nav.robotFallback'))
 
-const sections = ['status', 'sound', 'talk', 'memory', 'gestures', 'jobs', 'firmware']
+// care alerts and family sharing show for products that have them (FAMILY wave)
+const sections = computed(() => ['status', 'sound', 'talk', 'memory', 'gestures', 'care', 'family', 'jobs', 'firmware']
+  .filter(s => (s !== 'care' || hasFeature('care')) && (s !== 'family' || hasFeature('family'))))
 
 function num(n: number | string | null | undefined) {
   return digits(n ?? '–', lang.value)
@@ -405,6 +409,8 @@ watch(deviceId, () => {
       <RobotTalk id="rb-talk" class="rb-anchor" />
       <RobotMemory id="rb-memory" class="rb-anchor" />
       <RobotGestures id="rb-gestures" class="rb-anchor" />
+      <RobotCare v-if="sections.includes('care')" id="rb-care" class="rb-anchor" />
+      <RobotFamily v-if="sections.includes('family')" id="rb-family" class="rb-anchor" />
       <RobotJobs id="rb-jobs" class="rb-anchor" />
       <RobotFirmware id="rb-firmware" class="rb-anchor" />
     </block>

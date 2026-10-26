@@ -117,6 +117,12 @@ export interface CareSettings {
   enabled: boolean
   /** 10-1440 */
   lonely_after_min: number
+  /** care alerts (FAMILY): hours without touch or talk in the day before the family is told; 0 = off */
+  no_activity_hours?: number
+  /** tell the family after a fall event */
+  fall_alert?: boolean
+  /** tell the family when a medicine reminder is not confirmed within 30 minutes */
+  missed_medicine_alert?: boolean
 }
 
 /** The robot's info pages (shown when you hold its head); all default true */

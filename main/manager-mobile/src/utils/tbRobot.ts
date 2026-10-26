@@ -1,6 +1,8 @@
 import { reactive } from 'vue'
 import { getAgentList } from '@/api/agent/agent'
 import { getBindDevices } from '@/api/device/device'
+import { getSharedRobots } from '@/api/family/family'
+import { mergeRobots, sharedRobot } from '@/utils/familyModel.mjs'
 import { getProductList } from '@/api/product/product'
 import { allows, productOf } from '@/utils/tbProducts.mjs'
 
@@ -24,6 +26,12 @@ export interface RobotEntry extends Partial<ProductFacts> {
   macAddress: string
   board?: string
   lastConnectedAt?: string
+  /** 'owner' for the account's own robots; shared robots carry the role they were given */
+  role?: 'owner' | 'co_owner' | 'member'
+  /** the owner's name, for a robot shared with this account */
+  sharedBy?: string
+  /** the share id (leave a shared robot with DELETE /family/share/{id}) */
+  shareId?: string
 }
 
 function saved(): Partial<RobotEntry> {
@@ -125,18 +133,39 @@ export function robotFrom(a: any, d: any): RobotEntry {
   }
 }
 
-/** Load every robot of the account (agents, then their devices). */
+/** Robots other accounts shared with this one (GET /family/robots); none when it fails. */
+export async function loadShared(): Promise<RobotEntry[]> {
+  try {
+    const list = ((await getSharedRobots()) || []) as any[]
+    return list.map(s => sharedRobot(s, productOf({ ...s }, products.list)) as RobotEntry)
+  }
+  catch {
+    return []
+  }
+}
+
+/** My role on the chosen robot (or on `deviceId`): 'owner' unless it was shared with me. */
+export function robotRole(deviceId?: string): 'owner' | 'co_owner' | 'member' {
+  const id = deviceId || robot.deviceId
+  const hit = robot.list.find(r => r.deviceId === id)
+  return (hit && hit.role) || 'owner'
+}
+
+/** Load every robot of the account (agents, then their devices), then the shared ones. */
 export async function loadRobots(force = false) {
   if (robot.loading || (robot.loaded && !force))
     return robot.list
   robot.loading = true
   try {
     const [agents] = await Promise.all([getAgentList().then(a => a || []), loadProducts()])
-    const lists = await Promise.all((agents as any[]).map(async (a: any) => {
-      const devs = ((await getBindDevices(a.id).catch(() => [])) || []) as any[]
-      return devs.map(d => robotFrom(a, d))
-    }))
-    robot.list = lists.flat()
+    const [lists, shared] = await Promise.all([
+      Promise.all((agents as any[]).map(async (a: any) => {
+        const devs = ((await getBindDevices(a.id).catch(() => [])) || []) as any[]
+        return devs.map(d => robotFrom(a, d))
+      })),
+      loadShared(),
+    ])
+    robot.list = mergeRobots(lists.flat(), shared) as RobotEntry[]
   }
   catch {
     robot.list = []
