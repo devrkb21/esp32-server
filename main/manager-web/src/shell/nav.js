@@ -47,6 +47,7 @@ export const NAV = [
       { to: '/dict-management', label: 'nav.dict', icon: 'dict' },
       { to: '/feature-management', label: 'nav.features', icon: 'feature' },
       { to: '/product-management', label: 'nav.products', icon: 'devices' },
+      { to: '/calendar-days', label: 'nav.calendar', icon: 'today' },
       { to: '/server-side-management', label: 'nav.server', icon: 'server' },
       { to: '/theme-generator', label: 'nav.themeGenerator', icon: 'palette' },
     ],

@@ -79,10 +79,18 @@ import DayPrayer from './DayPrayer.vue';
 import DayRoutine from './DayRoutine.vue';
 import DayFocus from './DayFocus.vue';
 import DayNight from './DayNight.vue';
+import DayRoutines from './DayRoutines.vue';
+import DayLibrary from './DayLibrary.vue';
+import DaySpecial from './DaySpecial.vue';
 
 const REFRESH_MS = 10000;
-const PANELS = { alarms: DayAlarms, reminders: DayReminders, prayer: DayPrayer, routine: DayRoutine, focus: DayFocus, night: DayNight };
-const TAB_ICON = { alarms: 'alarm', reminders: 'reminder', prayer: 'prayer', routine: 'day', focus: 'focus', night: 'night' };
+const PANELS = {
+  alarms: DayAlarms, reminders: DayReminders, prayer: DayPrayer, routine: DayRoutine, focus: DayFocus, night: DayNight,
+  routines: DayRoutines, library: DayLibrary, days: DaySpecial,
+};
+const TAB_ICON = {
+  alarms: 'alarm', reminders: 'reminder', prayer: 'prayer', routine: 'day', focus: 'focus', night: 'night', routines: 'sparkle', library: 'book', days: 'today',
+};
 
 // Day: everything that has a time in TinyBot's day, for this robot. The day as an almanac
 // table first, then one tab per area. The page is the controller its panels inject as `day`:
@@ -133,7 +141,11 @@ export default {
     },
     counts() {
       const v = this.view || {};
-      return { alarms: (v.alarms || []).length, reminders: (v.reminders || []).length, routine: this.routine.items.length };
+      const s = v.settings || {};
+      return {
+        alarms: (v.alarms || []).length, reminders: (v.reminders || []).length, routine: this.routine.items.length,
+        routines: Array.isArray(s.routines) ? s.routines.length : 0, library: (v.library || []).length,
+      };
     },
     tabItems() {
       return TABS.map((key) => ({
@@ -158,6 +170,9 @@ export default {
         routine: this.routine.enabled ? this.$t('day.index.routine', { n: this.num(this.routine.items.length) }) : off,
         focus: this.$t('day.index.focus', { work: this.num(pm.work_min || 0), rounds: this.num(pm.rounds || 0) }),
         night: night.enabled ? this.$t('day.index.night', { from: this.fmt(night.start), to: this.fmt(night.end) }) : off,
+        routines: this.$t('dayVoice.index.routines', { n: this.num(Array.isArray(s.routines) ? s.routines.filter((r) => r.enabled).length : 0) }),
+        library: this.$t('day.index.reminders', { n: this.num((v.library || []).length) }),
+        days: v.today_special ? (this.lang === 'bn' ? v.today_special.name_bn : v.today_special.name_en) : this.$t('dayVoice.days.todayNone'),
       };
       return TABS.map((key) => ({ key, icon: TAB_ICON[key], ink: TAB_INK[key], text: text[key] }));
     },
@@ -165,9 +180,11 @@ export default {
   watch: {
     deviceId() { this.view = null; this.refresh(false); },
     '$route.query.focus'(key) { if (key && this.view) this.openKey(key); },
+    '$route.query.tab'(tab) { if (TABS.includes(tab)) this.tab = tab; },
   },
   mounted() {
     loadRobots();
+    if (TABS.includes(this.$route.query.tab)) this.tab = this.$route.query.tab;
     if (this.deviceId) this.refresh(false);
     this.timer = setInterval(() => { if (!document.hidden) this.refresh(true); }, REFRESH_MS);
     this.ticker = setInterval(() => { this.now = Date.now(); }, 30000);

@@ -17,6 +17,42 @@ const CITIES = [
 if (!DEMO_COMPANION.settings.care) DEMO_COMPANION.settings.care = { enabled: true, lonely_after_min: 180 };
 if (DEMO_COMPANION.stats.pomodoros_today === undefined) DEMO_COMPANION.stats.pomodoros_today = 2;
 
+// Routines, the library and special days (feature wave 1, VOICE): the server's seeded example
+// plus one more routine, the shared sample library (original texts) plus one owner item, and
+// two generic days to remember. today_special stays null in the demo.
+if (!DEMO_COMPANION.settings.routines) {
+  DEMO_COMPANION.settings.routines = [
+    { id: 'morning', name: 'সকালের রুটিন', enabled: false, trigger: { type: 'time', time: '07:00', days: 127, phrase: '' },
+      steps: [{ type: 'say', arg: 'শুভ সকাল {name}! নতুন দিনটা শুরু করি চলো।' }, { type: 'weather', arg: '' },
+        { type: 'prayer_times', arg: '' }, { type: 'day_summary', arg: '' }] },
+    { id: 'rt-bed', name: 'ঘুমের রুটিন', enabled: true, trigger: { type: 'voice', phrase: 'ঘুমাতে যাব', days: 127 },
+      steps: [{ type: 'say', arg: 'শুভ রাত্রি! কাল আবার দেখা হবে।' }, { type: 'alarm_list', arg: '' },
+        { type: 'play', arg: 'd-rhyme-night' }, { type: 'command', arg: 'night_light:on' }] },
+  ];
+}
+if (!DEMO_COMPANION.settings.calendar) {
+  DEMO_COMPANION.settings.calendar = { special_days: true, remember: [
+    { id: 's1', date: '03-14', name: 'মা', kind: 'birthday' },
+    { id: 's2', date: '11-20', name: 'বাবা', kind: 'birthday' },
+  ] };
+}
+if (DEMO_COMPANION.today_special === undefined) DEMO_COMPANION.today_special = null;
+if (!DEMO_COMPANION.library) {
+  DEMO_COMPANION.library = [
+    { id: 'l-own1', kind: 'music', title: 'বৃষ্টির শব্দ', audio_url: 'https://example.com/audio/rain.mp3', source: 'owner' },
+    { id: 'd-rhyme-sun', kind: 'rhyme', title: 'রোদের ছড়া', source: 'default',
+      text: 'জানালা দিয়ে রোদ এসেছে, সোনার মতো রং, বিছানা ছেড়ে উঠে পড়ো, বাজছে ঘড়ির টং।' },
+    { id: 'd-rhyme-water', kind: 'rhyme', title: 'পানির ছড়া', source: 'default',
+      text: 'ঢকঢক ঢকঢক এক গ্লাস পানি, খেলে পরে শরীর থাকে ভালো, জানি জানি।' },
+    { id: 'd-rhyme-night', kind: 'rhyme', title: 'ঘুমের ছড়া', source: 'default',
+      text: 'তারারা সব মিটমিট, চোখ দুটো বুজে আসে, বালিশটা নরম নরম, স্বপ্ন এসে পাশে বসে।' },
+    { id: 'd-story-pencil', kind: 'story', title: 'টাইনিবট আর হারানো পেনসিল', source: 'default',
+      text: 'একদিন টাইনিবটের বন্ধু মিতুর লাল পেনসিলটা হারিয়ে গেল। মিতুর খুব মন খারাপ।' },
+    { id: 'd-story-sparrow', kind: 'story', title: 'চড়ুই আর কাঠবিড়ালি', source: 'default',
+      text: 'একটা ছোট্ট চড়ুই আমগাছের ডালে বাসা বানাচ্ছিল। হঠাৎ আকাশ কালো করে বৃষ্টি এলো।' },
+  ];
+}
+
 function onDayPage() {
   try { return /^#\/day(\?|$)/.test(window.location.hash); } catch (e) { return false; }
 }
@@ -37,6 +73,15 @@ function applyPatch(patch) {
   if (p.pomodoro) v.pomodoro = { ...v.pomodoro, ...p.pomodoro };
   if (p.prayer) v.prayer = { ...v.prayer, ...p.prayer };
   if (p.weather) v.weather = { ...v.weather, ...p.weather };
+  if (p.library) {
+    const ids = p.library.delete || [];
+    v.library = v.library.filter((i) => !ids.includes(i.id));
+    if (p.library.add) v.library = [{ id: `l${++seq}`, source: 'owner', ...p.library.add }, ...v.library];
+  }
+  if (p.settings && Array.isArray(p.settings.routines)) p.settings.routines = withIds(p.settings.routines, 'rt');
+  if (p.settings && p.settings.calendar && Array.isArray(p.settings.calendar.remember)) {
+    p.settings.calendar.remember = withIds(p.settings.calendar.remember, 's').sort((a, b) => a.date.localeCompare(b.date));
+  }
   if (p.settings) {
     const s = { ...v.settings };
     for (const [k, val] of Object.entries(p.settings)) {
@@ -58,4 +103,11 @@ export default [
     },
   },
   { method: 'PUT', url: new DayOnly('/device/companion/[^/]+/config$'), reply: (req) => applyPatch(req.data) },
+  // "Run now" of a routine: the server runs it itself and answers `running`
+  {
+    method: 'POST',
+    url: new DayOnly('/device/companion/[^/]+/commands$'),
+    reply: (req) => (req.data && req.data.type === 'routine'
+      ? { id: `c${++seq}`, type: 'routine', arg: req.data.arg, status: 'running' } : undefined),
+  },
 ];
