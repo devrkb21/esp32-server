@@ -206,3 +206,6 @@ sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01.tar.bz2
 
 # bunshin redesign run (scratch, captures, reviews)
 .bunshin/
+
+# design-review notes from the Impeccable tool (not source)
+.impeccable/
