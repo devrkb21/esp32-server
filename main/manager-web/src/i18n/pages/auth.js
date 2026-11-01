@@ -2,6 +2,12 @@
 // The app speaks to the user as আপনি; TinyBot's own state words describe it in the third person.
 export default {
   bn: {
+    'auth.sso.title': 'আপনার রোবটের পাতা খুলছে',
+    'auth.sso.lead': 'দোকানের অ্যাকাউন্ট দিয়েই প্রবেশ করানো হচ্ছে, এক মুহূর্ত।',
+    'auth.sso.failTitle': 'প্রবেশ করানো গেল না',
+    'auth.sso.failLead': 'লিংকটির মেয়াদ শেষ হয়ে গেছে। দোকানের “আমার রোবট” থেকে আবার খুলুন।',
+    'auth.sso.backToShop': 'দোকানে ফিরে যান',
+    'auth.sso.signIn': 'নিজে প্রবেশ করুন',
     'auth.signInTitle': 'প্রবেশ করুন',
     'auth.registerTitle': 'নতুন অ্যাকাউন্ট খুলুন',
     'auth.resetTitle': 'নতুন পাসওয়ার্ড ঠিক করুন',
@@ -91,6 +97,12 @@ export default {
     'auth.account.failed': 'পাসওয়ার্ড বদলানো যায়নি, আবার চেষ্টা করুন',
   },
   en: {
+    'auth.sso.title': 'Opening your robot',
+    'auth.sso.lead': 'Signing you in with your shop account, one moment.',
+    'auth.sso.failTitle': 'Could not sign you in',
+    'auth.sso.failLead': 'The link has expired. Open it again from “My robots” in the shop.',
+    'auth.sso.backToShop': 'Back to the shop',
+    'auth.sso.signIn': 'Sign in yourself',
     'auth.signInTitle': 'Sign in',
     'auth.registerTitle': 'Create an account',
     'auth.resetTitle': 'Set a new ***REDACTED***',

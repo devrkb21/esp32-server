@@ -63,6 +63,9 @@ services:
       - SPRING_DATA_REDIS_HOST=xiaozhi-esp32-server-redis
       - SPRING_DATA_REDIS_PASSWORD=
       - SPRING_DATA_REDIS_PORT=6379
+      # TinyBot: the shop's sign-in bridge (UPSTREAM.md); empty = bridge off
+      - SHOP_BRIDGE_SECRET=${SHOP_BRIDGE_SECRET:-}
+      - SHOP_BRIDGE_ADMIN=${SHOP_BRIDGE_ADMIN:-}
       - SERVER_DOMAIN=${SERVER_DOMAIN:-esp.czbd.app}
       - ***REDACTED***${MQTT_PUBLIC_IP:?Set MQTT_PUBLIC_IP in .env}
       - MQTT_PORT=${MQTT_PORT:-1883}

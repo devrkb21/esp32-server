@@ -7,6 +7,7 @@ import { safeRedirect } from '../utils/linkCode';
 // the shell shows a calm "not on this device" state instead of the page (see AppShell). `meta.title` is an i18n key. Old paths redirect so bookmarks keep working.
 const v = {
   login: () => import('../views/auth/Login.vue'),
+  sso: () => import('../views/auth/Sso.vue'), // TinyBot: sign-in handed over from the shop
   register: () => import('../views/auth/Register.vue'),
   retrieve: () => import('../views/auth/RetrievePassword.vue'),
   account: () => import('../views/auth/Account.vue'),
@@ -52,6 +53,7 @@ const v = {
 export const routes = [
   { path: '/', name: 'welcome', redirect: '/login' },
   { path: '/login', name: 'login', component: v.login, meta: { bare: true, title: 'nav.signIn' } },
+  { path: '/sso', name: 'Sso', component: v.sso, meta: { bare: true, public: true, title: 'nav.signIn' } }, // TinyBot: shop sign-in
   { path: '/register', name: 'Register', component: v.register, meta: { bare: true, title: 'nav.register' } },
   { path: '/retrieve-***REDACTED***', name: 'RetrievePassword', component: v.retrieve, meta: { bare: true, title: 'nav.retrieve' } },
   // Nobix's terms of use and privacy policy: bare, readable signed in or not.
